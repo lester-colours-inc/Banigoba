@@ -276,32 +276,47 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                                   ],
                                 ),
                               ),
-                              IconButton(
-                                icon: const Icon(Icons.favorite_border, size: 20),
-                                onPressed: () async {
-                                  final userId = FirebaseAuth.instance.currentUser?.uid;
-                                  if (userId != null) {
-                                    try {
-                                      // Using the new user_products collection as per the rules
-                                      await _productService.uploadUserProduct(
-                                        userId: userId,
-                                        name: product['name'] ?? 'Unknown',
-                                        imageUrl: product['imageURL'] ?? '',
-                                        visibility: 'public', // Store items added to wardrobe are public by default
-                                      );
-                                      if (context.mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(content: Text("Added to wardrobe!")),
-                                        );
+                              StreamBuilder<bool>(
+                                stream: _productService.isFavourited(
+                                  FirebaseAuth.instance.currentUser?.uid ?? '',
+                                  products[index].id,
+                                ),
+                                builder: (context, favSnapshot) {
+                                  final isFav = favSnapshot.data ?? false;
+                                  return IconButton(
+                                    icon: Icon(
+                                      isFav ? Icons.favorite : Icons.favorite_border,
+                                      size: 20,
+                                      color: isFav ? Colors.red : null,
+                                    ),
+                                    onPressed: () async {
+                                      final userId = FirebaseAuth.instance.currentUser?.uid;
+                                      if (userId != null) {
+                                        try {
+                                          await _productService.toggleFavourite(
+                                            userId: userId,
+                                            productId: products[index].id,
+                                            productData: product,
+                                          );
+                                          if (context.mounted) {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(
+                                                content: Text(isFav 
+                                                  ? "Removed from wardrobe" 
+                                                  : "Added to wardrobe and favourites!"),
+                                              ),
+                                            );
+                                          }
+                                        } catch (e) {
+                                          if (context.mounted) {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(content: Text("Error: $e")),
+                                            );
+                                          }
+                                        }
                                       }
-                                    } catch (e) {
-                                      if (context.mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(content: Text("Error: $e")),
-                                        );
-                                      }
-                                    }
-                                  }
+                                    },
+                                  );
                                 },
                               ),
                             ],

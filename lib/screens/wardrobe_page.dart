@@ -31,10 +31,10 @@ class _WardrobePageState extends State<WardrobePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
+            const Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
+                Text(
                   'My Daily Dress Up',
                   style: TextStyle(
                     fontSize: 24,
@@ -130,7 +130,7 @@ class _WardrobePageState extends State<WardrobePage> {
   }
 
   Widget _buildWardrobeCard(Map<String, dynamic> data) {
-    final imageUrl = data['imageUrl'] ?? '';
+    final imageUrl = data['imageUrl'] ?? data['imageURL'] ?? '';
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -166,8 +166,8 @@ class _WardrobePageState extends State<WardrobePage> {
                   overflow: TextOverflow.ellipsis,
                 ),
                 Text(
-                  data['visibility'] ?? 'private',
-                  style: TextStyle(color: Colors.grey.shade400, fontSize: 12),
+                  '${data['colour'] ?? ''} • ${data['gender'] ?? ''}',
+                  style: TextStyle(color: Colors.grey.shade400, fontSize: 11),
                 ),
               ],
             ),
@@ -180,7 +180,21 @@ class _WardrobePageState extends State<WardrobePage> {
   void _showUploadItemDialog() {
     final TextEditingController nameController = TextEditingController();
     String visibility = 'private';
+    String category = 'tops';
+    String subcategory = 't-shirts';
+    String colour = 'black';
+    String gender = 'unisex';
     File? selectedImage;
+
+    final Map<String, List<String>> categoryData = {
+      'accessories': ['caps', 'glasses', 'hats'],
+      'bottoms': ['jeans', 'joggers', 'leggings', 'shorts', 'skirts'],
+      'outerwear': ['blazers', 'jackets'],
+      'tops': ['hoodies', 'polo shirts', 'shirts', 'sweatshirts', 't-shirts', 'tank tops'],
+    };
+
+    final List<String> colors = ['black', 'white', 'grey', 'blue', 'red', 'green', 'yellow', 'orange'];
+    final List<String> genders = ['male', 'female', 'unisex'];
 
     showModalBottomSheet(
       context: context,
@@ -188,7 +202,7 @@ class _WardrobePageState extends State<WardrobePage> {
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) => Padding(
+        builder: (context, setModalState) => SingleChildScrollView(
           padding: EdgeInsets.only(
             bottom: MediaQuery.of(context).viewInsets.bottom,
             left: 20,
@@ -210,7 +224,7 @@ class _WardrobePageState extends State<WardrobePage> {
                   }
                 },
                 child: Container(
-                  height: 150,
+                  height: 120,
                   width: double.infinity,
                   decoration: BoxDecoration(
                     color: Colors.grey.shade100,
@@ -232,29 +246,44 @@ class _WardrobePageState extends State<WardrobePage> {
                         ),
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 15),
               TextField(
                 controller: nameController,
-                decoration: const InputDecoration(
-                  labelText: "Item Name",
-                  border: OutlineInputBorder(),
-                ),
+                decoration: const InputDecoration(labelText: "Item Name", border: OutlineInputBorder()),
               ),
-              const SizedBox(height: 20),
-              DropdownButtonFormField<String>(
-                initialValue: visibility,
-                decoration: const InputDecoration(
-                  labelText: "Visibility",
-                  border: OutlineInputBorder(),
-                ),
-                items: const [
-                  DropdownMenuItem(value: 'private', child: Text("Private")),
-                  DropdownMenuItem(value: 'public', child: Text("Public")),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildSimpleDropdown("Category", category, categoryData.keys.toList(), (val) {
+                      setModalState(() {
+                        category = val!;
+                        subcategory = categoryData[category]![0];
+                      });
+                    }),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _buildSimpleDropdown("Subcategory", subcategory, categoryData[category]!, (val) {
+                      setModalState(() => subcategory = val!);
+                    }),
+                  ),
                 ],
-                onChanged: (val) {
-                  if (val != null) setModalState(() => visibility = val);
-                },
               ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildSimpleDropdown("Colour", colour, colors, (val) => setModalState(() => colour = val!)),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _buildSimpleDropdown("Gender", gender, genders, (val) => setModalState(() => gender = val!)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              _buildSimpleDropdown("Visibility", visibility, ['private', 'public'], (val) => setModalState(() => visibility = val!)),
               const SizedBox(height: 20),
               SizedBox(
                 width: double.infinity,
@@ -265,41 +294,41 @@ class _WardrobePageState extends State<WardrobePage> {
                   ),
                   onPressed: () async {
                     if (selectedImage == null || nameController.text.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text("Please select an image and enter a name")),
-                      );
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Missing info")));
                       return;
                     }
 
-                    // Show loading
-                    showDialog(
-                      context: context,
-                      barrierDismissible: false,
-                      builder: (context) => const Center(child: CircularProgressIndicator()),
-                    );
+                    showDialog(context: context, barrierDismissible: false, builder: (context) => const Center(child: CircularProgressIndicator()));
 
                     try {
-                      final imageUrl = await _productService.uploadProductImage(_currentUserId, selectedImage!);
-                      await _productService.uploadUserProduct(
-                        userId: _currentUserId,
-                        name: nameController.text,
-                        imageUrl: imageUrl,
-                        visibility: visibility,
+                      // Upload to Supabase instead of Firebase Storage
+                      final imageUrl = await _productService.uploadToSupabase(
+                        imageFile: selectedImage!,
+                        category: category,
+                        subcategory: subcategory,
                       );
+
+                      await FirebaseFirestore.instance.collection('user_products').add({
+                        'userId': _currentUserId,
+                        'name': nameController.text,
+                        'imageUrl': imageUrl,
+                        'category': category,
+                        'subcategory': subcategory,
+                        'colour': colour,
+                        'gender': gender,
+                        'createdAt': FieldValue.serverTimestamp(),
+                        'visibility': visibility,
+                      });
                       
                       if (context.mounted) {
                         Navigator.pop(context); // Pop loading
                         Navigator.pop(context); // Pop sheet
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text("Item uploaded successfully!")),
-                        );
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Uploaded to Supabase & Firestore!")));
                       }
                     } catch (e) {
                       if (context.mounted) {
-                        Navigator.pop(context); // Pop loading
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text("Upload failed: $e")),
-                        );
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed: $e")));
                       }
                     }
                   },
@@ -311,6 +340,22 @@ class _WardrobePageState extends State<WardrobePage> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildSimpleDropdown(String label, String value, List<String> items, Function(String?) onChanged) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 4),
+        DropdownButtonFormField<String>(
+          initialValue: value,
+          items: items.map((e) => DropdownMenuItem(value: e, child: Text(e[0].toUpperCase() + e.substring(1)))).toList(),
+          onChanged: onChanged,
+          decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 10), border: OutlineInputBorder()),
+        ),
+      ],
     );
   }
 }
