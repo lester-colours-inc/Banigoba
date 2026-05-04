@@ -3,6 +3,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../services/friend_service.dart';
 import '../services/product_service.dart';
+import 'product_detail_page.dart';
+import 'profile_page.dart';
 
 class SearchPage extends StatefulWidget {
   const SearchPage({super.key});
@@ -242,87 +244,97 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                   final product = products[index].data() as Map<String, dynamic>;
                   final imageUrl = product['imageURL'] as String?;
                   
-                  return Card(
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Colors.grey[200],
-                              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                            ),
-                            child: imageUrl != null && imageUrl.startsWith('http')
-                              ? ClipRRect(
-                                  borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                                  child: Image.network(imageUrl, fit: BoxFit.cover, width: double.infinity),
-                                )
-                              : const Center(child: Icon(Icons.image, size: 50, color: Colors.grey)),
-                          ),
+                  return GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ProductDetailPage(productData: product),
                         ),
-                        Padding(
-                          padding: const EdgeInsets.all(8.0),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(product['name'] ?? 'Unknown', style: const TextStyle(fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
-                                    Text('${product['colour'] ?? 'N/A'} • ${product['gender'] ?? ''}', style: const TextStyle(color: Colors.grey, fontSize: 11)),
-                                  ],
-                                ),
+                      );
+                    },
+                    child: Card(
+                      elevation: 2,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.grey[200],
+                                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
                               ),
-                              StreamBuilder<bool>(
-                                stream: _productService.isFavourited(
-                                  FirebaseAuth.instance.currentUser?.uid ?? '',
-                                  products[index].id,
+                              child: imageUrl != null && imageUrl.startsWith('http')
+                                ? ClipRRect(
+                                    borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                                    child: Image.network(imageUrl, fit: BoxFit.cover, width: double.infinity),
+                                  )
+                                : const Center(child: Icon(Icons.image, size: 50, color: Colors.grey)),
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(product['name'] ?? 'Unknown', style: const TextStyle(fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                      Text('${product['colour'] ?? 'N/A'} • ${product['gender'] ?? ''}', style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                                    ],
+                                  ),
                                 ),
-                                builder: (context, favSnapshot) {
-                                  final isFav = favSnapshot.data ?? false;
-                                  return IconButton(
-                                    icon: Icon(
-                                      isFav ? Icons.favorite : Icons.favorite_border,
-                                      size: 20,
-                                      color: isFav ? Colors.red : null,
-                                    ),
-                                    onPressed: () async {
-                                      final userId = FirebaseAuth.instance.currentUser?.uid;
-                                      if (userId != null) {
-                                        try {
-                                          await _productService.toggleFavourite(
-                                            userId: userId,
-                                            productId: products[index].id,
-                                            productData: product,
-                                          );
-                                          if (context.mounted) {
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              SnackBar(
-                                                content: Text(isFav 
-                                                  ? "Removed from wardrobe" 
-                                                  : "Added to wardrobe and favourites!"),
-                                              ),
+                                StreamBuilder<bool>(
+                                  stream: _productService.isFavourited(
+                                    FirebaseAuth.instance.currentUser?.uid ?? '',
+                                    products[index].id,
+                                  ),
+                                  builder: (context, favSnapshot) {
+                                    final isFav = favSnapshot.data ?? false;
+                                    return IconButton(
+                                      icon: Icon(
+                                        isFav ? Icons.favorite : Icons.favorite_border,
+                                        size: 20,
+                                        color: isFav ? Colors.red : null,
+                                      ),
+                                      onPressed: () async {
+                                        final userId = FirebaseAuth.instance.currentUser?.uid;
+                                        if (userId != null) {
+                                          try {
+                                            await _productService.toggleFavourite(
+                                              userId: userId,
+                                              productId: products[index].id,
+                                              productData: product,
                                             );
-                                          }
-                                        } catch (e) {
-                                          if (context.mounted) {
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              SnackBar(content: Text("Error: $e")),
-                                            );
+                                            if (context.mounted) {
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                SnackBar(
+                                                  content: Text(isFav 
+                                                    ? "Removed from wardrobe" 
+                                                    : "Added to wardrobe and favourites!"),
+                                                ),
+                                              );
+                                            }
+                                          } catch (e) {
+                                            if (context.mounted) {
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                SnackBar(content: Text("Error: $e")),
+                                              );
+                                            }
                                           }
                                         }
-                                      }
-                                    },
-                                  );
-                                },
-                              ),
-                            ],
+                                      },
+                                    );
+                                  },
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   );
                 },
@@ -400,6 +412,14 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
               ),
               title: Text(userName),
               subtitle: Text(userEmail),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ProfilePage(userId: userId),
+                  ),
+                );
+              },
               trailing: StreamBuilder<bool>(
                 stream: _friendService.isFollowing(userId),
                 builder: (context, followSnapshot) {

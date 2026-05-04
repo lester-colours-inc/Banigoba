@@ -4,6 +4,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/product_service.dart';
+import 'product_detail_page.dart';
+import 'profile_page.dart';
 
 class WardrobePage extends StatefulWidget {
   const WardrobePage({super.key});
@@ -48,7 +50,7 @@ class _WardrobePageState extends State<WardrobePage> {
             _buildTabs(),
             const SizedBox(height: 20),
             Expanded(
-              child: _selectedTabIndex == 0 ? _buildMineTab() : const Center(child: Text("Coming Soon")),
+              child: _buildSelectedTab(),
             ),
           ],
         ),
@@ -99,6 +101,99 @@ class _WardrobePageState extends State<WardrobePage> {
     );
   }
 
+  Widget _buildSelectedTab() {
+    switch (_selectedTabIndex) {
+      case 0:
+        return _buildMineTab();
+      case 1:
+        return _buildFriendsTab();
+      case 2:
+        return _buildCommunityTab();
+      default:
+        return _buildMineTab();
+    }
+  }
+
+  Widget _buildFriendsTab() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .doc(_currentUserId)
+          .collection('following')
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return const Center(child: Text("You are not following anyone yet."));
+        }
+
+        final followingIds = snapshot.data!.docs.map((doc) => doc.id).toList();
+
+        return ListView.builder(
+          itemCount: followingIds.length,
+          itemBuilder: (context, index) {
+            return StreamBuilder<DocumentSnapshot>(
+              stream: FirebaseFirestore.instance.collection('users').doc(followingIds[index]).snapshots(),
+              builder: (context, userSnapshot) {
+                if (!userSnapshot.hasData || !userSnapshot.data!.exists) return const SizedBox.shrink();
+                final userData = userSnapshot.data!.data() as Map<String, dynamic>;
+                final name = userData['displayName'] ?? 'User';
+                return ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: const Color(0xFF0D0140),
+                    child: Text(name[0].toUpperCase(), style: const TextStyle(color: Colors.white)),
+                  ),
+                  title: Text(name),
+                  subtitle: const Text("View Wardrobe"),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => ProfilePage(userId: followingIds[index])),
+                    );
+                  },
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildCommunityTab() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance.collection('users').limit(20).snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) return const Center(child: Text("No users found"));
+
+        final users = snapshot.data!.docs.where((doc) => doc.id != _currentUserId).toList();
+
+        return ListView.builder(
+          itemCount: users.length,
+          itemBuilder: (context, index) {
+            final userData = users[index].data() as Map<String, dynamic>;
+            final name = userData['displayName'] ?? 'User';
+            return ListTile(
+              leading: CircleAvatar(
+                backgroundColor: const Color(0xFF0D0140),
+                child: Text(name[0].toUpperCase(), style: const TextStyle(color: Colors.white)),
+              ),
+              title: Text(name),
+              subtitle: const Text("View Profile"),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => ProfilePage(userId: users[index].id)),
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
   Widget _buildMineTab() {
     return StreamBuilder<QuerySnapshot>(
       stream: _productService.getUserProducts(_currentUserId),
@@ -131,48 +226,58 @@ class _WardrobePageState extends State<WardrobePage> {
 
   Widget _buildWardrobeCard(Map<String, dynamic> data) {
     final imageUrl = data['imageUrl'] ?? data['imageURL'] ?? '';
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ProductDetailPage(productData: data),
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
-              child: imageUrl.isNotEmpty
-                  ? Image.network(imageUrl, fit: BoxFit.cover, width: double.infinity)
-                  : Container(color: Colors.grey.shade200, child: const Icon(Icons.image, size: 40)),
+        );
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(15),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 5),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(10.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  data['name'] ?? 'No Name',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                Text(
-                  '${data['colour'] ?? ''} • ${data['gender'] ?? ''}',
-                  style: TextStyle(color: Colors.grey.shade400, fontSize: 11),
-                ),
-              ],
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
+                child: imageUrl.isNotEmpty
+                    ? Image.network(imageUrl, fit: BoxFit.cover, width: double.infinity)
+                    : Container(color: Colors.grey.shade200, child: const Icon(Icons.image, size: 40)),
+              ),
             ),
-          ),
-        ],
+            Padding(
+              padding: const EdgeInsets.all(10.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    data['name'] ?? 'No Name',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    '${data['colour'] ?? ''} • ${data['gender'] ?? ''}',
+                    style: TextStyle(color: Colors.grey.shade400, fontSize: 11),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
