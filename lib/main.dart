@@ -1,5 +1,5 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+// import 'package:cloud_firestore/cloud_firestore.dart';
+// import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 //import 'package:firebase_ui_auth/firebase_ui_auth.dart' as ui;
@@ -8,6 +8,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'navigation/app_routes.dart';
 import 'theme_provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 final themeProvider = ThemeProvider();
 
@@ -16,6 +17,11 @@ void main() async {
 
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  await Supabase.initialize(
+      url: 'https://tiivdhkkyiqyeaebxkls.supabase.co',
+      anonKey: 'sb_publishable_5CeYGsPwJWqt2klc-k-uqw_h5uLId5Z',
   );
 
   runApp(const MyApp());
