@@ -1,0 +1,49 @@
+{
+  "project_info": {
+    "project_number": "1057057002281",
+    "firebase_url": "https://internshipproject-68c13-default-rtdb.europe-west1.firebasedatabase.app",
+    "project_id": "internshipproject-68c13",
+    "storage_bucket": "internshipproject-68c13.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1057057002281:android:a498bd05823ec3e9505d38",
+        "android_client_info": {
+          "package_name": "com.example.my_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAT1RUBbmQiZaPa_b71E19BTa5o-qj2JdU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1057057002281:android:d9b193468333f592505d38",
+        "android_client_info": {
+          "package_name": "com.example.simple_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAT1RUBbmQiZaPa_b71E19BTa5o-qj2JdU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
