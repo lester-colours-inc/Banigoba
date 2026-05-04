@@ -1,4 +1,4 @@
-# simple_app
+# Banigoba
 
 A new Flutter project.
 
