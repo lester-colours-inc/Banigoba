@@ -2,11 +2,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:io';
+import 'notification_service.dart';
 
 class ProductService {
   final _db = FirebaseFirestore.instance;
   final _storage = FirebaseStorage.instance;
   final _supabase = Supabase.instance.client;
+  final _notificationService = NotificationService();
 
   Stream<QuerySnapshot> getProducts() {
     return _db.collection('products').snapshots();
@@ -66,10 +68,15 @@ class ProductService {
     };
     
     // Add to user_products (Mine tab)
-    await _db.collection('user_products').add(data);
+    final docRef = await _db.collection('user_products').add(data);
+    
+    // Notify followers if it's public
+    if (visibility == 'public') {
+      await _notificationService.notifyFollowersNewPost(name);
+    }
     
     // Also save to a separate favourites collection for tracking
-    await _db.collection('users').doc(userId).collection('favourites').add(data);
+    await _db.collection('users').doc(userId).collection('favourites').doc(docRef.id).set({'timestamp': FieldValue.serverTimestamp()});
   }
 
   Stream<QuerySnapshot> getUserProducts(String userId) {

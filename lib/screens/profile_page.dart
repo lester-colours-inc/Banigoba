@@ -12,7 +12,7 @@ class ProfilePage extends StatelessWidget {
   Widget build(BuildContext context) {
     final currentUserId = FirebaseAuth.instance.currentUser?.uid;
     final targetUserId = userId ?? currentUserId;
-    final FriendService _friendService = FriendService();
+    final FriendService friendService = FriendService();
 
     if (targetUserId == null) {
       return const Scaffold(body: Center(child: Text("Not logged in")));
@@ -34,93 +34,111 @@ class ProfilePage extends StatelessWidget {
         final userName = userData['displayName'] ?? 'User';
         final userEmail = userData['email'] ?? '';
 
-        return Scaffold(
-          backgroundColor: Colors.white,
-          appBar: AppBar(
-            title: Text(isMe ? "My Profile" : userName),
-            backgroundColor: Colors.white,
-            foregroundColor: Colors.black,
-            elevation: 0,
-            actions: [
-              if (isMe)
-                IconButton(
-                  icon: const Icon(Icons.logout),
-                  onPressed: () => FirebaseAuth.instance.signOut(),
-                ),
-            ],
-          ),
-          body: SingleChildScrollView(
-            child: Column(
-              children: [
-                const SizedBox(height: 20),
-                CircleAvatar(
-                  radius: 50,
-                  backgroundColor: const Color(0xFF0D0140),
-                  child: Text(
-                    userName.substring(0, 1).toUpperCase(),
-                    style: const TextStyle(fontSize: 40, color: Colors.white),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  userName,
-                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                ),
-                Text(
-                  userEmail,
-                  style: const TextStyle(color: Colors.grey),
-                ),
-                if (!isMe) ...[
-                  const SizedBox(height: 20),
-                  StreamBuilder<bool>(
-                    stream: _friendService.isFollowing(targetUserId),
-                    builder: (context, followSnapshot) {
-                      final isFollowing = followSnapshot.data ?? false;
-                      return ElevatedButton(
-                        onPressed: () {
-                          if (isFollowing) {
-                            _friendService.unfollowUser(targetUserId);
-                          } else {
-                            _friendService.followUser(targetUserId);
-                          }
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: isFollowing ? Colors.grey : const Color(0xFF0D0140),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
-                        ),
-                        child: Text(isFollowing ? 'Unfollow' : 'Follow'),
-                      );
-                    },
-                  ),
+        return StreamBuilder<bool>(
+          stream: friendService.isFollowing(targetUserId),
+          builder: (context, followingSnapshot) {
+            final isFollowing = followingSnapshot.data ?? false;
+            final bool canSeeContent = isMe || isFollowing;
+
+            return Scaffold(
+              backgroundColor: Colors.white,
+              appBar: AppBar(
+                title: Text(isMe ? "My Profile" : userName),
+                backgroundColor: Colors.white,
+                foregroundColor: Colors.black,
+                elevation: 0,
+                actions: [
+                  if (isMe)
+                    IconButton(
+                      icon: const Icon(Icons.logout),
+                      onPressed: () => FirebaseAuth.instance.signOut(),
+                    ),
                 ],
-                const SizedBox(height: 30),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              ),
+              body: SingleChildScrollView(
+                child: Column(
                   children: [
-                    _buildStatColumn(context, 'Followers', _friendService.getFollowersCount(targetUserId), targetUserId, 'followers'),
-                    _buildStatColumn(context, 'Following', _friendService.getFollowingCount(targetUserId), targetUserId, 'following'),
+                    const SizedBox(height: 20),
+                    CircleAvatar(
+                      radius: 50,
+                      backgroundColor: const Color(0xFF0D0140),
+                      child: Text(
+                        userName.substring(0, 1).toUpperCase(),
+                        style: const TextStyle(fontSize: 40, color: Colors.white),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      userName,
+                      style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                    ),
+                    Text(
+                      userEmail,
+                      style: const TextStyle(color: Colors.grey),
+                    ),
+                    if (!isMe) ...[
+                      const SizedBox(height: 20),
+                      StreamBuilder<bool>(
+                        stream: friendService.hasPendingRequest(targetUserId),
+                        builder: (context, requestSnapshot) {
+                          final hasRequest = requestSnapshot.data ?? false;
+                          return ElevatedButton(
+                            onPressed: () {
+                              if (isFollowing) {
+                                friendService.unfollowUser(targetUserId);
+                              } else if (hasRequest) {
+                                friendService.cancelFollowRequest(targetUserId);
+                              } else {
+                                friendService.sendFollowRequest(targetUserId);
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: isFollowing ? Colors.grey : (hasRequest ? Colors.orange : const Color(0xFF0D0140)),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+                            ),
+                            child: Text(isFollowing ? 'Unfollow' : (hasRequest ? 'Requested' : 'Follow')),
+                          );
+                        },
+                      ),
+                    ],
+                    const SizedBox(height: 30),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        _buildStatColumn(context, 'Followers', friendService.getFollowersCount(targetUserId), targetUserId, 'followers', canSeeContent),
+                        _buildStatColumn(context, 'Following', friendService.getFollowingCount(targetUserId), targetUserId, 'following', canSeeContent),
+                      ],
+                    ),
+                    const SizedBox(height: 30),
+                    const Divider(),
+                    if (canSeeContent) ...[
+                      _buildUserItems(targetUserId, isMe),
+                      if (isMe) ...[
+                        ListTile(
+                          leading: const Icon(Icons.settings),
+                          title: const Text("Settings"),
+                          onTap: () {},
+                        ),
+                        ListTile(
+                          leading: const Icon(Icons.help_outline),
+                          title: const Text("Help & Support"),
+                          onTap: () {},
+                        ),
+                      ],
+                    ] else ...[
+                      const SizedBox(height: 50),
+                      const Icon(Icons.lock_outline, size: 80, color: Colors.grey),
+                      const SizedBox(height: 10),
+                      const Text("This Account is Private", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      const Text("Follow this user to see their wardrobe", style: TextStyle(color: Colors.grey)),
+                    ],
                   ],
                 ),
-                const SizedBox(height: 30),
-                const Divider(),
-                _buildUserItems(targetUserId, isMe),
-                if (isMe) ...[
-                  ListTile(
-                    leading: const Icon(Icons.settings),
-                    title: const Text("Settings"),
-                    onTap: () {},
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.help_outline),
-                    title: const Text("Help & Support"),
-                    onTap: () {},
-                  ),
-                ],
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
       },
     );
@@ -204,15 +222,19 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  Widget _buildStatColumn(BuildContext context, String label, Stream<int> stream, String userId, String type) {
+  Widget _buildStatColumn(BuildContext context, String label, Stream<int> stream, String userId, String type, bool canSee) {
     return GestureDetector(
       onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => UserListPage(userId: userId, type: type, title: label),
-          ),
-        );
+        if (canSee) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => UserListPage(userId: userId, type: type, title: label),
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Follow this account to see their list")));
+        }
       },
       child: StreamBuilder<int>(
         stream: stream,
@@ -229,6 +251,69 @@ class ProfilePage extends StatelessWidget {
                 style: const TextStyle(color: Colors.grey),
               ),
             ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class FollowRequestsPage extends StatelessWidget {
+  const FollowRequestsPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final FriendService friendService = FriendService();
+
+    return Scaffold(
+      appBar: AppBar(title: const Text("Follow Requests")),
+      body: StreamBuilder<QuerySnapshot>(
+        stream: friendService.getIncomingRequests(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+            return const Center(child: Text("No pending requests"));
+          }
+
+          final requests = snapshot.data!.docs;
+
+          return ListView.builder(
+            itemCount: requests.length,
+            itemBuilder: (context, index) {
+              final requesterId = requests[index].id;
+              return StreamBuilder<DocumentSnapshot>(
+                stream: FirebaseFirestore.instance.collection('users').doc(requesterId).snapshots(),
+                builder: (context, userSnapshot) {
+                  if (!userSnapshot.hasData || !userSnapshot.data!.exists) return const SizedBox.shrink();
+                  final userData = userSnapshot.data!.data() as Map<String, dynamic>;
+                  final name = userData['displayName'] ?? 'User';
+
+                  return ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: const Color(0xFF0D0140),
+                      child: Text(name[0].toUpperCase(), style: const TextStyle(color: Colors.white)),
+                    ),
+                    title: Text(name),
+                    subtitle: const Text("wants to follow you"),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.check_circle, color: Colors.green),
+                          onPressed: () => friendService.acceptFollowRequest(requesterId),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.cancel, color: Colors.red),
+                          onPressed: () => friendService.declineFollowRequest(requesterId),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              );
+            },
           );
         },
       ),

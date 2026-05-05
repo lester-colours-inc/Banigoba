@@ -424,19 +424,33 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                 stream: _friendService.isFollowing(userId),
                 builder: (context, followSnapshot) {
                   final isFollowing = followSnapshot.data ?? false;
-                  return ElevatedButton(
-                    onPressed: () {
-                      if (isFollowing) {
-                        _friendService.unfollowUser(userId);
-                      } else {
-                        _friendService.followUser(userId);
-                      }
+                  if (isFollowing) {
+                    return ElevatedButton(
+                      onPressed: () => _friendService.unfollowUser(userId),
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.grey, foregroundColor: Colors.white),
+                      child: const Text('Unfollow'),
+                    );
+                  }
+
+                  return StreamBuilder<bool>(
+                    stream: _friendService.hasPendingRequest(userId),
+                    builder: (context, requestSnapshot) {
+                      final hasRequest = requestSnapshot.data ?? false;
+                      return ElevatedButton(
+                        onPressed: () {
+                          if (hasRequest) {
+                            _friendService.cancelFollowRequest(userId);
+                          } else {
+                            _friendService.sendFollowRequest(userId);
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: hasRequest ? Colors.orange : const Color(0xFF0D0140),
+                          foregroundColor: Colors.white,
+                        ),
+                        child: Text(hasRequest ? 'Requested' : 'Follow'),
+                      );
                     },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: isFollowing ? Colors.grey : const Color(0xFF0D0140),
-                      foregroundColor: Colors.white,
-                    ),
-                    child: Text(isFollowing ? 'Unfollow' : 'Follow'),
                   );
                 },
               ),

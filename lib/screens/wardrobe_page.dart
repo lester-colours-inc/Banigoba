@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/product_service.dart';
+import '../services/friend_service.dart';
 import 'product_detail_page.dart';
 import 'profile_page.dart';
 
@@ -16,6 +17,7 @@ class WardrobePage extends StatefulWidget {
 
 class _WardrobePageState extends State<WardrobePage> {
   final ProductService _productService = ProductService();
+  final FriendService _friendService = FriendService();
   final String _currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
   int _selectedTabIndex = 0;
   final ImagePicker _picker = ImagePicker();
@@ -115,25 +117,20 @@ class _WardrobePageState extends State<WardrobePage> {
   }
 
   Widget _buildFriendsTab() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('users')
-          .doc(_currentUserId)
-          .collection('following')
-          .snapshots(),
+    return StreamBuilder<List<String>>(
+      stream: _friendService.getMutualFriendsIds(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return const Center(child: Text("You are not following anyone yet."));
+        final mutualIds = snapshot.data ?? [];
+        if (mutualIds.isEmpty) {
+          return const Center(child: Text("Mutual friends will appear here. Follow people back to see them!"));
         }
 
-        final followingIds = snapshot.data!.docs.map((doc) => doc.id).toList();
-
         return ListView.builder(
-          itemCount: followingIds.length,
+          itemCount: mutualIds.length,
           itemBuilder: (context, index) {
             return StreamBuilder<DocumentSnapshot>(
-              stream: FirebaseFirestore.instance.collection('users').doc(followingIds[index]).snapshots(),
+              stream: FirebaseFirestore.instance.collection('users').doc(mutualIds[index]).snapshots(),
               builder: (context, userSnapshot) {
                 if (!userSnapshot.hasData || !userSnapshot.data!.exists) return const SizedBox.shrink();
                 final userData = userSnapshot.data!.data() as Map<String, dynamic>;
@@ -148,7 +145,7 @@ class _WardrobePageState extends State<WardrobePage> {
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => ProfilePage(userId: followingIds[index])),
+                      MaterialPageRoute(builder: (context) => ProfilePage(userId: mutualIds[index])),
                     );
                   },
                 );
@@ -161,30 +158,41 @@ class _WardrobePageState extends State<WardrobePage> {
   }
 
   Widget _buildCommunityTab() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection('users').limit(20).snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) return const Center(child: Text("No users found"));
+    return StreamBuilder<List<String>>(
+      stream: _friendService.getMutualFriendsIds(),
+      builder: (context, mutualSnapshot) {
+        final mutualIds = mutualSnapshot.data ?? [];
 
-        final users = snapshot.data!.docs.where((doc) => doc.id != _currentUserId).toList();
+        return StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance.collection('users').limit(20).snapshots(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+            if (!snapshot.hasData || snapshot.data!.docs.isEmpty) return const Center(child: Text("No users found"));
 
-        return ListView.builder(
-          itemCount: users.length,
-          itemBuilder: (context, index) {
-            final userData = users[index].data() as Map<String, dynamic>;
-            final name = userData['displayName'] ?? 'User';
-            return ListTile(
-              leading: CircleAvatar(
-                backgroundColor: const Color(0xFF0D0140),
-                child: Text(name[0].toUpperCase(), style: const TextStyle(color: Colors.white)),
-              ),
-              title: Text(name),
-              subtitle: const Text("View Profile"),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => ProfilePage(userId: users[index].id)),
+            final users = snapshot.data!.docs.where((doc) {
+              return doc.id != _currentUserId && !mutualIds.contains(doc.id);
+            }).toList();
+
+            if (users.isEmpty) return const Center(child: Text("All current users are your mutual friends!"));
+
+            return ListView.builder(
+              itemCount: users.length,
+              itemBuilder: (context, index) {
+                final userData = users[index].data() as Map<String, dynamic>;
+                final name = userData['displayName'] ?? 'User';
+                return ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: const Color(0xFF0D0140),
+                    child: Text(name[0].toUpperCase(), style: const TextStyle(color: Colors.white)),
+                  ),
+                  title: Text(name),
+                  subtitle: const Text("View Profile"),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => ProfilePage(userId: users[index].id)),
+                    );
+                  },
                 );
               },
             );
@@ -413,17 +421,16 @@ class _WardrobePageState extends State<WardrobePage> {
                         subcategory: subcategory,
                       );
 
-                      await FirebaseFirestore.instance.collection('user_products').add({
-                        'userId': _currentUserId,
-                        'name': nameController.text,
-                        'imageUrl': imageUrl,
-                        'category': category,
-                        'subcategory': subcategory,
-                        'colour': colour,
-                        'gender': gender,
-                        'createdAt': FieldValue.serverTimestamp(),
-                        'visibility': visibility,
-                      });
+                      await _productService.uploadUserProduct(
+                        userId: _currentUserId,
+                        name: nameController.text,
+                        imageUrl: imageUrl,
+                        category: category,
+                        subcategory: subcategory,
+                        colour: colour,
+                        gender: gender,
+                        visibility: visibility,
+                      );
                       
                       if (context.mounted) {
                         Navigator.pop(context); // Pop loading
