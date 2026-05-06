@@ -148,13 +148,15 @@ class ProfilePage extends StatelessWidget {
     Stream<QuerySnapshot> stream;
     if (isMe) {
       stream = FirebaseFirestore.instance
-          .collection('user_products')
-          .where('userId', isEqualTo: userId)
+          .collection('users')
+          .doc(userId)
+          .collection('wardrobe')
           .snapshots();
     } else {
       stream = FirebaseFirestore.instance
-          .collection('user_products')
-          .where('userId', isEqualTo: userId)
+          .collection('users')
+          .doc(userId)
+          .collection('wardrobe')
           .where('visibility', isEqualTo: 'public')
           .snapshots();
     }
@@ -192,10 +194,13 @@ class ProfilePage extends StatelessWidget {
                 crossAxisCount: 3,
                 crossAxisSpacing: 10,
                 mainAxisSpacing: 10,
+                childAspectRatio: 1,
               ),
               itemCount: items.length,
               itemBuilder: (context, index) {
-                final data = items[index].data() as Map<String, dynamic>;
+                final doc = items[index];
+                final data = Map<String, dynamic>.from(doc.data() as Map<String, dynamic>);
+                data['id'] = doc.id;
                 final imageUrl = data['imageUrl'] ?? data['imageURL'] ?? '';
                 return GestureDetector(
                   onTap: () {
@@ -207,7 +212,7 @@ class ProfilePage extends StatelessWidget {
                     );
                   },
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(12),
                     child: imageUrl.isNotEmpty
                         ? Image.network(imageUrl, fit: BoxFit.cover)
                         : Container(color: Colors.grey.shade200, child: const Icon(Icons.image)),

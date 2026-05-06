@@ -13,20 +13,26 @@ class AppDrawer extends StatelessWidget {
     final userEmail = user?.email ?? '';
     final userName = user?.displayName ?? (userEmail.isNotEmpty ? userEmail.split('@')[0] : 'User');
     final initials = userEmail.isNotEmpty ? userEmail[0].toUpperCase() : 'U';
-    final theme = Theme.of(context);
+    const Color primaryColor = Color(0xFF0D0140);
 
     return Drawer(
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topRight: Radius.circular(40),
+          bottomRight: Radius.circular(40),
+        ),
+      ),
       child: Container(
-        color: theme.scaffoldBackgroundColor,
+        color: Colors.white,
         child: Column(
           children: [
             Expanded(
               child: ListView(
                 padding: EdgeInsets.zero,
                 children: [
-                  _buildHeader(context),
+                  _buildHeader(context, primaryColor),
                   const Padding(
-                    padding: EdgeInsets.fromLTRB(20, 20, 20, 10),
+                    padding: EdgeInsets.fromLTRB(25, 20, 25, 10),
                     child: Text(
                       'Overview',
                       style: TextStyle(
@@ -43,7 +49,7 @@ class AppDrawer extends StatelessWidget {
                   _buildDrawerItem(context, Icons.calendar_today_outlined, 'Agents'),
                   _buildDrawerItem(context, Icons.bar_chart, 'Curators Workspace'),
                   const Padding(
-                    padding: EdgeInsets.fromLTRB(20, 20, 20, 10),
+                    padding: EdgeInsets.fromLTRB(25, 20, 25, 10),
                     child: Text(
                       'Account',
                       style: TextStyle(
@@ -61,29 +67,27 @@ class AppDrawer extends StatelessWidget {
                 ],
               ),
             ),
-            _buildFooter(context, userName, userEmail, initials),
+            _buildFooter(context, userName, userEmail, initials, primaryColor),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final logoColor = isDark ? Colors.white : const Color(0xFF0D0140);
-    
+  Widget _buildHeader(BuildContext context, Color primaryColor) {
     return Padding(
-      padding: const EdgeInsets.only(top: 60.0, left: 20, bottom: 20),
+      padding: const EdgeInsets.only(top: 80.0, left: 25, bottom: 20),
       child: Row(
         children: [
-          Icon(Icons.blur_on, color: logoColor, size: 40),
-          const SizedBox(width: 10),
+          _buildLogo(primaryColor),
+          const SizedBox(width: 15),
           Text(
             'Banigoba',
             style: TextStyle(
-              fontSize: 24,
+              fontSize: 26,
               fontWeight: FontWeight.bold,
-              color: logoColor,
+              color: primaryColor,
+              letterSpacing: 0.5,
             ),
           ),
         ],
@@ -91,66 +95,140 @@ class AppDrawer extends StatelessWidget {
     );
   }
 
-  Widget _buildDrawerItem(BuildContext context, IconData icon, String title, {VoidCallback? onTap}) {
-    final theme = Theme.of(context);
-    return ListTile(
-      leading: Icon(icon, color: theme.iconTheme.color),
-      title: Text(
-        title,
-        style: TextStyle(
-          fontWeight: FontWeight.w500,
-          color: theme.textTheme.bodyLarge?.color,
-        ),
+  Widget _buildLogo(Color primaryColor) {
+    return Container(
+      width: 45,
+      height: 45,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: primaryColor, width: 2),
+        borderRadius: BorderRadius.circular(10),
       ),
-      onTap: onTap ?? () {},
-      horizontalTitleGap: 0,
-      visualDensity: const VisualDensity(vertical: -2),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Transform.rotate(
+            angle: 0.785398, // 45 degrees
+            child: Container(
+              width: 25,
+              height: 25,
+              decoration: BoxDecoration(
+                border: Border.all(color: primaryColor, width: 2),
+              ),
+            ),
+          ),
+          Container(
+            width: 12,
+            height: 12,
+            color: primaryColor,
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildFooter(BuildContext context, String name, String email, String initials) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    
+  Widget _buildDrawerItem(BuildContext context, IconData icon, String title, {VoidCallback? onTap}) {
+    return ListTile(
+      leading: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.arrow_right, color: Colors.black, size: 20),
+          const SizedBox(width: 5),
+          Icon(icon, color: Colors.black54, size: 22),
+        ],
+      ),
+      title: Text(
+        title,
+        style: const TextStyle(
+          fontWeight: FontWeight.w500,
+          color: Colors.black87,
+          fontSize: 15,
+        ),
+      ),
+      onTap: onTap ?? () {},
+      horizontalTitleGap: 10,
+      visualDensity: const VisualDensity(vertical: -1),
+    );
+  }
+
+  Widget _buildFooter(BuildContext context, String name, String email, String initials, Color primaryColor) {
     return Padding(
-      padding: const EdgeInsets.all(20.0),
+      padding: const EdgeInsets.all(25.0),
       child: Column(
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.wb_sunny_outlined, size: 20, color: Colors.grey),
-              Switch(
-                value: themeProvider.isDarkMode,
-                onChanged: (value) {
-                  themeProvider.toggleTheme(value);
-                },
-                activeColor: isDark ? Colors.indigoAccent : const Color(0xFF0D0140),
+              const Icon(Icons.wb_sunny_outlined, size: 18, color: Colors.grey),
+              const SizedBox(width: 10),
+              Container(
+                height: 25,
+                width: 50,
+                decoration: BoxDecoration(
+                  color: primaryColor,
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: Stack(
+                  children: [
+                    AnimatedPositioned(
+                      duration: const Duration(milliseconds: 200),
+                      left: themeProvider.isDarkMode ? 25 : 5,
+                      top: 4,
+                      child: Container(
+                        width: 17,
+                        height: 17,
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              const Icon(Icons.nightlight_round, size: 20, color: Colors.grey),
+              const SizedBox(width: 10),
+              const Icon(Icons.nightlight_round, size: 18, color: Colors.grey),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 30),
           Row(
             children: [
-              Container(
-                width: 50,
-                height: 50,
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.indigoAccent : const Color(0xFF0D0140),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Center(
-                  child: Text(
-                    initials,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
+              Stack(
+                children: [
+                  Container(
+                    width: 55,
+                    height: 55,
+                    decoration: BoxDecoration(
+                      color: primaryColor,
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    child: Center(
+                      child: Text(
+                        initials,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 20,
+                        ),
+                      ),
                     ),
                   ),
-                ),
+                  Positioned(
+                    right: 0,
+                    top: 0,
+                    child: Container(
+                      width: 14,
+                      height: 14,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF4CAF50),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 15),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -159,14 +237,15 @@ class AppDrawer extends StatelessWidget {
                       name,
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
-                        fontSize: 16,
+                        fontSize: 18,
+                        color: Colors.black,
                       ),
                     ),
                     Text(
                       email,
-                      style: const TextStyle(
-                        color: Colors.grey,
-                        fontSize: 12,
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 13,
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),

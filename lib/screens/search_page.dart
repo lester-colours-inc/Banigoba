@@ -1,10 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../services/friend_service.dart';
 import '../services/product_service.dart';
 import 'product_detail_page.dart';
-import 'profile_page.dart';
+import 'notifications_page.dart';
 
 class SearchPage extends StatefulWidget {
   const SearchPage({super.key});
@@ -14,10 +13,10 @@ class SearchPage extends StatefulWidget {
 }
 
 class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateMixin {
-  final FriendService _friendService = FriendService();
   final ProductService _productService = ProductService();
-  late TabController _tabController;
   String _searchQuery = "";
+  int _selectedTabIndex = 0;
+  static const Color primaryColor = Color(0xFF0D0140);
   
   // Filters
   String _selectedColor = "all";
@@ -30,25 +29,345 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
   
   final Map<String, List<String>> _categoryData = {
     'all': ['all'],
-    'accessories': ['all', 'caps', 'glasses', 'hats'],
-    'bottoms': ['all', 'jeans', 'joggers', 'leggings', 'shorts', 'skirts'],
-    'outerwear': ['all', 'blazers', 'jackets'],
-    'tops': ['all', 'hoodies', 'polo shirts', 'shirts', 'sweatshirts', 't-shirts', 'tank tops'],
+    'accessories': ['all', 'none', 'caps', 'glasses', 'hats'],
+    'bottoms': ['all', 'none', 'jeans', 'joggers', 'leggings', 'shorts', 'skirts'],
+    'outerwear': ['all', 'none', 'blazers', 'jackets'],
+    'tops': ['all', 'none', 'hoodies', 'polo shirts', 'shirts', 'sweatshirts', 't-shirts', 'tank tops'],
+    'dresses':['all','none'],
+    'other': ['all', 'none'],
   };
 
   List<String> get _categories => _categoryData.keys.toList();
   List<String> get _subcategories => _categoryData[_selectedCategory.toLowerCase()] ?? ['all'];
 
   @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+  Widget build(BuildContext context) {
+    return StreamBuilder<DocumentSnapshot>(
+      stream: _productService.getAppMetadata(),
+      builder: (context, metadataSnapshot) {
+        if (metadataSnapshot.hasData && metadataSnapshot.data!.exists) {
+          final data = metadataSnapshot.data!.data() as Map<String, dynamic>;
+          if (data.containsKey('colors')) {
+            final List<dynamic> firestoreColors = data['colors'];
+            _colors.clear();
+            _colors.add('all');
+            for (var c in firestoreColors) {
+              if (c != null) {
+                final String s = c.toString().toLowerCase().trim();
+                if (!_colors.contains(s)) _colors.add(s);
+              }
+            }
+          }
+        }
+        return Scaffold(
+          backgroundColor: Colors.white,
+          appBar: AppBar(
+            backgroundColor: Colors.white,
+            elevation: 0,
+            leading: IconButton(
+              icon: const Icon(Icons.menu, color: Colors.black),
+              onPressed: () => Scaffold.of(context).openDrawer(),
+            ),
+            actions: [
+              _buildAppBarAction(Icons.shopping_bag_outlined, () {}),
+              _buildAppBarAction(Icons.chat_bubble_outline, () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const NotificationsPage()),
+                );
+              }, hasNotification: true),
+              const SizedBox(width: 10),
+            ],
+          ),
+          body: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 25.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Search',
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.arrow_back_ios_new, size: 16, color: Colors.black),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 25),
+                _buildSearchBar(),
+                const SizedBox(height: 25),
+                _buildTabs(),
+                const SizedBox(height: 25),
+                Expanded(
+                  child: _selectedTabIndex == 0 
+                    ? _buildProductSearch() 
+                    : Center(child: Text(_selectedTabIndex == 1 ? "Events Coming Soon" : "Trending News Coming Soon")),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+    );
   }
 
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
+  Widget _buildAppBarAction(IconData icon, VoidCallback onTap, {bool hasNotification = false}) {
+    return Stack(
+      children: [
+        IconButton(
+          icon: Icon(icon, color: Colors.black, size: 28),
+          onPressed: onTap,
+        ),
+        if (hasNotification)
+          Positioned(
+            right: 12,
+            top: 12,
+            child: Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(
+                color: Colors.red,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 2),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: Colors.grey.shade200, width: 1.5),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.search, color: Colors.grey.shade400, size: 24),
+          const SizedBox(width: 15),
+          Expanded(
+            child: TextField(
+              decoration: InputDecoration(
+                hintText: "Search Product",
+                hintStyle: TextStyle(color: Colors.grey.shade300, fontSize: 16),
+                border: InputBorder.none,
+              ),
+              onChanged: (value) {
+                setState(() {
+                  _searchQuery = value.toLowerCase();
+                });
+              },
+            ),
+          ),
+          GestureDetector(
+            onTap: _showFilterSheet,
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: primaryColor,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.tune, color: Colors.white, size: 20),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTabs() {
+    return Row(
+      children: [
+        _tabButton("Community", 0),
+        const SizedBox(width: 15),
+        _tabButton("Events", 1),
+        const SizedBox(width: 15),
+        _tabButton("Trending News", 2),
+      ],
+    );
+  }
+
+  Widget _tabButton(String title, int index) {
+    bool isSelected = _selectedTabIndex == index;
+    return GestureDetector(
+      onTap: () => setState(() => _selectedTabIndex = index),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? primaryColor : Colors.white,
+          borderRadius: BorderRadius.circular(25),
+          border: Border.all(
+            color: isSelected ? primaryColor : Colors.grey.shade100,
+            width: 1.5,
+          ),
+        ),
+        child: Text(
+          title,
+          style: TextStyle(
+            color: isSelected ? Colors.white : Colors.grey.shade600,
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProductSearch() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: _productService.getProducts(),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) return Center(child: Text('Error: ${snapshot.error}'));
+        if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+
+        final docs = snapshot.data?.docs ?? [];
+        final products = docs.where((doc) {
+          final p = doc.data() as Map<String, dynamic>;
+          final name = (p['name']?.toString() ?? '').toLowerCase();
+          final category = (p['category']?.toString() ?? '').toLowerCase();
+          final subcategory = (p['subcategory']?.toString() ?? '').toLowerCase();
+          final gender = (p['gender']?.toString() ?? '').toLowerCase();
+          
+          final dynamic rawColours = p['colours'] ?? p['colour'];
+          List<String> colourList = [];
+          if (rawColours is List) {
+            colourList = rawColours.map((c) => c.toString().toLowerCase().trim()).toList();
+          } else if (rawColours != null && rawColours.toString().isNotEmpty) {
+            colourList = [rawColours.toString().toLowerCase().trim()];
+          }
+
+          final matchesSearch = name.contains(_searchQuery);
+          final matchesColour = _selectedColor == 'all' || colourList.contains(_selectedColor);
+          final matchesCategory = _selectedCategory == 'all' || category == _selectedCategory;
+          final matchesSubcategory = _selectedSubcategory == 'all' || 
+                                     (_selectedSubcategory == 'none' && subcategory.isEmpty) ||
+                                     subcategory == _selectedSubcategory;
+          final matchesGender = _selectedGender == 'all' || gender == _selectedGender;
+
+          return matchesSearch && matchesColour && matchesCategory && matchesSubcategory && matchesGender;
+        }).toList();
+
+        if (products.isEmpty && _searchQuery.isEmpty) {
+          return Center(
+            child: Text(
+              "Type to search your wardrobe",
+              style: TextStyle(color: Colors.grey.shade400, fontSize: 16),
+            ),
+          );
+        }
+
+        if (products.isEmpty) return const Center(child: Text('No products found'));
+
+        return ListView.separated(
+          padding: const EdgeInsets.only(bottom: 20),
+          itemCount: products.length,
+          separatorBuilder: (context, index) => const SizedBox(height: 15),
+          itemBuilder: (context, index) {
+            final doc = products[index];
+            final product = Map<String, dynamic>.from(doc.data() as Map<String, dynamic>);
+            product['id'] = doc.id; // Ensure ID is passed
+            final imageUrl = product['imageURL'] ?? product['imageUrl'] as String?;
+            
+            return GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => ProductDetailPage(productData: product)),
+                );
+              },
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.02),
+                      blurRadius: 10,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                      child: imageUrl != null && imageUrl.startsWith('http')
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(15),
+                            child: Image.network(imageUrl, fit: BoxFit.cover),
+                          )
+                        : const Icon(Icons.image, color: Colors.grey),
+                    ),
+                    const SizedBox(width: 20),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            product['name'] ?? 'Unknown',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+                          ),
+                          const SizedBox(height: 4),
+                          Builder(
+                            builder: (context) {
+                              final dynamic rawColours = product['colours'] ?? product['colour'];
+                              List<dynamic> coloursList = [];
+                              if (rawColours is List) {
+                                coloursList = rawColours;
+                              } else if (rawColours != null && rawColours.toString().isNotEmpty) {
+                                coloursList = [rawColours];
+                              }
+
+                              String colourText = coloursList.isNotEmpty
+                                  ? coloursList.map((c) {
+                                      final s = c.toString().trim();
+                                      if (s.isEmpty) return '';
+                                      return s[0].toUpperCase() + s.substring(1).toLowerCase();
+                                    }).where((s) => s.isNotEmpty).join(', ')
+                                  : 'N/A';
+                              
+                              if (colourText.length > 20) {
+                                colourText = '${colourText.substring(0, 17)}...';
+                              }
+
+                              return Text(
+                                colourText,
+                                style: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+                              );
+                            }
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      }
+    );
   }
 
   void _showFilterSheet() {
@@ -110,7 +429,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                     width: double.infinity,
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0D0140),
+                        backgroundColor: primaryColor,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 15),
                       ),
@@ -137,7 +456,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
           Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
           const SizedBox(height: 5),
           DropdownButtonFormField<String>(
-            initialValue: !options.contains(selectedValue) ? options[0] : selectedValue,
+            value: !options.contains(selectedValue) ? options[0] : selectedValue,
             items: options.map((e) => DropdownMenuItem(
               value: e, 
               child: Text(e[0].toUpperCase() + e.substring(1)),
@@ -145,319 +464,18 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
             onChanged: onChanged,
             decoration: InputDecoration(
               contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: Colors.grey.shade200),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: Colors.grey.shade200),
+              ),
             ),
           ),
         ],
       ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: TextField(
-          decoration: InputDecoration(
-            hintText: "Search products or friends...",
-            border: InputBorder.none,
-            hintStyle: TextStyle(color: Colors.grey[400]),
-          ),
-          onChanged: (value) {
-            setState(() {
-              _searchQuery = value.toLowerCase();
-            });
-          },
-        ),
-        actions: [
-          if (_tabController.index == 0)
-            IconButton(
-              icon: const Icon(Icons.filter_list),
-              onPressed: _showFilterSheet,
-            ),
-        ],
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: const Color(0xFF0D0140),
-          labelColor: const Color(0xFF0D0140),
-          onTap: (index) => setState(() {}),
-          tabs: const [
-            Tab(text: "Products"),
-            Tab(text: "Friends"),
-          ],
-        ),
-      ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _buildProductSearch(),
-          _buildFriendSearch(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProductSearch() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: _productService.getProducts(),
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return Center(child: Text('Error: ${snapshot.error}'));
-        }
-        if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-
-        final docs = snapshot.data?.docs ?? [];
-        final products = docs.where((doc) {
-          final p = doc.data() as Map<String, dynamic>;
-          final name = (p['name'] ?? '').toLowerCase();
-          final colour = (p['colour'] ?? '').toLowerCase();
-          final category = (p['category'] ?? '').toLowerCase();
-          final subcategory = (p['subcategory'] ?? '').toLowerCase();
-          final gender = (p['gender'] ?? '').toLowerCase();
-
-          final matchesSearch = name.contains(_searchQuery);
-          
-          final matchesColor = _selectedColor == 'all' || colour == _selectedColor;
-          final matchesCategory = _selectedCategory == 'all' || category == _selectedCategory;
-          final matchesSubcategory = _selectedSubcategory == 'all' || subcategory == _selectedSubcategory;
-          final matchesGender = _selectedGender == 'all' || gender == _selectedGender;
-
-          return matchesSearch && matchesColor && matchesCategory && matchesSubcategory && matchesGender;
-        }).toList();
-
-        return Column(
-          children: [
-            _buildActiveFilters(),
-            Expanded(
-              child: products.isEmpty 
-                ? const Center(child: Text('No products found'))
-                : GridView.builder(
-                padding: const EdgeInsets.all(16),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  childAspectRatio: 0.75,
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                ),
-                itemCount: products.length,
-                itemBuilder: (context, index) {
-                  final product = products[index].data() as Map<String, dynamic>;
-                  final imageUrl = product['imageURL'] as String?;
-                  
-                  return GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ProductDetailPage(productData: product),
-                        ),
-                      );
-                    },
-                    child: Card(
-                      elevation: 2,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: Colors.grey[200],
-                                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                              ),
-                              child: imageUrl != null && imageUrl.startsWith('http')
-                                ? ClipRRect(
-                                    borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                                    child: Image.network(imageUrl, fit: BoxFit.cover, width: double.infinity),
-                                  )
-                                : const Center(child: Icon(Icons.image, size: 50, color: Colors.grey)),
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(product['name'] ?? 'Unknown', style: const TextStyle(fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
-                                      Text('${product['colour'] ?? 'N/A'} • ${product['gender'] ?? ''}', style: const TextStyle(color: Colors.grey, fontSize: 11)),
-                                    ],
-                                  ),
-                                ),
-                                StreamBuilder<bool>(
-                                  stream: _productService.isFavourited(
-                                    FirebaseAuth.instance.currentUser?.uid ?? '',
-                                    products[index].id,
-                                  ),
-                                  builder: (context, favSnapshot) {
-                                    final isFav = favSnapshot.data ?? false;
-                                    return IconButton(
-                                      icon: Icon(
-                                        isFav ? Icons.favorite : Icons.favorite_border,
-                                        size: 20,
-                                        color: isFav ? Colors.red : null,
-                                      ),
-                                      onPressed: () async {
-                                        final userId = FirebaseAuth.instance.currentUser?.uid;
-                                        if (userId != null) {
-                                          try {
-                                            await _productService.toggleFavourite(
-                                              userId: userId,
-                                              productId: products[index].id,
-                                              productData: product,
-                                            );
-                                            if (context.mounted) {
-                                              ScaffoldMessenger.of(context).showSnackBar(
-                                                SnackBar(
-                                                  content: Text(isFav 
-                                                    ? "Removed from wardrobe" 
-                                                    : "Added to wardrobe and favourites!"),
-                                                ),
-                                              );
-                                            }
-                                          } catch (e) {
-                                            if (context.mounted) {
-                                              ScaffoldMessenger.of(context).showSnackBar(
-                                                SnackBar(content: Text("Error: $e")),
-                                              );
-                                            }
-                                          }
-                                        }
-                                      },
-                                    );
-                                  },
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
-        );
-      }
-    );
-  }
-
-  Widget _buildActiveFilters() {
-    List<Widget> chips = [];
-    if (_selectedCategory != 'all') chips.add(_filterChip(_selectedCategory, () => setState(() => _selectedCategory = 'all')));
-    if (_selectedSubcategory != 'all') chips.add(_filterChip(_selectedSubcategory, () => setState(() => _selectedSubcategory = 'all')));
-    if (_selectedGender != 'all') chips.add(_filterChip(_selectedGender, () => setState(() => _selectedGender = 'all')));
-    if (_selectedColor != 'all') chips.add(_filterChip(_selectedColor, () => setState(() => _selectedColor = 'all')));
-
-    if (chips.isEmpty) return const SizedBox.shrink();
-
-    return Container(
-      height: 50,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        children: chips,
-      ),
-    );
-  }
-
-  Widget _filterChip(String label, VoidCallback onDeleted) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 8.0),
-      child: Chip(
-        label: Text(label[0].toUpperCase() + label.substring(1), style: const TextStyle(fontSize: 12)),
-        onDeleted: onDeleted,
-        deleteIconColor: Colors.black54,
-        backgroundColor: Colors.grey[200],
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      ),
-    );
-  }
-
-  Widget _buildFriendSearch() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: _friendService.getAllUsers(),
-      builder: (context, snapshot) {
-        if (snapshot.hasError) return const Center(child: Text('Something went wrong'));
-        if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-
-        final users = snapshot.data!.docs.where((doc) {
-          final userData = doc.data() as Map<String, dynamic>;
-          final userName = (userData['displayName'] ?? '').toLowerCase();
-          final userEmail = (userData['email'] ?? '').toLowerCase();
-          return userName.contains(_searchQuery) || userEmail.contains(_searchQuery);
-        }).toList();
-
-        if (users.isEmpty) return const Center(child: Text('No users found'));
-
-        return ListView.builder(
-          itemCount: users.length,
-          itemBuilder: (context, index) {
-            final userData = users[index].data() as Map<String, dynamic>;
-            final userId = users[index].id;
-            final userName = userData['displayName'] ?? 'User';
-            final userEmail = userData['email'] ?? '';
-
-            return ListTile(
-              leading: CircleAvatar(
-                backgroundColor: const Color(0xFF0D0140),
-                child: Text(
-                  userName.substring(0, 1).toUpperCase(),
-                  style: const TextStyle(color: Colors.white),
-                ),
-              ),
-              title: Text(userName),
-              subtitle: Text(userEmail),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => ProfilePage(userId: userId),
-                  ),
-                );
-              },
-              trailing: StreamBuilder<bool>(
-                stream: _friendService.isFollowing(userId),
-                builder: (context, followSnapshot) {
-                  final isFollowing = followSnapshot.data ?? false;
-                  if (isFollowing) {
-                    return ElevatedButton(
-                      onPressed: () => _friendService.unfollowUser(userId),
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.grey, foregroundColor: Colors.white),
-                      child: const Text('Unfollow'),
-                    );
-                  }
-
-                  return StreamBuilder<bool>(
-                    stream: _friendService.hasPendingRequest(userId),
-                    builder: (context, requestSnapshot) {
-                      final hasRequest = requestSnapshot.data ?? false;
-                      return ElevatedButton(
-                        onPressed: () {
-                          if (hasRequest) {
-                            _friendService.cancelFollowRequest(userId);
-                          } else {
-                            _friendService.sendFollowRequest(userId);
-                          }
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: hasRequest ? Colors.orange : const Color(0xFF0D0140),
-                          foregroundColor: Colors.white,
-                        ),
-                        child: Text(hasRequest ? 'Requested' : 'Follow'),
-                      );
-                    },
-                  );
-                },
-              ),
-            );
-          },
-        );
-      },
     );
   }
 }

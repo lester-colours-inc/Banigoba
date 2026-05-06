@@ -4,162 +4,311 @@ import '../services/notification_service.dart';
 import '../services/friend_service.dart';
 import 'profile_page.dart';
 
-class NotificationsPage extends StatelessWidget {
+class NotificationsPage extends StatefulWidget {
   const NotificationsPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final NotificationService notificationService = NotificationService();
-    final FriendService friendService = FriendService();
+  State<NotificationsPage> createState() => _NotificationsPageState();
+}
 
+class _NotificationsPageState extends State<NotificationsPage> {
+  int _selectedTabIndex = 0;
+  final NotificationService notificationService = NotificationService();
+  final FriendService friendService = FriendService();
+  static const Color primaryColor = Color(0xFF0D0140);
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text("Notifications"),
         backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
         elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.menu, color: Colors.black),
+          onPressed: () => Scaffold.of(context).openDrawer(),
+        ),
         actions: [
-          TextButton(
-            onPressed: () => notificationService.markAllAsRead(),
-            child: const Text("Mark all as read"),
-          ),
+          _buildAppBarAction(Icons.shopping_bag_outlined, () {}),
+          _buildAppBarAction(Icons.chat_bubble_outline, () {}, hasNotification: true),
+          const SizedBox(width: 10),
         ],
       ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: notificationService.getNotifications(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return const Center(child: Text("No notifications yet."));
-          }
-
-          final notifications = snapshot.data!.docs;
-
-          return ListView.separated(
-            itemCount: notifications.length,
-            separatorBuilder: (context, index) => const Divider(height: 1),
-            itemBuilder: (context, index) {
-              final doc = notifications[index];
-              final data = doc.data() as Map<String, dynamic>;
-              final bool isRead = data['isRead'] ?? false;
-              final String type = data['type'] ?? '';
-              final extraData = data['extraData'] as Map<String, dynamic>?;
-
-              return ListTile(
-                tileColor: isRead ? Colors.white : Colors.blue.shade50,
-                leading: _getIconForType(type),
-                title: Text(
-                  data['title'] ?? '',
-                  style: TextStyle(fontWeight: isRead ? FontWeight.normal : FontWeight.bold),
+      body: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 25.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Notification',
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
+                  ),
                 ),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(data['body'] ?? ''),
-                    if (data['timestamp'] != null)
-                      Text(
-                        _formatTimestamp(data['timestamp'] as Timestamp),
-                        style: const TextStyle(fontSize: 10, color: Colors.grey),
-                      ),
-                    if (type == 'follow_request' && extraData != null && extraData['fromId'] != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8.0),
-                        child: Row(
-                          children: [
-                            ElevatedButton(
-                              onPressed: () async {
-                                await friendService.acceptFollowRequest(extraData['fromId']);
-                                final fromName = extraData['fromName'] ?? 'Someone';
-                                await notificationService.updateNotification(
-                                  notificationId: doc.id,
-                                  data: {
-                                    'body': '$fromName started following you',
-                                    'type': 'follow_accepted',
-                                    'isRead': true,
-                                  },
-                                );
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.green,
-                                foregroundColor: Colors.white,
-                                minimumSize: const Size(80, 30),
-                                padding: const EdgeInsets.symmetric(horizontal: 12),
-                              ),
-                              child: const Text("Accept", style: TextStyle(fontSize: 12)),
-                            ),
-                            const SizedBox(width: 8),
-                            OutlinedButton(
-                              onPressed: () async {
-                                await friendService.declineFollowRequest(extraData['fromId']);
-                                final fromName = extraData['fromName'] ?? 'Someone';
-                                await notificationService.updateNotification(
-                                  notificationId: doc.id,
-                                  data: {
-                                    'body': 'You declined $fromName\'s follow request',
-                                    'type': 'request_declined',
-                                    'isRead': true,
-                                  },
-                                );
-                              },
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.red,
-                                side: const BorderSide(color: Colors.red),
-                                minimumSize: const Size(80, 30),
-                                padding: const EdgeInsets.symmetric(horizontal: 12),
-                              ),
-                              child: const Text("Decline", style: TextStyle(fontSize: 12)),
-                            ),
-                          ],
-                        ),
-                      ),
-                  ],
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.arrow_back_ios_new, size: 16, color: Colors.black),
                 ),
-                onTap: () {
-                  notificationService.markAsRead(doc.id);
-                  _handleNotificationTap(context, type, extraData);
-                },
-              );
-            },
-          );
-        },
+              ],
+            ),
+            const SizedBox(height: 25),
+            _buildTabs(),
+            const SizedBox(height: 25),
+            Expanded(
+              child: _buildNotificationsList(),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _getIconForType(String type) {
-    switch (type) {
-      case 'follow_request':
-        return const CircleAvatar(backgroundColor: Colors.orange, child: Icon(Icons.person_add, color: Colors.white));
-      case 'follow_accepted':
-        return const CircleAvatar(backgroundColor: Colors.green, child: Icon(Icons.check, color: Colors.white));
-      case 'request_declined':
-        return const CircleAvatar(backgroundColor: Colors.red, child: Icon(Icons.cancel, color: Colors.white));
-      case 'new_post':
-        return const CircleAvatar(backgroundColor: Colors.blue, child: Icon(Icons.image, color: Colors.white));
-      default:
-        return const CircleAvatar(backgroundColor: Colors.grey, child: Icon(Icons.notifications, color: Colors.white));
-    }
+  Widget _buildAppBarAction(IconData icon, VoidCallback onTap, {bool hasNotification = false}) {
+    return Stack(
+      children: [
+        IconButton(
+          icon: Icon(icon, color: Colors.black, size: 28),
+          onPressed: onTap,
+        ),
+        if (hasNotification)
+          Positioned(
+            right: 12,
+            top: 12,
+            child: Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(
+                color: Colors.red,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 2),
+              ),
+            ),
+          ),
+      ],
+    );
   }
 
-  String _formatTimestamp(Timestamp timestamp) {
-    final DateTime dt = timestamp.toDate();
-    return "${dt.day}/${dt.month} ${dt.hour}:${dt.minute.toString().padLeft(2, '0')}";
+  Widget _buildTabs() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          _tabButton("All", 0),
+          const SizedBox(width: 15),
+          _tabButton("Friends", 1),
+          const SizedBox(width: 15),
+          _tabButton("Shops", 2),
+          const SizedBox(width: 15),
+          _tabButton("Designers", 3),
+        ],
+      ),
+    );
+  }
+
+  Widget _tabButton(String title, int index) {
+    bool isSelected = _selectedTabIndex == index;
+    return GestureDetector(
+      onTap: () => setState(() => _selectedTabIndex = index),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected ? primaryColor : Colors.white,
+          borderRadius: BorderRadius.circular(30),
+          border: Border.all(
+            color: isSelected ? primaryColor : Colors.grey.shade100,
+            width: 1.5,
+          ),
+        ),
+        child: Text(
+          title,
+          style: TextStyle(
+            color: isSelected ? Colors.white : Colors.grey.shade600,
+            fontWeight: FontWeight.w600,
+            fontSize: 15,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNotificationsList() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: notificationService.getNotifications(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) return const Center(child: Text("No notifications yet."));
+
+        final notifications = snapshot.data!.docs;
+
+        return ListView.separated(
+          itemCount: notifications.length,
+          separatorBuilder: (context, index) => const SizedBox(height: 20),
+          itemBuilder: (context, index) {
+            final doc = notifications[index];
+            final data = doc.data() as Map<String, dynamic>;
+            final bool isRead = data['isRead'] ?? false;
+            final String type = data['type'] ?? '';
+            final extraData = data['extraData'] as Map<String, dynamic>?;
+            final fromName = extraData?['fromName'] as String? ?? 'Someone';
+
+            return GestureDetector(
+              onTap: () {
+                notificationService.markAsRead(doc.id);
+                _handleNotificationTap(context, type, extraData);
+              },
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Stack(
+                    children: [
+                      Container(
+                        width: 55,
+                        height: 55,
+                        decoration: BoxDecoration(
+                          color: primaryColor,
+                          borderRadius: BorderRadius.circular(15),
+                        ),
+                        child: Center(
+                          child: Text(
+                            fromName.isNotEmpty ? fromName[0].toUpperCase() : 'U',
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20),
+                          ),
+                        ),
+                      ),
+                      if (!isRead)
+                        Positioned(
+                          right: 0,
+                          top: 0,
+                          child: Container(
+                            width: 14,
+                            height: 14,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFF69B4), // Pink dot
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 2),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(width: 15),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        RichText(
+                          text: TextSpan(
+                            style: const TextStyle(color: Colors.black, fontSize: 16),
+                            children: [
+                              TextSpan(text: fromName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                              const TextSpan(text: ' '),
+                              TextSpan(text: _getNotificationText(type, data['body'])),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          _formatTimestamp(data['timestamp'] as Timestamp?),
+                          style: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+                        ),
+                        if (type == 'follow_request' && !isRead)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 12.0),
+                            child: Row(
+                              children: [
+                                _buildActionMiniButton("Accept", Colors.green, () async {
+                                   await friendService.acceptFollowRequest(extraData?['fromId']);
+                                   await notificationService.updateNotification(
+                                      notificationId: doc.id,
+                                      data: {
+                                        'body': '$fromName started following you',
+                                        'type': 'follow_accepted',
+                                        'isRead': true,
+                                      },
+                                    );
+                                }),
+                                const SizedBox(width: 10),
+                                _buildActionMiniButton("Decline", Colors.red, () async {
+                                   await friendService.declineFollowRequest(extraData?['fromId']);
+                                   await notificationService.updateNotification(
+                                      notificationId: doc.id,
+                                      data: {
+                                        'body': 'You declined $fromName\'s follow request',
+                                        'type': 'request_declined',
+                                        'isRead': true,
+                                      },
+                                    );
+                                }, isOutline: true),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  String _getNotificationText(String type, String? defaultBody) {
+    if (type == 'follow_request') return 'accepted your follow request.'; // Matches screenshot text
+    if (type == 'follow_accepted') return 'started following you.';
+    return defaultBody ?? '';
+  }
+
+  Widget _buildActionMiniButton(String label, Color color, VoidCallback onTap, {bool isOutline = false}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        decoration: BoxDecoration(
+          color: isOutline ? Colors.white : color,
+          borderRadius: BorderRadius.circular(10),
+          border: isOutline ? Border.all(color: color) : null,
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isOutline ? color : Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 13,
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _formatTimestamp(Timestamp? timestamp) {
+    if (timestamp == null) return "now";
+    final dt = timestamp.toDate();
+    final now = DateTime.now();
+    final diff = now.difference(dt);
+    if (diff.inMinutes < 60) return "${diff.inMinutes}m";
+    if (diff.inHours < 24) return "${diff.inHours}h";
+    return "${diff.inDays}d";
   }
 
   void _handleNotificationTap(BuildContext context, String type, Map<String, dynamic>? extraData) {
     if (extraData == null) return;
-
-    if (type == 'follow_request' || type == 'follow_accepted' || type == 'new_post') {
-      final userId = extraData['fromId'] ?? extraData['userId'];
-      if (userId != null) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => ProfilePage(userId: userId)),
-        );
-      }
+    final userId = extraData['fromId'] ?? extraData['userId'];
+    if (userId != null) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => ProfilePage(userId: userId)),
+      );
     }
   }
 }

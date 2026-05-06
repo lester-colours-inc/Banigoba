@@ -6,7 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import '../services/product_service.dart';
 import '../services/friend_service.dart';
 import 'product_detail_page.dart';
-import 'profile_page.dart';
+import 'notifications_page.dart';
 
 class WardrobePage extends StatefulWidget {
   const WardrobePage({super.key});
@@ -21,6 +21,7 @@ class _WardrobePageState extends State<WardrobePage> {
   final String _currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
   int _selectedTabIndex = 0;
   final ImagePicker _picker = ImagePicker();
+  static const Color primaryColor = Color(0xFF0D0140);
 
   @override
   Widget build(BuildContext context) {
@@ -29,55 +30,106 @@ class _WardrobePageState extends State<WardrobePage> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.menu, color: Colors.black),
+          onPressed: () => Scaffold.of(context).openDrawer(),
+        ),
+        actions: [
+          _buildAppBarAction(Icons.shopping_bag_outlined, () {}),
+          _buildAppBarAction(Icons.chat_bubble_outline, () {
+             Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const NotificationsPage()),
+              );
+          }, hasNotification: true),
+          const SizedBox(width: 10),
+        ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      body: Stack(
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 25.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'My Daily Dress Up',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'My Daily Dress Up',
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.arrow_back_ios_new, size: 16, color: Colors.black),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 25),
+                _buildTabs(),
+                const SizedBox(height: 25),
+                Expanded(
+                  child: _buildSelectedTab(),
                 ),
               ],
             ),
-            const SizedBox(height: 20),
-            _buildTabs(),
-            const SizedBox(height: 20),
-            Expanded(
-              child: _buildSelectedTab(),
+          ),
+          if (_selectedTabIndex == 0)
+            Positioned(
+              bottom: 30,
+              right: 25,
+              child: _buildAddItemButton(),
             ),
-          ],
-        ),
+        ],
       ),
-      floatingActionButton: _selectedTabIndex == 0
-          ? FloatingActionButton.extended(
-              onPressed: _showUploadItemDialog,
-              backgroundColor: const Color(0xFF0D0140),
-              icon: const Icon(Icons.cloud_upload, color: Colors.white),
-              label: const Text('Upload Item', style: TextStyle(color: Colors.white)),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-            )
-          : null,
+    );
+  }
+
+  Widget _buildAppBarAction(IconData icon, VoidCallback onTap, {bool hasNotification = false}) {
+    return Stack(
+      children: [
+        IconButton(
+          icon: Icon(icon, color: Colors.black, size: 28),
+          onPressed: onTap,
+        ),
+        if (hasNotification)
+          Positioned(
+            right: 12,
+            top: 12,
+            child: Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(
+                color: Colors.red,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 2),
+              ),
+            ),
+          ),
+      ],
     );
   }
 
   Widget _buildTabs() {
-    return Row(
-      children: [
-        _tabButton("Mine", 0),
-        const SizedBox(width: 10),
-        _tabButton("My Friends", 1),
-        const SizedBox(width: 10),
-        _tabButton("Community", 2),
-      ],
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          _tabButton("Mine", 0),
+          const SizedBox(width: 15),
+          _tabButton("My Friends", 1),
+          const SizedBox(width: 15),
+          _tabButton("Community", 2),
+        ],
+      ),
     );
   }
 
@@ -86,18 +138,57 @@ class _WardrobePageState extends State<WardrobePage> {
     return GestureDetector(
       onTap: () => setState(() => _selectedTabIndex = index),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF0D0140) : Colors.white,
-          borderRadius: BorderRadius.circular(25),
-          border: Border.all(color: isSelected ? const Color(0xFF0D0140) : Colors.grey.shade300),
+          color: isSelected ? primaryColor : Colors.white,
+          borderRadius: BorderRadius.circular(30),
+          border: Border.all(
+            color: isSelected ? primaryColor : Colors.grey.shade200,
+            width: 1.5,
+          ),
         ),
         child: Text(
           title,
           style: TextStyle(
-            color: isSelected ? Colors.white : Colors.grey,
-            fontWeight: FontWeight.bold,
+            color: isSelected ? Colors.white : Colors.grey.shade600,
+            fontWeight: FontWeight.w600,
+            fontSize: 15,
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAddItemButton() {
+    return GestureDetector(
+      onTap: _showUploadItemDialog,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        decoration: BoxDecoration(
+          color: primaryColor,
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: [
+            BoxShadow(
+              color: primaryColor.withOpacity(0.3),
+              blurRadius: 10,
+              offset: const Offset(0, 5),
+            ),
+          ],
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.add, color: Colors.white, size: 22),
+            SizedBox(width: 8),
+            Text(
+              'Add Item',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -123,34 +214,30 @@ class _WardrobePageState extends State<WardrobePage> {
         if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
         final mutualIds = snapshot.data ?? [];
         if (mutualIds.isEmpty) {
-          return const Center(child: Text("Mutual friends will appear here. Follow people back to see them!"));
+          return const Center(child: Text("Mutual friends' items will appear here. Follow people back to see them!"));
         }
 
-        return ListView.builder(
-          itemCount: mutualIds.length,
-          itemBuilder: (context, index) {
-            return StreamBuilder<DocumentSnapshot>(
-              stream: FirebaseFirestore.instance.collection('users').doc(mutualIds[index]).snapshots(),
-              builder: (context, userSnapshot) {
-                if (!userSnapshot.hasData || !userSnapshot.data!.exists) return const SizedBox.shrink();
-                final userData = userSnapshot.data!.data() as Map<String, dynamic>;
-                final name = userData['displayName'] ?? 'User';
-                return ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: const Color(0xFF0D0140),
-                    child: Text(name[0].toUpperCase(), style: const TextStyle(color: Colors.white)),
-                  ),
-                  title: Text(name),
-                  subtitle: const Text("View Wardrobe"),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => ProfilePage(userId: mutualIds[index])),
-                    );
-                  },
-                );
-              },
-            );
+        return StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('user_products')
+              .where('userId', whereIn: mutualIds)
+              .where('visibility', isEqualTo: 'public')
+              .snapshots(),
+          builder: (context, prodSnapshot) {
+            if (prodSnapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+            final items = List<QueryDocumentSnapshot>.from(prodSnapshot.data?.docs ?? []);
+            if (items.isEmpty) return const Center(child: Text("No public items from friends."));
+
+            // Sort in memory
+            items.sort((a, b) {
+              final aTime = (a.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
+              final bTime = (b.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
+              if (aTime == null) return -1;
+              if (bTime == null) return 1;
+              return bTime.compareTo(aTime);
+            });
+
+            return _buildGroupedProductList(items);
           },
         );
       },
@@ -158,45 +245,86 @@ class _WardrobePageState extends State<WardrobePage> {
   }
 
   Widget _buildCommunityTab() {
-    return StreamBuilder<List<String>>(
-      stream: _friendService.getMutualFriendsIds(),
-      builder: (context, mutualSnapshot) {
-        final mutualIds = mutualSnapshot.data ?? [];
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('user_products')
+          .where('visibility', isEqualTo: 'public')
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+        final items = List<QueryDocumentSnapshot>.from(snapshot.data?.docs ?? []);
+        if (items.isEmpty) return const Center(child: Text("No community items found."));
 
-        return StreamBuilder<QuerySnapshot>(
-          stream: FirebaseFirestore.instance.collection('users').limit(20).snapshots(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-            if (!snapshot.hasData || snapshot.data!.docs.isEmpty) return const Center(child: Text("No users found"));
+        // Filter out current user's items for community tab
+        final communityItems = items.where((doc) => (doc.data() as Map<String, dynamic>)['userId'] != _currentUserId).toList();
 
-            final users = snapshot.data!.docs.where((doc) {
-              return doc.id != _currentUserId && !mutualIds.contains(doc.id);
-            }).toList();
+        // Sort in memory
+        communityItems.sort((a, b) {
+          final aTime = (a.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
+          final bTime = (b.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
+          if (aTime == null) return -1;
+          if (bTime == null) return 1;
+          return bTime.compareTo(aTime);
+        });
 
-            if (users.isEmpty) return const Center(child: Text("All current users are your mutual friends!"));
+        return _buildGroupedProductList(communityItems.take(50).toList());
+      },
+    );
+  }
 
-            return ListView.builder(
-              itemCount: users.length,
+  Widget _buildGroupedProductList(List<QueryDocumentSnapshot> items) {
+    // Group items by category
+    final Map<String, List<QueryDocumentSnapshot>> groupedItems = {};
+    for (var item in items) {
+      final data = item.data() as Map<String, dynamic>;
+      final category = (data['category']?.toString() ?? 'Other').toLowerCase();
+      if (!groupedItems.containsKey(category)) {
+        groupedItems[category] = [];
+      }
+      groupedItems[category]!.add(item);
+    }
+
+    final categories = groupedItems.keys.toList()..sort();
+
+    return ListView.builder(
+      padding: const EdgeInsets.only(bottom: 100),
+      itemCount: categories.length,
+      itemBuilder: (context, catIndex) {
+        final category = categories[catIndex];
+        final categoryItems = groupedItems[category]!;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 20.0),
+              child: Text(
+                category[0].toUpperCase() + category.substring(1),
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+            ),
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                childAspectRatio: 0.72,
+                crossAxisSpacing: 20,
+                mainAxisSpacing: 20,
+              ),
+              itemCount: categoryItems.length,
               itemBuilder: (context, index) {
-                final userData = users[index].data() as Map<String, dynamic>;
-                final name = userData['displayName'] ?? 'User';
-                return ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: const Color(0xFF0D0140),
-                    child: Text(name[0].toUpperCase(), style: const TextStyle(color: Colors.white)),
-                  ),
-                  title: Text(name),
-                  subtitle: const Text("View Profile"),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => ProfilePage(userId: users[index].id)),
-                    );
-                  },
-                );
+                final data = Map<String, dynamic>.from(categoryItems[index].data() as Map<String, dynamic>);
+                // Add document ID if missing for favoriting logic
+                data['id'] = categoryItems[index].id;
+                return _buildWardrobeCard(data);
               },
-            );
-          },
+            ),
+          ],
         );
       },
     );
@@ -213,27 +341,25 @@ class _WardrobePageState extends State<WardrobePage> {
           return const Center(child: Text("Your wardrobe is empty. Upload some items!"));
         }
 
-        final items = snapshot.data!.docs;
+        final items = List<QueryDocumentSnapshot>.from(snapshot.data!.docs);
+        // Sort in memory
+        items.sort((a, b) {
+          final aTime = (a.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
+          final bTime = (b.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
+          if (aTime == null) return -1;
+          if (bTime == null) return 1;
+          return bTime.compareTo(aTime);
+        });
 
-        return GridView.builder(
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            childAspectRatio: 0.75,
-            crossAxisSpacing: 15,
-            mainAxisSpacing: 15,
-          ),
-          itemCount: items.length,
-          itemBuilder: (context, index) {
-            final data = items[index].data() as Map<String, dynamic>;
-            return _buildWardrobeCard(data);
-          },
-        );
+        return _buildGroupedProductList(items);
       },
     );
   }
 
   Widget _buildWardrobeCard(Map<String, dynamic> data) {
     final imageUrl = data['imageUrl'] ?? data['imageURL'] ?? '';
+    final posterId = data['userId'];
+
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -246,12 +372,12 @@ class _WardrobePageState extends State<WardrobePage> {
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(15),
+          borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 5),
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 15,
+              offset: const Offset(0, 8),
             ),
           ],
         ),
@@ -260,27 +386,81 @@ class _WardrobePageState extends State<WardrobePage> {
           children: [
             Expanded(
               child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
                 child: imageUrl.isNotEmpty
                     ? Image.network(imageUrl, fit: BoxFit.cover, width: double.infinity)
-                    : Container(color: Colors.grey.shade200, child: const Icon(Icons.image, size: 40)),
+                    : Container(
+                        color: Colors.grey.shade100,
+                        child: const Icon(Icons.image, size: 40, color: Colors.grey),
+                      ),
               ),
             ),
             Padding(
-              padding: const EdgeInsets.all(10.0),
+              padding: const EdgeInsets.all(12.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     data['name'] ?? 'No Name',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                      color: Colors.black,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  Text(
-                    '${data['colour'] ?? ''} • ${data['gender'] ?? ''}',
-                    style: TextStyle(color: Colors.grey.shade400, fontSize: 11),
-                  ),
+                  const SizedBox(height: 2),
+                  if (posterId != null && posterId != _currentUserId)
+                    StreamBuilder<DocumentSnapshot>(
+                      stream: FirebaseFirestore.instance.collection('users').doc(posterId).snapshots(),
+                      builder: (context, snapshot) {
+                        final posterName = (snapshot.data?.data() as Map<String, dynamic>?)?['displayName'] ?? 'User';
+                        return Text(
+                          'by $posterName',
+                          style: TextStyle(
+                            color: primaryColor.withOpacity(0.6),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        );
+                      },
+                    )
+                  else
+                    Builder(
+                      builder: (context) {
+                        final dynamic rawColours = data['colours'] ?? data['colour'];
+                        List<dynamic> coloursList = [];
+                        if (rawColours is List) {
+                          coloursList = rawColours;
+                        } else if (rawColours != null && rawColours.toString().isNotEmpty) {
+                          coloursList = [rawColours];
+                        }
+
+                        String colourText = 'Various';
+                        if (coloursList.isNotEmpty) {
+                          final first = coloursList[0].toString().trim();
+                          if (first.isNotEmpty) {
+                            colourText = first[0].toUpperCase() + first.substring(1).toLowerCase();
+                            if (coloursList.length > 1) {
+                              colourText += ' +${coloursList.length - 1}';
+                            }
+                          }
+                        }
+                        
+                        return Text(
+                          colourText,
+                          style: TextStyle(
+                            color: Colors.grey.shade400,
+                            fontSize: 11,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        );
+                      }
+                    ),
                 ],
               ),
             ),
@@ -294,16 +474,17 @@ class _WardrobePageState extends State<WardrobePage> {
     final TextEditingController nameController = TextEditingController();
     String visibility = 'private';
     String category = 'tops';
-    String subcategory = 't-shirts';
+    String subcategory = 'none';
     String colour = 'black';
     String gender = 'unisex';
     File? selectedImage;
 
     final Map<String, List<String>> categoryData = {
-      'accessories': ['caps', 'glasses', 'hats'],
-      'bottoms': ['jeans', 'joggers', 'leggings', 'shorts', 'skirts'],
-      'outerwear': ['blazers', 'jackets'],
-      'tops': ['hoodies', 'polo shirts', 'shirts', 'sweatshirts', 't-shirts', 'tank tops'],
+      'accessories': ['none', 'caps', 'glasses', 'hats'],
+      'bottoms': ['none', 'jeans', 'joggers', 'leggings', 'shorts', 'skirts'],
+      'outerwear': ['none', 'blazers', 'jackets'],
+      'tops': ['none', 'hoodies', 'polo shirts', 'shirts', 'sweatshirts', 't-shirts', 'tank tops'],
+      'other': ['none'],
     };
 
     final List<String> colors = ['black', 'white', 'grey', 'blue', 'red', 'green', 'yellow', 'orange'];
@@ -402,7 +583,7 @@ class _WardrobePageState extends State<WardrobePage> {
                 width: double.infinity,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0D0140),
+                    backgroundColor: primaryColor,
                     padding: const EdgeInsets.symmetric(vertical: 15),
                   ),
                   onPressed: () async {
@@ -426,7 +607,7 @@ class _WardrobePageState extends State<WardrobePage> {
                         name: nameController.text,
                         imageUrl: imageUrl,
                         category: category,
-                        subcategory: subcategory,
+                        subcategory: subcategory == 'none' ? null : subcategory,
                         colour: colour,
                         gender: gender,
                         visibility: visibility,

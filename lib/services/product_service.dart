@@ -3,6 +3,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:io';
 import 'notification_service.dart';
+import 'package:flutter/foundation.dart';
 
 class ProductService {
   final _db = FirebaseFirestore.instance;
@@ -53,15 +54,24 @@ class ProductService {
     String? category,
     String? subcategory,
     String? colour,
+    List<String>? colours,
     String? gender,
   }) async {
+    // Ensure colours is a flat List<String>
+    List<String> finalColours = [];
+    if (colours != null) {
+      finalColours.addAll(colours.whereType<String>());
+    } else if (colour != null) {
+      finalColours.add(colour);
+    }
+
     final data = {
       'userId': userId,
       'name': name,
       'imageUrl': imageUrl,
       'category': category,
       'subcategory': subcategory,
-      'colour': colour,
+      'colours': finalColours,
       'gender': gender,
       'createdAt': FieldValue.serverTimestamp(),
       'visibility': visibility,
@@ -75,29 +85,28 @@ class ProductService {
       await _notificationService.notifyFollowersNewPost(name);
     }
     
-    // Also save to a separate favourites collection for tracking
-    await _db.collection('users').doc(userId).collection('favourites').doc(docRef.id).set({'timestamp': FieldValue.serverTimestamp()});
+    // Also save to a separate wardrobe collection for tracking
+    await _db.collection('users').doc(userId).collection('wardrobe').doc(docRef.id).set(data);
   }
 
   Stream<QuerySnapshot> getUserProducts(String userId) {
     return _db.collection('user_products')
         .where('userId', isEqualTo: userId)
-        .orderBy('createdAt', descending: true)
         .snapshots();
   }
 
-  // Improved Favourite Logic
-  Future<void> toggleFavourite({
+  // Wardrobe logic (Toggle Add/Remove)
+  Future<void> toggleWardrobeItem({
     required String userId,
     required String productId,
     required Map<String, dynamic> productData,
   }) async {
-    final favRef = _db.collection('users').doc(userId).collection('favourites').doc(productId);
-    final doc = await favRef.get();
+    final wardrobeRef = _db.collection('users').doc(userId).collection('wardrobe').doc(productId);
+    final doc = await wardrobeRef.get();
 
     if (doc.exists) {
-      // Unfavourite
-      await favRef.delete();
+      // Remove from Wardrobe
+      await wardrobeRef.delete();
       
       // Also remove from user_products (Mine tab)
       final userProdQuery = await _db.collection('user_products')
@@ -109,66 +118,88 @@ class ProductService {
         await d.reference.delete();
       }
     } else {
-      // Favourite
+      // Add to Wardrobe
+      
+      // Safely extract and flatten colours
+      List<String> finalColours = [];
+      final dynamic rawColours = productData['colours'];
+      final dynamic rawColour = productData['colour'];
+      
+      if (rawColours is List) {
+        for (var item in rawColours) {
+          if (item is String) {
+            finalColours.add(item);
+          } else if (item is List) {
+            // Flatten if nested
+            finalColours.addAll(item.whereType<String>());
+          }
+        }
+      } else if (rawColours != null) {
+        finalColours.add(rawColours.toString());
+      } else if (rawColour != null) {
+        if (rawColour is List) {
+          finalColours.addAll(rawColour.whereType<String>());
+        } else {
+          finalColours.add(rawColour.toString());
+        }
+      }
+
       final data = {
         'userId': userId,
         'originalProductId': productId,
-        'name': productData['name'],
+        'name': productData['name'] ?? 'No Name',
         'imageUrl': productData['imageURL'] ?? productData['imageUrl'] ?? '',
-        'category': productData['category'],
-        'subcategory': productData['subcategory'],
-        'colour': productData['colour'],
-        'gender': productData['gender'],
+        'category': productData['category'] ?? 'other',
+        'subcategory': productData['subcategory'] ?? '',
+        'colours': finalColours,
+        'gender': productData['gender'] ?? 'unisex',
         'createdAt': FieldValue.serverTimestamp(),
         'visibility': 'public',
       };
 
-      await favRef.set({'timestamp': FieldValue.serverTimestamp()});
+      await wardrobeRef.set(data);
       await _db.collection('user_products').add(data);
     }
   }
 
-  Stream<bool> isFavourited(String userId, String productId) {
-    return _db.collection('users').doc(userId).collection('favourites').doc(productId)
+  Stream<bool> isInWardrobe(String userId, String productId) {
+    return _db.collection('users').doc(userId).collection('wardrobe').doc(productId)
         .snapshots()
         .map((snapshot) => snapshot.exists);
   }
 
-  // Wardrobe / Favourites logic
-  Future<void> addToWardrobe(String userId, Map<String, dynamic> productData, String productId) async {
-    await _db.collection('users').doc(userId).collection('wardrobe').doc(productId).set({
-      ...productData,
-      'addedAt': FieldValue.serverTimestamp(),
-    });
-  }
-
-  Stream<QuerySnapshot> getWardrobeItems(String userId) {
-    return _db.collection('users').doc(userId).collection('wardrobe').orderBy('addedAt', descending: true).snapshots();
-  }
-
-  Future<void> removeFromWardrobe(String userId, String productId) async {
-    await _db.collection('users').doc(userId).collection('wardrobe').doc(productId).delete();
-  }
-
   // Filter Helper
   Future<List<String>> getUniqueValues(String field) async {
-    final snapshot = await _db.collection('products').get();
-    final Set<String> uniqueValues = {'all'};
-    for (var doc in snapshot.docs) {
-      final data = doc.data();
-      if (data.containsKey(field) && data[field] != null) {
-        String val = data[field].toString().toLowerCase();
-        if (val.isNotEmpty) {
-          uniqueValues.add(val);
+    try {
+      final snapshot = await _db.collection('products').get();
+      final Set<String> uniqueValues = {'all'};
+      for (var doc in snapshot.docs) {
+        final data = doc.data();
+        if (data.containsKey(field) && data[field] != null) {
+          final dynamic val = data[field];
+          if (val is List) {
+            for (var item in val) {
+              if (item != null) uniqueValues.add(item.toString().toLowerCase().trim());
+            }
+          } else {
+            uniqueValues.add(val.toString().toLowerCase().trim());
+          }
         }
       }
+      List<String> sortedList = uniqueValues.where((s) => s.isNotEmpty).toList();
+      sortedList.sort((a, b) {
+        if (a == 'all') return -1;
+        if (b == 'all') return 1;
+        return a.compareTo(b);
+      });
+      return sortedList;
+    } catch (e) {
+      debugPrint("Error fetching unique values for $field: $e");
+      return ['all'];
     }
-    List<String> sortedList = uniqueValues.toList();
-    sortedList.sort((a, b) {
-      if (a == 'all') return -1;
-      if (b == 'all') return 1;
-      return a.compareTo(b);
-    });
-    return sortedList;
+  }
+
+  Stream<DocumentSnapshot> getAppMetadata() {
+    return _db.collection('metadata').doc('settings').snapshots();
   }
 }
