@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../services/product_service.dart';
 import 'camera_screen.dart';
 
+/// Screen displaying detailed information about a product
 class ProductDetailPage extends StatelessWidget {
   final Map<String, dynamic> productData;
 
@@ -14,11 +15,13 @@ class ProductDetailPage extends StatelessWidget {
     final ProductService productService = ProductService();
     final String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
     
+    // Extract display data with fallbacks
     final imageUrl = productData['imageUrl'] ?? productData['imageURL'] ?? '';
     final name = productData['name'] ?? 'No Name';
     final String category = productData['category'] ?? 'N/A';
     final String subcategory = productData['subcategory'] ?? 'N/A';
     
+    // Normalize color data for display (handling both single string and array)
     final dynamic rawColours = productData['colours'] ?? productData['colour'];
     List<dynamic> coloursList = [];
     if (rawColours is List) {
@@ -38,13 +41,14 @@ class ProductDetailPage extends StatelessWidget {
     final gender = productData['gender'] ?? 'N/A';
     final visibility = productData['visibility'] ?? 'private';
     final posterId = productData['userId'];
+    
+    // Identify the product ID correctly (original vs local copy)
     final String? originalProductId = productData['originalProductId'];
     final productId = originalProductId ?? productData['id'];
 
     final bool isMe = posterId == currentUserId;
-    // It's a favourite if it was copied from another product
+    // Show favourite button if it's not our own upload, or if it's a saved copy
     final bool isFavouriteInWardrobe = isMe && originalProductId != null;
-    // We show the favourite button if it's not our own upload
     final bool showFavouriteButton = !isMe || isFavouriteInWardrobe;
 
     return Scaffold(
@@ -55,6 +59,7 @@ class ProductDetailPage extends StatelessWidget {
         foregroundColor: Colors.black,
         elevation: 0,
         actions: [
+          // Favourite (Heart) icon in AppBar
           if (showFavouriteButton && productId != null)
             StreamBuilder<bool>(
               stream: productService.isInWardrobe(currentUserId, productId),
@@ -65,21 +70,11 @@ class ProductDetailPage extends StatelessWidget {
                     isSaved ? Icons.favorite : Icons.favorite_border,
                     color: isSaved ? Colors.red : Colors.black,
                   ),
-                  onPressed: () async {
-                    try {
-                      await productService.toggleWardrobeItem(
-                        userId: currentUserId,
-                        productId: productId,
-                        productData: productData,
-                      );
-                    } catch (e) {
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text("Error: $e")),
-                        );
-                      }
-                    }
-                  },
+                  onPressed: () => productService.toggleWardrobeItem(
+                    userId: currentUserId,
+                    productId: productId,
+                    productData: productData,
+                  ),
                 );
               },
             ),
@@ -89,6 +84,7 @@ class ProductDetailPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Product Image
             AspectRatio(
               aspectRatio: 1,
               child: imageUrl.isNotEmpty
@@ -103,6 +99,7 @@ class ProductDetailPage extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Poster Name
                   if (posterId != null)
                     StreamBuilder<DocumentSnapshot>(
                       stream: FirebaseFirestore.instance.collection('users').doc(posterId).snapshots(),
@@ -121,6 +118,7 @@ class ProductDetailPage extends StatelessWidget {
                         );
                       },
                     ),
+                  // Product Name and Details
                   Text(
                     name,
                     style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
@@ -132,6 +130,7 @@ class ProductDetailPage extends StatelessWidget {
                   _buildDetailRow("Gender", gender),
                   _buildDetailRow("Visibility", visibility),
                   const SizedBox(height: 30),
+                  // Try On (AR) Button
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
@@ -152,6 +151,7 @@ class ProductDetailPage extends StatelessWidget {
                       ),
                     ),
                   ),
+                  // Add to Wardrobe Primary Action Button
                   if (showFavouriteButton && productId != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 15.0),
@@ -217,6 +217,7 @@ class ProductDetailPage extends StatelessWidget {
     );
   }
 
+  /// Helper to build a simple label-value row
   Widget _buildDetailRow(String label, String value) {
     if (value.isEmpty) return const SizedBox.shrink();
     String displayValue = value;

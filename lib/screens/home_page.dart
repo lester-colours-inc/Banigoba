@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/notification_service.dart';
 import 'notifications_page.dart';
 
+/// The main landing page after login, providing quick access to features
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -40,6 +41,7 @@ class _HomePageState extends State<HomePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Welcome Header
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -64,8 +66,10 @@ class _HomePageState extends State<HomePage> {
             const SizedBox(height: 25),
             _buildTabs(),
             const SizedBox(height: 25),
+            // Promotional/AI styling card
             _buildPromoCard(),
             const SizedBox(height: 25),
+            // Feature shortcuts
             _buildFeatureCard(
               title: "Idol Style Match",
               subtitle: "Discover your global style icon twin",
@@ -93,6 +97,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  /// AppBar action buttons helper
   Widget _buildAppBarAction(IconData icon, VoidCallback onTap, {bool hasNotification = false}) {
     return Stack(
       children: [
@@ -118,6 +123,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  /// Navigation tabs for Makeover/Community/Events
   Widget _buildTabs() {
     return Row(
       children: [
@@ -130,6 +136,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  /// Individual tab button widget
   Widget _tabButton(String title, int index) {
     bool isSelected = _selectedTabIndex == index;
     return GestureDetector(
@@ -156,6 +163,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  /// Promotional card with AI styling info
   Widget _buildPromoCard() {
     return Container(
       width: double.infinity,
@@ -183,7 +191,7 @@ class _HomePageState extends State<HomePage> {
                 Text(
                   'You have 0 items - add 3 more',
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.7),
+                    color: Colors.white.withValues(alpha: 0.7),
                     fontSize: 13,
                   ),
                 ),
@@ -194,9 +202,9 @@ class _HomePageState extends State<HomePage> {
             width: 80,
             height: 80,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
+              color: Colors.white.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.white.withOpacity(0.3), width: 2),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 2),
             ),
             child: const Icon(Icons.add, color: Colors.white, size: 40),
           ),
@@ -205,6 +213,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  /// Shortcut card for main app features
   Widget _buildFeatureCard({
     required String title,
     required String subtitle,
@@ -219,7 +228,7 @@ class _HomePageState extends State<HomePage> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black.withValues(alpha: 0.03),
             blurRadius: 15,
             offset: const Offset(0, 8),
           ),

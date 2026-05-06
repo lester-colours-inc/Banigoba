@@ -8,6 +8,7 @@ import '../services/friend_service.dart';
 import 'product_detail_page.dart';
 import 'notifications_page.dart';
 
+/// Screen representing the "My Daily Dress Up" section, managing the user's wardrobe items
 class WardrobePage extends StatefulWidget {
   const WardrobePage({super.key});
 
@@ -19,7 +20,7 @@ class _WardrobePageState extends State<WardrobePage> {
   final ProductService _productService = ProductService();
   final FriendService _friendService = FriendService();
   final String _currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
-  int _selectedTabIndex = 0;
+  int _selectedTabIndex = 0; // 0: Mine, 1: My Friends, 2: Community
   final ImagePicker _picker = ImagePicker();
   static const Color primaryColor = Color(0xFF0D0140);
 
@@ -52,6 +53,7 @@ class _WardrobePageState extends State<WardrobePage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Page Header
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -74,14 +76,17 @@ class _WardrobePageState extends State<WardrobePage> {
                   ],
                 ),
                 const SizedBox(height: 25),
+                // Custom Tab Bar
                 _buildTabs(),
                 const SizedBox(height: 25),
+                // Main Content depending on selected tab
                 Expanded(
                   child: _buildSelectedTab(),
                 ),
               ],
             ),
           ),
+          // Floating Action Button for adding new items (visible in "Mine" tab)
           if (_selectedTabIndex == 0)
             Positioned(
               bottom: 30,
@@ -93,6 +98,7 @@ class _WardrobePageState extends State<WardrobePage> {
     );
   }
 
+  /// Build a single action button for the AppBar
   Widget _buildAppBarAction(IconData icon, VoidCallback onTap, {bool hasNotification = false}) {
     return Stack(
       children: [
@@ -118,6 +124,7 @@ class _WardrobePageState extends State<WardrobePage> {
     );
   }
 
+  /// Build the top navigation tabs
   Widget _buildTabs() {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -133,6 +140,7 @@ class _WardrobePageState extends State<WardrobePage> {
     );
   }
 
+  /// Build a single tab button widget
   Widget _tabButton(String title, int index) {
     bool isSelected = _selectedTabIndex == index;
     return GestureDetector(
@@ -159,6 +167,7 @@ class _WardrobePageState extends State<WardrobePage> {
     );
   }
 
+  /// Floating Add Item button widget
   Widget _buildAddItemButton() {
     return GestureDetector(
       onTap: _showUploadItemDialog,
@@ -169,7 +178,7 @@ class _WardrobePageState extends State<WardrobePage> {
           borderRadius: BorderRadius.circular(30),
           boxShadow: [
             BoxShadow(
-              color: primaryColor.withOpacity(0.3),
+              color: primaryColor.withValues(alpha: 0.3),
               blurRadius: 10,
               offset: const Offset(0, 5),
             ),
@@ -194,6 +203,7 @@ class _WardrobePageState extends State<WardrobePage> {
     );
   }
 
+  /// Switch between different tab views
   Widget _buildSelectedTab() {
     switch (_selectedTabIndex) {
       case 0:
@@ -207,6 +217,7 @@ class _WardrobePageState extends State<WardrobePage> {
     }
   }
 
+  /// Tab showing items from followed friends
   Widget _buildFriendsTab() {
     return StreamBuilder<List<String>>(
       stream: _friendService.getMutualFriendsIds(),
@@ -228,7 +239,7 @@ class _WardrobePageState extends State<WardrobePage> {
             final items = List<QueryDocumentSnapshot>.from(prodSnapshot.data?.docs ?? []);
             if (items.isEmpty) return const Center(child: Text("No public items from friends."));
 
-            // Sort in memory
+            // Sort by creation date in memory to avoid needing complex indexes
             items.sort((a, b) {
               final aTime = (a.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
               final bTime = (b.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
@@ -244,6 +255,7 @@ class _WardrobePageState extends State<WardrobePage> {
     );
   }
 
+  /// Tab showing public items from the whole community
   Widget _buildCommunityTab() {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
@@ -255,10 +267,8 @@ class _WardrobePageState extends State<WardrobePage> {
         final items = List<QueryDocumentSnapshot>.from(snapshot.data?.docs ?? []);
         if (items.isEmpty) return const Center(child: Text("No community items found."));
 
-        // Filter out current user's items for community tab
+        // Filter out own items and sort by date in memory
         final communityItems = items.where((doc) => (doc.data() as Map<String, dynamic>)['userId'] != _currentUserId).toList();
-
-        // Sort in memory
         communityItems.sort((a, b) {
           final aTime = (a.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
           final bTime = (b.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
@@ -272,15 +282,13 @@ class _WardrobePageState extends State<WardrobePage> {
     );
   }
 
+  /// Shared helper to build a scrollable list of products grouped by category
   Widget _buildGroupedProductList(List<QueryDocumentSnapshot> items) {
-    // Group items by category
     final Map<String, List<QueryDocumentSnapshot>> groupedItems = {};
     for (var item in items) {
       final data = item.data() as Map<String, dynamic>;
       final category = (data['category']?.toString() ?? 'Other').toLowerCase();
-      if (!groupedItems.containsKey(category)) {
-        groupedItems[category] = [];
-      }
+      if (!groupedItems.containsKey(category)) groupedItems[category] = [];
       groupedItems[category]!.add(item);
     }
 
@@ -300,11 +308,7 @@ class _WardrobePageState extends State<WardrobePage> {
               padding: const EdgeInsets.symmetric(vertical: 20.0),
               child: Text(
                 category[0].toUpperCase() + category.substring(1),
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87),
               ),
             ),
             GridView.builder(
@@ -319,7 +323,6 @@ class _WardrobePageState extends State<WardrobePage> {
               itemCount: categoryItems.length,
               itemBuilder: (context, index) {
                 final data = Map<String, dynamic>.from(categoryItems[index].data() as Map<String, dynamic>);
-                // Add document ID if missing for favoriting logic
                 data['id'] = categoryItems[index].id;
                 return _buildWardrobeCard(data);
               },
@@ -330,19 +333,17 @@ class _WardrobePageState extends State<WardrobePage> {
     );
   }
 
+  /// Tab showing user's own items (uploaded and saved)
   Widget _buildMineTab() {
     return StreamBuilder<QuerySnapshot>(
       stream: _productService.getUserProducts(_currentUserId),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
+        if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
           return const Center(child: Text("Your wardrobe is empty. Upload some items!"));
         }
 
         final items = List<QueryDocumentSnapshot>.from(snapshot.data!.docs);
-        // Sort in memory
         items.sort((a, b) {
           final aTime = (a.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
           final bTime = (b.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
@@ -356,6 +357,7 @@ class _WardrobePageState extends State<WardrobePage> {
     );
   }
 
+  /// Build a single product card in the grid
   Widget _buildWardrobeCard(Map<String, dynamic> data) {
     final imageUrl = data['imageUrl'] ?? data['imageURL'] ?? '';
     final posterId = data['userId'];
@@ -364,9 +366,7 @@ class _WardrobePageState extends State<WardrobePage> {
       onTap: () {
         Navigator.push(
           context,
-          MaterialPageRoute(
-            builder: (context) => ProductDetailPage(productData: data),
-          ),
+          MaterialPageRoute(builder: (context) => ProductDetailPage(productData: data)),
         );
       },
       child: Container(
@@ -374,11 +374,7 @@ class _WardrobePageState extends State<WardrobePage> {
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 15,
-              offset: const Offset(0, 8),
-            ),
+            BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 15, offset: const Offset(0, 8)),
           ],
         ),
         child: Column(
@@ -389,10 +385,7 @@ class _WardrobePageState extends State<WardrobePage> {
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
                 child: imageUrl.isNotEmpty
                     ? Image.network(imageUrl, fit: BoxFit.cover, width: double.infinity)
-                    : Container(
-                        color: Colors.grey.shade100,
-                        child: const Icon(Icons.image, size: 40, color: Colors.grey),
-                      ),
+                    : Container(color: Colors.grey.shade100, child: const Icon(Icons.image, size: 40, color: Colors.grey)),
               ),
             ),
             Padding(
@@ -402,29 +395,19 @@ class _WardrobePageState extends State<WardrobePage> {
                 children: [
                   Text(
                     data['name'] ?? 'No Name',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                      color: Colors.black,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.black),
+                    maxLines: 1, overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 2),
+                  // Display original poster name or item colors
                   if (posterId != null && posterId != _currentUserId)
                     StreamBuilder<DocumentSnapshot>(
                       stream: FirebaseFirestore.instance.collection('users').doc(posterId).snapshots(),
                       builder: (context, snapshot) {
                         final posterName = (snapshot.data?.data() as Map<String, dynamic>?)?['displayName'] ?? 'User';
-                        return Text(
-                          'by $posterName',
-                          style: TextStyle(
-                            color: primaryColor.withOpacity(0.6),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                        return Text('by $posterName',
+                          style: TextStyle(color: primaryColor.withValues(alpha: 0.6), fontSize: 11, fontWeight: FontWeight.w600),
+                          maxLines: 1, overflow: TextOverflow.ellipsis,
                         );
                       },
                     )
@@ -433,31 +416,19 @@ class _WardrobePageState extends State<WardrobePage> {
                       builder: (context) {
                         final dynamic rawColours = data['colours'] ?? data['colour'];
                         List<dynamic> coloursList = [];
-                        if (rawColours is List) {
-                          coloursList = rawColours;
-                        } else if (rawColours != null && rawColours.toString().isNotEmpty) {
-                          coloursList = [rawColours];
-                        }
+                        if (rawColours is List) coloursList = rawColours;
+                        else if (rawColours != null && rawColours.toString().isNotEmpty) coloursList = [rawColours];
 
                         String colourText = 'Various';
                         if (coloursList.isNotEmpty) {
                           final first = coloursList[0].toString().trim();
                           if (first.isNotEmpty) {
                             colourText = first[0].toUpperCase() + first.substring(1).toLowerCase();
-                            if (coloursList.length > 1) {
-                              colourText += ' +${coloursList.length - 1}';
-                            }
+                            if (coloursList.length > 1) colourText += ' +${coloursList.length - 1}';
                           }
                         }
-                        
-                        return Text(
-                          colourText,
-                          style: TextStyle(
-                            color: Colors.grey.shade400,
-                            fontSize: 11,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                        return Text(colourText, style: TextStyle(color: Colors.grey.shade400, fontSize: 11),
+                          maxLines: 1, overflow: TextOverflow.ellipsis,
                         );
                       }
                     ),
@@ -470,6 +441,7 @@ class _WardrobePageState extends State<WardrobePage> {
     );
   }
 
+  /// Show a BottomSheet for uploading a new item to the wardrobe
   void _showUploadItemDialog() {
     final TextEditingController nameController = TextEditingController();
     String visibility = 'private';
@@ -499,130 +471,72 @@ class _WardrobePageState extends State<WardrobePage> {
         builder: (context, setModalState) => SingleChildScrollView(
           padding: EdgeInsets.only(
             bottom: MediaQuery.of(context).viewInsets.bottom,
-            left: 20,
-            right: 20,
-            top: 20,
+            left: 20, right: 20, top: 20,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               const Text("Upload to Wardrobe", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               const SizedBox(height: 20),
+              // Image Picker Box
               GestureDetector(
                 onTap: () async {
                   final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-                  if (image != null) {
-                    setModalState(() {
-                      selectedImage = File(image.path);
-                    });
-                  }
+                  if (image != null) setModalState(() => selectedImage = File(image.path));
                 },
                 child: Container(
-                  height: 120,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(15),
-                    border: Border.all(color: Colors.grey.shade300),
-                  ),
+                  height: 120, width: double.infinity,
+                  decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.grey.shade300)),
                   child: selectedImage != null
-                      ? ClipRRect(
-                          borderRadius: BorderRadius.circular(15),
-                          child: Image.file(selectedImage!, fit: BoxFit.cover),
-                        )
-                      : const Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.add_a_photo, size: 40, color: Colors.grey),
-                            SizedBox(height: 10),
-                            Text("Select Image", style: TextStyle(color: Colors.grey)),
-                          ],
-                        ),
+                      ? ClipRRect(borderRadius: BorderRadius.circular(15), child: Image.file(selectedImage!, fit: BoxFit.cover))
+                      : const Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.add_a_photo, size: 40, color: Colors.grey), SizedBox(height: 10), Text("Select Image", style: TextStyle(color: Colors.grey))]),
                 ),
               ),
               const SizedBox(height: 15),
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(labelText: "Item Name", border: OutlineInputBorder()),
-              ),
+              // Name input and dropdowns for category, color, etc.
+              TextField(controller: nameController, decoration: const InputDecoration(labelText: "Item Name", border: OutlineInputBorder())),
               const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildSimpleDropdown("Category", category, categoryData.keys.toList(), (val) {
-                      setModalState(() {
-                        category = val!;
-                        subcategory = categoryData[category]![0];
-                      });
-                    }),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _buildSimpleDropdown("Subcategory", subcategory, categoryData[category]!, (val) {
-                      setModalState(() => subcategory = val!);
-                    }),
-                  ),
-                ],
-              ),
+              Row(children: [
+                Expanded(child: _buildSimpleDropdown("Category", category, categoryData.keys.toList(), (val) {
+                  setModalState(() { category = val!; subcategory = categoryData[category]![0]; });
+                })),
+                const SizedBox(width: 10),
+                Expanded(child: _buildSimpleDropdown("Subcategory", subcategory, categoryData[category]!, (val) => setModalState(() => subcategory = val!))),
+              ]),
               const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildSimpleDropdown("Colour", colour, colors, (val) => setModalState(() => colour = val!)),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _buildSimpleDropdown("Gender", gender, genders, (val) => setModalState(() => gender = val!)),
-                  ),
-                ],
-              ),
+              Row(children: [
+                Expanded(child: _buildSimpleDropdown("Colour", colour, colors, (val) => setModalState(() => colour = val!))),
+                const SizedBox(width: 10),
+                Expanded(child: _buildSimpleDropdown("Gender", gender, genders, (val) => setModalState(() => gender = val!))),
+              ]),
               const SizedBox(height: 10),
               _buildSimpleDropdown("Visibility", visibility, ['private', 'public'], (val) => setModalState(() => visibility = val!)),
               const SizedBox(height: 20),
+              // Upload Button
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: primaryColor,
-                    padding: const EdgeInsets.symmetric(vertical: 15),
-                  ),
+                  style: ElevatedButton.styleFrom(backgroundColor: primaryColor, padding: const EdgeInsets.symmetric(vertical: 15)),
                   onPressed: () async {
                     if (selectedImage == null || nameController.text.isEmpty) {
                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Missing info")));
                       return;
                     }
-
                     showDialog(context: context, barrierDismissible: false, builder: (context) => const Center(child: CircularProgressIndicator()));
-
                     try {
-                      // Upload to Supabase instead of Firebase Storage
-                      final imageUrl = await _productService.uploadToSupabase(
-                        imageFile: selectedImage!,
-                        category: category,
-                        subcategory: subcategory,
-                      );
-
+                      // Upload image to Supabase storage
+                      final imageUrl = await _productService.uploadToSupabase(imageFile: selectedImage!, category: category, subcategory: subcategory);
+                      // Save record to Firestore
                       await _productService.uploadUserProduct(
-                        userId: _currentUserId,
-                        name: nameController.text,
-                        imageUrl: imageUrl,
-                        category: category,
-                        subcategory: subcategory == 'none' ? null : subcategory,
-                        colour: colour,
-                        gender: gender,
-                        visibility: visibility,
+                        userId: _currentUserId, name: nameController.text, imageUrl: imageUrl, category: category,
+                        subcategory: subcategory == 'none' ? null : subcategory, colour: colour, gender: gender, visibility: visibility,
                       );
-                      
                       if (context.mounted) {
-                        Navigator.pop(context); // Pop loading
-                        Navigator.pop(context); // Pop sheet
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Uploaded to Supabase & Firestore!")));
+                        Navigator.pop(context); Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Uploaded successfully!")));
                       }
                     } catch (e) {
-                      if (context.mounted) {
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed: $e")));
-                      }
+                      if (context.mounted) { Navigator.pop(context); ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed: $e"))); }
                     }
                   },
                   child: const Text("Upload Item", style: TextStyle(color: Colors.white)),
@@ -636,6 +550,7 @@ class _WardrobePageState extends State<WardrobePage> {
     );
   }
 
+  /// Helper for building standard dropdowns in the upload form
   Widget _buildSimpleDropdown(String label, String value, List<String> items, Function(String?) onChanged) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
