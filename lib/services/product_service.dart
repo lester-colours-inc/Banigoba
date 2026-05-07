@@ -22,6 +22,11 @@ class ProductService {
     await _db.collection('products').add(product);
   }
 
+  /// Delete a product from the main products collection
+  Future<void> deleteProduct(String productId) async {
+    await _db.collection('products').doc(productId).delete();
+  }
+
   /// Upload an image to Supabase storage and return the public URL
   Future<String> uploadToSupabase({
     required File imageFile,

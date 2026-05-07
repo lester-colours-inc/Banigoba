@@ -3,13 +3,21 @@ import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import '../../services/face_detector_service.dart';
-import '../glasses_overlay.dart';
+import '../services/face_detector_service.dart';
+import '../services/ar_try_on_service.dart';
+import '../widgets/ar_overlay.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 
+/// Screen that handles real-time AR try-on using the device camera
 class CameraScreen extends StatefulWidget {
-  const CameraScreen({super.key});
+  final String? imageUrl;
+  final String? category;
+
+  const CameraScreen({
+    super.key,
+    this.imageUrl,
+    this.category,
+  });
 
   @override
   State<CameraScreen> createState() => _CameraScreenState();
@@ -18,31 +26,33 @@ class CameraScreen extends StatefulWidget {
 class _CameraScreenState extends State<CameraScreen> {
   CameraController? _controller;
   final FaceDetectorService _faceDetectorService = FaceDetectorService();
+  final ArTryOnService _arService = ArTryOnService();
+  
   bool _isBusy = false;
   List<Face> _faces = [];
-  ui.Image? _glassesImage;
+  ui.Image? _overlayImage;
+  String _currentCategory = 'accessories';
 
   @override
   void initState() {
     super.initState();
-    _loadAsset('assets/images/glasses5.png');
+    _currentCategory = widget.category ?? 'accessories';
+    _setupAR();
     _initializeCamera();
   }
 
-  Future<void> _loadAsset(String path) async {
-    try {
-      final data = await rootBundle.load(path);
-      final codec = await ui.instantiateImageCodec(data.buffer.asUint8List());
-      final frame = await codec.getNextFrame();
+  /// Loads the try-on image (glasses, shirt, etc.)
+  Future<void> _setupAR() async {
+    final String path = widget.imageUrl ?? 'assets/images/glasses5.png';
+    final image = await _arService.loadImage(path);
+    if (mounted) {
       setState(() {
-        _glassesImage = frame.image;
+        _overlayImage = image;
       });
-      debugPrint("Glasses image loaded successfully");
-    } catch (e) {
-      debugPrint("Error loading glasses image: $e");
     }
   }
 
+  /// Initializes the camera and starts the image stream for face detection
   Future<void> _initializeCamera() async {
     final cameras = await availableCameras();
     if (cameras.isEmpty) return;
@@ -64,6 +74,7 @@ class _CameraScreenState extends State<CameraScreen> {
     try {
       await controller.initialize();
       if (mounted) {
+        // Stream images to the face detector
         controller.startImageStream(_processCameraImage);
         setState(() {});
       }
@@ -72,10 +83,10 @@ class _CameraScreenState extends State<CameraScreen> {
     }
   }
 
+  /// Processes each frame from the camera to detect faces
   void _processCameraImage(CameraImage image) async {
     final controller = _controller;
     if (_isBusy || controller == null || !controller.value.isInitialized) return;
-    if (image.planes.isEmpty) return;
     
     _isBusy = true;
 
@@ -112,16 +123,11 @@ class _CameraScreenState extends State<CameraScreen> {
       );
     }
 
-    final previewSize = controller.value.previewSize;
-    if (previewSize == null) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
+    final previewSize = controller.value.previewSize!;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("AR Glasses Try-on"),
+        title: Text("AR ${_currentCategory[0].toUpperCase()}${_currentCategory.substring(1)} Try-on"),
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
@@ -129,6 +135,7 @@ class _CameraScreenState extends State<CameraScreen> {
       body: Stack(
         fit: StackFit.expand,
         children: [
+          // Camera Preview scaled to cover the screen
           FittedBox(
             fit: BoxFit.cover,
             child: SizedBox(
@@ -137,27 +144,35 @@ class _CameraScreenState extends State<CameraScreen> {
               child: Stack(
                 children: [
                   CameraPreview(controller),
+                  // The AR Overlay layer
                   if (_faces.isNotEmpty)
                     Positioned.fill(
-                      child: GlassesOverlay(
+                      child: ArOverlay(
                         faces: _faces,
                         previewSize: previewSize,
-                        glassesImage: _glassesImage,
+                        overlayImage: _overlayImage,
+                        category: _currentCategory,
                       ),
                     ),
                 ],
               ),
             ),
           ),
+          // Debug info overlay
           Positioned(
-            top: 100,
+            bottom: 50,
             left: 20,
+            right: 20,
             child: Container(
-              padding: const EdgeInsets.all(8),
-              color: Colors.black54,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.black54,
+                borderRadius: BorderRadius.circular(10),
+              ),
               child: Text(
-                "Faces detected: ${_faces.length}\nImage loaded: ${_glassesImage != null}",
-                style: const TextStyle(color: Colors.white),
+                "Detecting: ${_currentCategory}\nFaces: ${_faces.length}\nOverlay: ${_overlayImage != null ? 'Loaded' : 'Loading...'}",
+                style: const TextStyle(color: Colors.white, fontSize: 14),
+                textAlign: TextAlign.center,
               ),
             ),
           ),

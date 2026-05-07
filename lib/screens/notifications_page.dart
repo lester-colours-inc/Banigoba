@@ -4,6 +4,7 @@ import '../services/notification_service.dart';
 import '../services/friend_service.dart';
 import 'profile_page.dart';
 
+/// Screen displaying a list of user notifications, including social and shopping updates
 class NotificationsPage extends StatefulWidget {
   const NotificationsPage({super.key});
 
@@ -39,6 +40,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Header with back button
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -61,8 +63,10 @@ class _NotificationsPageState extends State<NotificationsPage> {
               ],
             ),
             const SizedBox(height: 25),
+            // Category filter tabs (All, Friends, etc.)
             _buildTabs(),
             const SizedBox(height: 25),
+            // The scrollable list of notifications
             Expanded(
               child: _buildNotificationsList(),
             ),
@@ -72,6 +76,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
     );
   }
 
+  /// Helper for building AppBar icons with optional notification dots
   Widget _buildAppBarAction(IconData icon, VoidCallback onTap, {bool hasNotification = false}) {
     return Stack(
       children: [
@@ -97,6 +102,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
     );
   }
 
+  /// Horizontal scrolling category selector
   Widget _buildTabs() {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -114,6 +120,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
     );
   }
 
+  /// Individual tab button widget
   Widget _tabButton(String title, int index) {
     bool isSelected = _selectedTabIndex == index;
     return GestureDetector(
@@ -140,6 +147,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
     );
   }
 
+  /// Real-time stream of notifications from Firestore
   Widget _buildNotificationsList() {
     return StreamBuilder<QuerySnapshot>(
       stream: notificationService.getNotifications(),
@@ -168,6 +176,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // User avatar with unread dot
                   Stack(
                     children: [
                       Container(
@@ -201,6 +210,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                     ],
                   ),
                   const SizedBox(width: 15),
+                  // Notification text, timestamp, and action buttons
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -220,6 +230,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                           _formatTimestamp(data['timestamp'] as Timestamp?),
                           style: TextStyle(color: Colors.grey.shade400, fontSize: 13),
                         ),
+                        // Action buttons for specific notification types (e.g., follow requests)
                         if (type == 'follow_request' && !isRead)
                           Padding(
                             padding: const EdgeInsets.only(top: 12.0),
@@ -263,12 +274,14 @@ class _NotificationsPageState extends State<NotificationsPage> {
     );
   }
 
+  /// Maps internal notification types to user-friendly messages
   String _getNotificationText(String type, String? defaultBody) {
-    if (type == 'follow_request') return 'accepted your follow request.'; // Matches screenshot text
+    if (type == 'follow_request') return 'accepted your follow request.';
     if (type == 'follow_accepted') return 'started following you.';
     return defaultBody ?? '';
   }
 
+  /// Small action button helper for notifications (Accept/Decline)
   Widget _buildActionMiniButton(String label, Color color, VoidCallback onTap, {bool isOutline = false}) {
     return GestureDetector(
       onTap: onTap,
@@ -291,6 +304,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
     );
   }
 
+  /// Formats the Firestore timestamp into a relative string (e.g., 2m, 5h, 1d)
   String _formatTimestamp(Timestamp? timestamp) {
     if (timestamp == null) return "now";
     final dt = timestamp.toDate();
@@ -301,6 +315,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
     return "${diff.inDays}d";
   }
 
+  /// Logic for navigating when a notification is tapped
   void _handleNotificationTap(BuildContext context, String type, Map<String, dynamic>? extraData) {
     if (extraData == null) return;
     final userId = extraData['fromId'] ?? extraData['userId'];

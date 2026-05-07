@@ -9,6 +9,7 @@ import '../screens/search_page.dart';
 import '../screens/profile_page.dart';
 import '../screens/camera_screen.dart';
 import '../screens/login_screen.dart';
+import '../screens/admin_products_page.dart';
 
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
@@ -33,27 +34,38 @@ class _AuthGateState extends State<AuthGate> {
 
         final user = snapshot.data;
 
-        if (user != null && user != _lastUser) {
-          _lastUser = user;
-
-          // SAFE place to call Firestore
-          FirebaseFirestore.instance
-              .collection('users')
-              .doc(user.uid)
-              .set({
-            'uid': user.uid,
-            'email': user.email,
-            'displayName': user.displayName ??
-                (user.email != null
-                    ? user.email!.split('@')[0]
-                    : 'User'),
-            'photoURL': user.photoURL,
-            'lastSeen': FieldValue.serverTimestamp(),
-          }, SetOptions(merge: true));
-        }
-
         if (user != null) {
-          return const MainScreen();
+          if (user != _lastUser) {
+            _lastUser = user;
+            // Update user profile in background
+            FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+              'uid': user.uid,
+              'email': user.email,
+              'displayName': user.displayName ?? (user.email?.split('@')[0] ?? 'User'),
+              'lastSeen': FieldValue.serverTimestamp(),
+            }, SetOptions(merge: true));
+          }
+
+          // Check role to decide where to land
+          return StreamBuilder<DocumentSnapshot>(
+            stream: FirebaseFirestore.instance.collection('users').doc(user.uid).snapshots(),
+            builder: (context, userSnapshot) {
+              if (userSnapshot.connectionState == ConnectionState.waiting) {
+                return const Scaffold(body: Center(child: CircularProgressIndicator()));
+              }
+
+              if (userSnapshot.hasData && userSnapshot.data!.exists) {
+                final userData = userSnapshot.data!.data() as Map<String, dynamic>;
+                final bool isAdmin = userData['role'] == 'admin' || userData['isAdmin'] == true;
+
+                if (isAdmin) {
+                  return const AdminProductsPage();
+                }
+              }
+
+              return const MainScreen();
+            },
+          );
         }
 
         return const LoginScreen();

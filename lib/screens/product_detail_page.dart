@@ -137,7 +137,12 @@ class ProductDetailPage extends StatelessWidget {
                       onPressed: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (context) => const CameraScreen()),
+                          MaterialPageRoute(
+                            builder: (context) => CameraScreen(
+                              imageUrl: imageUrl,
+                              category: category,
+                            ),
+                          ),
                         );
                       },
                       style: ElevatedButton.styleFrom(
