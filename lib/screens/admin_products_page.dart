@@ -26,7 +26,7 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
         backgroundColor: primaryColor,
         foregroundColor: Colors.white,
         actions: [
-          // Standard logout for admin to exit the panel
+          // Logout for admin to exit the panel
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () => FirebaseAuth.instance.signOut(),
@@ -106,17 +106,15 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
     );
   }
 
-  /// Dialog to add a new product to the catalog.
-  /// Uses the same form structure and image upload logic as the user wardrobe for consistency.
+  /// Dialog to add a new product to the catalog with multi-colour selection
   void _showAddProductDialog() {
     final nameController = TextEditingController();
     String category = 'tops';
     String subcategory = 'none';
-    String colour = 'black';
+    List<String> selectedColours = [];
     String gender = 'unisex';
     File? selectedImage;
 
-    // Define category tree for the dropdowns
     final Map<String, List<String>> categoryData = {
       'accessories': ['none', 'caps', 'glasses', 'hats'],
       'bottoms': ['none', 'jeans', 'joggers', 'leggings', 'shorts', 'skirts'],
@@ -126,7 +124,7 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
       'other': ['none'],
     };
 
-    final List<String> colors = ['black', 'white', 'grey', 'blue', 'red', 'green', 'yellow', 'orange'];
+    final List<String> availableColors = ['black', 'white', 'grey', 'blue', 'red', 'green', 'yellow', 'orange', 'pink', 'purple', 'brown', 'beige'];
     final List<String> genders = ['male', 'female', 'unisex'];
 
     showModalBottomSheet(
@@ -142,8 +140,9 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text("Add New Catalog Product", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              const Center(child: Text("Add New Catalog Product", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold))),
               const SizedBox(height: 20),
               // Image Picker Area
               GestureDetector(
@@ -156,13 +155,13 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                   decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.grey.shade300)),
                   child: selectedImage != null
                       ? ClipRRect(borderRadius: BorderRadius.circular(15), child: Image.file(selectedImage!, fit: BoxFit.cover))
-                      : const Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.add_a_photo, size: 40, color: Colors.grey), SizedBox(height: 10), Text("Select Product Image", style: TextStyle(color: Colors.grey))]),
+                      : const Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.add_a_photo, size: 40, color: Colors.grey), SizedBox(height: 10), Text("Select Image", style: TextStyle(color: Colors.grey))]),
                 ),
               ),
               const SizedBox(height: 15),
               // Form Fields
               TextField(controller: nameController, decoration: const InputDecoration(labelText: "Product Name", border: OutlineInputBorder())),
-              const SizedBox(height: 10),
+              const SizedBox(height: 15),
               Row(children: [
                 Expanded(child: _buildSimpleDropdown("Category", category, categoryData.keys.toList(), (val) {
                   setModalState(() { category = val!; subcategory = categoryData[category]![0]; });
@@ -170,21 +169,44 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                 const SizedBox(width: 10),
                 Expanded(child: _buildSimpleDropdown("Subcategory", subcategory, categoryData[category]!, (val) => setModalState(() => subcategory = val!))),
               ]),
-              const SizedBox(height: 10),
-              Row(children: [
-                Expanded(child: _buildSimpleDropdown("Colour", colour, colors, (val) => setModalState(() => colour = val!))),
-                const SizedBox(width: 10),
-                Expanded(child: _buildSimpleDropdown("Gender", gender, genders, (val) => setModalState(() => gender = val!))),
-              ]),
-              const SizedBox(height: 20),
+              const SizedBox(height: 15),
+              const Text("Select Colours", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              // Multi-colour selection using Chips
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: availableColors.map((color) {
+                  final isSelected = selectedColours.contains(color);
+                  return FilterChip(
+                    label: Text(color[0].toUpperCase() + color.substring(1)),
+                    selected: isSelected,
+                    onSelected: (bool selected) {
+                      setModalState(() {
+                        if (selected) selectedColours.add(color);
+                        else selectedColours.remove(color);
+                      });
+                    },
+                    selectedColor: primaryColor.withValues(alpha: 0.2),
+                    checkmarkColor: primaryColor,
+                    labelStyle: TextStyle(
+                      color: isSelected ? primaryColor : Colors.black87,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 15),
+              _buildSimpleDropdown("Gender", gender, genders, (val) => setModalState(() => gender = val!)),
+              const SizedBox(height: 25),
               // Submit Action
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: primaryColor, padding: const EdgeInsets.symmetric(vertical: 15)),
+                  style: ElevatedButton.styleFrom(backgroundColor: primaryColor, padding: const EdgeInsets.symmetric(vertical: 15), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                   onPressed: () async {
-                    if (selectedImage == null || nameController.text.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please provide a name and image")));
+                    if (selectedImage == null || nameController.text.isEmpty || selectedColours.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Missing info (ensure image, name, and at least one colour)")));
                       return;
                     }
                     showDialog(context: context, barrierDismissible: false, builder: (context) => const Center(child: CircularProgressIndicator()));
@@ -198,7 +220,7 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                         'imageUrl': imageUrl,
                         'category': category,
                         'subcategory': subcategory == 'none' ? null : subcategory,
-                        'colours': [colour],
+                        'colours': selectedColours,
                         'gender': gender,
                         'createdAt': FieldValue.serverTimestamp(),
                       });
@@ -215,10 +237,10 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                       }
                     }
                   },
-                  child: const Text("Add Product to Catalog", style: TextStyle(color: Colors.white)),
+                  child: const Text("Add Product to Catalog", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 30),
             ],
           ),
         ),
@@ -234,7 +256,7 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
         Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
         const SizedBox(height: 4),
         DropdownButtonFormField<String>(
-          initialValue: value,
+          value: value,
           items: items.map((e) => DropdownMenuItem(value: e, child: Text(e[0].toUpperCase() + e.substring(1)))).toList(),
           onChanged: onChanged,
           decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 10), border: OutlineInputBorder()),
