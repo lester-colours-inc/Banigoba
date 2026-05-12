@@ -1,16 +1,59 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:io';
 import 'notification_service.dart';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 /// Service handling all product-related operations (Firestore, Storage, Supabase)
 class ProductService {
   final _db = FirebaseFirestore.instance;
   final _storage = FirebaseStorage.instance;
-  final _supabase = Supabase.instance.client;
   final _notificationService = NotificationService();
+
+  static const String _bgRemoverUrl = 'https://banigoba-image-background-remover.onrender.com/process';
+
+  /// Process image with background remover API
+  /// Returns a map with 'raw_url' and 'processed_url'
+  Future<Map<String, String>> removeBackground(File imageFile, {String? customFilename}) async {
+    final request = http.MultipartRequest('POST', Uri.parse(_bgRemoverUrl));
+    
+    // Sanitize customFilename and ensure it has an extension
+    String filename = imageFile.path.split('/').last;
+    if (customFilename != null && customFilename.trim().isNotEmpty) {
+      filename = "${customFilename.trim().replaceAll(RegExp(r'[^\w\s-]'), '').replaceAll(' ', '_')}.jpg";
+    }
+
+    request.files.add(await http.MultipartFile.fromPath(
+      'file', 
+      imageFile.path,
+      filename: filename,
+    ));
+
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+
+    if (response.statusCode == 200) {
+      debugPrint("DEBUG: BG Remover API Response Body: ${response.body}");
+      final Map<String, dynamic> data = json.decode(response.body);
+      
+      // Try multiple possible key names
+      final String rawUrl = data['rawUrl'] ?? data['raw_url'] ?? data['rawImageUrl'] ?? data['raw'] ?? data['url_raw'] ?? '';
+      final String processedUrl = data['processedUrl'] ?? data['processed_url'] ?? data['processedImageUrl'] ?? data['processed'] ?? data['url_processed'] ?? '';
+
+      // Debug API returned URL values
+      debugPrint("DEBUG: BG Remover API Raw URL: $rawUrl");
+      debugPrint("DEBUG: BG Remover API Processed URL: $processedUrl");
+
+      return {
+        'raw_url': rawUrl,
+        'processed_url': processedUrl,
+      };
+    } else {
+      throw Exception('Failed to process image: ${response.statusCode} - ${response.body}');
+    }
+  }
 
   /// Get stream of all products in the main collection
   Stream<QuerySnapshot> getProducts() {
@@ -27,24 +70,6 @@ class ProductService {
     await _db.collection('products').doc(productId).delete();
   }
 
-  /// Upload an image to Supabase storage and return the public URL
-  Future<String> uploadToSupabase({
-    required File imageFile,
-    required String category,
-    required String subcategory,
-  }) async {
-    final String fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
-    final String path = '$category/$subcategory/$fileName';
-
-    await _supabase.storage.from('images').upload(
-          path,
-          imageFile,
-          fileOptions: const FileOptions(cacheControl: '3600', upsert: false),
-        );
-
-    return _supabase.storage.from('images').getPublicUrl(path);
-  }
-
   /// Upload a user product image to Firebase Storage
   Future<String> uploadProductImage(String userId, File image) async {
     final ref = _storage.ref().child('user_products').child(userId).child('${DateTime.now().millisecondsSinceEpoch}.jpg');
@@ -58,6 +83,7 @@ class ProductService {
     required String name,
     required String imageUrl,
     required String visibility,
+    String? rawImageUrl,
     String? category,
     String? subcategory,
     String? colour,
@@ -76,6 +102,7 @@ class ProductService {
       'userId': userId,
       'name': name,
       'imageUrl': imageUrl,
+      'rawImageUrl': rawImageUrl,
       'category': category,
       'subcategory': subcategory,
       'colours': finalColours,

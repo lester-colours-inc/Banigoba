@@ -31,8 +31,4 @@ class ArTryOnService {
       return null;
     }
   }
-
-  /// Note: Real-world background removal would typically happen via a 
-  /// cloud API (like remove.bg) or a specialized ML model.
-  /// For this app, we assume product images are provided with transparency (PNG).
 }

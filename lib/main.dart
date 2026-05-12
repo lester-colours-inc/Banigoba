@@ -8,7 +8,6 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'core/app_routes.dart';
 import 'core/theme_provider.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 final themeProvider = ThemeProvider();
 
@@ -17,11 +16,6 @@ void main() async {
 
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
-  );
-
-  await Supabase.initialize(
-      url: 'https://tiivdhkkyiqyeaebxkls.supabase.co',
-      anonKey: 'sb_publishable_5CeYGsPwJWqt2klc-k-uqw_h5uLId5Z',
   );
 
   runApp(const MyApp());

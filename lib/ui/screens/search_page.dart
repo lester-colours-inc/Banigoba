@@ -235,7 +235,8 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
             final doc = products[index];
             final product = Map<String, dynamic>.from(doc.data() as Map<String, dynamic>);
             product['id'] = doc.id;
-            final imageUrl = product['imageURL'] ?? product['imageUrl'] as String?;
+            final imageUrl = product['imageUrl'] ?? product['imageURL'] as String?;
+            final rawImageUrl = product['rawImageUrl'] ?? imageUrl;
             
             return GestureDetector(
               onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ProductDetailPage(productData: product))),
@@ -248,8 +249,8 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                     Container(
                       width: 80, height: 80,
                       decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(15)),
-                      child: imageUrl != null && imageUrl.startsWith('http')
-                        ? ClipRRect(borderRadius: BorderRadius.circular(15), child: Image.network(imageUrl, fit: BoxFit.cover))
+                      child: rawImageUrl != null && rawImageUrl.startsWith('http')
+                        ? ClipRRect(borderRadius: BorderRadius.circular(15), child: Image.network(rawImageUrl, fit: BoxFit.cover))
                         : const Icon(Icons.image, color: Colors.grey),
                     ),
                     const SizedBox(width: 20),

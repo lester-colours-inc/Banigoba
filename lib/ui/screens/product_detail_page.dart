@@ -17,6 +17,7 @@ class ProductDetailPage extends StatelessWidget {
     
     // Extract display data with fallbacks
     final imageUrl = productData['imageUrl'] ?? productData['imageURL'] ?? '';
+    final rawImageUrl = productData['rawImageUrl'] ?? imageUrl;
     final name = productData['name'] ?? 'No Name';
     final String category = productData['category'] ?? 'N/A';
     final String subcategory = productData['subcategory'] ?? 'N/A';
@@ -87,8 +88,8 @@ class ProductDetailPage extends StatelessWidget {
             // Product Image
             AspectRatio(
               aspectRatio: 1,
-              child: imageUrl.isNotEmpty
-                  ? Image.network(imageUrl, fit: BoxFit.cover, width: double.infinity)
+              child: rawImageUrl.isNotEmpty
+                  ? Image.network(rawImageUrl, fit: BoxFit.cover, width: double.infinity)
                   : Container(
                       color: Colors.grey.shade200,
                       child: const Icon(Icons.image, size: 100, color: Colors.grey),

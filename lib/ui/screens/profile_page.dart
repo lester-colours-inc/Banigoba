@@ -156,12 +156,13 @@ class ProfilePage extends StatelessWidget {
                 final data = Map<String, dynamic>.from(doc.data() as Map<String, dynamic>);
                 data['id'] = doc.id;
                 final imageUrl = data['imageUrl'] ?? data['imageURL'] ?? '';
+                final rawImageUrl = data['rawImageUrl'] ?? imageUrl;
                 return GestureDetector(
                   onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ProductDetailPage(productData: data))),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(12),
-                    child: imageUrl.isNotEmpty
-                        ? Image.network(imageUrl, fit: BoxFit.cover)
+                    child: rawImageUrl.isNotEmpty
+                        ? Image.network(rawImageUrl, fit: BoxFit.cover)
                         : Container(color: Colors.grey.shade200, child: const Icon(Icons.image)),
                   ),
                 );

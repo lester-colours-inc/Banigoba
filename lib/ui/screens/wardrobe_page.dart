@@ -360,6 +360,7 @@ class _WardrobePageState extends State<WardrobePage> {
   /// Build a single product card in the grid
   Widget _buildWardrobeCard(Map<String, dynamic> data) {
     final imageUrl = data['imageUrl'] ?? data['imageURL'] ?? '';
+    final rawImageUrl = data['rawImageUrl'] ?? imageUrl;
     final posterId = data['userId'];
 
     return GestureDetector(
@@ -383,8 +384,8 @@ class _WardrobePageState extends State<WardrobePage> {
             Expanded(
               child: ClipRRect(
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                child: imageUrl.isNotEmpty
-                    ? Image.network(imageUrl, fit: BoxFit.cover, width: double.infinity)
+                child: rawImageUrl.isNotEmpty
+                    ? Image.network(rawImageUrl, fit: BoxFit.cover, width: double.infinity)
                     : Container(color: Colors.grey.shade100, child: const Icon(Icons.image, size: 40, color: Colors.grey)),
               ),
             ),
@@ -550,12 +551,27 @@ class _WardrobePageState extends State<WardrobePage> {
                     }
                     showDialog(context: context, barrierDismissible: false, builder: (context) => const Center(child: CircularProgressIndicator()));
                     try {
-                      // Upload image to Supabase storage
-                      final imageUrl = await _productService.uploadToSupabase(imageFile: selectedImage!, category: category, subcategory: subcategory);
+                      // Process image with background remover API using item name as filename
+                      final urls = await _productService.removeBackground(
+                        selectedImage!,
+                        customFilename: nameController.text,
+                      );
+                      final imageUrl = urls['processed_url'] ?? '';
+                      final rawImageUrl = urls['raw_url'] ?? '';
+
+                      if (imageUrl.isEmpty) throw Exception('API returned empty processed image URL');
+
                       // Save record to Firestore
                       await _productService.uploadUserProduct(
-                        userId: _currentUserId, name: nameController.text, imageUrl: imageUrl, category: category,
-                        subcategory: subcategory == 'none' ? null : subcategory, colours: selectedColours, gender: gender, visibility: visibility,
+                        userId: _currentUserId, 
+                        name: nameController.text, 
+                        imageUrl: imageUrl, 
+                        rawImageUrl: rawImageUrl,
+                        category: category,
+                        subcategory: subcategory == 'none' ? null : subcategory, 
+                        colours: selectedColours, 
+                        gender: gender, 
+                        visibility: visibility,
                       );
                       if (context.mounted) {
                         Navigator.pop(context); Navigator.pop(context);

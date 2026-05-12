@@ -55,12 +55,13 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
               final data = doc.data() as Map<String, dynamic>;
               final name = data['name'] ?? 'No Name';
               final imageUrl = data['imageUrl'] ?? data['imageURL'] ?? '';
+              final rawImageUrl = data['rawImageUrl'] ?? imageUrl;
 
               return ListTile(
                 leading: ClipRRect(
                   borderRadius: BorderRadius.circular(8),
-                  child: imageUrl.isNotEmpty
-                      ? Image.network(imageUrl, width: 50, height: 50, fit: BoxFit.cover)
+                  child: rawImageUrl.isNotEmpty
+                      ? Image.network(rawImageUrl, width: 50, height: 50, fit: BoxFit.cover)
                       : Container(width: 50, height: 50, color: Colors.grey.shade200, child: const Icon(Icons.image)),
                 ),
                 title: Text(name),
@@ -211,13 +212,21 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                     }
                     showDialog(context: context, barrierDismissible: false, builder: (context) => const Center(child: CircularProgressIndicator()));
                     try {
-                      // 1. Upload to Supabase
-                      final imageUrl = await _productService.uploadToSupabase(imageFile: selectedImage!, category: category, subcategory: subcategory);
+                      // 1. Process image with background remover API using product name as filename
+                      final urls = await _productService.removeBackground(
+                        selectedImage!, 
+                        customFilename: nameController.text,
+                      );
+                      final imageUrl = urls['processed_url'] ?? '';
+                      final rawImageUrl = urls['raw_url'] ?? '';
                       
+                      if (imageUrl.isEmpty) throw Exception('API returned empty processed image URL');
+
                       // 2. Save to global 'products' collection
                       await _productService.addProduct({
                         'name': nameController.text,
                         'imageUrl': imageUrl,
+                        'rawImageUrl': rawImageUrl,
                         'category': category,
                         'subcategory': subcategory == 'none' ? null : subcategory,
                         'colours': selectedColours,

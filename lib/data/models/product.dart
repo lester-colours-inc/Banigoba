@@ -4,6 +4,7 @@ class Product {
   final String id;
   final String name;
   final String imageUrl;
+  final String? rawImageUrl;
   final String category;
   final String? subcategory;
   final List<String> colours;
@@ -14,6 +15,7 @@ class Product {
     required this.id,
     required this.name,
     required this.imageUrl,
+    this.rawImageUrl,
     required this.category,
     this.subcategory,
     required this.colours,
@@ -26,6 +28,7 @@ class Product {
     
     // Handle different naming conventions in database
     String img = data['imageUrl'] ?? data['imageURL'] ?? '';
+    String? rawImg = data['rawImageUrl'];
     
     // Handle colours being potentially a single string or a list
     List<String> colList = [];
@@ -39,6 +42,7 @@ class Product {
       id: doc.id,
       name: data['name'] ?? '',
       imageUrl: img,
+      rawImageUrl: rawImg,
       category: data['category'] ?? '',
       subcategory: data['subcategory'],
       colours: colList,
@@ -51,6 +55,7 @@ class Product {
     return {
       'name': name,
       'imageUrl': imageUrl,
+      'rawImageUrl': rawImageUrl,
       'category': category,
       'subcategory': subcategory,
       'colours': colours,
