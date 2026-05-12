@@ -6,8 +6,8 @@ import 'package:firebase_core/firebase_core.dart';
 //import 'package:simple_app/screens/main_screen.dart';
 //import 'package:simple_app/screens/login_screen.dart';
 import 'firebase_options.dart';
-import 'navigation/app_routes.dart';
-import 'theme_provider.dart';
+import 'core/app_routes.dart';
+import 'core/theme_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 final themeProvider = ThemeProvider();
