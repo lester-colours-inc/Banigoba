@@ -44,21 +44,30 @@ class _HomePageState extends State<HomePage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  'My Fashion Style',
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
+                const Expanded(
+                  child: Text(
+                    'My Fashion Style',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                const SizedBox(width: 10),
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: Colors.grey.shade100,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.arrow_back_ios_new, size: 16, color: Colors.black),
+                  child: IconButton(
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    icon: const Icon(Icons.arrow_back_ios_new, size: 16, color: Colors.black),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
                 ),
               ],
             ),
@@ -124,14 +133,17 @@ class _HomePageState extends State<HomePage> {
 
   /// Navigation tabs for Makeover/Community/Events
   Widget _buildTabs() {
-    return Row(
-      children: [
-        _tabButton("Makeover", 0),
-        const SizedBox(width: 15),
-        _tabButton("Community", 1),
-        const SizedBox(width: 15),
-        _tabButton("Events", 2),
-      ],
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          _tabButton("Makeover", 0),
+          const SizedBox(width: 15),
+          _tabButton("Community", 1),
+          const SizedBox(width: 15),
+          _tabButton("Events", 2),
+        ],
+      ),
     );
   }
 

@@ -41,13 +41,17 @@ class ProductDetailPage extends StatelessWidget {
 
     final gender = productData['gender'] ?? 'N/A';
     final visibility = productData['visibility'] ?? 'private';
-    final posterId = productData['userId'];
     
     // Identify the product ID correctly (original vs local copy)
     final String? originalProductId = productData['originalProductId'];
+    final String? originalPosterId = productData['originalPosterId'];
+    final String? uploaderId = productData['userId'];
+    
+    // Only attribute to a user if it was an original upload or saved from a user
+    final String? posterId = originalProductId != null ? originalPosterId : uploaderId;
     final productId = originalProductId ?? productData['id'];
 
-    final bool isMe = posterId == currentUserId;
+    final bool isMe = uploaderId == currentUserId;
     // Show favourite button if it's not our own upload, or if it's a saved copy
     final bool isFavouriteInWardrobe = isMe && originalProductId != null;
     final bool showFavouriteButton = !isMe || isFavouriteInWardrobe;
@@ -89,7 +93,7 @@ class ProductDetailPage extends StatelessWidget {
             AspectRatio(
               aspectRatio: 1,
               child: rawImageUrl.isNotEmpty
-                  ? Image.network(rawImageUrl, fit: BoxFit.cover, width: double.infinity)
+                  ? Image.network(rawImageUrl, fit: BoxFit.contain, width: double.infinity)
                   : Container(
                       color: Colors.grey.shade200,
                       child: const Icon(Icons.image, size: 100, color: Colors.grey),
@@ -100,20 +104,31 @@ class ProductDetailPage extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Poster Name
+                  // Poster Name / Uploaded By
                   if (posterId != null)
                     StreamBuilder<DocumentSnapshot>(
                       stream: FirebaseFirestore.instance.collection('users').doc(posterId).snapshots(),
                       builder: (context, snapshot) {
                         if (!snapshot.hasData || !snapshot.data!.exists) return const SizedBox.shrink();
                         final userData = snapshot.data!.data() as Map<String, dynamic>;
+                        
+                        // Check if user is admin
+                        final bool isAdmin = userData['role'] == 'admin' || userData['isAdmin'] == true;
+                        if (isAdmin) return const SizedBox.shrink();
+
                         final posterName = userData['displayName'] ?? 'User';
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 10.0),
                           child: Row(
                             children: [
-                              const Text("Posted by: ", style: TextStyle(color: Colors.grey)),
-                              Text(posterName, style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0D0140))),
+                              const Text("Uploaded by: ", style: TextStyle(color: Colors.grey)),
+                              Expanded(
+                                child: Text(
+                                  posterName,
+                                  style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0D0140)),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
                             ],
                           ),
                         );
@@ -234,14 +249,17 @@ class ProductDetailPage extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 5.0),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             "$label: ",
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
           ),
-          Text(
-            displayValue,
-            style: const TextStyle(fontSize: 16),
+          Expanded(
+            child: Text(
+              displayValue,
+              style: const TextStyle(fontSize: 16),
+            ),
           ),
         ],
       ),

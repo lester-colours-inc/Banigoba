@@ -167,8 +167,10 @@ class ProductService {
       final data = {
         'userId': userId,
         'originalProductId': productId,
+        'originalPosterId': productData['userId'],
         'name': productData['name'] ?? 'No Name',
-        'imageUrl': productData['imageURL'] ?? productData['imageUrl'] ?? '',
+        'imageUrl': productData['imageUrl'] ?? productData['imageURL'] ?? '',
+        'rawImageUrl': productData['rawImageUrl'] ?? productData['imageUrl'] ?? productData['imageURL'] ?? '',
         'category': productData['category'] ?? 'other',
         'subcategory': productData['subcategory'] ?? '',
         'colours': finalColours,

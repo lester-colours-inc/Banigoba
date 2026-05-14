@@ -57,21 +57,28 @@ class _WardrobePageState extends State<WardrobePage> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      'My Daily Dress Up',
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
+                    const Expanded(
+                      child: Text(
+                        'My Daily Dress Up',
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
-                        shape: BoxShape.circle,
+                    const SizedBox(width: 10),
+                    GestureDetector(
+                      onTap: () => Navigator.of(context).pop(),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.arrow_back_ios_new, size: 16, color: Colors.black),
                       ),
-                      child: const Icon(Icons.arrow_back_ios_new, size: 16, color: Colors.black),
                     ),
                   ],
                 ),
@@ -361,7 +368,13 @@ class _WardrobePageState extends State<WardrobePage> {
   Widget _buildWardrobeCard(Map<String, dynamic> data) {
     final imageUrl = data['imageUrl'] ?? data['imageURL'] ?? '';
     final rawImageUrl = data['rawImageUrl'] ?? imageUrl;
-    final posterId = data['userId'];
+    
+    final String? originalProductId = data['originalProductId'];
+    final String? originalPosterId = data['originalPosterId'];
+    final String? uploaderId = data['userId'];
+    
+    // Only attribute to a user if it was an original upload or saved from a user
+    final String? posterId = originalProductId != null ? originalPosterId : uploaderId;
 
     return GestureDetector(
       onTap: () {
@@ -385,7 +398,7 @@ class _WardrobePageState extends State<WardrobePage> {
               child: ClipRRect(
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
                 child: rawImageUrl.isNotEmpty
-                    ? Image.network(rawImageUrl, fit: BoxFit.cover, width: double.infinity)
+                    ? Image.network(rawImageUrl, fit: BoxFit.contain, width: double.infinity)
                     : Container(color: Colors.grey.shade100, child: const Icon(Icons.image, size: 40, color: Colors.grey)),
               ),
             ),
@@ -400,45 +413,57 @@ class _WardrobePageState extends State<WardrobePage> {
                     maxLines: 1, overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 2),
-                  // Display original poster name or item colors
-                  if (posterId != null && posterId != _currentUserId)
+                  // Display original poster name if not admin
+                  if (posterId != null)
                     StreamBuilder<DocumentSnapshot>(
                       stream: FirebaseFirestore.instance.collection('users').doc(posterId).snapshots(),
                       builder: (context, snapshot) {
-                        final posterName = (snapshot.data?.data() as Map<String, dynamic>?)?['displayName'] ?? 'User';
-                        return Text('by $posterName',
+                        if (!snapshot.hasData || !snapshot.data!.exists) return const SizedBox.shrink();
+                        final userData = snapshot.data!.data() as Map<String, dynamic>;
+                        
+                        // Check if user is admin
+                        final bool isAdmin = userData['role'] == 'admin' || userData['isAdmin'] == true;
+                        if (isAdmin) {
+                          // For admin items, show colors or nothing extra
+                          return _buildColorSubtitle(data);
+                        }
+
+                        final posterName = userData['displayName'] ?? 'User';
+                        return Text(
+                          posterId == _currentUserId ? 'by you' : 'by $posterName',
                           style: TextStyle(color: primaryColor.withValues(alpha: 0.6), fontSize: 11, fontWeight: FontWeight.w600),
                           maxLines: 1, overflow: TextOverflow.ellipsis,
                         );
                       },
                     )
                   else
-                    Builder(
-                      builder: (context) {
-                        final dynamic rawColours = data['colours'] ?? data['colour'];
-                        List<dynamic> coloursList = [];
-                        if (rawColours is List) coloursList = rawColours;
-                        else if (rawColours != null && rawColours.toString().isNotEmpty) coloursList = [rawColours];
-
-                        String colourText = 'Various';
-                        if (coloursList.isNotEmpty) {
-                          final first = coloursList[0].toString().trim();
-                          if (first.isNotEmpty) {
-                            colourText = first[0].toUpperCase() + first.substring(1).toLowerCase();
-                            if (coloursList.length > 1) colourText += ' +${coloursList.length - 1}';
-                          }
-                        }
-                        return Text(colourText, style: TextStyle(color: Colors.grey.shade400, fontSize: 11),
-                          maxLines: 1, overflow: TextOverflow.ellipsis,
-                        );
-                      }
-                    ),
+                    _buildColorSubtitle(data),
                 ],
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  /// Helper to build the color subtitle for a product card
+  Widget _buildColorSubtitle(Map<String, dynamic> data) {
+    final dynamic rawColours = data['colours'] ?? data['colour'];
+    List<dynamic> coloursList = [];
+    if (rawColours is List) coloursList = rawColours;
+    else if (rawColours != null && rawColours.toString().isNotEmpty) coloursList = [rawColours];
+
+    String colourText = 'Various';
+    if (coloursList.isNotEmpty) {
+      final first = coloursList[0].toString().trim();
+      if (first.isNotEmpty) {
+        colourText = first[0].toUpperCase() + first.substring(1).toLowerCase();
+        if (coloursList.length > 1) colourText += ' +${coloursList.length - 1}';
+      }
+    }
+    return Text(colourText, style: TextStyle(color: Colors.grey.shade400, fontSize: 11),
+      maxLines: 1, overflow: TextOverflow.ellipsis,
     );
   }
 
@@ -491,7 +516,7 @@ class _WardrobePageState extends State<WardrobePage> {
                   height: 120, width: double.infinity,
                   decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.grey.shade300)),
                   child: selectedImage != null
-                      ? ClipRRect(borderRadius: BorderRadius.circular(15), child: Image.file(selectedImage!, fit: BoxFit.cover))
+                      ? ClipRRect(borderRadius: BorderRadius.circular(15), child: Image.file(selectedImage!, fit: BoxFit.contain))
                       : const Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.add_a_photo, size: 40, color: Colors.grey), SizedBox(height: 10), Text("Select Image", style: TextStyle(color: Colors.grey))]),
                 ),
               ),

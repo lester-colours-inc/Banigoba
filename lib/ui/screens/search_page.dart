@@ -86,11 +86,21 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Search', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.black)),
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(color: Colors.grey.shade100, shape: BoxShape.circle),
-                      child: const Icon(Icons.arrow_back_ios_new, size: 16, color: Colors.black),
+                    const Expanded(
+                      child: Text(
+                        'Search',
+                        style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.black),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    GestureDetector(
+                      onTap: () => Navigator.of(context).pop(),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(color: Colors.grey.shade100, shape: BoxShape.circle),
+                        child: const Icon(Icons.arrow_back_ios_new, size: 16, color: Colors.black),
+                      ),
                     ),
                   ],
                 ),
@@ -162,14 +172,17 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
 
   /// Navigation tabs for Community/Events/News
   Widget _buildTabs() {
-    return Row(
-      children: [
-        _tabButton("Community", 0),
-        const SizedBox(width: 15),
-        _tabButton("Events", 1),
-        const SizedBox(width: 15),
-        _tabButton("Trending News", 2),
-      ],
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          _tabButton("Community", 0),
+          const SizedBox(width: 15),
+          _tabButton("Events", 1),
+          const SizedBox(width: 15),
+          _tabButton("Trending News", 2),
+        ],
+      ),
     );
   }
 
@@ -250,7 +263,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                       width: 80, height: 80,
                       decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(15)),
                       child: rawImageUrl != null && rawImageUrl.startsWith('http')
-                        ? ClipRRect(borderRadius: BorderRadius.circular(15), child: Image.network(rawImageUrl, fit: BoxFit.cover))
+                        ? ClipRRect(borderRadius: BorderRadius.circular(15), child: Image.network(rawImageUrl, fit: BoxFit.contain))
                         : const Icon(Icons.image, color: Colors.grey),
                     ),
                     const SizedBox(width: 20),

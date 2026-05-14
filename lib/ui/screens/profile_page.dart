@@ -162,7 +162,7 @@ class ProfilePage extends StatelessWidget {
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(12),
                     child: rawImageUrl.isNotEmpty
-                        ? Image.network(rawImageUrl, fit: BoxFit.cover)
+                        ? Image.network(rawImageUrl, fit: BoxFit.contain)
                         : Container(color: Colors.grey.shade200, child: const Icon(Icons.image)),
                   ),
                 );
