@@ -159,23 +159,23 @@ class _CameraScreenState extends State<CameraScreen> {
             ),
           ),
           // Debug info overlay
-          Positioned(
-            bottom: 50,
-            left: 20,
-            right: 20,
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.black54,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                "Detecting: $_currentCategory\nFaces: ${_faces.length}\nOverlay: ${_overlayImage != null ? 'Loaded' : 'Loading...'}",
-                style: const TextStyle(color: Colors.white, fontSize: 14),
-                textAlign: TextAlign.center,
-              ),
-            ),
-          ),
+          // Positioned(
+          //   bottom: 50,
+          //   left: 20,
+          //   right: 20,
+          //   child: Container(
+          //     padding: const EdgeInsets.all(12),
+          //     decoration: BoxDecoration(
+          //       color: Colors.black54,
+          //       borderRadius: BorderRadius.circular(10),
+          //     ),
+          //     child: Text(
+          //       "Detecting: $_currentCategory\nFaces: ${_faces.length}\nOverlay: ${_overlayImage != null ? 'Loaded' : 'Loading...'}",
+          //       style: const TextStyle(color: Colors.white, fontSize: 14),
+          //       textAlign: TextAlign.center,
+          //     ),
+          //   ),
+          // ),
         ],
       ),
     );

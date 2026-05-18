@@ -60,9 +60,21 @@ class ProductService {
     return _db.collection('products').snapshots();
   }
 
+  /// Get stream of products added by a specific admin
+  Stream<QuerySnapshot> getAdminProducts(String adminId) {
+    return _db.collection('products')
+        .where('uploaderId', isEqualTo: adminId)
+        .snapshots();
+  }
+
   /// Add a new product to the main products collection
   Future<void> addProduct(Map<String, dynamic> product) async {
     await _db.collection('products').add(product);
+  }
+
+  /// Update an existing catalog product
+  Future<void> updateCatalogProduct(String productId, Map<String, dynamic> updatedData) async {
+    await _db.collection('products').doc(productId).update(updatedData);
   }
 
   /// Delete a product from the main products collection
@@ -89,6 +101,8 @@ class ProductService {
     String? colour,
     List<String>? colours,
     String? gender,
+    List<String>? weatherTags,
+    List<String>? functionalTags,
   }) async {
     // Flatten colours into a single list
     List<String> finalColours = [];
@@ -107,6 +121,8 @@ class ProductService {
       'subcategory': subcategory,
       'colours': finalColours,
       'gender': gender,
+      'weatherTags': weatherTags ?? [],
+      'functionalTags': functionalTags ?? [],
       'createdAt': FieldValue.serverTimestamp(),
       'visibility': visibility,
     };
@@ -124,6 +140,31 @@ class ProductService {
     return _db.collection('user_products')
         .where('userId', isEqualTo: userId)
         .snapshots();
+  }
+
+  /// Delete a user's uploaded product from both 'user_products' and their wardrobe tracker
+  Future<void> deleteUserProduct(String userId, String userProductId) async {
+    // 1. Delete from community/global user_products list
+    await _db.collection('user_products').doc(userProductId).delete();
+    
+    // 2. Delete from user's personal wardrobe tracker
+    await _db.collection('users').doc(userId).collection('wardrobe').doc(userProductId).delete();
+  }
+
+  /// Update an existing user product
+  Future<void> updateUserProduct({
+    required String userProductId,
+    required String userId,
+    required Map<String, dynamic> updatedData,
+  }) async {
+    // Ensure the uploader ID and other essential fields are preserved/not overwritten incorrectly if needed
+    updatedData['updatedAt'] = FieldValue.serverTimestamp();
+
+    // 1. Update in community/global user_products list
+    await _db.collection('user_products').doc(userProductId).update(updatedData);
+    
+    // 2. Update in user's personal wardrobe tracker
+    await _db.collection('users').doc(userId).collection('wardrobe').doc(userProductId).update(updatedData);
   }
 
   /// Toggle an item in the user's personal wardrobe (save/remove)
@@ -175,6 +216,8 @@ class ProductService {
         'subcategory': productData['subcategory'] ?? '',
         'colours': finalColours,
         'gender': productData['gender'] ?? 'unisex',
+        'weatherTags': productData['weatherTags'] ?? [],
+        'functionalTags': productData['functionalTags'] ?? [],
         'createdAt': FieldValue.serverTimestamp(),
         'visibility': 'public',
       };

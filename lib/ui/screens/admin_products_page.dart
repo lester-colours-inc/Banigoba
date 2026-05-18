@@ -16,6 +16,7 @@ class AdminProductsPage extends StatefulWidget {
 class _AdminProductsPageState extends State<AdminProductsPage> {
   final ProductService _productService = ProductService();
   final ImagePicker _picker = ImagePicker();
+  final String _currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
   static const Color primaryColor = Color(0xFF0D0140);
 
   @override
@@ -34,7 +35,7 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
         ],
       ),
       body: StreamBuilder<QuerySnapshot>(
-        stream: _productService.getProducts(),
+        stream: _productService.getAdminProducts(_currentUserId),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -66,9 +67,18 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                 ),
                 title: Text(name),
                 subtitle: Text(data['category'] ?? 'No Category'),
-                trailing: IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.red),
-                  onPressed: () => _confirmDelete(doc.id, name),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.edit, color: Colors.blue),
+                      onPressed: () => _showEditProductDialog(doc.id, data),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete, color: Colors.red),
+                      onPressed: () => _confirmDelete(doc.id, name),
+                    ),
+                  ],
                 ),
               );
             },
@@ -109,12 +119,27 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
 
   /// Dialog to add a new product to the catalog with multi-colour selection
   void _showAddProductDialog() {
-    final nameController = TextEditingController();
-    String category = 'tops';
-    String subcategory = 'none';
-    List<String> selectedColours = [];
-    String gender = 'unisex';
+    _showProductFormDialog();
+  }
+
+  /// Dialog to edit an existing catalog product
+  void _showEditProductDialog(String docId, Map<String, dynamic> data) {
+    _showProductFormDialog(docId: docId, existingData: data);
+  }
+
+  /// Generic form for adding/editing products
+  void _showProductFormDialog({String? docId, Map<String, dynamic>? existingData}) {
+    final bool isEditing = docId != null;
+    final nameController = TextEditingController(text: existingData?['name'] ?? '');
+    String category = existingData?['category'] ?? 'tops';
+    String subcategory = existingData?['subcategory'] ?? 'none';
+    List<String> selectedColours = List<String>.from(existingData?['colours'] ?? []);
+    List<String> selectedWeatherTags = List<String>.from(existingData?['weatherTags'] ?? []);
+    List<String> selectedFunctionalTags = List<String>.from(existingData?['functionalTags'] ?? []);
+    String gender = existingData?['gender'] ?? 'unisex';
     File? selectedImage;
+    String existingImageUrl = existingData?['imageUrl'] ?? '';
+    String existingRawImageUrl = existingData?['rawImageUrl'] ?? '';
 
     final Map<String, List<String>> categoryData = {
       'accessories': ['none', 'caps', 'glasses', 'hats'],
@@ -126,6 +151,8 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
     };
 
     final List<String> availableColors = ['black', 'white', 'grey', 'blue', 'red', 'green', 'yellow', 'orange', 'pink', 'purple', 'brown', 'beige'];
+    final List<String> weatherTags = ["hot", "mild", "cool", "cold", "rainy"];
+    final List<String> functionalTags = ["waterproof", "breathable", "insulated", "windproof"];
     final List<String> genders = ['male', 'female', 'unisex'];
 
     showModalBottomSheet(
@@ -143,7 +170,7 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Center(child: Text("Add New Catalog Product", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold))),
+              Center(child: Text(isEditing ? "Edit Catalog Product" : "Add New Catalog Product", style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold))),
               const SizedBox(height: 20),
               // Image Picker Area
               GestureDetector(
@@ -156,7 +183,9 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                   decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.grey.shade300)),
                   child: selectedImage != null
                       ? ClipRRect(borderRadius: BorderRadius.circular(15), child: Image.file(selectedImage!, fit: BoxFit.cover))
-                      : const Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.add_a_photo, size: 40, color: Colors.grey), SizedBox(height: 10), Text("Select Image", style: TextStyle(color: Colors.grey))]),
+                      : (existingImageUrl.isNotEmpty 
+                          ? ClipRRect(borderRadius: BorderRadius.circular(15), child: Image.network(existingImageUrl, fit: BoxFit.cover))
+                          : const Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.add_a_photo, size: 40, color: Colors.grey), SizedBox(height: 10), Text("Select Image", style: TextStyle(color: Colors.grey))])),
                 ),
               ),
               const SizedBox(height: 15),
@@ -199,6 +228,58 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
               ),
               const SizedBox(height: 15),
               _buildSimpleDropdown("Gender", gender, genders, (val) => setModalState(() => gender = val!)),
+              const SizedBox(height: 15),
+              const Text("Weather Tags", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: weatherTags.map((tag) {
+                  final isSelected = selectedWeatherTags.contains(tag);
+                  return FilterChip(
+                    label: Text(tag[0].toUpperCase() + tag.substring(1)),
+                    selected: isSelected,
+                    onSelected: (bool selected) {
+                      setModalState(() {
+                        if (selected) selectedWeatherTags.add(tag);
+                        else selectedWeatherTags.remove(tag);
+                      });
+                    },
+                    selectedColor: primaryColor.withValues(alpha: 0.2),
+                    checkmarkColor: primaryColor,
+                    labelStyle: TextStyle(
+                      color: isSelected ? primaryColor : Colors.black87,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 15),
+              const Text("Functional Tags", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: functionalTags.map((tag) {
+                  final isSelected = selectedFunctionalTags.contains(tag);
+                  return FilterChip(
+                    label: Text(tag[0].toUpperCase() + tag.substring(1)),
+                    selected: isSelected,
+                    onSelected: (bool selected) {
+                      setModalState(() {
+                        if (selected) selectedFunctionalTags.add(tag);
+                        else selectedFunctionalTags.remove(tag);
+                      });
+                    },
+                    selectedColor: primaryColor.withValues(alpha: 0.2),
+                    checkmarkColor: primaryColor,
+                    labelStyle: TextStyle(
+                      color: isSelected ? primaryColor : Colors.black87,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  );
+                }).toList(),
+              ),
               const SizedBox(height: 25),
               // Submit Action
               SizedBox(
@@ -206,24 +287,29 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(backgroundColor: primaryColor, padding: const EdgeInsets.symmetric(vertical: 15), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                   onPressed: () async {
-                    if (selectedImage == null || nameController.text.isEmpty || selectedColours.isEmpty) {
+                    if ((selectedImage == null && !isEditing) || nameController.text.isEmpty || selectedColours.isEmpty) {
                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Missing info (ensure image, name, and at least one colour)")));
                       return;
                     }
                     showDialog(context: context, barrierDismissible: false, builder: (context) => const Center(child: CircularProgressIndicator()));
                     try {
-                      // 1. Process image with background remover API using product name as filename
-                      final urls = await _productService.removeBackground(
-                        selectedImage!, 
-                        customFilename: nameController.text,
-                      );
-                      final imageUrl = urls['processed_url'] ?? '';
-                      final rawImageUrl = urls['raw_url'] ?? '';
-                      
-                      if (imageUrl.isEmpty) throw Exception('API returned empty processed image URL');
+                      String imageUrl = existingImageUrl;
+                      String rawImageUrl = existingRawImageUrl;
 
-                      // 2. Save to global 'products' collection
-                      await _productService.addProduct({
+                      if (selectedImage != null) {
+                        // 1. Process image with background remover API using product name as filename
+                        final urls = await _productService.removeBackground(
+                          selectedImage!, 
+                          customFilename: nameController.text,
+                        );
+                        imageUrl = urls['processed_url'] ?? '';
+                        rawImageUrl = urls['raw_url'] ?? '';
+                        
+                        if (imageUrl.isEmpty) throw Exception('API returned empty processed image URL');
+                      }
+
+                      final productUpdateData = {
+                        'uploaderId': _currentUserId,
                         'name': nameController.text,
                         'imageUrl': imageUrl,
                         'rawImageUrl': rawImageUrl,
@@ -231,22 +317,31 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                         'subcategory': subcategory == 'none' ? null : subcategory,
                         'colours': selectedColours,
                         'gender': gender,
-                        'createdAt': FieldValue.serverTimestamp(),
-                      });
+                        'weatherTags': selectedWeatherTags,
+                        'functionalTags': selectedFunctionalTags,
+                        if (!isEditing) 'createdAt': FieldValue.serverTimestamp(),
+                        if (isEditing) 'updatedAt': FieldValue.serverTimestamp(),
+                      };
+
+                      if (isEditing) {
+                        await _productService.updateCatalogProduct(docId, productUpdateData);
+                      } else {
+                        await _productService.addProduct(productUpdateData);
+                      }
 
                       if (context.mounted) {
                         Navigator.pop(context); // Close loading
                         Navigator.pop(context); // Close sheet
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Product successfully added to catalog!")));
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(isEditing ? "Product successfully updated!" : "Product successfully added to catalog!")));
                       }
                     } catch (e) {
                       if (context.mounted) { 
                         Navigator.pop(context); 
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Upload failed: $e"))); 
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Action failed: $e"))); 
                       }
                     }
                   },
-                  child: const Text("Add Product to Catalog", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                  child: Text(isEditing ? "Update Product" : "Add Product to Catalog", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
                 ),
               ),
               const SizedBox(height: 30),

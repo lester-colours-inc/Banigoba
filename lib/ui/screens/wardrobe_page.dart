@@ -474,6 +474,8 @@ class _WardrobePageState extends State<WardrobePage> {
     String category = 'tops';
     String subcategory = 'none';
     List<String> selectedColours = [];
+    List<String> selectedWeatherTags = [];
+    List<String> selectedFunctionalTags = [];
     String gender = 'unisex';
     File? selectedImage;
 
@@ -487,6 +489,8 @@ class _WardrobePageState extends State<WardrobePage> {
     };
 
     final List<String> availableColors = ['black', 'white', 'grey', 'blue', 'red', 'green', 'yellow', 'orange', 'pink', 'purple', 'brown', 'beige'];
+    final List<String> weatherTags = ["hot", "mild", "cool", "cold", "rainy"];
+    final List<String> functionalTags = ["waterproof", "breathable", "insulated", "windproof"];
     final List<String> genders = ['male', 'female', 'unisex'];
 
     showModalBottomSheet(
@@ -563,6 +567,58 @@ class _WardrobePageState extends State<WardrobePage> {
                 const SizedBox(width: 10),
                 Expanded(child: _buildSimpleDropdown("Visibility", visibility, ['private', 'public'], (val) => setModalState(() => visibility = val!))),
               ]),
+              const SizedBox(height: 15),
+              const Text("Weather Tags", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: weatherTags.map((tag) {
+                  final isSelected = selectedWeatherTags.contains(tag);
+                  return FilterChip(
+                    label: Text(tag[0].toUpperCase() + tag.substring(1)),
+                    selected: isSelected,
+                    onSelected: (bool selected) {
+                      setModalState(() {
+                        if (selected) selectedWeatherTags.add(tag);
+                        else selectedWeatherTags.remove(tag);
+                      });
+                    },
+                    selectedColor: primaryColor.withValues(alpha: 0.2),
+                    checkmarkColor: primaryColor,
+                    labelStyle: TextStyle(
+                      color: isSelected ? primaryColor : Colors.black87,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 15),
+              const Text("Functional Tags", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: functionalTags.map((tag) {
+                  final isSelected = selectedFunctionalTags.contains(tag);
+                  return FilterChip(
+                    label: Text(tag[0].toUpperCase() + tag.substring(1)),
+                    selected: isSelected,
+                    onSelected: (bool selected) {
+                      setModalState(() {
+                        if (selected) selectedFunctionalTags.add(tag);
+                        else selectedFunctionalTags.remove(tag);
+                      });
+                    },
+                    selectedColor: primaryColor.withValues(alpha: 0.2),
+                    checkmarkColor: primaryColor,
+                    labelStyle: TextStyle(
+                      color: isSelected ? primaryColor : Colors.black87,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  );
+                }).toList(),
+              ),
               const SizedBox(height: 25),
               // Upload Button
               SizedBox(
@@ -597,6 +653,8 @@ class _WardrobePageState extends State<WardrobePage> {
                         colours: selectedColours, 
                         gender: gender, 
                         visibility: visibility,
+                        weatherTags: selectedWeatherTags,
+                        functionalTags: selectedFunctionalTags,
                       );
                       if (context.mounted) {
                         Navigator.pop(context); Navigator.pop(context);

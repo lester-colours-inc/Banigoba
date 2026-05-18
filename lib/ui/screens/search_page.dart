@@ -23,9 +23,13 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
   String _selectedCategory = "all";
   String _selectedSubcategory = "all";
   String _selectedGender = "all";
+  String _selectedWeatherTag = "all";
+  String _selectedFunctionalTag = "all";
 
   final List<String> _colors = ['all', 'black', 'white', 'grey', 'blue', 'red', 'green', 'yellow', 'orange'];
   final List<String> _genders = ['all', 'male', 'female', 'unisex'];
+  final List<String> _weatherTags = ["all", "hot", "mild", "cool", "cold", "rainy"];
+  final List<String> _functionalTags = ["all", "waterproof", "breathable", "insulated", "windproof"];
   
   final Map<String, List<String>> _categoryData = {
     'all': ['all'],
@@ -234,7 +238,13 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
           final matchesSubcategory = _selectedSubcategory == 'all' || (_selectedSubcategory == 'none' && subcategory.isEmpty) || subcategory == _selectedSubcategory;
           final matchesGender = _selectedGender == 'all' || gender == _selectedGender;
 
-          return matchesSearch && matchesColour && matchesCategory && matchesSubcategory && matchesGender;
+          final List<String> weatherTags = List<String>.from(p['weatherTags'] ?? []);
+          final List<String> functionalTags = List<String>.from(p['functionalTags'] ?? []);
+
+          final matchesWeather = _selectedWeatherTag == 'all' || weatherTags.contains(_selectedWeatherTag);
+          final matchesFunctional = _selectedFunctionalTag == 'all' || functionalTags.contains(_selectedFunctionalTag);
+
+          return matchesSearch && matchesColour && matchesCategory && matchesSubcategory && matchesGender && matchesWeather && matchesFunctional;
         }).toList();
 
         if (products.isEmpty && _searchQuery.isEmpty) return Center(child: Text("Type to search your wardrobe", style: TextStyle(color: Colors.grey.shade400, fontSize: 16)));
@@ -318,7 +328,14 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                   Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                     const Text('Filters', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                     TextButton(onPressed: () {
-                      setModalState(() { _selectedColor = 'all'; _selectedCategory = 'all'; _selectedSubcategory = 'all'; _selectedGender = 'all'; });
+                      setModalState(() { 
+                        _selectedColor = 'all'; 
+                        _selectedCategory = 'all'; 
+                        _selectedSubcategory = 'all'; 
+                        _selectedGender = 'all'; 
+                        _selectedWeatherTag = 'all';
+                        _selectedFunctionalTag = 'all';
+                      });
                       setState(() {});
                     }, child: const Text('Reset All')),
                   ]),
@@ -333,6 +350,14 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                   }),
                   _buildDropdownFilter('Gender', _genders, _selectedGender, (val) {
                     setModalState(() => _selectedGender = val ?? 'all');
+                    setState(() {});
+                  }),
+                  _buildDropdownFilter('Weather', _weatherTags, _selectedWeatherTag, (val) {
+                    setModalState(() => _selectedWeatherTag = val ?? 'all');
+                    setState(() {});
+                  }),
+                  _buildDropdownFilter('Functionality', _functionalTags, _selectedFunctionalTag, (val) {
+                    setModalState(() => _selectedFunctionalTag = val ?? 'all');
                     setState(() {});
                   }),
                   _buildDropdownFilter('Colour', _colors, _selectedColor, (val) {
