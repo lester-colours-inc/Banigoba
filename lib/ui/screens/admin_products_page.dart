@@ -148,8 +148,8 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
               // Image Picker Area
               GestureDetector(
                 onTap: () async {
-                  final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-                  if (image != null) setModalState(() => selectedImage = File(image.path));
+                  final File? image = await _pickImageSource();
+                  if (image != null) setModalState(() => selectedImage = image);
                 },
                 child: Container(
                   height: 120, width: double.infinity,
@@ -272,5 +272,34 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
         ),
       ],
     );
+  }
+
+  /// Show a dialog to choose between camera and gallery
+  Future<File?> _pickImageSource() async {
+    final ImageSource? source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Photo Gallery'),
+              onTap: () => Navigator.of(context).pop(ImageSource.gallery),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_camera),
+              title: const Text('Camera'),
+              onTap: () => Navigator.of(context).pop(ImageSource.camera),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (source != null) {
+      final XFile? image = await _picker.pickImage(source: source);
+      if (image != null) return File(image.path);
+    }
+    return null;
   }
 }
