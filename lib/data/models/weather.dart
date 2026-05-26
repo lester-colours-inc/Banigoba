@@ -32,4 +32,23 @@ class Weather {
       return "It's hot! Wear breathable, light clothing.";
     }
   }
+
+  /// Maps current weather to product tags for filtering
+  List<String> get weatherTags {
+    List<String> tags = [];
+    if (temperatureC < 10) {
+      tags.add('cold');
+    } else if (temperatureC < 20) {
+      tags.add('cool');
+    } else if (temperatureC < 25) {
+      tags.add('mild');
+    } else {
+      tags.add('hot');
+    }
+
+    if (condition.toLowerCase().contains('rain') || condition.toLowerCase().contains('drizzle')) {
+      tags.add('rainy');
+    }
+    return tags;
+  }
 }

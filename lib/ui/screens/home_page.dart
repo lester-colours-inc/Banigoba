@@ -1,5 +1,12 @@
 import 'package:flutter/material.dart';
 import 'notifications_page.dart';
+import '../../data/services/weather_service.dart';
+import '../../data/services/product_service.dart';
+import '../../data/models/weather.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'product_detail_page.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 /// The main landing page after login, providing quick access to features
 class HomePage extends StatefulWidget {
@@ -12,6 +19,148 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   int _selectedTabIndex = 0;
   static const Color primaryColor = Color(0xFF0D0140);
+
+  final WeatherService _weatherService = WeatherService();
+  final ProductService _productService = ProductService();
+  Weather? _currentWeather;
+  bool _isLoadingWeather = true;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    // Small delay to ensure the UI is ready to show the permission dialog
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (mounted) _checkPermissionAndFetchWeather();
+    });
+  }
+
+  Future<void> _checkPermissionAndFetchWeather() async {
+    var status = await Permission.location.status;
+
+    if (status.isDenied) {
+      // Show our custom explanation dialog first before triggering system dialog
+      if (mounted) {
+        bool? shouldRequest = await _showLocationPermissionDialog();
+        if (shouldRequest == true) {
+          _fetchWeather();
+        } else {
+          setState(() {
+            _isLoadingWeather = false;
+            _errorMessage = 'Location permissions are denied';
+          });
+        }
+      }
+    } else {
+      // Already granted, restricted, or permanently denied (handle in _determinePosition)
+      _fetchWeather();
+    }
+  }
+
+  Future<bool?> _showLocationPermissionDialog() {
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              const Icon(Icons.location_on, color: primaryColor),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Local Recommendations',
+                  style: TextStyle(fontSize: 18),
+                ),
+              ),
+            ],
+          ),
+          content: const Text(
+            'To suggest the perfect fashion for your current day, we need access to your location for real-time weather updates.',
+            style: TextStyle(fontSize: 15, height: 1.4),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Not Now', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w600)),
+              onPressed: () => Navigator.of(context).pop(false),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(right: 8.0),
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: primaryColor,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                ),
+                child: const Text('Allow Access', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                onPressed: () => Navigator.of(context).pop(true),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _fetchWeather() async {
+    setState(() {
+      _isLoadingWeather = true;
+      _errorMessage = null;
+    });
+    try {
+      final Position position = await _determinePosition();
+      final String latLong = "${position.latitude},${position.longitude}";
+      final weather = await _weatherService.fetchWeather(latLong);
+      if (mounted) {
+        setState(() {
+          _currentWeather = weather;
+          _isLoadingWeather = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoadingWeather = false;
+          _errorMessage = e.toString();
+        });
+      }
+      debugPrint("Weather fetch error: $e");
+    }
+  }
+
+  /// Determine the current position of the device.
+  Future<Position> _determinePosition() async {
+    // 1. Check if location services are enabled
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      // Prompt user to enable location services
+      await Geolocator.openLocationSettings();
+      return Future.error('Location services are disabled.');
+    }
+
+    // 2. Request permission using permission_handler (more robust for triggering dialogs)
+    var status = await Permission.location.status;
+    if (status.isDenied) {
+      status = await Permission.location.request();
+      if (status.isDenied) {
+        return Future.error('Location permissions are denied');
+      }
+    }
+
+    if (status.isPermanentlyDenied) {
+      return Future.error('Location permissions are permanently denied');
+    }
+
+    // 3. Get current position
+    return await Geolocator.getCurrentPosition(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.low,
+        distanceFilter: 1000,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -73,6 +222,9 @@ class _HomePageState extends State<HomePage> {
             ),
             const SizedBox(height: 25),
             _buildTabs(),
+            const SizedBox(height: 25),
+            // Weather Recommendation Section
+            _buildWeatherRecommendation(),
             const SizedBox(height: 25),
             // Promotional/AI styling card
             _buildPromoCard(),
@@ -281,6 +433,163 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
+    );
+  }
+
+  /// Weather Recommendation UI
+  Widget _buildWeatherRecommendation() {
+    if (_isLoadingWeather) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 20),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    if (_currentWeather == null) {
+      bool isPermanentlyDenied = _errorMessage?.contains('permanently denied') ?? false;
+
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        child: Center(
+          child: Column(
+            children: [
+              Icon(
+                isPermanentlyDenied ? Icons.settings_suggest : Icons.location_off,
+                color: Colors.grey,
+                size: 40,
+              ),
+              const SizedBox(height: 10),
+              Text(
+                isPermanentlyDenied
+                    ? "Location access is blocked.\nPlease enable it in your phone settings."
+                    : "Unable to fetch weather data.\nPlease enable location services.",
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey.shade600),
+              ),
+              const SizedBox(height: 10),
+              if (isPermanentlyDenied)
+                ElevatedButton(
+                  onPressed: () => openAppSettings(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryColor,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text("Open App Settings"),
+                )
+              else
+                TextButton(
+                  onPressed: _fetchWeather,
+                  child: const Text("Retry"),
+                ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Expanded(
+              child: Text(
+                "Recommended for You",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              "${_currentWeather!.temperatureC.round()}°C, ${_currentWeather!.locationName}",
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Text(
+          _currentWeather!.clothingRecommendation,
+          style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+        ),
+        const SizedBox(height: 15),
+        SizedBox(
+          height: 180,
+          child: StreamBuilder<QuerySnapshot>(
+            stream: _productService.getRecommendedProducts(_currentWeather!.weatherTags),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                return Center(
+                  child: Text(
+                    "No items matching current weather.",
+                    style: TextStyle(color: Colors.grey.shade400),
+                  ),
+                );
+              }
+
+              final products = snapshot.data!.docs;
+              return ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: products.length,
+                itemBuilder: (context, index) {
+                  final data = products[index].data() as Map<String, dynamic>;
+                  final name = data['name'] ?? 'No Name';
+                  final imageUrl = data['imageUrl'] ?? '';
+
+                  return GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ProductDetailPage(
+                            productId: products[index].id,
+                            productData: data,
+                          ),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      width: 130,
+                      margin: const EdgeInsets.only(right: 15),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: ClipRRect(
+                              borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
+                              child: imageUrl.isNotEmpty
+                                  ? Image.network(imageUrl, width: double.infinity, fit: BoxFit.cover)
+                                  : Container(color: Colors.grey.shade200, child: const Icon(Icons.image)),
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Text(
+                              name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }

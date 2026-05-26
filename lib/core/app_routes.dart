@@ -1,14 +1,16 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:simple_app/ui/screens/main_screen.dart';
-import 'package:simple_app/ui/screens/wardrobe_page.dart';
-import 'package:simple_app/ui/screens/cart_page.dart';
-import 'package:simple_app/ui/screens/search_page.dart';
-import 'package:simple_app/ui/screens/profile_page.dart';
-import 'package:simple_app/ui/screens/camera_screen.dart';
-import 'package:simple_app/ui/screens/login_screen.dart';
-import 'package:simple_app/ui/screens/admin_products_page.dart';
+import '../ui/screens/main_screen.dart';
+import '../ui/screens/wardrobe_page.dart';
+import '../ui/screens/cart_page.dart';
+import '../ui/screens/search_page.dart';
+import '../ui/screens/profile_page.dart';
+import '../ui/screens/camera_screen.dart';
+import '../ui/screens/custom_login_screen.dart';
+import '../ui/screens/onboarding_screen.dart';
+import '../ui/screens/admin_products_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
@@ -19,9 +21,31 @@ class AuthGate extends StatefulWidget {
 
 class _AuthGateState extends State<AuthGate> {
   User? _lastUser;
+  bool? _onboardingDone;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkOnboarding();
+  }
+
+  Future<void> _checkOnboarding() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _onboardingDone = prefs.getBool('onboarding_done') ?? false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (_onboardingDone == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    if (!_onboardingDone!) {
+      return const OnboardingScreen();
+    }
+
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
@@ -67,7 +91,7 @@ class _AuthGateState extends State<AuthGate> {
           );
         }
 
-        return const LoginScreen();
+        return const CustomLoginScreen();
       },
     );
   }

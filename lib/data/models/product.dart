@@ -9,6 +9,8 @@ class Product {
   final String? subcategory;
   final List<String> colours;
   final String gender;
+  final List<String> weatherTags;
+  final List<String> functionalTags;
   final DateTime? createdAt;
 
   Product({
@@ -20,6 +22,8 @@ class Product {
     this.subcategory,
     required this.colours,
     required this.gender,
+    this.weatherTags = const [],
+    this.functionalTags = const [],
     this.createdAt,
   });
 
@@ -47,6 +51,8 @@ class Product {
       subcategory: data['subcategory'],
       colours: colList,
       gender: data['gender'] ?? 'unisex',
+      weatherTags: List<String>.from(data['weatherTags'] ?? []),
+      functionalTags: List<String>.from(data['functionalTags'] ?? []),
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
     );
   }
@@ -60,6 +66,8 @@ class Product {
       'subcategory': subcategory,
       'colours': colours,
       'gender': gender,
+      'weatherTags': weatherTags,
+      'functionalTags': functionalTags,
       'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : FieldValue.serverTimestamp(),
     };
   }

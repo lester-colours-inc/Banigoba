@@ -4,9 +4,13 @@ import 'dart:ui' as ui;
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import '../../data/services/face_detector_service.dart';
+import '../../data/services/pose_detector_service.dart';
+import '../../data/services/segmentation_service.dart';
 import '../../data/services/ar_try_on_service.dart';
 import '../widgets/ar_overlay.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
+import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
+import 'package:google_mlkit_selfie_segmentation/google_mlkit_selfie_segmentation.dart';
 
 /// Screen that handles real-time AR try-on using the device camera
 class CameraScreen extends StatefulWidget {
@@ -26,10 +30,14 @@ class CameraScreen extends StatefulWidget {
 class _CameraScreenState extends State<CameraScreen> {
   CameraController? _controller;
   final FaceDetectorService _faceDetectorService = FaceDetectorService();
+  final PoseDetectorService _poseDetectorService = PoseDetectorService();
+  final SegmentationService _segmentationService = SegmentationService();
   final ArTryOnService _arService = ArTryOnService();
   
   bool _isBusy = false;
   List<Face> _faces = [];
+  List<Pose> _poses = [];
+  SegmentationMask? _mask;
   ui.Image? _overlayImage;
   String _currentCategory = 'accessories';
 
@@ -83,7 +91,7 @@ class _CameraScreenState extends State<CameraScreen> {
     }
   }
 
-  /// Processes each frame from the camera to detect faces
+  /// Processes each frame from the camera to detect relevant features based on category
   void _processCameraImage(CameraImage image) async {
     final controller = _controller;
     if (_isBusy || controller == null || !controller.value.isInitialized) return;
@@ -91,14 +99,18 @@ class _CameraScreenState extends State<CameraScreen> {
     _isBusy = true;
 
     try {
-      final faces = await _faceDetectorService.processImage(
-        image,
-        controller.description,
-      );
-      if (mounted) {
-        setState(() {
-          _faces = faces;
-        });
+      final category = _currentCategory.toLowerCase();
+      
+      if (category.contains('accessories') || category.contains('glasses') || category.contains('hats')) {
+        final faces = await _faceDetectorService.processImage(image, controller.description);
+        if (mounted) setState(() { _faces = faces; _poses = []; _mask = null; });
+      } else if (category.contains('tops') || category.contains('outerwear') || category.contains('shirts') || category.contains('bottoms')) {
+        final poses = await _poseDetectorService.processImage(image, controller.description);
+        if (mounted) setState(() { _poses = poses; _faces = []; _mask = null; });
+      } else {
+        // Default to segmentation for other categories
+        final mask = await _segmentationService.processImage(image, controller.description);
+        if (mounted) setState(() { _mask = mask; _faces = []; _poses = []; });
       }
     } catch (e) {
       debugPrint("Error processing image: $e");
@@ -111,6 +123,8 @@ class _CameraScreenState extends State<CameraScreen> {
   void dispose() {
     _controller?.dispose();
     _faceDetectorService.dispose();
+    _poseDetectorService.dispose();
+    _segmentationService.dispose();
     super.dispose();
   }
 
@@ -145,10 +159,12 @@ class _CameraScreenState extends State<CameraScreen> {
                 children: [
                   CameraPreview(controller),
                   // The AR Overlay layer
-                  if (_faces.isNotEmpty)
+                  if (_faces.isNotEmpty || _poses.isNotEmpty || _mask != null)
                     Positioned.fill(
                       child: ArOverlay(
                         faces: _faces,
+                        poses: _poses,
+                        mask: _mask,
                         previewSize: previewSize,
                         overlayImage: _overlayImage,
                         category: _currentCategory,

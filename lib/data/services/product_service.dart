@@ -60,6 +60,15 @@ class ProductService {
     return _db.collection('products').snapshots();
   }
 
+  /// Get products filtered by weather tags
+  Stream<QuerySnapshot> getRecommendedProducts(List<String> tags) {
+    if (tags.isEmpty) return getProducts();
+    // Firestore 'array-contains-any' can match any of the provided tags
+    return _db.collection('products')
+        .where('weatherTags', arrayContainsAny: tags)
+        .snapshots();
+  }
+
   /// Get stream of products added by a specific admin
   Stream<QuerySnapshot> getAdminProducts(String adminId) {
     return _db.collection('products')

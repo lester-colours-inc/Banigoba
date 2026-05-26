@@ -28,6 +28,12 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>This app needs camera access to show the AR glasses try-on feature.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>This app needs location access to provide weather-based clothing recommendations.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>This app needs location access to provide weather-based clothing recommendations even when in background.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>This app needs location access to provide weather-based clothing recommendations even when in background.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>This app needs microphone access for video recording features.</string>
 	<key>UIApplicationSceneManifest</key>

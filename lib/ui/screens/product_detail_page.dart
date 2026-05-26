@@ -1,9 +1,3 @@
-import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import '../../data/services/product_service.dart';
-import 'camera_screen.dart';
-
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -13,9 +7,10 @@ import 'camera_screen.dart';
 
 /// Screen displaying detailed information about a product
 class ProductDetailPage extends StatefulWidget {
+  final String? productId;
   final Map<String, dynamic> productData;
 
-  const ProductDetailPage({super.key, required this.productData});
+  const ProductDetailPage({super.key, this.productId, required this.productData});
 
   @override
   State<ProductDetailPage> createState() => _ProductDetailPageState();
@@ -29,6 +24,9 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
   void initState() {
     super.initState();
     _currentProductData = Map<String, dynamic>.from(widget.productData);
+    if (widget.productId != null) {
+      _currentProductData['id'] = widget.productId;
+    }
   }
 
   @override
