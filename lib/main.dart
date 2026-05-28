@@ -9,8 +9,6 @@ import 'firebase_options.dart';
 import 'core/app_routes.dart';
 import 'core/theme_provider.dart';
 
-final themeProvider = ThemeProvider();
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 

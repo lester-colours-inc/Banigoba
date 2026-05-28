@@ -92,7 +92,10 @@ class FriendService {
       title: 'Follow Request Accepted',
       body: '$myName accepted your follow request.',
       type: 'follow_accepted',
-      extraData: {'fromId': currentUserId},
+      extraData: {
+        'fromId': currentUserId,
+        'fromName': myName,
+      },
     );
   }
 

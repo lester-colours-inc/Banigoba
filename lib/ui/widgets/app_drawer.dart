@@ -2,12 +2,13 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../../core/theme_provider.dart';
-import '../screens/admin_products_page.dart';
+import '../screens/shop/admin_products_page.dart';
 
 class AppDrawer extends StatelessWidget {
   final ThemeProvider themeProvider;
+  final Function(int)? onTabSelect;
 
-  const AppDrawer({super.key, required this.themeProvider});
+  const AppDrawer({super.key, required this.themeProvider, this.onTabSelect});
 
   @override
   Widget build(BuildContext context) {
@@ -44,9 +45,25 @@ class AppDrawer extends StatelessWidget {
                       ),
                     ),
                   ),
-                  _buildDrawerItem(context, Icons.grid_view, 'My Fashion Style', onTap: () => Navigator.pushReplacementNamed(context, '/home')),
-                  _buildDrawerItem(context, Icons.shopping_bag_outlined, 'My Smart Wardrobe', onTap: () => Navigator.pushReplacementNamed(context, '/wardrobe')),
-                  _buildDrawerItem(context, Icons.storefront, 'Shops & Boutiques', onTap: () => Navigator.pushReplacementNamed(context, '/search')),
+                  _buildDrawerItem(context, Icons.grid_view, 'My Fashion Style', onTap: () {
+                    if (onTabSelect != null) {
+                      onTabSelect!(0);
+                    } else {
+                      Navigator.pushReplacementNamed(context, '/home');
+                    }
+                  }),
+                  _buildDrawerItem(context, Icons.checkroom_outlined, 'My Daily Dress Up', onTap: () {
+                    if (onTabSelect != null) {
+                      onTabSelect!(1);
+                    }
+                  }),
+                  _buildDrawerItem(context, Icons.storefront, 'Shops & Boutiques', onTap: () {
+                    if (onTabSelect != null) {
+                      onTabSelect!(3);
+                    } else {
+                      Navigator.pushReplacementNamed(context, '/search');
+                    }
+                  }),
                   _buildDrawerItem(context, Icons.description_outlined, 'Fashion Designers'),
                   _buildDrawerItem(context, Icons.calendar_today_outlined, 'Agents'),
                   _buildDrawerItem(context, Icons.bar_chart, 'Curators Workspace'),
@@ -115,53 +132,11 @@ class AppDrawer extends StatelessWidget {
 
   Widget _buildHeader(BuildContext context, Color primaryColor) {
     return Padding(
-      padding: const EdgeInsets.only(top: 80.0, left: 25, bottom: 20),
-      child: Row(
-        children: [
-          _buildLogo(primaryColor),
-          const SizedBox(width: 15),
-          Text(
-            'Banigoba',
-            style: TextStyle(
-              fontSize: 26,
-              fontWeight: FontWeight.bold,
-              color: primaryColor,
-              letterSpacing: 0.5,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLogo(Color primaryColor) {
-    return Container(
-      width: 45,
-      height: 45,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: primaryColor, width: 2),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Transform.rotate(
-            angle: 0.785398, // 45 degrees
-            child: Container(
-              width: 25,
-              height: 25,
-              decoration: BoxDecoration(
-                border: Border.all(color: primaryColor, width: 2),
-              ),
-            ),
-          ),
-          Container(
-            width: 12,
-            height: 12,
-            color: primaryColor,
-          ),
-        ],
+      padding: const EdgeInsets.only(top: 60.0, left: 25, bottom: 20, right: 25),
+      child: Image.asset(
+        'assets/images/logo.png',
+        height: 80,
+        fit: BoxFit.contain,
       ),
     );
   }
@@ -200,29 +175,34 @@ class AppDrawer extends StatelessWidget {
             children: [
               const Icon(Icons.wb_sunny_outlined, size: 18, color: Colors.grey),
               const SizedBox(width: 10),
-              Container(
-                height: 25,
-                width: 50,
-                decoration: BoxDecoration(
-                  color: primaryColor,
-                  borderRadius: BorderRadius.circular(15),
-                ),
-                child: Stack(
-                  children: [
-                    AnimatedPositioned(
-                      duration: const Duration(milliseconds: 200),
-                      left: themeProvider.isDarkMode ? 25 : 5,
-                      top: 4,
-                      child: Container(
-                        width: 17,
-                        height: 17,
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
+              GestureDetector(
+                onTap: () {
+                  themeProvider.toggleTheme(!themeProvider.isDarkMode);
+                },
+                child: Container(
+                  height: 25,
+                  width: 50,
+                  decoration: BoxDecoration(
+                    color: primaryColor,
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  child: Stack(
+                    children: [
+                      AnimatedPositioned(
+                        duration: const Duration(milliseconds: 200),
+                        left: themeProvider.isDarkMode ? 25 : 5,
+                        top: 4,
+                        child: Container(
+                          width: 17,
+                          height: 17,
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(width: 10),

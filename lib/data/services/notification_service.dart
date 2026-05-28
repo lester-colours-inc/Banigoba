@@ -27,12 +27,44 @@ class NotificationService {
     });
   }
 
-  Stream<QuerySnapshot> getNotifications() {
-    return _db.collection('users')
+  Stream<QuerySnapshot> getNotifications({String category = 'all'}) {
+    // We always order by timestamp
+    Query query = _db.collection('users')
         .doc(currentUserId)
         .collection('notifications')
-        .orderBy('timestamp', descending: true)
-        .snapshots();
+        .orderBy('timestamp', descending: true);
+
+    // If 'all', return the full stream
+    if (category == 'all') {
+      return query.snapshots();
+    }
+
+    // For specific categories, we filter by 'type'
+    // Note: 'whereIn' combined with 'orderBy' on a different field requires a composite index.
+    // To ensure the UI isn't empty due to a missing index, we can filter client-side or 
+    // simply define the allowed types.
+    List<String> allowedTypes = [];
+    if (category == 'friends') {
+      allowedTypes = ['follow_request', 'follow_accepted', 'new_post', 'like', 'comment'];
+    } else if (category == 'shops') {
+      allowedTypes = ['order_update', 'shop_promo', 'shop_new_item'];
+    } else if (category == 'designers') {
+      allowedTypes = ['designer_update', 'designer_collection'];
+    }
+
+    // Return the stream, and the UI will filter the documents if needed
+    // or we can use the Firestore where clause if the index exists.
+    // For now, let's use the where clause but add a check.
+    if (allowedTypes.isNotEmpty) {
+      return _db.collection('users')
+          .doc(currentUserId)
+          .collection('notifications')
+          .where('type', whereIn: allowedTypes)
+          .orderBy('timestamp', descending: true)
+          .snapshots();
+    }
+
+    return query.snapshots();
   }
 
   Stream<int> getUnreadCount() {
@@ -92,7 +124,10 @@ class NotificationService {
         title: 'New Post!',
         body: '$userName just added a new item: $itemName',
         type: 'new_post',
-        extraData: {'userId': currentUserId},
+        extraData: {
+          'userId': currentUserId,
+          'fromName': userName,
+        },
       );
     }
   }

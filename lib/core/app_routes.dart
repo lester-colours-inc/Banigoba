@@ -1,15 +1,15 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import '../ui/screens/main_screen.dart';
-import '../ui/screens/wardrobe_page.dart';
-import '../ui/screens/cart_page.dart';
-import '../ui/screens/search_page.dart';
-import '../ui/screens/profile_page.dart';
-import '../ui/screens/camera_screen.dart';
-import '../ui/screens/custom_login_screen.dart';
-import '../ui/screens/onboarding_screen.dart';
-import '../ui/screens/admin_products_page.dart';
+import '../ui/screens/main/main_screen.dart';
+import '../ui/screens/wardrobe/wardrobe_page.dart';
+import '../ui/screens/shop/cart_page.dart';
+import '../ui/screens/main/search_page.dart';
+import '../ui/screens/social/profile_page.dart';
+import '../ui/screens/onboarding/camera_screen.dart';
+import '../ui/screens/auth/custom_login_screen.dart';
+import '../ui/screens/onboarding/onboarding_screen.dart';
+import '../ui/screens/shop/admin_products_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthGate extends StatefulWidget {
