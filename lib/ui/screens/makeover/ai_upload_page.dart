@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'style_selection_page.dart';
+import '../../../core/app_routes.dart';
 
 /// The starting point of the AI Makeover flow.
 /// Users upload a full-body photo or take a selfie to be used for the AI generation.
@@ -68,7 +69,9 @@ class AiUploadPage extends StatelessWidget {
             ),
             const SizedBox(height: 15),
             OutlinedButton(
-              onPressed: () {},
+              onPressed: () {
+                Navigator.pushNamed(context, AppRoutes.camera);
+              },
               style: OutlinedButton.styleFrom(
                 side: const BorderSide(color: Colors.orange),
                 foregroundColor: Colors.orange,

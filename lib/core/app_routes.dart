@@ -10,6 +10,8 @@ import '../ui/screens/onboarding/camera_screen.dart';
 import '../ui/screens/auth/custom_login_screen.dart';
 import '../ui/screens/onboarding/onboarding_screen.dart';
 import '../ui/screens/shop/admin_products_page.dart';
+import '../ui/screens/wardrobe/plan_ahead_page.dart';
+import '../ui/screens/wardrobe/measurement_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthGate extends StatefulWidget {
@@ -105,6 +107,8 @@ class AppRoutes {
   static const String search = '/search';
   static const String profile = '/profile';
   static const String camera = '/camera';
+  static const String planAhead = '/plan-ahead';
+  static const String measurement = '/measurement';
 
   static Map<String, WidgetBuilder> routes = {
     root: (context) => const AuthGate(),
@@ -114,5 +118,7 @@ class AppRoutes {
     search: (context) => const SearchPage(),
     profile: (context) => const ProfilePage(),
     camera: (context) => const CameraScreen(),
+    planAhead: (context) => const PlanAheadPage(),
+    measurement: (context) => const MeasurementPage(),
   };
 }

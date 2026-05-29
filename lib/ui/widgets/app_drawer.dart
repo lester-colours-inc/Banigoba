@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../../core/theme_provider.dart';
+import '../../core/app_routes.dart';
 import '../screens/shop/admin_products_page.dart';
 
 class AppDrawer extends StatelessWidget {
@@ -66,7 +67,9 @@ class AppDrawer extends StatelessWidget {
                   }),
                   _buildDrawerItem(context, Icons.description_outlined, 'Fashion Designers'),
                   _buildDrawerItem(context, Icons.calendar_today_outlined, 'Agents'),
-                  _buildDrawerItem(context, Icons.bar_chart, 'Curators Workspace'),
+                  _buildDrawerItem(context, Icons.bar_chart, 'Curators Workspace', onTap: () {
+                    Navigator.pushNamed(context, AppRoutes.measurement);
+                  }),
                   
                   // Admin-only section
                   if (user != null)
