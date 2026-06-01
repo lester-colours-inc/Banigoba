@@ -1,10 +1,49 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'styled_look_page.dart';
+import '../../../data/models/weather.dart';
+import '../../../data/services/weather_service.dart';
 
-class StyleSelectionPage extends StatelessWidget {
-  const StyleSelectionPage({super.key});
+class StyleSelectionPage extends StatefulWidget {
+  final Uint8List? imageBytes;
+  final String? imageUrl;
+
+  const StyleSelectionPage({super.key, this.imageBytes, this.imageUrl})
+      : assert(imageBytes != null || imageUrl != null,
+            'Either imageBytes or imageUrl must be provided.');
 
   static const Color primaryColor = Color(0xFF0D0140);
+
+  @override
+  State<StyleSelectionPage> createState() => _StyleSelectionPageState();
+}
+
+class _StyleSelectionPageState extends State<StyleSelectionPage> {
+  final WeatherService _weatherService = WeatherService();
+  Weather? _currentWeather;
+  bool _isLoadingWeather = true;
+  int _selectedTabIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchWeather();
+  }
+
+  Future<void> _fetchWeather() async {
+    try {
+      final weather = await _weatherService.fetchWeather('Ankara');
+      if (!mounted) return;
+      setState(() {
+        _currentWeather = weather;
+        _isLoadingWeather = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoadingWeather = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -15,16 +54,33 @@ class StyleSelectionPage extends StatelessWidget {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.menu, color: Colors.black),
-          onPressed: () {},
+          onPressed: () => Scaffold.of(context).openDrawer(),
         ),
         title: const Text(
-          'Choose Your Style',
+          'My Daily Dress Up',
           style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 22),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.shopping_bag_outlined, color: Colors.black),
-            onPressed: () {},
+          Stack(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.shopping_bag_outlined, color: Colors.black),
+                onPressed: () {},
+              ),
+              Positioned(
+                right: 12,
+                top: 12,
+                child: Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: Colors.red,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 1.5),
+                  ),
+                ),
+              ),
+            ],
           ),
           Container(
             margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
@@ -39,98 +95,264 @@ class StyleSelectionPage extends StatelessWidget {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          _buildStyleTabs(),
-          Expanded(
-            child: GridView.builder(
-              padding: const EdgeInsets.all(20),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                childAspectRatio: 0.8,
-                crossAxisSpacing: 15,
-                mainAxisSpacing: 15,
-              ),
-              itemCount: 4,
-              itemBuilder: (context, index) {
-                return _buildStyleCard(context);
-              },
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 10),
+            _buildTabBar(),
+            const SizedBox(height: 20),
+            _buildHeroCard(context),
+            const SizedBox(height: 20),
+            _buildInfoRow(),
+            const SizedBox(height: 20),
+            _buildActionButtons(context),
+            const SizedBox(height: 25),
+            _buildSectionTile(
+              icon: Icons.lightbulb_outline,
+              title: 'Trending Styles',
+              subtitle: 'Discover your global style icon twin',
+              backgroundColor: const Color(0xFFF9E7E9),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(25.0),
-            child: ElevatedButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const StyledLookPage()),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: primaryColor,
-                foregroundColor: Colors.white,
-                minimumSize: const Size(double.infinity, 55),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-              ),
-              child: const Text(
-                'Generate Makeover',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
+            const SizedBox(height: 12),
+            _buildSectionTile(
+              icon: Icons.shopping_bag_outlined,
+              title: 'Designer Pick',
+              subtitle: 'Discover your global style icon twin',
+              backgroundColor: const Color(0xFFF9E7E9),
             ),
-          ),
-        ],
+            const SizedBox(height: 12),
+            _buildSectionTile(
+              icon: Icons.storefront_outlined,
+              title: 'My Closet',
+              subtitle: 'Discover your global style icon twin',
+              backgroundColor: const Color(0xFFF9E7E9),
+            ),
+            const SizedBox(height: 30),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildStyleTabs() {
+  Widget _buildTabBar() {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: Row(
         children: [
-          _tabButton("Casual", true),
-          const SizedBox(width: 10),
-          _tabButton("Formal", false),
-          const SizedBox(width: 10),
-          _tabButton("Streetwear", false),
-          const SizedBox(width: 10),
-          _tabButton("Traditional", false),
+          _tabButton('Mine', 0),
+          const SizedBox(width: 12),
+          _tabButton('My Friends', 1),
+          const SizedBox(width: 12),
+          _tabButton('Community', 2),
         ],
       ),
     );
   }
 
-  Widget _tabButton(String title, bool isSelected) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-      decoration: BoxDecoration(
-        color: isSelected ? primaryColor : Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: isSelected ? primaryColor : Colors.grey.shade200),
-      ),
-      child: Text(
-        title,
-        style: TextStyle(
-          color: isSelected ? Colors.white : Colors.grey,
-          fontWeight: FontWeight.bold,
+  Widget _tabButton(String label, int index) {
+    final bool isSelected = _selectedTabIndex == index;
+    return GestureDetector(
+      onTap: () => setState(() => _selectedTabIndex = index),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected ? StyleSelectionPage.primaryColor : Colors.white,
+          borderRadius: BorderRadius.circular(25),
+          border: Border.all(
+            color: isSelected ? StyleSelectionPage.primaryColor : Colors.grey.shade200,
+            width: 1,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? Colors.white : Colors.grey.shade600,
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildStyleCard(BuildContext context) {
+  Widget _buildHeroCard(BuildContext context) {
     return Container(
+      width: double.infinity,
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF5F5),
-        borderRadius: BorderRadius.circular(20),
+        color: const Color(0xFFFDF2F5),
+        borderRadius: BorderRadius.circular(30),
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
-        child: Image.network(
-          'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80',
-          fit: BoxFit.cover,
+        borderRadius: BorderRadius.circular(30),
+        child: Column(
+          children: [
+            SizedBox(
+              height: MediaQuery.of(context).size.height * 0.45,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  widget.imageBytes != null
+                      ? Image.memory(
+                          widget.imageBytes!,
+                          width: double.infinity,
+                          height: double.infinity,
+                          fit: BoxFit.contain,
+                          alignment: Alignment.center,
+                        )
+                      : Image.network(
+                          widget.imageUrl!,
+                          width: double.infinity,
+                          height: double.infinity,
+                          fit: BoxFit.contain,
+                          alignment: Alignment.center,
+                          errorBuilder: (context, error, stackTrace) => const Center(
+                            child: Icon(Icons.broken_image, size: 64, color: Colors.black26),
+                          ),
+                        ),
+                  Positioned(
+                    bottom: 12,
+                    left: 12,
+                    child: ElevatedButton.icon(
+                      onPressed: () {},
+                      icon: const Icon(Icons.checkroom, size: 18),
+                      label: const Text('Try On'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: StyleSelectionPage.primaryColor,
+                        elevation: 2,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildInfoRow() {
+    final weatherLabel = _isLoadingWeather
+        ? 'Loading weather...'
+        : _currentWeather != null
+            ? '${_currentWeather!.condition} · ${_currentWeather!.temperatureC.round()}°C'
+            : 'Weather unavailable';
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        _infoChip(Icons.cloud_outlined, weatherLabel),
+        _infoChip(Icons.calendar_today_outlined, '11 AM Meeting'),
+        _infoChip(Icons.location_on_outlined, 'Ankara & Gold Accents'),
+      ],
+    );
+  }
+
+  Widget _infoChip(IconData icon, String label) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF7F3FF),
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: StyleSelectionPage.primaryColor, size: 18),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                label,
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionButtons(BuildContext context) {
+    final buttons = [
+      'Quick Wear',
+      'Customize',
+      'Try On',
+      'Find Shops',
+    ];
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      children: buttons.map((label) {
+        return SizedBox(
+          width: (MediaQuery.of(context).size.width - 68) / 2,
+          child: ElevatedButton(
+            onPressed: () {},
+            style: ElevatedButton.styleFrom(
+              backgroundColor: StyleSelectionPage.primaryColor,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              padding: const EdgeInsets.symmetric(vertical: 16),
+            ),
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildSectionTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color backgroundColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: const Color(0xFFDED6FF),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: StyleSelectionPage.primaryColor, size: 22),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          const Icon(Icons.arrow_forward_ios, color: Colors.grey, size: 18),
+        ],
       ),
     );
   }

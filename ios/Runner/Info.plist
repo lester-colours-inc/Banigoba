@@ -28,6 +28,10 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>This app needs camera access to show the AR glasses try-on feature.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>This app needs photo library access so you can upload images for the AI makeover.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>This app needs photo library permission to save and share your AI makeover results.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>This app needs location access to provide weather-based clothing recommendations.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>

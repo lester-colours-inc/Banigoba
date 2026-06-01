@@ -1,10 +1,69 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'styling_journey_page.dart';
+import '../../../data/services/makeover_service.dart';
 
-class StyledLookPage extends StatelessWidget {
-  const StyledLookPage({super.key});
+class StyledLookPage extends StatefulWidget {
+  final String style;
+  final String sourceImageUrl;
+  final List<String> generatedImageUrls;
+
+  const StyledLookPage({
+    super.key,
+    required this.style,
+    required this.sourceImageUrl,
+    required this.generatedImageUrls,
+  });
 
   static const Color primaryColor = Color(0xFF0D0140);
+
+  @override
+  State<StyledLookPage> createState() => _StyledLookPageState();
+}
+
+class _StyledLookPageState extends State<StyledLookPage> {
+  final MakeoverService _makeoverService = MakeoverService();
+  bool _isSaving = false;
+
+  Future<void> _saveLook() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('You must be signed in to save your look.')),
+      );
+      return;
+    }
+
+    setState(() {
+      _isSaving = true;
+    });
+
+    try {
+      await _makeoverService.saveGeneratedMakeover(
+        userId: user.uid,
+        style: widget.style,
+        generatedImageUrls: widget.generatedImageUrls,
+        sourceImageUrl: widget.sourceImageUrl,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Your AI makeover has been saved to your wardrobe.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to save look: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -46,32 +105,31 @@ class StyledLookPage extends StatelessWidget {
             _buildMainLookCard(),
             const SizedBox(height: 25),
             Row(
-              children: [
-                Expanded(child: _buildSmallImageCard()),
-                const SizedBox(width: 15),
-                Expanded(child: _buildSmallImageCard()),
-                const SizedBox(width: 15),
-                Expanded(child: _buildSmallImageCard()),
-              ],
+              children: widget.generatedImageUrls
+                  .take(3)
+                  .map((url) => Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: 10),
+                          child: _buildSmallImageCard(url),
+                        ),
+                      ))
+                  .toList(),
             ),
             const SizedBox(height: 40),
             ElevatedButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const StylingJourneyPage()),
-                );
-              },
+              onPressed: _isSaving ? null : _saveLook,
               style: ElevatedButton.styleFrom(
-                backgroundColor: primaryColor,
+                backgroundColor: StyledLookPage.primaryColor,
                 foregroundColor: Colors.white,
                 minimumSize: const Size(double.infinity, 55),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
               ),
-              child: const Text(
-                'Save to Wardrobe',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
+              child: _isSaving
+                  ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : const Text(
+                      'Save to Wardrobe',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
             ),
             const SizedBox(height: 15),
             TextButton(
@@ -88,6 +146,7 @@ class StyledLookPage extends StatelessWidget {
   }
 
   Widget _buildMainLookCard() {
+    final firstImageUrl = widget.generatedImageUrls.isNotEmpty ? widget.generatedImageUrls.first : widget.sourceImageUrl;
     return Container(
       width: double.infinity,
       height: 450,
@@ -98,14 +157,15 @@ class StyledLookPage extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(30),
         child: Image.network(
-          'https://images.unsplash.com/photo-1539109132314-d4a8c77ee822?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80',
+          firstImageUrl,
           fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => const Center(child: Icon(Icons.broken_image, size: 60, color: Colors.grey)),
         ),
       ),
     );
   }
 
-  Widget _buildSmallImageCard() {
+  Widget _buildSmallImageCard(String imageUrl) {
     return Container(
       height: 100,
       decoration: BoxDecoration(
@@ -115,8 +175,9 @@ class StyledLookPage extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(15),
         child: Image.network(
-          'https://images.unsplash.com/photo-1485230895905-ec40ba36b9bc?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80',
+          imageUrl,
           fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => const Center(child: Icon(Icons.broken_image, size: 28, color: Colors.grey)),
         ),
       ),
     );
