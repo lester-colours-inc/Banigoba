@@ -7,6 +7,7 @@ class Product {
   final String? rawImageUrl;
   final String category;
   final String? subcategory;
+  final String styleTag;
   final List<String> colours;
   final String gender;
   final List<String> weatherTags;
@@ -20,6 +21,7 @@ class Product {
     this.rawImageUrl,
     required this.category,
     this.subcategory,
+    this.styleTag = 'casual',
     required this.colours,
     required this.gender,
     this.weatherTags = const [],
@@ -49,6 +51,7 @@ class Product {
       rawImageUrl: rawImg,
       category: data['category'] ?? '',
       subcategory: data['subcategory'],
+      styleTag: data['styleTag'] ?? data['style'] ?? 'casual',
       colours: colList,
       gender: data['gender'] ?? 'unisex',
       weatherTags: List<String>.from(data['weatherTags'] ?? []),
@@ -64,6 +67,7 @@ class Product {
       'rawImageUrl': rawImageUrl,
       'category': category,
       'subcategory': subcategory,
+      'styleTag': styleTag,
       'colours': colours,
       'gender': gender,
       'weatherTags': weatherTags,

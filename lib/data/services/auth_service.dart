@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -40,11 +41,29 @@ class AuthService {
 
   /// Sign in with Facebook (Placeholder - requires flutter_facebook_auth)
   Future<UserCredential?> signInWithFacebook() async {
-    // In a real implementation, you would use flutter_facebook_auth to get the token
-    // then use FacebookAuthProvider.credential(accessToken)
-    debugPrint('Facebook Sign-In initiated');
-    throw UnimplementedError('Facebook Sign-In requires additional setup');
+  try {
+    final result = await FacebookAuth.instance.login(
+      permissions: ['email', 'public_profile'],
+    );
+
+    if (result.status != LoginStatus.success || result.accessToken == null) {
+      debugPrint('Facebook login failed: ${result.status}');
+      debugPrint('Message: ${result.message}');
+      return null;
+    }
+
+    final accessToken = result.accessToken!;
+
+    final credential = FacebookAuthProvider.credential(
+      accessToken.token,
+    );
+
+    return await FirebaseAuth.instance.signInWithCredential(credential);
+  } catch (e) {
+    debugPrint('Facebook Sign-In error: $e');
+    rethrow;
   }
+}
 
   /// Sign in with Apple (Placeholder - requires the sign_in_with_apple package)
   Future<UserCredential?> signInWithApple() async {

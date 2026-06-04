@@ -20,6 +20,8 @@ class _EmailSignUpScreenState extends State<EmailSignUpScreen> {
   final _authService = AuthService();
   bool _isLoading = false;
   bool _termsAccepted = false;
+  String _stylePreference = 'casual';
+  static const List<String> _styleTags = ['casual', 'afrochic', 'corporate', 'streetwear', 'glamour'];
 
   Future<void> _signUp() async {
     if (!_termsAccepted) {
@@ -43,6 +45,7 @@ class _EmailSignUpScreenState extends State<EmailSignUpScreen> {
           'uid': userCredential.user!.uid,
           'displayName': _nameController.text.trim(),
           'email': _emailController.text.trim(),
+          'stylePreference': _stylePreference,
           'role': 'user',
           'createdAt': FieldValue.serverTimestamp(),
         });
@@ -126,6 +129,8 @@ class _EmailSignUpScreenState extends State<EmailSignUpScreen> {
               controller: _confirmPasswordController,
               isPassword: true,
             ),
+            const SizedBox(height: 15),
+            _buildStyleDropdown(),
             const SizedBox(height: 15),
             Row(
               children: [
@@ -227,6 +232,23 @@ class _EmailSignUpScreenState extends State<EmailSignUpScreen> {
           borderRadius: BorderRadius.circular(10),
         ),
         child: Icon(icon, color: color, size: 28),
+      ),
+    );
+  }
+
+  Widget _buildStyleDropdown() {
+    return DropdownButtonFormField<String>(
+      initialValue: _stylePreference,
+      items: _styleTags.map((style) {
+        return DropdownMenuItem(
+          value: style,
+          child: Text(style[0].toUpperCase() + style.substring(1)),
+        );
+      }).toList(),
+      onChanged: (value) => setState(() => _stylePreference = value ?? 'casual'),
+      decoration: InputDecoration(
+        labelText: 'Style preference',
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );
   }

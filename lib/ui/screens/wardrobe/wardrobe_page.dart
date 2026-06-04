@@ -474,6 +474,7 @@ class _WardrobePageState extends State<WardrobePage> {
     String visibility = 'private';
     String category = 'tops';
     String subcategory = 'none';
+    String styleTag = 'casual';
     List<String> selectedColours = [];
     List<String> selectedWeatherTags = [];
     List<String> selectedFunctionalTags = [];
@@ -493,6 +494,7 @@ class _WardrobePageState extends State<WardrobePage> {
     final List<String> weatherTags = ["hot", "mild", "cool", "cold", "rainy"];
     final List<String> functionalTags = ["waterproof", "breathable", "insulated", "windproof"];
     final List<String> genders = ['male', 'female', 'unisex'];
+    final List<String> styleTags = ['casual', 'afrochic', 'corporate', 'streetwear', 'glamour'];
 
     showModalBottomSheet(
       context: context,
@@ -536,6 +538,8 @@ class _WardrobePageState extends State<WardrobePage> {
                 const SizedBox(width: 10),
                 Expanded(child: _buildSimpleDropdown("Subcategory", subcategory, categoryData[category]!, (val) => setModalState(() => subcategory = val!))),
               ]),
+              const SizedBox(height: 15),
+              _buildSimpleDropdown("Style", styleTag, styleTags, (val) => setModalState(() => styleTag = val!)),
               const SizedBox(height: 15),
               const Text("Select Colours", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
@@ -651,6 +655,7 @@ class _WardrobePageState extends State<WardrobePage> {
                         rawImageUrl: rawImageUrl,
                         category: category,
                         subcategory: subcategory == 'none' ? null : subcategory, 
+                        styleTag: styleTag,
                         colours: selectedColours, 
                         gender: gender, 
                         visibility: visibility,

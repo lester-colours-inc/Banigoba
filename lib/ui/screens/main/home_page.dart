@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../../data/services/weather_service.dart';
 import '../../../data/services/notification_service.dart';
+import '../../../data/services/product_service.dart';
 import '../../../data/models/weather.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:permission_handler/permission_handler.dart';
 import '../../../core/app_routes.dart';
-import 'notifications_page.dart';
 import '../makeover/ai_upload_page.dart';
+import '../shop/product_detail_page.dart';
 
 /// The main landing page after login, providing quick access to features
 /// Primary landing screen for users, featuring AI makeover options,
@@ -23,6 +25,7 @@ class _HomePageState extends State<HomePage> {
   static const Color primaryColor = Color(0xFF0D0140);
 
   final WeatherService _weatherService = WeatherService();
+  final ProductService _productService = ProductService();
   Weather? _currentWeather;
   bool _isLoadingWeather = true;
   String? _errorMessage;
@@ -39,14 +42,34 @@ class _HomePageState extends State<HomePage> {
 
   /// Evaluates location permission status and handles user interaction for permission requests
   Future<void> _checkPermissionAndFetchWeather() async {
-    var status = await Permission.location.status;
+    var status = await Geolocator.checkPermission();
 
-    if (status.isDenied) {
-      // Show custom rationale dialog before the system prompt
+    if (status == LocationPermission.deniedForever) {
+      setState(() {
+        _isLoadingWeather = false;
+        _errorMessage = 'Location permissions are permanently denied';
+      });
+      return;
+    }
+
+    if (status == LocationPermission.denied) {
       if (mounted) {
         bool? shouldRequest = await _showLocationPermissionDialog();
         if (shouldRequest == true) {
-          _fetchWeather();
+          status = await Geolocator.requestPermission();
+          if (status == LocationPermission.whileInUse || status == LocationPermission.always) {
+            _fetchWeather();
+          } else if (status == LocationPermission.deniedForever) {
+            setState(() {
+              _isLoadingWeather = false;
+              _errorMessage = 'Location permissions are permanently denied';
+            });
+          } else {
+            setState(() {
+              _isLoadingWeather = false;
+              _errorMessage = 'Location permissions are denied';
+            });
+          }
         } else {
           setState(() {
             _isLoadingWeather = false;
@@ -114,6 +137,16 @@ class _HomePageState extends State<HomePage> {
       _errorMessage = null;
     });
     try {
+      // Early check for permanently denied permissions before attempting fetch
+      final permStatus = await Geolocator.checkPermission();
+      if (permStatus == LocationPermission.deniedForever) {
+        setState(() {
+          _isLoadingWeather = false;
+          _errorMessage = 'Location permissions are permanently denied';
+        });
+        return;
+      }
+
       final Position position = await _determinePosition();
       final String latLong = "${position.latitude},${position.longitude}";
       final weather = await _weatherService.fetchWeather(latLong);
@@ -142,15 +175,15 @@ class _HomePageState extends State<HomePage> {
       return Future.error('Location services are disabled.');
     }
 
-    var status = await Permission.location.status;
-    if (status.isDenied) {
-      status = await Permission.location.request();
-      if (status.isDenied) {
+    var status = await Geolocator.checkPermission();
+    if (status == LocationPermission.denied) {
+      status = await Geolocator.requestPermission();
+      if (status == LocationPermission.denied) {
         return Future.error('Location permissions are denied');
       }
     }
 
-    if (status.isPermanentlyDenied) {
+    if (status == LocationPermission.deniedForever) {
       return Future.error('Location permissions are permanently denied');
     }
 
@@ -405,12 +438,13 @@ class _HomePageState extends State<HomePage> {
   /// Style By Occasion horizontal list
   Widget _buildStyleByOccasion() {
     final List<Map<String, dynamic>> occasions = [
-      {'name': 'Casual', 'icon': Icons.check_circle_outline},
-      {'name': 'Afro-Chic', 'icon': Icons.eco_outlined},
-      {'name': 'Corporate', 'icon': Icons.business_center_outlined},
-      {'name': 'Street wear', 'icon': Icons.style_outlined},
-      {'name': 'Glamour', 'icon': Icons.diamond_outlined},
+      {'name': 'Casual', 'value': 'casual', 'icon': Icons.check_circle_outline},
+      {'name': 'Afro-Chic', 'value': 'afrochic', 'icon': Icons.eco_outlined},
+      {'name': 'Corporate', 'value': 'corporate', 'icon': Icons.business_center_outlined},
+      {'name': 'Street wear', 'value': 'streetwear', 'icon': Icons.style_outlined},
+      {'name': 'Glamour', 'value': 'glamour', 'icon': Icons.diamond_outlined},
     ];
+    final userId = FirebaseAuth.instance.currentUser?.uid;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -425,45 +459,67 @@ class _HomePageState extends State<HomePage> {
           style: TextStyle(color: Colors.grey.shade400, fontSize: 11),
         ),
         const SizedBox(height: 15),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: occasions.map((occ) => _buildOccasionItem(occ)).toList(),
-          ),
+        StreamBuilder<DocumentSnapshot>(
+          stream: userId == null ? null : FirebaseFirestore.instance.collection('users').doc(userId).snapshots(),
+          builder: (context, snapshot) {
+            final userData = snapshot.data?.data() as Map<String, dynamic>?;
+            final selectedStyle = (userData?['stylePreference'] ?? 'casual').toString();
+            return SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: occasions.map((occ) {
+                  return _buildOccasionItem(
+                    occ,
+                    isSelected: occ['value'] == selectedStyle,
+                    onTap: userId == null ? null : () => _updateStylePreference(userId, occ['value']),
+                  );
+                }).toList(),
+              ),
+            );
+          },
         ),
       ],
     );
   }
 
-  Widget _buildOccasionItem(Map<String, dynamic> occasion) {
-    bool isSelected = occasion['name'] == 'Casual'; // Defaulting for now
+  Future<void> _updateStylePreference(String userId, String stylePreference) async {
+    await FirebaseFirestore.instance.collection('users').doc(userId).set({
+      'stylePreference': stylePreference,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  Widget _buildOccasionItem(Map<String, dynamic> occasion, {required bool isSelected, VoidCallback? onTap}) {
     return Padding(
       padding: const EdgeInsets.only(right: 15),
-      child: Column(
-        children: [
-          Container(
-            width: 55,
-            height: 55,
-            decoration: BoxDecoration(
-              color: isSelected ? primaryColor : Colors.grey.shade50,
-              borderRadius: BorderRadius.circular(12),
+      child: GestureDetector(
+        onTap: onTap,
+        child: Column(
+          children: [
+            Container(
+              width: 55,
+              height: 55,
+              decoration: BoxDecoration(
+                color: isSelected ? primaryColor : Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                occasion['icon'],
+                color: isSelected ? Colors.white : Colors.grey.shade400,
+                size: 24,
+              ),
             ),
-            child: Icon(
-              occasion['icon'],
-              color: isSelected ? Colors.white : Colors.grey.shade400,
-              size: 24,
+            const SizedBox(height: 8),
+            Text(
+              occasion['name'],
+              style: TextStyle(
+                fontSize: 11,
+                color: isSelected ? Colors.black : Colors.grey.shade500,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            occasion['name'],
-            style: TextStyle(
-              fontSize: 11,
-              color: isSelected ? Colors.black : Colors.grey.shade500,
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -561,7 +617,7 @@ class _HomePageState extends State<HomePage> {
               const SizedBox(height: 10),
               if (isPermanentlyDenied)
                 ElevatedButton(
-                  onPressed: () => openAppSettings(),
+                  onPressed: () => Geolocator.openAppSettings(),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: primaryColor,
                     foregroundColor: Colors.white,
@@ -604,7 +660,92 @@ class _HomePageState extends State<HomePage> {
           _currentWeather!.clothingRecommendation,
           style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
         ),
+        const SizedBox(height: 15),
+        _buildMatchingProductRecommendations(),
       ],
     );
+  }
+
+  Widget _buildMatchingProductRecommendations() {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null || _currentWeather == null) return const SizedBox.shrink();
+
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance.collection('users').doc(userId).snapshots(),
+      builder: (context, userSnapshot) {
+        final userData = userSnapshot.data?.data() as Map<String, dynamic>?;
+        final stylePreference = (userData?['stylePreference'] ?? 'casual').toString();
+
+        return StreamBuilder<List<QueryDocumentSnapshot<Map<String, dynamic>>>>(
+          stream: _productService.getRecommendedProductDocs(
+            weatherTags: _currentWeather!.weatherTags,
+            stylePreference: stylePreference,
+          ),
+          builder: (context, productSnapshot) {
+            if (productSnapshot.connectionState == ConnectionState.waiting) {
+              return const SizedBox(height: 80, child: Center(child: CircularProgressIndicator()));
+            }
+
+            final products = productSnapshot.data ?? [];
+            if (products.isEmpty) {
+              return Text(
+                "No ${_formatStyleLabel(stylePreference)} pieces match today's weather yet.",
+                style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+              );
+            }
+
+            return SizedBox(
+              height: 145,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: products.length.clamp(0, 8).toInt(),
+                separatorBuilder: (_, index) => const SizedBox(width: 12),
+                itemBuilder: (context, index) {
+                  final doc = products[index];
+                  final data = Map<String, dynamic>.from(doc.data());
+                  data['id'] = doc.id;
+                  return _buildRecommendedProductCard(data);
+                },
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildRecommendedProductCard(Map<String, dynamic> product) {
+    final imageUrl = product['rawImageUrl'] ?? product['imageUrl'] ?? product['imageURL'] ?? '';
+    final name = product['name'] ?? 'Product';
+    final style = product['styleTag'] ?? product['style'] ?? 'casual';
+
+    return GestureDetector(
+      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProductDetailPage(productData: product))),
+      child: SizedBox(
+        width: 105,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 105,
+              height: 95,
+              decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(14)),
+              clipBehavior: Clip.antiAlias,
+              child: imageUrl.toString().startsWith('http')
+                  ? Image.network(imageUrl, fit: BoxFit.cover)
+                  : const Icon(Icons.image, color: Colors.grey),
+            ),
+            const SizedBox(height: 6),
+            Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+            Text(_formatStyleLabel(style.toString()), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatStyleLabel(String value) {
+    if (value.isEmpty) return value;
+    return value[0].toUpperCase() + value.substring(1);
   }
 }

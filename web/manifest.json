@@ -1,11 +1,11 @@
 {
-    "name": "simple_app",
-    "short_name": "simple_app",
+    "name": "banigoba",
+    "short_name": "banigoba",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "AI-powered virtual wardrobe, fashion and social app.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

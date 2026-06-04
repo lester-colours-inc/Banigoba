@@ -31,6 +31,18 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
 
   /// Fetches weather data using the current device location
   Future<void> _fetchWeather() async {
+    // Check permissions before attempting to fetch weather
+    var status = await Permission.location.status;
+    
+    if (status.isPermanentlyDenied || status.isRestricted) {
+      // Silently fail - location permissions permanently denied
+      if (!mounted) return;
+      setState(() {
+        _isLoadingWeather = false;
+      });
+      return;
+    }
+
     setState(() {
       _isLoadingWeather = true;
     });

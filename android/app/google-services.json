@@ -8,12 +8,17 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:1057057002281:android:a498bd05823ec3e9505d38",
+        "mobilesdk_app_id": "1:1057057002281:android:3946c7acc8024e8b505d38",
         "android_client_info": {
-          "package_name": "com.example.my_app"
+          "package_name": "com.tino.banigoba"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "1057057002281-d6g305b25lvjmfck44fvngmf91utua1f.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyAT1RUBbmQiZaPa_b71E19BTa5o-qj2JdU"
@@ -21,26 +26,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:1057057002281:android:d9b193468333f592505d38",
-        "android_client_info": {
-          "package_name": "com.example.simple_app"
-        }
-      },
-      "oauth_client": [],
-      "api_key": [
-        {
-          "current_key": "AIzaSyAT1RUBbmQiZaPa_b71E19BTa5o-qj2JdU"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1057057002281-d6g305b25lvjmfck44fvngmf91utua1f.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "1057057002281-etceq9fo3smch6jpv1fpsgsti59g9iei.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.simpleApp"
+              }
+            }
+          ]
         }
       }
     }

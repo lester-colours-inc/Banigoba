@@ -69,6 +69,30 @@ class ProductService {
         .snapshots();
   }
 
+  /// Get product recommendations that match weather first, then user style.
+  Stream<List<QueryDocumentSnapshot<Map<String, dynamic>>>> getRecommendedProductDocs({
+    List<String> weatherTags = const [],
+    String? stylePreference,
+  }) {
+    Query<Map<String, dynamic>> query = _db.collection('products');
+    if (weatherTags.isNotEmpty) {
+      query = query.where('weatherTags', arrayContainsAny: weatherTags);
+    }
+
+    final normalizedStyle = (stylePreference ?? '').toLowerCase().trim();
+    return query.snapshots().map((snapshot) {
+      if (normalizedStyle.isEmpty || normalizedStyle == 'all') {
+        return snapshot.docs;
+      }
+
+      return snapshot.docs.where((doc) {
+        final data = doc.data();
+        final productStyle = (data['styleTag'] ?? data['style'] ?? 'casual').toString().toLowerCase().trim();
+        return productStyle == normalizedStyle;
+      }).toList();
+    });
+  }
+
   /// Get stream of products added by a specific admin
   Stream<QuerySnapshot> getAdminProducts(String adminId) {
     return _db.collection('products')
@@ -107,6 +131,7 @@ class ProductService {
     String? rawImageUrl,
     String? category,
     String? subcategory,
+    String? styleTag,
     String? colour,
     List<String>? colours,
     String? gender,
@@ -128,6 +153,7 @@ class ProductService {
       'rawImageUrl': rawImageUrl,
       'category': category,
       'subcategory': subcategory,
+      'styleTag': styleTag ?? 'casual',
       'colours': finalColours,
       'gender': gender,
       'weatherTags': weatherTags ?? [],
@@ -204,14 +230,20 @@ class ProductService {
       
       if (rawColours is List) {
         for (var item in rawColours) {
-          if (item is String) finalColours.add(item);
-          else if (item is List) finalColours.addAll(item.whereType<String>());
+          if (item is String) {
+            finalColours.add(item);
+          } else if (item is List) {
+            finalColours.addAll(item.whereType<String>());
+          }
         }
       } else if (rawColours != null) {
         finalColours.add(rawColours.toString());
       } else if (rawColour != null) {
-        if (rawColour is List) finalColours.addAll(rawColour.whereType<String>());
-        else finalColours.add(rawColour.toString());
+        if (rawColour is List) {
+          finalColours.addAll(rawColour.whereType<String>());
+        } else {
+          finalColours.add(rawColour.toString());
+        }
       }
 
       final data = {
@@ -223,6 +255,7 @@ class ProductService {
         'rawImageUrl': productData['rawImageUrl'] ?? productData['imageUrl'] ?? productData['imageURL'] ?? '',
         'category': productData['category'] ?? 'other',
         'subcategory': productData['subcategory'] ?? '',
+        'styleTag': productData['styleTag'] ?? productData['style'] ?? 'casual',
         'colours': finalColours,
         'gender': productData['gender'] ?? 'unisex',
         'weatherTags': productData['weatherTags'] ?? [],

@@ -4,6 +4,7 @@ class UserModel {
   final String uid;
   final String email;
   final String displayName;
+  final String stylePreference;
   final String role;
   final bool isAdmin;
   final DateTime? lastSeen;
@@ -12,6 +13,7 @@ class UserModel {
     required this.uid,
     required this.email,
     required this.displayName,
+    this.stylePreference = 'casual',
     this.role = 'user',
     this.isAdmin = false,
     this.lastSeen,
@@ -23,6 +25,7 @@ class UserModel {
       uid: doc.id,
       email: data['email'] ?? '',
       displayName: data['displayName'] ?? '',
+      stylePreference: data['stylePreference'] ?? data['style'] ?? 'casual',
       role: data['role'] ?? 'user',
       isAdmin: data['isAdmin'] ?? (data['role'] == 'admin'),
       lastSeen: (data['lastSeen'] as Timestamp?)?.toDate(),
@@ -34,6 +37,7 @@ class UserModel {
       'uid': uid,
       'email': email,
       'displayName': displayName,
+      'stylePreference': stylePreference,
       'role': role,
       'isAdmin': isAdmin,
       'lastSeen': lastSeen != null ? Timestamp.fromDate(lastSeen!) : FieldValue.serverTimestamp(),

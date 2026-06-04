@@ -1,7 +1,9 @@
 // import 'package:cloud_firestore/cloud_firestore.dart';
 // import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 //import 'package:firebase_ui_auth/firebase_ui_auth.dart' as ui;
 //import 'package:simple_app/screens/main_screen.dart';
 //import 'package:simple_app/screens/login_screen.dart';
@@ -15,6 +17,15 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  if (kIsWeb) {
+    await FacebookAuth.instance.webAndDesktopInitialize(
+      appId: '1190675386466812',
+      cookie: true,
+      xfbml: true,
+      version: 'v19.0',
+    );
+  }
 
   runApp(const MyApp());
 }

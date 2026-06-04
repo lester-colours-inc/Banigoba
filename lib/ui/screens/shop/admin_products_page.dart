@@ -66,7 +66,7 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                       : Container(width: 50, height: 50, color: Colors.grey.shade200, child: const Icon(Icons.image)),
                 ),
                 title: Text(name),
-                subtitle: Text(data['category'] ?? 'No Category'),
+                subtitle: Text("${data['category'] ?? 'No Category'} - ${data['styleTag'] ?? data['style'] ?? 'casual'}"),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -133,6 +133,7 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
     final nameController = TextEditingController(text: existingData?['name'] ?? '');
     String category = existingData?['category'] ?? 'tops';
     String subcategory = existingData?['subcategory'] ?? 'none';
+    String styleTag = existingData?['styleTag'] ?? existingData?['style'] ?? 'casual';
     List<String> selectedColours = List<String>.from(existingData?['colours'] ?? []);
     List<String> selectedWeatherTags = List<String>.from(existingData?['weatherTags'] ?? []);
     List<String> selectedFunctionalTags = List<String>.from(existingData?['functionalTags'] ?? []);
@@ -154,6 +155,7 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
     final List<String> weatherTags = ["hot", "mild", "cool", "cold", "rainy"];
     final List<String> functionalTags = ["waterproof", "breathable", "insulated", "windproof"];
     final List<String> genders = ['male', 'female', 'unisex'];
+    final List<String> styleTags = ['casual', 'afrochic', 'corporate', 'streetwear', 'glamour'];
 
     showModalBottomSheet(
       context: context,
@@ -199,6 +201,8 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                 const SizedBox(width: 10),
                 Expanded(child: _buildSimpleDropdown("Subcategory", subcategory, categoryData[category]!, (val) => setModalState(() => subcategory = val!))),
               ]),
+              const SizedBox(height: 15),
+              _buildSimpleDropdown("Style", styleTag, styleTags, (val) => setModalState(() => styleTag = val!)),
               const SizedBox(height: 15),
               const Text("Select Colours", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
@@ -315,6 +319,7 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                         'rawImageUrl': rawImageUrl,
                         'category': category,
                         'subcategory': subcategory == 'none' ? null : subcategory,
+                        'styleTag': styleTag,
                         'colours': selectedColours,
                         'gender': gender,
                         'weatherTags': selectedWeatherTags,

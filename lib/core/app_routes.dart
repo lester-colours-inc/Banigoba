@@ -38,6 +38,30 @@ class _AuthGateState extends State<AuthGate> {
     });
   }
 
+  Future<bool> _hasRequestedPermissions(String userId) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('permissions_requested_$userId') ?? false;
+  }
+
+  Future<void> _markPermissionsRequested(String userId) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('permissions_requested_$userId', true);
+  }
+
+  Future<void> _upsertUserProfile(User user) async {
+    final userRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
+    final snapshot = await userRef.get();
+    final data = snapshot.data();
+
+    await userRef.set({
+      'uid': user.uid,
+      'email': user.email,
+      'displayName': user.displayName ?? (user.email?.split('@')[0] ?? 'User'),
+      if (data == null || !data.containsKey('stylePreference')) 'stylePreference': 'casual',
+      'lastSeen': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_onboardingDone == null) {
@@ -62,33 +86,51 @@ class _AuthGateState extends State<AuthGate> {
         if (user != null) {
           if (user != _lastUser) {
             _lastUser = user;
-            // Update user profile in background
-            FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-              'uid': user.uid,
-              'email': user.email,
-              'displayName': user.displayName ?? (user.email?.split('@')[0] ?? 'User'),
-              'lastSeen': FieldValue.serverTimestamp(),
-            }, SetOptions(merge: true));
+            _upsertUserProfile(user);
           }
 
-          // Check role to decide where to land
-          return StreamBuilder<DocumentSnapshot>(
-            stream: FirebaseFirestore.instance.collection('users').doc(user.uid).snapshots(),
-            builder: (context, userSnapshot) {
-              if (userSnapshot.connectionState == ConnectionState.waiting) {
+          // Check if permissions have been requested for this user
+          return FutureBuilder<bool>(
+            future: _hasRequestedPermissions(user.uid),
+            builder: (context, permSnapshot) {
+              if (permSnapshot.connectionState == ConnectionState.waiting) {
                 return const Scaffold(body: Center(child: CircularProgressIndicator()));
               }
 
-              if (userSnapshot.hasData && userSnapshot.data!.exists) {
-                final userData = userSnapshot.data!.data() as Map<String, dynamic>;
-                final bool isAdmin = userData['role'] == 'admin' || userData['isAdmin'] == true;
+              final hasRequestedPermissions = permSnapshot.data ?? false;
 
-                if (isAdmin) {
-                  return const AdminProductsPage();
-                }
+              if (!hasRequestedPermissions) {
+                return OnboardingScreen(
+                  permissionsOnly: true,
+                  onPermissionsComplete: () async {
+                    await _markPermissionsRequested(user.uid);
+                    if (mounted) {
+                      setState(() {});
+                    }
+                  },
+                );
               }
 
-              return const MainScreen();
+              // Check role to decide where to land
+              return StreamBuilder<DocumentSnapshot>(
+                stream: FirebaseFirestore.instance.collection('users').doc(user.uid).snapshots(),
+                builder: (context, userSnapshot) {
+                  if (userSnapshot.connectionState == ConnectionState.waiting) {
+                    return const Scaffold(body: Center(child: CircularProgressIndicator()));
+                  }
+
+                  if (userSnapshot.hasData && userSnapshot.data!.exists) {
+                    final userData = userSnapshot.data!.data() as Map<String, dynamic>;
+                    final bool isAdmin = userData['role'] == 'admin' || userData['isAdmin'] == true;
+
+                    if (isAdmin) {
+                      return const AdminProductsPage();
+                    }
+                  }
+
+                  return const MainScreen();
+                },
+              );
             },
           );
         }

@@ -23,11 +23,13 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
   String _selectedCategory = "all";
   String _selectedSubcategory = "all";
   String _selectedGender = "all";
+  String _selectedStyleTag = "all";
   String _selectedWeatherTag = "all";
   String _selectedFunctionalTag = "all";
 
   final List<String> _colors = ['all', 'black', 'white', 'grey', 'blue', 'red', 'green', 'yellow', 'orange'];
   final List<String> _genders = ['all', 'male', 'female', 'unisex'];
+  final List<String> _styleTags = ['all', 'casual', 'afrochic', 'corporate', 'streetwear', 'glamour'];
   final List<String> _weatherTags = ["all", "hot", "mild", "cool", "cold", "rainy"];
   final List<String> _functionalTags = ["all", "waterproof", "breathable", "insulated", "windproof"];
   
@@ -225,6 +227,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
           final category = (p['category']?.toString() ?? '').toLowerCase();
           final subcategory = (p['subcategory']?.toString() ?? '').toLowerCase();
           final gender = (p['gender']?.toString() ?? '').toLowerCase();
+          final styleTag = (p['styleTag']?.toString() ?? p['style']?.toString() ?? 'casual').toLowerCase();
           
           final dynamic rawColours = p['colours'] ?? p['colour'];
           List<String> colourList = [];
@@ -236,6 +239,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
           final matchesCategory = _selectedCategory == 'all' || category == _selectedCategory;
           final matchesSubcategory = _selectedSubcategory == 'all' || (_selectedSubcategory == 'none' && subcategory.isEmpty) || subcategory == _selectedSubcategory;
           final matchesGender = _selectedGender == 'all' || gender == _selectedGender;
+          final matchesStyle = _selectedStyleTag == 'all' || styleTag == _selectedStyleTag;
 
           final List<String> weatherTags = List<String>.from(p['weatherTags'] ?? []);
           final List<String> functionalTags = List<String>.from(p['functionalTags'] ?? []);
@@ -243,7 +247,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
           final matchesWeather = _selectedWeatherTag == 'all' || weatherTags.contains(_selectedWeatherTag);
           final matchesFunctional = _selectedFunctionalTag == 'all' || functionalTags.contains(_selectedFunctionalTag);
 
-          return matchesSearch && matchesColour && matchesCategory && matchesSubcategory && matchesGender && matchesWeather && matchesFunctional;
+          return matchesSearch && matchesColour && matchesCategory && matchesSubcategory && matchesGender && matchesStyle && matchesWeather && matchesFunctional;
         }).toList();
 
         if (products.isEmpty && _searchQuery.isEmpty) return Center(child: Text("Type to search your wardrobe", style: TextStyle(color: Colors.grey.shade400, fontSize: 16)));
@@ -282,6 +286,11 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(product['name'] ?? 'Unknown', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+                          const SizedBox(height: 4),
+                          Text(
+                            _formatFilterLabel(product['styleTag']?.toString() ?? product['style']?.toString() ?? 'casual'),
+                            style: TextStyle(color: primaryColor.withValues(alpha: 0.8), fontSize: 13, fontWeight: FontWeight.w600),
+                          ),
                           const SizedBox(height: 4),
                           Builder(
                             builder: (context) {
@@ -332,6 +341,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                         _selectedCategory = 'all'; 
                         _selectedSubcategory = 'all'; 
                         _selectedGender = 'all'; 
+                        _selectedStyleTag = 'all';
                         _selectedWeatherTag = 'all';
                         _selectedFunctionalTag = 'all';
                       });
@@ -349,6 +359,10 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                   }),
                   _buildDropdownFilter('Gender', _genders, _selectedGender, (val) {
                     setModalState(() => _selectedGender = val ?? 'all');
+                    setState(() {});
+                  }),
+                  _buildDropdownFilter('Style', _styleTags, _selectedStyleTag, (val) {
+                    setModalState(() => _selectedStyleTag = val ?? 'all');
                     setState(() {});
                   }),
                   _buildDropdownFilter('Weather', _weatherTags, _selectedWeatherTag, (val) {
@@ -378,6 +392,11 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
     );
   }
 
+  String _formatFilterLabel(String value) {
+    if (value.isEmpty) return value;
+    return value[0].toUpperCase() + value.substring(1);
+  }
+
   /// Helper to build a filter dropdown in the sheet
   Widget _buildDropdownFilter(String label, List<String> options, String selectedValue, Function(String?) onChanged) {
     return Padding(
@@ -389,7 +408,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
           const SizedBox(height: 5),
           DropdownButtonFormField<String>(
             value: !options.contains(selectedValue) ? options[0] : selectedValue,
-            items: options.map((e) => DropdownMenuItem(value: e, child: Text(e[0].toUpperCase() + e.substring(1)))).toList(),
+            items: options.map((e) => DropdownMenuItem(value: e, child: Text(_formatFilterLabel(e)))).toList(),
             onChanged: onChanged,
             decoration: InputDecoration(
               contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),

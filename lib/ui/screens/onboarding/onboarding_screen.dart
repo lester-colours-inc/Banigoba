@@ -1,9 +1,18 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 class OnboardingScreen extends StatefulWidget {
-  const OnboardingScreen({super.key});
+  final bool permissionsOnly;
+  final VoidCallback? onPermissionsComplete;
+
+  const OnboardingScreen({
+    super.key,
+    this.permissionsOnly = false,
+    this.onPermissionsComplete,
+  });
 
   @override
   State<OnboardingScreen> createState() => _OnboardingScreenState();
@@ -15,6 +24,53 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    List<Widget> pages = [];
+
+    if (!widget.permissionsOnly) {
+      pages.add(_buildWelcomePage());
+    }
+
+    pages.addAll([
+      _buildPermissionPage(
+        title: "CAMERA & PHOTO LIBRARY",
+        description: "Banigoba needs permission to access your Camera and Photo Library.",
+        image: Icons.camera_alt_outlined,
+        onAccept: () async {
+          await Permission.camera.request();
+          if (Platform.isIOS) {
+            await Permission.photos.request();
+            await Permission.photosAddOnly.request();
+          } else if (Platform.isAndroid) {
+            await Permission.storage.request();
+          }
+          _nextPage();
+        },
+      ),
+      _buildPermissionPage(
+        title: "ADD YOUR LOCATION",
+        description: "Help us deliver your products to the right place for you",
+        image: Icons.location_on_outlined,
+        onAccept: () async {
+          await Permission.location.request();
+          _nextPage();
+        },
+      ),
+      _buildPermissionPage(
+        title: "DONT' MISS OUT",
+        description: "Turn on notifications to get updates about new looks & more",
+        image: Icons.notifications_none_outlined,
+        onAccept: () async {
+          await Permission.notification.request();
+          if (widget.permissionsOnly) {
+            widget.onPermissionsComplete?.call();
+          } else {
+            _finishOnboarding();
+          }
+        },
+        isLast: true,
+      ),
+    ]);
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: PageView(
@@ -25,38 +81,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             _currentPage = page;
           });
         },
-        children: [
-          _buildWelcomePage(),
-          _buildPermissionPage(
-            title: "CAMERA",
-            description: "Banigoba needs permission to access your Camera, Photos.",
-            image: Icons.camera_alt_outlined,
-            onAccept: () async {
-              await Permission.camera.request();
-              await Permission.photos.request();
-              _nextPage();
-            },
-          ),
-          _buildPermissionPage(
-            title: "ADD YOUR LOCATION",
-            description: "Help us deliver your products to the right place for you",
-            image: Icons.location_on_outlined,
-            onAccept: () async {
-              await Permission.location.request();
-              _nextPage();
-            },
-          ),
-          _buildPermissionPage(
-            title: "DONT' MISS OUT",
-            description: "Turn on notifications to get updates about new looks & more",
-            image: Icons.notifications_none_outlined,
-            onAccept: () async {
-              await Permission.notification.request();
-              _finishOnboarding();
-            },
-            isLast: true,
-          ),
-        ],
+        children: pages,
       ),
     );
   }
@@ -132,7 +157,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           Align(
             alignment: Alignment.centerRight,
             child: TextButton(
-              onPressed: isLast ? _finishOnboarding : _nextPage,
+              onPressed: isLast ? () {
+                if (widget.permissionsOnly) {
+                  widget.onPermissionsComplete?.call();
+                } else {
+                  _finishOnboarding();
+                }
+              } : _nextPage,
               child: const Text(
                 'Skip',
                 style: TextStyle(color: Colors.grey),

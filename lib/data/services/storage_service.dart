@@ -17,6 +17,17 @@ class StorageService {
     return await _uploadUserImageBytes(imageBytes, userId, _fullBodyDir, filename: filename);
   }
 
+  /// Downloads an image from Firebase Storage using its download URL.
+  Future<Uint8List?> downloadImageBytes(String downloadUrl, {int maxSize = 10 * 1024 * 1024}) async {
+    try {
+      final ref = _storage.refFromURL(downloadUrl);
+      return await ref.getData(maxSize);
+    } catch (e) {
+      debugPrint('Error downloading image bytes: $e');
+      return null;
+    }
+  }
+
   /// Uploads a selfie image to userImages/{userId}/selfie/ directory
   /// Returns the download URL of the uploaded image
   Future<String> uploadSelfieImageBytes(Uint8List imageBytes, String userId, {String? filename}) async {
@@ -60,7 +71,7 @@ class StorageService {
       final finalName = filename ?? '$timestamp.jpg';
       final ref = _storage.ref().child(_productImagesDir).child(userId).child(finalName);
 
-      await ref.putData(imageBytes);
+      await ref.putData(imageBytes, SettableMetadata(contentType: 'image/jpeg'));
       final downloadUrl = await ref.getDownloadURL();
 
       debugPrint('Product image uploaded: $downloadUrl');
@@ -83,7 +94,7 @@ class StorageService {
           .child(subDir)
           .child(finalName);
 
-      await ref.putData(imageBytes);
+      await ref.putData(imageBytes, SettableMetadata(contentType: 'image/jpeg'));
       final downloadUrl = await ref.getDownloadURL();
 
       debugPrint('User image uploaded to $subDir: $downloadUrl');

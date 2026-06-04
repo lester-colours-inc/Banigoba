@@ -376,15 +376,31 @@ class _AiUploadPageState extends State<AiUploadPage> {
   void _clearSelectedImage() {
     setState(() {
       _selectedImageBytes = null;
+      _existingFullBodyImageUrl = null;
     });
   }
 
-  void _useExistingSavedPhoto() {
-    if (_existingFullBodyImageUrl == null) return;
+  Future<void> _useExistingSavedPhoto() async {
+    final savedUrl = _existingFullBodyImageUrl;
+    if (savedUrl == null) return;
+
+    setState(() {
+      _isPicking = true;
+    });
+
+    final savedBytes = await _storageService.downloadImageBytes(savedUrl);
+    if (!mounted) return;
+
+    setState(() {
+      _isPicking = false;
+    });
+
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => StyleSelectionPage(imageUrl: _existingFullBodyImageUrl!),
+        builder: (context) => savedBytes != null
+            ? StyleSelectionPage(imageBytes: savedBytes)
+            : StyleSelectionPage(imageUrl: savedUrl),
       ),
     );
   }

@@ -1,5 +1,7 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../../../data/models/weather.dart';
 import '../../../data/services/weather_service.dart';
 
@@ -30,8 +32,22 @@ class _StyleSelectionPageState extends State<StyleSelectionPage> {
   }
 
   Future<void> _fetchWeather() async {
+    // Check permissions before attempting to fetch weather
+    var status = await Permission.location.status;
+    
+    if (status.isPermanentlyDenied || status.isRestricted) {
+      // Silently fail - location permissions permanently denied
+      if (!mounted) return;
+      setState(() {
+        _isLoadingWeather = false;
+      });
+      return;
+    }
+
     try {
-      final weather = await _weatherService.fetchWeather('Ankara');
+      final Position position = await _determinePosition();
+      final String latLong = "${position.latitude},${position.longitude}";
+      final weather = await _weatherService.fetchWeather(latLong);
       if (!mounted) return;
       setState(() {
         _currentWeather = weather;
@@ -42,7 +58,36 @@ class _StyleSelectionPageState extends State<StyleSelectionPage> {
       setState(() {
         _isLoadingWeather = false;
       });
+      // Silently handle errors - weather is optional for style selection
     }
+  }
+
+  /// Verifies location services and permissions, returning current Position
+  Future<Position> _determinePosition() async {
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      await Geolocator.openLocationSettings();
+      return Future.error('Location services are disabled.');
+    }
+
+    var status = await Permission.location.status;
+    if (status.isDenied) {
+      status = await Permission.location.request();
+      if (status.isDenied) {
+        return Future.error('Location permissions are denied');
+      }
+    }
+
+    if (status.isPermanentlyDenied) {
+      return Future.error('Location permissions are permanently denied');
+    }
+
+    return await Geolocator.getCurrentPosition(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.low,
+        distanceFilter: 1000,
+      ),
+    );
   }
 
   @override

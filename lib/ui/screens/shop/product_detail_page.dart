@@ -39,6 +39,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     final name = _currentProductData['name'] ?? 'No Name';
     final String category = _currentProductData['category'] ?? 'N/A';
     final String subcategory = _currentProductData['subcategory'] ?? 'N/A';
+    final String styleTag = _currentProductData['styleTag'] ?? _currentProductData['style'] ?? 'casual';
     
     // Normalize color data for display
     final dynamic rawColours = _currentProductData['colours'] ?? _currentProductData['colour'];
@@ -165,6 +166,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                   const SizedBox(height: 10),
                   _buildDetailRow("Category", category),
                   _buildDetailRow("Subcategory", subcategory),
+                  _buildDetailRow("Style", styleTag),
                   _buildDetailRow("Colours", colourDisplay),
                   _buildDetailRow("Gender", gender),
                   if (_currentProductData.containsKey('visibility'))
@@ -326,12 +328,14 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
   void _showEditDialog(String id, bool isCatalog) {
     final nameController = TextEditingController(text: _currentProductData['name']);
     String category = _currentProductData['category'] ?? 'tops';
+    String styleTag = _currentProductData['styleTag'] ?? _currentProductData['style'] ?? 'casual';
     String visibility = _currentProductData['visibility'] ?? 'private';
     List<String> selectedColours = List<String>.from(_currentProductData['colours'] ?? []);
     List<String> selectedWeatherTags = List<String>.from(_currentProductData['weatherTags'] ?? []);
     List<String> selectedFunctionalTags = List<String>.from(_currentProductData['functionalTags'] ?? []);
 
     final List<String> availableColors = ['black', 'white', 'grey', 'blue', 'red', 'green', 'yellow', 'orange', 'pink', 'purple', 'brown', 'beige'];
+    final List<String> styleTags = ['casual', 'afrochic', 'corporate', 'streetwear', 'glamour'];
     final List<String> weatherTags = ["hot", "mild", "cool", "cold", "rainy"];
     final List<String> functionalTags = ["waterproof", "breathable", "insulated", "windproof"];
 
@@ -353,6 +357,13 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                 const Text("Edit Item", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 20),
                 TextField(controller: nameController, decoration: const InputDecoration(labelText: "Name", border: OutlineInputBorder())),
+                const SizedBox(height: 15),
+                DropdownButtonFormField<String>(
+                  value: styleTag,
+                  decoration: const InputDecoration(labelText: "Style", border: OutlineInputBorder()),
+                  items: styleTags.map((v) => DropdownMenuItem(value: v, child: Text(_formatLabel(v)))).toList(),
+                  onChanged: (v) => setModalState(() => styleTag = v!),
+                ),
                 const SizedBox(height: 15),
                 if (!isCatalog)
                   DropdownButtonFormField<String>(
@@ -405,6 +416,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                     onPressed: () async {
                       final updated = {
                         'name': nameController.text,
+                        'styleTag': styleTag,
                         'colours': selectedColours,
                         'weatherTags': selectedWeatherTags,
                         'functionalTags': selectedFunctionalTags,
@@ -440,6 +452,12 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
         ),
       ),
     );
+  }
+
+  /// Helper to build a simple label-value row
+  String _formatLabel(String value) {
+    if (value.isEmpty) return value;
+    return value[0].toUpperCase() + value.substring(1);
   }
 
   /// Helper to build a simple label-value row
