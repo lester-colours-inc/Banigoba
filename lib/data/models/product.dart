@@ -1,3 +1,4 @@
+// Defines the typed product data used by shopping and wardrobe features.
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class Product {

@@ -1,3 +1,4 @@
+// Manages the signed-in user's wardrobe, uploads, filters, and product actions.
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';

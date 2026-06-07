@@ -1,7 +1,7 @@
+// Lets users choose styling options and adds optional weather context to the makeover.
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:permission_handler/permission_handler.dart';
 import '../../../data/models/weather.dart';
 import '../../../data/services/weather_service.dart';
 
@@ -33,9 +33,9 @@ class _StyleSelectionPageState extends State<StyleSelectionPage> {
 
   Future<void> _fetchWeather() async {
     // Check permissions before attempting to fetch weather
-    var status = await Permission.location.status;
+    final status = await Geolocator.checkPermission();
     
-    if (status.isPermanentlyDenied || status.isRestricted) {
+    if (status == LocationPermission.deniedForever) {
       // Silently fail - location permissions permanently denied
       if (!mounted) return;
       setState(() {
@@ -70,15 +70,15 @@ class _StyleSelectionPageState extends State<StyleSelectionPage> {
       return Future.error('Location services are disabled.');
     }
 
-    var status = await Permission.location.status;
-    if (status.isDenied) {
-      status = await Permission.location.request();
-      if (status.isDenied) {
+    var status = await Geolocator.checkPermission();
+    if (status == LocationPermission.denied) {
+      status = await Geolocator.requestPermission();
+      if (status == LocationPermission.denied) {
         return Future.error('Location permissions are denied');
       }
     }
 
-    if (status.isPermanentlyDenied) {
+    if (status == LocationPermission.deniedForever) {
       return Future.error('Location permissions are permanently denied');
     }
 

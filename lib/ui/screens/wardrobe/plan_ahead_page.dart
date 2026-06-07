@@ -1,3 +1,4 @@
+// Provides planning shortcuts for future outfits and wardrobe activities.
 import 'package:flutter/material.dart';
 
 /// Hub for planning outfits in advance, including weekly planning and trip packing.

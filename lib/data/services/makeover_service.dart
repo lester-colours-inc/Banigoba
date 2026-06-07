@@ -1,3 +1,4 @@
+// Sends makeover requests and stores generated looks for the signed-in user.
 import 'dart:convert';
 import 'dart:io';
 

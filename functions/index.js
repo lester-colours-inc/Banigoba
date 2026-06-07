@@ -1,3 +1,4 @@
+// Exposes an HTTP function that proxies protected AI makeover requests.
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 

@@ -1,3 +1,4 @@
+// Paints face, pose, and segmentation feedback over the live camera preview.
 import 'package:flutter/material.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';

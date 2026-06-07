@@ -1,3 +1,4 @@
+// Builds the primary dashboard with weather recommendations, products, and makeover entry points.
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';

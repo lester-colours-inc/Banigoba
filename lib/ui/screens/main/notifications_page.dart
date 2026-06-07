@@ -1,3 +1,4 @@
+// Displays social and product notifications and lets users respond to follow requests.
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../../../data/services/notification_service.dart';

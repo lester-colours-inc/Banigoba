@@ -1,4 +1,5 @@
-import 'dart:io';
+// Provides platform-aware helpers for requesting and summarizing app permissions.
+import 'package:flutter/foundation.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 class PermissionsService {
@@ -11,15 +12,14 @@ class PermissionsService {
     ];
 
     // Add platform-specific photo/media permissions
-    if (Platform.isIOS) {
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
       permissions.addAll([
         Permission.photos,
         Permission.photosAddOnly,
       ]);
-    } else if (Platform.isAndroid) {
+    } else if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
       permissions.addAll([
         Permission.storage,
-        Permission.readMediaImages,
       ]);
     }
 
@@ -37,16 +37,15 @@ class PermissionsService {
     final locationStatus = await Permission.location.status;
 
     bool photoStatus = true;
-    if (Platform.isIOS) {
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
       final photos = await Permission.photos.status;
       photoStatus = photos.isGranted;
-    } else if (Platform.isAndroid) {
+    } else if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
       final storage = await Permission.storage.status;
-      final mediaImages = await Permission.readMediaImages.status;
-      photoStatus = storage.isGranted || mediaImages.isGranted;
+      photoStatus = storage.isGranted;
     }
 
-    return cameraStatus.isGranted && photoStatus.isGranted && locationStatus.isGranted;
+    return cameraStatus.isGranted && photoStatus && locationStatus.isGranted;
   }
 
   /// Get summary of permission statuses for UI display
@@ -54,10 +53,20 @@ class PermissionsService {
     return {
       'camera': (await Permission.camera.status).isGranted,
       'location': (await Permission.location.status).isGranted,
-      'photos': Platform.isIOS
-          ? (await Permission.photos.status).isGranted
-          : (await Permission.storage.status).isGranted || (await Permission.readMediaImages.status).isGranted,
+      'photos': await _arePhotosGranted(),
       'notifications': (await Permission.notification.status).isGranted,
     };
+  }
+
+  static Future<bool> _arePhotosGranted() async {
+    if (kIsWeb) return true;
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      return (await Permission.photos.status).isGranted;
+    }
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      final storage = await Permission.storage.status;
+      return storage.isGranted;
+    }
+    return true;
   }
 }

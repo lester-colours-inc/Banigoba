@@ -1,3 +1,4 @@
+// Presents the main sign-in choices and links to the email authentication flow.
 import 'package:flutter/material.dart';
 import 'email_signin_screen.dart';
 import '../../../data/services/auth_service.dart';

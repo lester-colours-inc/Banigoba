@@ -1,3 +1,4 @@
+// Generates, displays, and saves the completed AI-styled look.
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../../../data/services/makeover_service.dart';

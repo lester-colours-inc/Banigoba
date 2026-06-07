@@ -1,3 +1,4 @@
+// Hosts the app drawer, bottom navigation, and the main tab pages.
 import 'package:flutter/material.dart';
 import '../../widgets/bottom_navigation.dart';
 import '../../widgets/app_drawer.dart';

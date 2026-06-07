@@ -1,3 +1,4 @@
+// Collects body measurements used to improve fit and styling recommendations.
 import 'package:flutter/material.dart';
 
 /// Page for users to record their physical measurements.

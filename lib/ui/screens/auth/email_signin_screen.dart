@@ -1,3 +1,4 @@
+// Handles email/password sign-in and navigation to account registration.
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'email_signup_screen.dart';

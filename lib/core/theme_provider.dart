@@ -1,3 +1,4 @@
+// Stores the app's light/dark theme preference and notifies listening widgets.
 import 'package:flutter/material.dart';
 
 class ThemeProvider with ChangeNotifier {

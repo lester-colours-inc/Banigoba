@@ -1,3 +1,4 @@
+// Collects or reuses a full-body image before the user selects a makeover style.
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
@@ -335,14 +336,17 @@ class _AiUploadPageState extends State<AiUploadPage> {
                     ? Stack(
                         fit: StackFit.expand,
                         children: [
-                          Image.network(
-                            _existingFullBodyImageUrl!,
-                            width: double.infinity,
-                            height: double.infinity,
-                            fit: BoxFit.contain,
-                            alignment: Alignment.center,
-                            errorBuilder: (context, error, stackTrace) => const Center(
-                              child: Icon(Icons.broken_image, size: 64, color: Colors.black26),
+                          Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.check_circle_outline, size: 60, color: Colors.black26),
+                                const SizedBox(height: 12),
+                                const Text(
+                                  'Saved full-body photo ready',
+                                  style: TextStyle(color: Colors.black38, fontSize: 14, fontWeight: FontWeight.w500),
+                                ),
+                              ],
                             ),
                           ),
                           Positioned(
@@ -395,12 +399,17 @@ class _AiUploadPageState extends State<AiUploadPage> {
       _isPicking = false;
     });
 
+    if (savedBytes == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Saved image could not be loaded. Please upload it again.')),
+      );
+      return;
+    }
+
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => savedBytes != null
-            ? StyleSelectionPage(imageBytes: savedBytes)
-            : StyleSelectionPage(imageUrl: savedUrl),
+        builder: (context) => StyleSelectionPage(imageBytes: savedBytes),
       ),
     );
   }

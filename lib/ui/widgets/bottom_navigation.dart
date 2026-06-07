@@ -1,3 +1,4 @@
+// Renders the main tab bar and displays notification badges.
 import 'package:flutter/material.dart';
 import '../../data/services/notification_service.dart';
 

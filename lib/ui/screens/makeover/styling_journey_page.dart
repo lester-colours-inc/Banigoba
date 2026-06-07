@@ -1,3 +1,4 @@
+// Presents the steps involved in creating an AI-assisted styled look.
 import 'package:flutter/material.dart';
 
 class StylingJourneyPage extends StatelessWidget {

@@ -1,3 +1,4 @@
+// Wraps ML Kit face detection for camera frames used by AR overlays.
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:camera/camera.dart';
 import 'dart:ui';

@@ -1,3 +1,4 @@
+// Explains app permissions, requests them, and reports their current status.
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../../data/services/permissions_service.dart';

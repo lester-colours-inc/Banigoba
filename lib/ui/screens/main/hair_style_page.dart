@@ -1,3 +1,4 @@
+// Displays hairstyle choices and entry points into the virtual styling experience.
 import 'package:flutter/material.dart';
 import '../../../core/app_routes.dart';
 

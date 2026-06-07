@@ -1,3 +1,4 @@
+// Represents an in-app notification stored in Cloud Firestore.
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class AppNotification {

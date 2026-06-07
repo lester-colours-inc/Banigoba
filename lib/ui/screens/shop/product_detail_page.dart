@@ -1,3 +1,4 @@
+// Shows product information and supports owner/admin editing, deletion, and try-on actions.
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';

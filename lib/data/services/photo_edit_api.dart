@@ -1,3 +1,4 @@
+// Client for FASHN image-editing endpoints, including try-on and hairstyle generation.
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -5,8 +6,8 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 
 class PhotoEditApi {
-TODO: Add error handling, logging, and support for additional endpoints as needed
-TODO: add API key management and secure storage for production use
+  // TODO: Add structured logging and support for additional endpoints.
+  // TODO: Move API key management to secure storage before production use.
   final String apiKey;
   static const String _baseUrl = 'https://api.fashn.ai';
   static const Duration _pollInterval = Duration(seconds: 2);

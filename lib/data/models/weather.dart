@@ -1,3 +1,4 @@
+// Converts weather API responses into values and clothing recommendations used by the UI.
 class Weather {
   final double temperatureC;
   final String condition;

@@ -1,3 +1,4 @@
+// Wraps ML Kit selfie segmentation to separate people from camera backgrounds.
 import 'package:google_mlkit_selfie_segmentation/google_mlkit_selfie_segmentation.dart';
 import 'package:camera/camera.dart';
 import 'dart:ui';

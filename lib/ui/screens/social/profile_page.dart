@@ -1,3 +1,4 @@
+// Displays user profiles, wardrobes, follower lists, and follow controls.
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';

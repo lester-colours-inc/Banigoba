@@ -1,3 +1,4 @@
+// Wraps ML Kit pose detection for full-body camera tracking.
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'package:camera/camera.dart';
 import 'dart:ui';

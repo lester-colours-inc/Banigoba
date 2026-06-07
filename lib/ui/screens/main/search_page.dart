@@ -1,3 +1,4 @@
+// Searches and filters the product catalog before opening product details.
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../../../data/services/product_service.dart';

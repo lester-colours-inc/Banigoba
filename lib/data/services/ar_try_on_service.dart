@@ -1,3 +1,4 @@
+// Provides image-compositing helpers for the augmented-reality try-on experience.
 import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;

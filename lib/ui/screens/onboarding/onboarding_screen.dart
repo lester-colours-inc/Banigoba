@@ -1,5 +1,5 @@
-import 'dart:io';
-
+// Guides first-time users through onboarding and required permission requests.
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -20,7 +20,6 @@ class OnboardingScreen extends StatefulWidget {
 
 class _OnboardingScreenState extends State<OnboardingScreen> {
   final PageController _pageController = PageController();
-  int _currentPage = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -37,10 +36,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         image: Icons.camera_alt_outlined,
         onAccept: () async {
           await Permission.camera.request();
-          if (Platform.isIOS) {
+          if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
             await Permission.photos.request();
             await Permission.photosAddOnly.request();
-          } else if (Platform.isAndroid) {
+          } else if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
             await Permission.storage.request();
           }
           _nextPage();
@@ -76,11 +75,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       body: PageView(
         controller: _pageController,
         physics: const NeverScrollableScrollPhysics(),
-        onPageChanged: (int page) {
-          setState(() {
-            _currentPage = page;
-          });
-        },
         children: pages,
       ),
     );
@@ -100,8 +94,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Colors.black.withOpacity(0.1),
-              const Color(0xFF0D0140).withOpacity(0.8),
+              Colors.black.withValues(alpha: 0.1),
+              const Color(0xFF0D0140).withValues(alpha: 0.8),
             ],
           ),
         ),

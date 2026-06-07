@@ -1,3 +1,4 @@
+// Displays the shopping cart placeholder screen.
 import 'package:flutter/material.dart';
 
 class CartPage extends StatelessWidget {

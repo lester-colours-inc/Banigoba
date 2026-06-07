@@ -1,3 +1,4 @@
+// Runs the live camera and ML detectors used by the AR try-on preview.
 import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;

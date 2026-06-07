@@ -1,3 +1,4 @@
+// Fetches current weather data used to produce location-aware outfit suggestions.
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/weather.dart';

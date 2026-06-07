@@ -1,3 +1,4 @@
+// Displays planned wardrobe activity in a calendar-oriented layout.
 import 'package:flutter/material.dart';
 import '../../../core/app_routes.dart';
 

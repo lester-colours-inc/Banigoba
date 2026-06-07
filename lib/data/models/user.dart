@@ -1,3 +1,4 @@
+// Represents a Banigoba user profile stored in Cloud Firestore.
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class UserModel {
