@@ -10,26 +10,35 @@ class PostService {
   String get _currentUserId => _auth.currentUser?.uid ?? '';
 
   /// Creates a new post
-  Future<void> createPost({required String caption, required String imageURL}) async {
+  Future<void> createPost({
+    required String caption,
+    required String imageURL,
+  }) async {
     if (_currentUserId.isEmpty) return;
 
     await _db.collection('posts').add({
+      'authorID': _currentUserId,
       'authorId': _currentUserId,
       'caption': caption,
       'commentCount': 0,
       'createdAt': FieldValue.serverTimestamp(),
       'imageURL': imageURL,
       'likeCount': 0,
+      'likedBy': [],
       'likes': [],
     });
   }
 
   /// Gets a stream of posts
   Stream<List<Post>> getPosts() {
-    return _db.collection('posts')
+    return _db
+        .collection('posts')
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs.map((doc) => Post.fromFirestore(doc)).toList());
+        .map(
+          (snapshot) =>
+              snapshot.docs.map((doc) => Post.fromFirestore(doc)).toList(),
+        );
   }
 
   /// Likes or unlikes a post
@@ -42,6 +51,7 @@ class PostService {
     if (currentLikes.contains(_currentUserId)) {
       // Unlike
       await postRef.update({
+        'likedBy': FieldValue.arrayRemove([_currentUserId]),
         'likes': FieldValue.arrayRemove([_currentUserId]),
         'likeCount': FieldValue.increment(-1),
       });
@@ -49,6 +59,7 @@ class PostService {
     } else {
       // Like
       await postRef.update({
+        'likedBy': FieldValue.arrayUnion([_currentUserId]),
         'likes': FieldValue.arrayUnion([_currentUserId]),
         'likeCount': FieldValue.increment(1),
       });
@@ -66,7 +77,7 @@ class PostService {
     if (_currentUserId.isEmpty) return;
 
     final postRef = _db.collection('posts').doc(postId);
-    
+
     await _db.runTransaction((transaction) async {
       // Add comment to subcollection
       final commentRef = postRef.collection('comments').doc();
@@ -79,19 +90,22 @@ class PostService {
       });
 
       // Update comment count on post
-      transaction.update(postRef, {
-        'commentCount': FieldValue.increment(1),
-      });
+      transaction.update(postRef, {'commentCount': FieldValue.increment(1)});
     });
   }
 
   /// Gets a stream of comments for a specific post
   Stream<List<PostComment>> getComments(String postId) {
-    return _db.collection('posts')
+    return _db
+        .collection('posts')
         .doc(postId)
         .collection('comments')
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs.map((doc) => PostComment.fromFirestore(doc)).toList());
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => PostComment.fromFirestore(doc))
+              .toList(),
+        );
   }
 }

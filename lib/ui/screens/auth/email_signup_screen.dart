@@ -1,8 +1,10 @@
 // Registers a new account and creates its initial Firestore user profile.
-import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
+
 import '../../../data/services/auth_service.dart';
+import '../../../data/services/permissions_service.dart';
 
 class EmailSignUpScreen extends StatefulWidget {
   const EmailSignUpScreen({super.key});
@@ -12,6 +14,7 @@ class EmailSignUpScreen extends StatefulWidget {
 }
 
 class _EmailSignUpScreenState extends State<EmailSignUpScreen> {
+  static const _navy = Color(0xFF17008A);
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -21,16 +24,31 @@ class _EmailSignUpScreenState extends State<EmailSignUpScreen> {
   final _authService = AuthService();
   bool _isLoading = false;
   bool _termsAccepted = false;
-  String _stylePreference = 'casual';
-  static const List<String> _styleTags = ['casual', 'afrochic', 'corporate', 'streetwear', 'glamour'];
+  bool _obscurePassword = true;
+  bool _obscureConfirmation = true;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
 
   Future<void> _signUp() async {
+    if (_nameController.text.trim().isEmpty ||
+        _emailController.text.trim().isEmpty ||
+        _passwordController.text.isEmpty) {
+      _showMessage('Complete all account details');
+      return;
+    }
     if (!_termsAccepted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please accept terms & policy')));
+      _showMessage('Please accept terms & policy');
       return;
     }
     if (_passwordController.text != _confirmPasswordController.text) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Passwords do not match')));
+      _showMessage('Passwords do not match');
       return;
     }
 
@@ -38,183 +56,309 @@ class _EmailSignUpScreenState extends State<EmailSignUpScreen> {
     try {
       final userCredential = await _auth.createUserWithEmailAndPassword(
         email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
+        password: _passwordController.text,
       );
-      
-      if (userCredential.user != null) {
-        await _db.collection('users').doc(userCredential.user!.uid).set({
-          'uid': userCredential.user!.uid,
+
+      final user = userCredential.user;
+      if (user != null) {
+        await user.updateDisplayName(_nameController.text.trim());
+        await _db.collection('users').doc(user.uid).set({
+          'uid': user.uid,
           'displayName': _nameController.text.trim(),
           'email': _emailController.text.trim(),
-          'stylePreference': _stylePreference,
+          'stylePreference': 'casual',
           'role': 'user',
+          'permissionStatus': PermissionsService.emptyPermissionsSummary,
+          'permissionsGranted': false,
           'createdAt': FieldValue.serverTimestamp(),
         });
       }
 
       if (mounted) Navigator.of(context).popUntil((route) => route.isFirst);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString())),
-        );
-      }
+    } catch (error) {
+      if (mounted) _showMessage(error.toString());
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  void _handleSocialSignIn(IconData icon, String provider) async {
+  Future<void> _handleSocialSignIn(String provider) async {
     setState(() => _isLoading = true);
     try {
       if (provider == 'Google') {
         await _authService.signInWithGoogle();
       } else if (provider == 'Facebook') {
         await _authService.signInWithFacebook();
-      } else if (provider == 'Apple') {
+      } else {
         await _authService.signInWithApple();
       }
       if (mounted) Navigator.of(context).popUntil((route) => route.isFirst);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error signing up with $provider: $e')),
-        );
-      }
+    } catch (error) {
+      if (mounted) _showMessage('Error signing up with $provider: $error');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(backgroundColor: Colors.white, elevation: 0, iconTheme: const IconThemeData(color: Colors.black)),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 30),
-        child: Column(
-          children: [
-            Image.asset('assets/images/logo.png', height: 80),
-            const SizedBox(height: 30),
-            const Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Create your account',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-              ),
-            ),
-            const SizedBox(height: 25),
-            _buildTextField(
-              label: 'Name',
-              hint: 'ex: jon smith',
-              controller: _nameController,
-            ),
-            const SizedBox(height: 15),
-            _buildTextField(
-              label: 'Email',
-              hint: 'ex: jon.smith@email.com',
-              controller: _emailController,
-            ),
-            const SizedBox(height: 15),
-            _buildTextField(
-              label: 'Password',
-              hint: '*********',
-              controller: _passwordController,
-              isPassword: true,
-            ),
-            const SizedBox(height: 15),
-            _buildTextField(
-              label: 'Confirm password',
-              hint: '*********',
-              controller: _confirmPasswordController,
-              isPassword: true,
-            ),
-            const SizedBox(height: 15),
-            _buildStyleDropdown(),
-            const SizedBox(height: 15),
-            Row(
-              children: [
-                Checkbox(
-                  value: _termsAccepted,
-                  onChanged: (v) => setState(() => _termsAccepted = v!),
-                  activeColor: const Color(0xFF0D0140),
-                ),
-                const Expanded(
-                  child: Text(
-                    'I understood the terms & policy.',
-                    style: TextStyle(fontSize: 12, color: Colors.grey),
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 430),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(32, 28, 32, 30),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Image.asset('assets/images/logo.png', width: 150),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              height: 55,
-              child: ElevatedButton(
-                onPressed: _isLoading ? null : _signUp,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0D0140),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                ),
-                child: _isLoading 
-                  ? const CircularProgressIndicator(color: Colors.white)
-                  : const Text('SIGN UP', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 48),
+                  const Text(
+                    'Create your account',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF111111),
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+                  _SignUpField(
+                    label: 'Name',
+                    hint: 'ex: jon smith',
+                    controller: _nameController,
+                    textInputAction: TextInputAction.next,
+                    autofillHints: const [AutofillHints.name],
+                  ),
+                  const SizedBox(height: 16),
+                  _SignUpField(
+                    label: 'Email',
+                    hint: 'ex: jon.smith@email.com',
+                    controller: _emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    textInputAction: TextInputAction.next,
+                    autofillHints: const [AutofillHints.email],
+                  ),
+                  const SizedBox(height: 16),
+                  _SignUpField(
+                    label: 'Password',
+                    hint: '*********',
+                    controller: _passwordController,
+                    obscureText: _obscurePassword,
+                    textInputAction: TextInputAction.next,
+                    autofillHints: const [AutofillHints.newPassword],
+                    suffixIcon: _passwordToggle(
+                      obscure: _obscurePassword,
+                      onPressed: () =>
+                          setState(() => _obscurePassword = !_obscurePassword),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  _SignUpField(
+                    label: 'Confirm password',
+                    hint: '*********',
+                    controller: _confirmPasswordController,
+                    obscureText: _obscureConfirmation,
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) => _signUp(),
+                    autofillHints: const [AutofillHints.newPassword],
+                    suffixIcon: _passwordToggle(
+                      obscure: _obscureConfirmation,
+                      onPressed: () => setState(
+                        () => _obscureConfirmation = !_obscureConfirmation,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      SizedBox(
+                        width: 28,
+                        height: 28,
+                        child: Checkbox(
+                          value: _termsAccepted,
+                          onChanged: _isLoading
+                              ? null
+                              : (value) => setState(
+                                  () => _termsAccepted = value ?? false,
+                                ),
+                          activeColor: _navy,
+                          side: const BorderSide(color: _navy),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      const Expanded(
+                        child: Text.rich(
+                          TextSpan(
+                            text: 'I understood the ',
+                            children: [
+                              TextSpan(
+                                text: 'terms & policy.',
+                                style: TextStyle(color: _navy),
+                              ),
+                            ],
+                          ),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF555555),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : _signUp,
+                      style: ElevatedButton.styleFrom(
+                        elevation: 0,
+                        backgroundColor: _navy,
+                        foregroundColor: Colors.white,
+                        disabledBackgroundColor: _navy,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(7),
+                        ),
+                      ),
+                      child: _isLoading
+                          ? const SizedBox(
+                              width: 21,
+                              height: 21,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Text(
+                              'SIGN UP',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  const Center(
+                    child: Text(
+                      'or sign up with',
+                      style: TextStyle(fontSize: 14, color: Color(0xFF8B8B8B)),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  _SignUpSocialButtons(
+                    enabled: !_isLoading,
+                    onPressed: _handleSocialSignIn,
+                  ),
+                  const SizedBox(height: 28),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text(
+                        'Have an account? ',
+                        style: TextStyle(color: Color(0xFF777777)),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: TextButton.styleFrom(
+                          foregroundColor: _navy,
+                          padding: EdgeInsets.zero,
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: const Text(
+                          'SIGN IN',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 25),
-            const Text('or sign up with', style: TextStyle(color: Colors.grey)),
-            const SizedBox(height: 15),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _buildSocialIcon(Icons.g_mobiledata, Colors.red, 'Google'),
-                const SizedBox(width: 20),
-                _buildSocialIcon(Icons.facebook, Colors.blue, 'Facebook'),
-                const SizedBox(width: 20),
-                _buildSocialIcon(Icons.apple, Colors.black, 'Apple'),
-              ],
-            ),
-            const SizedBox(height: 30),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Text("Have an account? "),
-                GestureDetector(
-                  onTap: () => Navigator.pop(context),
-                  child: const Text('SIGN IN', style: TextStyle(color: Color(0xFF0D0140), fontWeight: FontWeight.bold)),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-          ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildTextField({
-    required String label,
-    required String hint,
-    required TextEditingController controller,
-    bool isPassword = false,
+  Widget _passwordToggle({
+    required bool obscure,
+    required VoidCallback onPressed,
   }) {
+    return IconButton(
+      tooltip: obscure ? 'Show password' : 'Hide password',
+      onPressed: onPressed,
+      icon: Icon(
+        obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+        size: 20,
+      ),
+    );
+  }
+}
+
+class _SignUpField extends StatelessWidget {
+  final String label;
+  final String hint;
+  final TextEditingController controller;
+  final bool obscureText;
+  final TextInputType? keyboardType;
+  final TextInputAction? textInputAction;
+  final ValueChanged<String>? onSubmitted;
+  final Iterable<String>? autofillHints;
+  final Widget? suffixIcon;
+
+  const _SignUpField({
+    required this.label,
+    required this.hint,
+    required this.controller,
+    this.obscureText = false,
+    this.keyboardType,
+    this.textInputAction,
+    this.onSubmitted,
+    this.autofillHints,
+    this.suffixIcon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(color: Colors.grey)),
-        const SizedBox(height: 8),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 14, color: Color(0xFF707070)),
+        ),
+        const SizedBox(height: 7),
         TextField(
           controller: controller,
-          obscureText: isPassword,
+          obscureText: obscureText,
+          keyboardType: keyboardType,
+          textInputAction: textInputAction,
+          onSubmitted: onSubmitted,
+          autofillHints: autofillHints,
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: TextStyle(color: Colors.grey.shade300),
+            hintStyle: const TextStyle(color: Color(0xFFC7C7C7)),
             filled: true,
-            fillColor: Colors.grey.shade50,
+            fillColor: const Color(0xFFFAFAFA),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 14,
+            ),
+            suffixIcon: suffixIcon,
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(7),
               borderSide: BorderSide.none,
             ),
           ),
@@ -222,34 +366,78 @@ class _EmailSignUpScreenState extends State<EmailSignUpScreen> {
       ],
     );
   }
+}
 
-  Widget _buildSocialIcon(IconData icon, Color color, String provider) {
-    return GestureDetector(
-      onTap: () => _handleSocialSignIn(icon, provider),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(10),
+class _SignUpSocialButtons extends StatelessWidget {
+  final bool enabled;
+  final ValueChanged<String> onPressed;
+
+  const _SignUpSocialButtons({required this.enabled, required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        _SignUpSocialButton(
+          label: 'G',
+          color: const Color(0xFF4285F4),
+          onPressed: enabled ? () => onPressed('Google') : null,
         ),
-        child: Icon(icon, color: color, size: 28),
-      ),
+        const SizedBox(width: 14),
+        _SignUpSocialButton(
+          icon: Icons.facebook,
+          color: const Color(0xFF1877F2),
+          onPressed: enabled ? () => onPressed('Facebook') : null,
+        ),
+        const SizedBox(width: 14),
+        _SignUpSocialButton(
+          icon: Icons.apple,
+          color: Colors.black,
+          onPressed: enabled ? () => onPressed('Apple') : null,
+        ),
+      ],
     );
   }
+}
 
-  Widget _buildStyleDropdown() {
-    return DropdownButtonFormField<String>(
-      initialValue: _stylePreference,
-      items: _styleTags.map((style) {
-        return DropdownMenuItem(
-          value: style,
-          child: Text(style[0].toUpperCase() + style.substring(1)),
-        );
-      }).toList(),
-      onChanged: (value) => setState(() => _stylePreference = value ?? 'casual'),
-      decoration: InputDecoration(
-        labelText: 'Style preference',
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+class _SignUpSocialButton extends StatelessWidget {
+  final IconData? icon;
+  final String? label;
+  final Color color;
+  final VoidCallback? onPressed;
+
+  const _SignUpSocialButton({
+    this.icon,
+    this.label,
+    required this.color,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: SizedBox(
+        height: 48,
+        child: IconButton(
+          tooltip: label == 'G' ? 'Google' : null,
+          onPressed: onPressed,
+          style: IconButton.styleFrom(
+            backgroundColor: const Color(0xFFF6F6F6),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(7),
+            ),
+          ),
+          icon: icon != null
+              ? Icon(icon, color: color, size: 27)
+              : Text(
+                  label!,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+        ),
       ),
     );
   }

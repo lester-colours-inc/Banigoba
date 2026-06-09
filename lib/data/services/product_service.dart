@@ -1,5 +1,6 @@
 // Coordinates catalog and wardrobe product storage, queries, updates, and uploads.
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'dart:io';
 import 'notification_service.dart';
@@ -13,24 +14,31 @@ class ProductService {
   final _storage = FirebaseStorage.instance;
   final _notificationService = NotificationService();
 
-  static const String _bgRemoverUrl = 'https://banigoba-image-background-remover.onrender.com/process';
+  static const String _bgRemoverUrl =
+      'https://banigoba-image-background-remover.onrender.com/process';
 
   /// Process image with background remover API
   /// Returns a map with 'raw_url' and 'processed_url'
-  Future<Map<String, String>> removeBackground(File imageFile, {String? customFilename}) async {
+  Future<Map<String, String>> removeBackground(
+    File imageFile, {
+    String? customFilename,
+  }) async {
     final request = http.MultipartRequest('POST', Uri.parse(_bgRemoverUrl));
-    
+
     // Sanitize customFilename and ensure it has an extension
     String filename = imageFile.path.split('/').last;
     if (customFilename != null && customFilename.trim().isNotEmpty) {
-      filename = "${customFilename.trim().replaceAll(RegExp(r'[^\w\s-]'), '').replaceAll(' ', '_')}.jpg";
+      filename =
+          "${customFilename.trim().replaceAll(RegExp(r'[^\w\s-]'), '').replaceAll(' ', '_')}.jpg";
     }
 
-    request.files.add(await http.MultipartFile.fromPath(
-      'file', 
-      imageFile.path,
-      filename: filename,
-    ));
+    request.files.add(
+      await http.MultipartFile.fromPath(
+        'file',
+        imageFile.path,
+        filename: filename,
+      ),
+    );
 
     final streamedResponse = await request.send();
     final response = await http.Response.fromStream(streamedResponse);
@@ -38,22 +46,115 @@ class ProductService {
     if (response.statusCode == 200) {
       debugPrint("DEBUG: BG Remover API Response Body: ${response.body}");
       final Map<String, dynamic> data = json.decode(response.body);
-      
+
       // Try multiple possible key names
-      final String rawUrl = data['rawUrl'] ?? data['raw_url'] ?? data['rawImageUrl'] ?? data['raw'] ?? data['url_raw'] ?? '';
-      final String processedUrl = data['processedUrl'] ?? data['processed_url'] ?? data['processedImageUrl'] ?? data['processed'] ?? data['url_processed'] ?? '';
+      final String rawUrl =
+          data['rawUrl'] ??
+          data['raw_url'] ??
+          data['rawImageUrl'] ??
+          data['raw'] ??
+          data['url_raw'] ??
+          '';
+      final String processedUrl =
+          data['processedUrl'] ??
+          data['processed_url'] ??
+          data['processedImageUrl'] ??
+          data['processed'] ??
+          data['url_processed'] ??
+          '';
 
       // Debug API returned URL values
       debugPrint("DEBUG: BG Remover API Raw URL: $rawUrl");
       debugPrint("DEBUG: BG Remover API Processed URL: $processedUrl");
 
-      return {
-        'raw_url': rawUrl,
-        'processed_url': processedUrl,
-      };
+      if (processedUrl.isEmpty) {
+        throw Exception('Background remover returned no processed image URL');
+      }
+
+      return _storeProductImages(
+        sourceImage: imageFile,
+        processedImageUrl: processedUrl,
+        customFilename: customFilename,
+      );
     } else {
-      throw Exception('Failed to process image: ${response.statusCode} - ${response.body}');
+      throw Exception(
+        'Failed to process image: ${response.statusCode} - ${response.body}',
+      );
     }
+  }
+
+  /// Copies raw and processed images into productImages/ in Firebase Storage.
+  Future<Map<String, String>> _storeProductImages({
+    required File sourceImage,
+    required String processedImageUrl,
+    String? customFilename,
+  }) async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null || userId.isEmpty) {
+      throw Exception('You must be signed in to upload product images');
+    }
+
+    final uploadId = DateTime.now().millisecondsSinceEpoch.toString();
+    final safeName = _safeStorageName(customFilename);
+    final productDirectory = _storage
+        .ref()
+        .child('productImages')
+        .child(userId)
+        .child(uploadId);
+
+    final rawRef = productDirectory.child('${safeName}_raw.jpg');
+    await rawRef.putData(
+      await sourceImage.readAsBytes(),
+      SettableMetadata(
+        contentType: 'image/jpeg',
+        customMetadata: {'imageType': 'raw'},
+      ),
+    );
+
+    final processedResponse = await http.get(Uri.parse(processedImageUrl));
+    if (processedResponse.statusCode < 200 ||
+        processedResponse.statusCode >= 300) {
+      throw Exception(
+        'Unable to download processed image: ${processedResponse.statusCode}',
+      );
+    }
+
+    final processedContentType =
+        processedResponse.headers['content-type']?.split(';').first ??
+        'image/png';
+    final processedExtension = processedContentType.contains('jpeg')
+        ? 'jpg'
+        : 'png';
+    final processedRef = productDirectory.child(
+      '${safeName}_processed.$processedExtension',
+    );
+    await processedRef.putData(
+      processedResponse.bodyBytes,
+      SettableMetadata(
+        contentType: processedContentType,
+        customMetadata: {'imageType': 'processed'},
+      ),
+    );
+
+    final urls = await Future.wait([
+      rawRef.getDownloadURL(),
+      processedRef.getDownloadURL(),
+    ]);
+    debugPrint(
+      'Product images stored in Firebase Storage: ${productDirectory.fullPath}',
+    );
+
+    return {'raw_url': urls[0], 'processed_url': urls[1]};
+  }
+
+  String _safeStorageName(String? value) {
+    final normalized = (value ?? 'product')
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9_-]+'), '_')
+        .replaceAll(RegExp(r'_+'), '_')
+        .replaceAll(RegExp(r'^_|_$'), '');
+    return normalized.isEmpty ? 'product' : normalized;
   }
 
   /// Get stream of all products in the main collection
@@ -65,13 +166,15 @@ class ProductService {
   Stream<QuerySnapshot> getRecommendedProducts(List<String> tags) {
     if (tags.isEmpty) return getProducts();
     // Firestore 'array-contains-any' can match any of the provided tags
-    return _db.collection('products')
+    return _db
+        .collection('products')
         .where('weatherTags', arrayContainsAny: tags)
         .snapshots();
   }
 
   /// Get product recommendations that match weather first, then user style.
-  Stream<List<QueryDocumentSnapshot<Map<String, dynamic>>>> getRecommendedProductDocs({
+  Stream<List<QueryDocumentSnapshot<Map<String, dynamic>>>>
+  getRecommendedProductDocs({
     List<String> weatherTags = const [],
     String? stylePreference,
   }) {
@@ -88,7 +191,10 @@ class ProductService {
 
       return snapshot.docs.where((doc) {
         final data = doc.data();
-        final productStyle = (data['styleTag'] ?? data['style'] ?? 'casual').toString().toLowerCase().trim();
+        final productStyle = (data['styleTag'] ?? data['style'] ?? 'casual')
+            .toString()
+            .toLowerCase()
+            .trim();
         return productStyle == normalizedStyle;
       }).toList();
     });
@@ -96,7 +202,8 @@ class ProductService {
 
   /// Get stream of products added by a specific admin
   Stream<QuerySnapshot> getAdminProducts(String adminId) {
-    return _db.collection('products')
+    return _db
+        .collection('products')
         .where('uploaderId', isEqualTo: adminId)
         .snapshots();
   }
@@ -107,7 +214,10 @@ class ProductService {
   }
 
   /// Update an existing catalog product
-  Future<void> updateCatalogProduct(String productId, Map<String, dynamic> updatedData) async {
+  Future<void> updateCatalogProduct(
+    String productId,
+    Map<String, dynamic> updatedData,
+  ) async {
     await _db.collection('products').doc(productId).update(updatedData);
   }
 
@@ -118,7 +228,11 @@ class ProductService {
 
   /// Upload a user product image to Firebase Storage
   Future<String> uploadProductImage(String userId, File image) async {
-    final ref = _storage.ref().child('user_products').child(userId).child('${DateTime.now().millisecondsSinceEpoch}.jpg');
+    final ref = _storage
+        .ref()
+        .child('user_products')
+        .child(userId)
+        .child('${DateTime.now().millisecondsSinceEpoch}.jpg');
     await ref.putFile(image);
     return await ref.getDownloadURL();
   }
@@ -162,18 +276,24 @@ class ProductService {
       'createdAt': FieldValue.serverTimestamp(),
       'visibility': visibility,
     };
-    
+
     // Save to community list and user's private wardrobe tracker
     final docRef = await _db.collection('user_products').add(data);
     if (visibility == 'public') {
       await _notificationService.notifyFollowersNewPost(name);
     }
-    await _db.collection('users').doc(userId).collection('wardrobe').doc(docRef.id).set(data);
+    await _db
+        .collection('users')
+        .doc(userId)
+        .collection('wardrobe')
+        .doc(docRef.id)
+        .set(data);
   }
 
   /// Get stream of items uploaded by a specific user
   Stream<QuerySnapshot> getUserProducts(String userId) {
-    return _db.collection('user_products')
+    return _db
+        .collection('user_products')
         .where('userId', isEqualTo: userId)
         .snapshots();
   }
@@ -182,9 +302,14 @@ class ProductService {
   Future<void> deleteUserProduct(String userId, String userProductId) async {
     // 1. Delete from community/global user_products list
     await _db.collection('user_products').doc(userProductId).delete();
-    
+
     // 2. Delete from user's personal wardrobe tracker
-    await _db.collection('users').doc(userId).collection('wardrobe').doc(userProductId).delete();
+    await _db
+        .collection('users')
+        .doc(userId)
+        .collection('wardrobe')
+        .doc(userProductId)
+        .delete();
   }
 
   /// Update an existing user product
@@ -197,10 +322,18 @@ class ProductService {
     updatedData['updatedAt'] = FieldValue.serverTimestamp();
 
     // 1. Update in community/global user_products list
-    await _db.collection('user_products').doc(userProductId).update(updatedData);
-    
+    await _db
+        .collection('user_products')
+        .doc(userProductId)
+        .update(updatedData);
+
     // 2. Update in user's personal wardrobe tracker
-    await _db.collection('users').doc(userId).collection('wardrobe').doc(userProductId).update(updatedData);
+    await _db
+        .collection('users')
+        .doc(userId)
+        .collection('wardrobe')
+        .doc(userProductId)
+        .update(updatedData);
   }
 
   /// Toggle an item in the user's personal wardrobe (save/remove)
@@ -209,17 +342,22 @@ class ProductService {
     required String productId,
     required Map<String, dynamic> productData,
   }) async {
-    final wardrobeRef = _db.collection('users').doc(userId).collection('wardrobe').doc(productId);
+    final wardrobeRef = _db
+        .collection('users')
+        .doc(userId)
+        .collection('wardrobe')
+        .doc(productId);
     final doc = await wardrobeRef.get();
 
     if (doc.exists) {
       // If already saved, delete from wardrobe tracker and user_products
       await wardrobeRef.delete();
-      final userProdQuery = await _db.collection('user_products')
+      final userProdQuery = await _db
+          .collection('user_products')
           .where('userId', isEqualTo: userId)
           .where('originalProductId', isEqualTo: productId)
           .get();
-      
+
       for (var d in userProdQuery.docs) {
         await d.reference.delete();
       }
@@ -228,7 +366,7 @@ class ProductService {
       List<String> finalColours = [];
       final dynamic rawColours = productData['colours'];
       final dynamic rawColour = productData['colour'];
-      
+
       if (rawColours is List) {
         for (var item in rawColours) {
           if (item is String) {
@@ -253,7 +391,11 @@ class ProductService {
         'originalPosterId': productData['userId'],
         'name': productData['name'] ?? 'No Name',
         'imageUrl': productData['imageUrl'] ?? productData['imageURL'] ?? '',
-        'rawImageUrl': productData['rawImageUrl'] ?? productData['imageUrl'] ?? productData['imageURL'] ?? '',
+        'rawImageUrl':
+            productData['rawImageUrl'] ??
+            productData['imageUrl'] ??
+            productData['imageURL'] ??
+            '',
         'category': productData['category'] ?? 'other',
         'subcategory': productData['subcategory'] ?? '',
         'styleTag': productData['styleTag'] ?? productData['style'] ?? 'casual',
@@ -272,7 +414,11 @@ class ProductService {
 
   /// Check if a product is currently in the user's wardrobe
   Stream<bool> isInWardrobe(String userId, String productId) {
-    return _db.collection('users').doc(userId).collection('wardrobe').doc(productId)
+    return _db
+        .collection('users')
+        .doc(userId)
+        .collection('wardrobe')
+        .doc(productId)
         .snapshots()
         .map((snapshot) => snapshot.exists);
   }
@@ -288,14 +434,18 @@ class ProductService {
           final dynamic val = data[field];
           if (val is List) {
             for (var item in val) {
-              if (item != null) uniqueValues.add(item.toString().toLowerCase().trim());
+              if (item != null) {
+                uniqueValues.add(item.toString().toLowerCase().trim());
+              }
             }
           } else {
             uniqueValues.add(val.toString().toLowerCase().trim());
           }
         }
       }
-      List<String> sortedList = uniqueValues.where((s) => s.isNotEmpty).toList();
+      List<String> sortedList = uniqueValues
+          .where((s) => s.isNotEmpty)
+          .toList();
       sortedList.sort((a, b) {
         if (a == 'all') return -1;
         if (b == 'all') return 1;

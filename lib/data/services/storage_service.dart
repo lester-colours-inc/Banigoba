@@ -13,65 +13,174 @@ class StorageService {
 
   /// Uploads a full-body image to userImages/{userId}/fullBody/ directory
   /// Returns the download URL of the uploaded image
-  Future<String> uploadFullBodyImageBytes(Uint8List imageBytes, String userId, {String? filename}) async {
-    return await _uploadUserImageBytes(imageBytes, userId, _fullBodyDir, filename: filename);
+  Future<String> uploadFullBodyImageBytes(
+    Uint8List imageBytes,
+    String userId, {
+    String? filename,
+  }) async {
+    return await _uploadUserImageBytes(
+      imageBytes,
+      userId,
+      _fullBodyDir,
+      filename: filename,
+    );
   }
 
   /// Downloads an image from Firebase Storage using its download URL.
-  Future<Uint8List?> downloadImageBytes(String downloadUrl, {int maxSize = 10 * 1024 * 1024}) async {
+  Future<Uint8List?> downloadImageBytes(
+    String downloadUrl, {
+    int maxSize = 10 * 1024 * 1024,
+  }) async {
+    debugPrint(
+      '[StorageService] Download starting: ${describeDownloadUrl(downloadUrl)}, maxSize=$maxSize',
+    );
     try {
       final ref = _storage.refFromURL(downloadUrl);
-      return await ref.getData(maxSize);
-    } catch (e) {
-      debugPrint('Error downloading image bytes: $e');
+      debugPrint('[StorageService] Resolved object path: ${ref.fullPath}');
+      final bytes = await ref.getData(maxSize);
+      debugPrint(
+        '[StorageService] Download completed: ${bytes?.length ?? 0} bytes',
+      );
+      return bytes;
+    } on FirebaseException catch (e, stackTrace) {
+      debugPrint(
+        '[StorageService] Firebase download failed: code=${e.code}, message=${e.message}',
+      );
+      debugPrintStack(stackTrace: stackTrace);
+      return null;
+    } catch (e, stackTrace) {
+      debugPrint('[StorageService] Download failed: $e');
+      debugPrintStack(stackTrace: stackTrace);
       return null;
     }
   }
 
+  /// Logs whether Firebase Storage can resolve and read metadata for an image.
+  Future<void> debugImageAccess(String downloadUrl) async {
+    if (!kDebugMode) return;
+
+    debugPrint(
+      '[StorageService] Checking image access: ${describeDownloadUrl(downloadUrl)}',
+    );
+    try {
+      final ref = _storage.refFromURL(downloadUrl);
+      debugPrint(
+        '[StorageService] Reference resolved: bucket=${ref.bucket}, path=${ref.fullPath}',
+      );
+      final metadata = await ref.getMetadata();
+      debugPrint(
+        '[StorageService] Metadata loaded: size=${metadata.size}, contentType=${metadata.contentType}, updated=${metadata.updated}',
+      );
+    } on FirebaseException catch (e, stackTrace) {
+      debugPrint(
+        '[StorageService] Metadata access failed: code=${e.code}, message=${e.message}',
+      );
+      debugPrintStack(stackTrace: stackTrace);
+    } catch (e, stackTrace) {
+      debugPrint('[StorageService] Image access check failed: $e');
+      debugPrintStack(stackTrace: stackTrace);
+    }
+  }
+
+  /// Removes query parameters so Firebase download tokens are not written to logs.
+  static String describeDownloadUrl(String downloadUrl) {
+    final uri = Uri.tryParse(downloadUrl);
+    if (uri == null) return 'invalid URL (${downloadUrl.length} characters)';
+    return '${uri.scheme}://${uri.host}${uri.path}';
+  }
+
   /// Uploads a selfie image to userImages/{userId}/selfie/ directory
   /// Returns the download URL of the uploaded image
-  Future<String> uploadSelfieImageBytes(Uint8List imageBytes, String userId, {String? filename}) async {
-    return await _uploadUserImageBytes(imageBytes, userId, _selfieDir, filename: filename);
+  Future<String> uploadSelfieImageBytes(
+    Uint8List imageBytes,
+    String userId, {
+    String? filename,
+  }) async {
+    return await _uploadUserImageBytes(
+      imageBytes,
+      userId,
+      _selfieDir,
+      filename: filename,
+    );
   }
 
   /// Retrieves the latest full-body image URL for a user if it exists in storage
   Future<String?> getLatestFullBodyImageUrl(String userId) async {
+    final directoryPath = '$_userImagesDir/$userId/$_fullBodyDir';
+    debugPrint('[StorageService] Listing full-body images: $directoryPath');
     try {
-      final ref = _storage.ref().child(_userImagesDir).child(userId).child(_fullBodyDir);
+      final ref = _storage
+          .ref()
+          .child(_userImagesDir)
+          .child(userId)
+          .child(_fullBodyDir);
       final result = await ref.listAll();
+      debugPrint(
+        '[StorageService] Storage listing returned ${result.items.length} file(s)',
+      );
       if (result.items.isEmpty) {
         return null;
       }
 
-      final latestItem = result.items
-          .where((item) => item.name.endsWith('.jpg') || item.name.endsWith('.png'))
-          .toList()
-        ..sort((a, b) {
-          final aTimestamp = int.tryParse(a.name.split('.').first) ?? 0;
-          final bTimestamp = int.tryParse(b.name.split('.').first) ?? 0;
-          return bTimestamp.compareTo(aTimestamp);
-        });
+      final latestItem =
+          result.items
+              .where(
+                (item) =>
+                    item.name.endsWith('.jpg') || item.name.endsWith('.png'),
+              )
+              .toList()
+            ..sort((a, b) {
+              final aTimestamp = int.tryParse(a.name.split('.').first) ?? 0;
+              final bTimestamp = int.tryParse(b.name.split('.').first) ?? 0;
+              return bTimestamp.compareTo(aTimestamp);
+            });
 
       if (latestItem.isEmpty) {
+        debugPrint(
+          '[StorageService] No supported .jpg or .png files found in $directoryPath',
+        );
         return null;
       }
 
-      return await latestItem.first.getDownloadURL();
-    } catch (e) {
-      debugPrint('Error retrieving latest full-body image URL: $e');
+      final latestRef = latestItem.first;
+      final downloadUrl = await latestRef.getDownloadURL();
+      debugPrint(
+        '[StorageService] Latest full-body image: ${latestRef.fullPath}',
+      );
+      return downloadUrl;
+    } on FirebaseException catch (e, stackTrace) {
+      debugPrint(
+        '[StorageService] Storage listing failed: code=${e.code}, message=${e.message}, path=$directoryPath',
+      );
+      debugPrintStack(stackTrace: stackTrace);
+      return null;
+    } catch (e, stackTrace) {
+      debugPrint('[StorageService] Storage listing failed: $e');
+      debugPrintStack(stackTrace: stackTrace);
       return null;
     }
   }
 
   /// Uploads a product image to productImages/ directory
   /// Returns the download URL of the uploaded image
-  Future<String> uploadProductImageBytes(Uint8List imageBytes, String userId, {String? filename}) async {
+  Future<String> uploadProductImageBytes(
+    Uint8List imageBytes,
+    String userId, {
+    String? filename,
+  }) async {
     try {
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final finalName = filename ?? '$timestamp.jpg';
-      final ref = _storage.ref().child(_productImagesDir).child(userId).child(finalName);
+      final ref = _storage
+          .ref()
+          .child(_productImagesDir)
+          .child(userId)
+          .child(finalName);
 
-      await ref.putData(imageBytes, SettableMetadata(contentType: 'image/jpeg'));
+      await ref.putData(
+        imageBytes,
+        SettableMetadata(contentType: 'image/jpeg'),
+      );
       final downloadUrl = await ref.getDownloadURL();
 
       debugPrint('Product image uploaded: $downloadUrl');
@@ -83,7 +192,12 @@ class StorageService {
   }
 
   /// Helper method to upload user images (fullBody or selfie)
-  Future<String> _uploadUserImageBytes(Uint8List imageBytes, String userId, String subDir, {String? filename}) async {
+  Future<String> _uploadUserImageBytes(
+    Uint8List imageBytes,
+    String userId,
+    String subDir, {
+    String? filename,
+  }) async {
     try {
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final finalName = filename ?? '$timestamp.jpg';
@@ -94,7 +208,10 @@ class StorageService {
           .child(subDir)
           .child(finalName);
 
-      await ref.putData(imageBytes, SettableMetadata(contentType: 'image/jpeg'));
+      await ref.putData(
+        imageBytes,
+        SettableMetadata(contentType: 'image/jpeg'),
+      );
       final downloadUrl = await ref.getDownloadURL();
 
       debugPrint('User image uploaded to $subDir: $downloadUrl');
@@ -152,9 +269,17 @@ class StorageService {
     try {
       late Reference ref;
       if (imageType == 'fullBody') {
-        ref = _storage.ref().child(_userImagesDir).child(_fullBodyDir).child(userId);
+        ref = _storage
+            .ref()
+            .child(_userImagesDir)
+            .child(_fullBodyDir)
+            .child(userId);
       } else if (imageType == 'selfie') {
-        ref = _storage.ref().child(_userImagesDir).child(_selfieDir).child(userId);
+        ref = _storage
+            .ref()
+            .child(_userImagesDir)
+            .child(_selfieDir)
+            .child(userId);
       } else if (imageType == 'product') {
         ref = _storage.ref().child(_productImagesDir).child(userId);
       } else {

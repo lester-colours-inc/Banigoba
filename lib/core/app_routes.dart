@@ -10,9 +10,11 @@ import '../ui/screens/social/profile_page.dart';
 import '../ui/screens/onboarding/camera_screen.dart';
 import '../ui/screens/auth/custom_login_screen.dart';
 import '../ui/screens/onboarding/onboarding_screen.dart';
+import '../ui/screens/permissions/permissions_request_screen.dart';
 import '../ui/screens/shop/admin_products_page.dart';
 import '../ui/screens/wardrobe/plan_ahead_page.dart';
 import '../ui/screens/wardrobe/measurement_page.dart';
+import '../data/services/permissions_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthGate extends StatefulWidget {
@@ -25,6 +27,8 @@ class AuthGate extends StatefulWidget {
 class _AuthGateState extends State<AuthGate> {
   User? _lastUser;
   bool? _onboardingDone;
+  final Set<String> _permissionPromptHandledThisSession = {};
+  final Map<String, Future<_PermissionGateState>> _permissionChecks = {};
 
   @override
   void initState() {
@@ -34,23 +38,17 @@ class _AuthGateState extends State<AuthGate> {
 
   Future<void> _checkOnboarding() async {
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+
     setState(() {
       _onboardingDone = prefs.getBool('onboarding_done') ?? false;
     });
   }
 
-  Future<bool> _hasRequestedPermissions(String userId) async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool('permissions_requested_$userId') ?? false;
-  }
-
-  Future<void> _markPermissionsRequested(String userId) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('permissions_requested_$userId', true);
-  }
-
   Future<void> _upsertUserProfile(User user) async {
-    final userRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
+    final userRef = FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid);
     final snapshot = await userRef.get();
     final data = snapshot.data();
 
@@ -58,9 +56,79 @@ class _AuthGateState extends State<AuthGate> {
       'uid': user.uid,
       'email': user.email,
       'displayName': user.displayName ?? (user.email?.split('@')[0] ?? 'User'),
-      if (data == null || !data.containsKey('stylePreference')) 'stylePreference': 'casual',
+      if (data == null || !data.containsKey('stylePreference'))
+        'stylePreference': 'casual',
+      if (data == null || !data.containsKey('permissionsGranted'))
+        'permissionsGranted': false,
+      if (data == null || !data.containsKey('permissionStatus'))
+        'permissionStatus': PermissionsService.emptyPermissionsSummary,
       'lastSeen': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+  }
+
+  Future<_PermissionGateState> _checkUserPermissions(User user) async {
+    final userRef = FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid);
+    final results = await Future.wait([
+      userRef.get(),
+      PermissionsService.getPermissionsSummary(),
+    ]);
+
+    final userSnapshot = results[0] as DocumentSnapshot<Map<String, dynamic>>;
+    final deviceStatuses = results[1] as Map<String, bool>;
+    final userData = userSnapshot.data();
+    final storedStatuses = Map<String, dynamic>.from(
+      userData?['permissionStatus'] as Map? ?? const {},
+    );
+    final storedAsGranted = userData?['permissionsGranted'] == true;
+    final devicePermissionsGranted =
+        PermissionsService.areAllPermissionsGranted(deviceStatuses);
+    final storedStatusesMatch = deviceStatuses.entries.every(
+      (entry) => storedStatuses[entry.key] == entry.value,
+    );
+
+    if (!storedStatusesMatch || storedAsGranted != devicePermissionsGranted) {
+      await _savePermissionStatuses(user.uid, deviceStatuses);
+    }
+
+    return _PermissionGateState(
+      shouldRequestPermissions: !devicePermissionsGranted,
+      isAdmin: userData?['role'] == 'admin' || userData?['isAdmin'] == true,
+    );
+  }
+
+  Future<void> _savePermissionStatuses(
+    String userId,
+    Map<String, bool> statuses,
+  ) async {
+    await FirebaseFirestore.instance.collection('users').doc(userId).set({
+      'permissionStatus': statuses,
+      'permissionsGranted': PermissionsService.areAllPermissionsGranted(
+        statuses,
+      ),
+      'permissionsUpdatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> _completePermissionPrompt(
+    User user,
+    Map<String, bool> statuses,
+  ) async {
+    await _savePermissionStatuses(user.uid, statuses);
+    if (!mounted) return;
+
+    setState(() {
+      _permissionPromptHandledThisSession.add(user.uid);
+      _permissionChecks.remove(user.uid);
+    });
+  }
+
+  Future<_PermissionGateState> _permissionCheckFor(User user) {
+    return _permissionChecks.putIfAbsent(
+      user.uid,
+      () => _checkUserPermissions(user),
+    );
   }
 
   @override
@@ -85,55 +153,54 @@ class _AuthGateState extends State<AuthGate> {
         final user = snapshot.data;
 
         if (user != null) {
-          if (user != _lastUser) {
+          if (user.uid != _lastUser?.uid) {
             _lastUser = user;
             _upsertUserProfile(user);
           }
 
-          // Check if permissions have been requested for this user
-          return FutureBuilder<bool>(
-            future: _hasRequestedPermissions(user.uid),
-            builder: (context, permSnapshot) {
-              if (permSnapshot.connectionState == ConnectionState.waiting) {
-                return const Scaffold(body: Center(child: CircularProgressIndicator()));
-              }
-
-              final hasRequestedPermissions = permSnapshot.data ?? false;
-
-              if (!hasRequestedPermissions) {
-                return OnboardingScreen(
-                  permissionsOnly: true,
-                  onPermissionsComplete: () async {
-                    await _markPermissionsRequested(user.uid);
-                    if (mounted) {
-                      setState(() {});
-                    }
-                  },
+          return FutureBuilder<_PermissionGateState>(
+            future: _permissionCheckFor(user),
+            builder: (context, permissionSnapshot) {
+              if (permissionSnapshot.connectionState ==
+                  ConnectionState.waiting) {
+                return const Scaffold(
+                  body: Center(child: CircularProgressIndicator()),
                 );
               }
 
-              // Check role to decide where to land
-              return StreamBuilder<DocumentSnapshot>(
-                stream: FirebaseFirestore.instance.collection('users').doc(user.uid).snapshots(),
-                builder: (context, userSnapshot) {
-                  if (userSnapshot.connectionState == ConnectionState.waiting) {
-                    return const Scaffold(body: Center(child: CircularProgressIndicator()));
-                  }
+              if (permissionSnapshot.hasError) {
+                return Scaffold(
+                  body: Center(
+                    child: Text(
+                      'Unable to check app permissions: ${permissionSnapshot.error}',
+                    ),
+                  ),
+                );
+              }
 
-                  if (userSnapshot.hasData && userSnapshot.data!.exists) {
-                    final userData = userSnapshot.data!.data() as Map<String, dynamic>;
-                    final bool isAdmin = userData['role'] == 'admin' || userData['isAdmin'] == true;
+              final gateState = permissionSnapshot.data;
+              final promptHandled = _permissionPromptHandledThisSession
+                  .contains(user.uid);
 
-                    if (isAdmin) {
-                      return const AdminProductsPage();
-                    }
-                  }
+              if (gateState?.shouldRequestPermissions == true &&
+                  !promptHandled) {
+                return PermissionsRequestScreen(
+                  onPermissionsComplete: (statuses) =>
+                      _completePermissionPrompt(user, statuses),
+                );
+              }
 
-                  return const MainScreen();
-                },
-              );
+              return gateState?.isAdmin == true
+                  ? const AdminProductsPage()
+                  : const MainScreen();
             },
           );
+        }
+
+        if (_lastUser != null) {
+          _permissionChecks.remove(_lastUser!.uid);
+          _permissionPromptHandledThisSession.remove(_lastUser!.uid);
+          _lastUser = null;
         }
 
         return const CustomLoginScreen();
@@ -164,4 +231,14 @@ class AppRoutes {
     planAhead: (context) => const PlanAheadPage(),
     measurement: (context) => const MeasurementPage(),
   };
+}
+
+class _PermissionGateState {
+  final bool shouldRequestPermissions;
+  final bool isAdmin;
+
+  const _PermissionGateState({
+    required this.shouldRequestPermissions,
+    required this.isAdmin,
+  });
 }

@@ -1,14 +1,20 @@
-// Centralizes email, Google, Facebook, and sign-out authentication operations.
+// Centralizes email, Google, Facebook, Apple, and sign-out authentication.
+import 'dart:convert';
+import 'dart:math';
+
+import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  
+
   // For Web: Replace with your actual Web Client ID from Firebase Console -> Authentication -> Sign-in method -> Google
-  static const String _webClientId = '1057057002281-YOUR_WEB_CLIENT_ID.apps.googleusercontent.com';
+  static const String _webClientId =
+      '1057057002281-YOUR_WEB_CLIENT_ID.apps.googleusercontent.com';
 
   final GoogleSignIn _googleSignIn = GoogleSignIn(
     clientId: kIsWeb ? _webClientId : null,
@@ -18,7 +24,7 @@ class AuthService {
   Future<UserCredential?> signInWithGoogle() async {
     try {
       if (kIsWeb) {
-        // On Web, use the Firebase Auth popup flow directly. 
+        // On Web, use the Firebase Auth popup flow directly.
         // This is more reliable than the google_sign_in plugin on web.
         GoogleAuthProvider googleProvider = GoogleAuthProvider();
         return await _auth.signInWithPopup(googleProvider);
@@ -27,7 +33,8 @@ class AuthService {
         final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
         if (googleUser == null) return null;
 
-        final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+        final GoogleSignInAuthentication googleAuth =
+            await googleUser.authentication;
         final AuthCredential credential = GoogleAuthProvider.credential(
           accessToken: googleAuth.accessToken,
           idToken: googleAuth.idToken,
@@ -42,36 +49,104 @@ class AuthService {
 
   /// Sign in with Facebook (Placeholder - requires flutter_facebook_auth)
   Future<UserCredential?> signInWithFacebook() async {
-  try {
-    final result = await FacebookAuth.instance.login(
-      permissions: ['email', 'public_profile'],
-    );
+    try {
+      final result = await FacebookAuth.instance.login(
+        permissions: ['email', 'public_profile'],
+      );
 
-    if (result.status != LoginStatus.success || result.accessToken == null) {
-      debugPrint('Facebook login failed: ${result.status}');
-      debugPrint('Message: ${result.message}');
-      return null;
+      if (result.status != LoginStatus.success || result.accessToken == null) {
+        debugPrint('Facebook login failed: ${result.status}');
+        debugPrint('Message: ${result.message}');
+        return null;
+      }
+
+      final accessToken = result.accessToken!;
+
+      final credential = FacebookAuthProvider.credential(accessToken.token);
+
+      return await FirebaseAuth.instance.signInWithCredential(credential);
+    } catch (e) {
+      debugPrint('Facebook Sign-In error: $e');
+      rethrow;
     }
-
-    final accessToken = result.accessToken!;
-
-    final credential = FacebookAuthProvider.credential(
-      accessToken.token,
-    );
-
-    return await FirebaseAuth.instance.signInWithCredential(credential);
-  } catch (e) {
-    debugPrint('Facebook Sign-In error: $e');
-    rethrow;
   }
-}
 
-  /// Sign in with Apple (Placeholder - requires the sign_in_with_apple package)
+  /// Signs in with Apple using a nonce to protect the Firebase credential flow.
   Future<UserCredential?> signInWithApple() async {
-    // In a real implementation, you would use sign_in_with_apple to get the credential
-    // then use OAuthProvider('apple.com').credential(...)
-    debugPrint('Apple Sign-In initiated');
-    throw UnimplementedError('Apple Sign-In requires additional setup');
+    try {
+      if (kIsWeb) {
+        final provider = AppleAuthProvider()
+          ..addScope('email')
+          ..addScope('name');
+        return await _auth.signInWithPopup(provider);
+      }
+
+      final isAvailable = await SignInWithApple.isAvailable();
+      if (!isAvailable) {
+        throw FirebaseAuthException(
+          code: 'apple-sign-in-unavailable',
+          message: 'Sign in with Apple is not available on this device.',
+        );
+      }
+
+      final rawNonce = _generateNonce();
+      final appleCredential = await SignInWithApple.getAppleIDCredential(
+        scopes: [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+        nonce: _sha256OfString(rawNonce),
+      );
+
+      final identityToken = appleCredential.identityToken;
+      if (identityToken == null || identityToken.isEmpty) {
+        throw FirebaseAuthException(
+          code: 'missing-apple-identity-token',
+          message: 'Apple did not return an identity token.',
+        );
+      }
+
+      final oauthCredential = OAuthProvider('apple.com').credential(
+        idToken: identityToken,
+        rawNonce: rawNonce,
+      );
+      final userCredential = await _auth.signInWithCredential(oauthCredential);
+
+      final displayName = [
+        appleCredential.givenName,
+        appleCredential.familyName,
+      ].whereType<String>().where((part) => part.trim().isNotEmpty).join(' ');
+      if (displayName.isNotEmpty &&
+          (userCredential.user?.displayName?.isEmpty ?? true)) {
+        await userCredential.user?.updateDisplayName(displayName);
+        await userCredential.user?.reload();
+      }
+
+      return userCredential;
+    } on SignInWithAppleAuthorizationException catch (error) {
+      if (error.code == AuthorizationErrorCode.canceled) {
+        return null;
+      }
+      debugPrint('Apple authorization failed: ${error.code} ${error.message}');
+      rethrow;
+    } catch (error) {
+      debugPrint('Apple Sign-In error: $error');
+      rethrow;
+    }
+  }
+
+  String _generateNonce([int length = 32]) {
+    const charset =
+        '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._';
+    final random = Random.secure();
+    return List.generate(
+      length,
+      (_) => charset[random.nextInt(charset.length)],
+    ).join();
+  }
+
+  String _sha256OfString(String input) {
+    return sha256.convert(utf8.encode(input)).toString();
   }
 
   /// Sign out

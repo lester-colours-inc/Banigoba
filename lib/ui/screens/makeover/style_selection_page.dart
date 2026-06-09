@@ -10,8 +10,10 @@ class StyleSelectionPage extends StatefulWidget {
   final String? imageUrl;
 
   const StyleSelectionPage({super.key, this.imageBytes, this.imageUrl})
-      : assert(imageBytes != null || imageUrl != null,
-            'Either imageBytes or imageUrl must be provided.');
+    : assert(
+        imageBytes != null || imageUrl != null,
+        'Either imageBytes or imageUrl must be provided.',
+      );
 
   static const Color primaryColor = Color(0xFF0D0140);
 
@@ -34,7 +36,7 @@ class _StyleSelectionPageState extends State<StyleSelectionPage> {
   Future<void> _fetchWeather() async {
     // Check permissions before attempting to fetch weather
     final status = await Geolocator.checkPermission();
-    
+
     if (status == LocationPermission.deniedForever) {
       // Silently fail - location permissions permanently denied
       if (!mounted) return;
@@ -103,13 +105,20 @@ class _StyleSelectionPageState extends State<StyleSelectionPage> {
         ),
         title: const Text(
           'My Daily Dress Up',
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 22),
+          style: TextStyle(
+            color: Colors.black,
+            fontWeight: FontWeight.bold,
+            fontSize: 22,
+          ),
         ),
         actions: [
           Stack(
             children: [
               IconButton(
-                icon: const Icon(Icons.shopping_bag_outlined, color: Colors.black),
+                icon: const Icon(
+                  Icons.shopping_bag_outlined,
+                  color: Colors.black,
+                ),
                 onPressed: () {},
               ),
               Positioned(
@@ -134,7 +143,11 @@ class _StyleSelectionPageState extends State<StyleSelectionPage> {
               shape: BoxShape.circle,
             ),
             child: IconButton(
-              icon: const Icon(Icons.arrow_back_ios_new, size: 16, color: Colors.black),
+              icon: const Icon(
+                Icons.arrow_back_ios_new,
+                size: 16,
+                color: Colors.black,
+              ),
               onPressed: () => Navigator.of(context).pop(),
             ),
           ),
@@ -206,7 +219,9 @@ class _StyleSelectionPageState extends State<StyleSelectionPage> {
           color: isSelected ? StyleSelectionPage.primaryColor : Colors.white,
           borderRadius: BorderRadius.circular(25),
           border: Border.all(
-            color: isSelected ? StyleSelectionPage.primaryColor : Colors.grey.shade200,
+            color: isSelected
+                ? StyleSelectionPage.primaryColor
+                : Colors.grey.shade200,
             width: 1,
           ),
         ),
@@ -252,9 +267,15 @@ class _StyleSelectionPageState extends State<StyleSelectionPage> {
                           height: double.infinity,
                           fit: BoxFit.contain,
                           alignment: Alignment.center,
-                          errorBuilder: (context, error, stackTrace) => const Center(
-                            child: Icon(Icons.broken_image, size: 64, color: Colors.black26),
-                          ),
+                          webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
+                          errorBuilder: (context, error, stackTrace) =>
+                              const Center(
+                                child: Icon(
+                                  Icons.broken_image,
+                                  size: 64,
+                                  color: Colors.black26,
+                                ),
+                              ),
                         ),
                   Positioned(
                     bottom: 12,
@@ -266,7 +287,9 @@ class _StyleSelectionPageState extends State<StyleSelectionPage> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: StyleSelectionPage.primaryColor,
                         elevation: 2,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                        ),
                       ),
                     ),
                   ),
@@ -284,8 +307,8 @@ class _StyleSelectionPageState extends State<StyleSelectionPage> {
     final weatherLabel = _isLoadingWeather
         ? 'Loading weather...'
         : _currentWeather != null
-            ? '${_currentWeather!.condition} · ${_currentWeather!.temperatureC.round()}°C'
-            : 'Weather unavailable';
+        ? '${_currentWeather!.condition} · ${_currentWeather!.temperatureC.round()}°C'
+        : 'Weather unavailable';
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -313,7 +336,10 @@ class _StyleSelectionPageState extends State<StyleSelectionPage> {
             Flexible(
               child: Text(
                 label,
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -324,12 +350,7 @@ class _StyleSelectionPageState extends State<StyleSelectionPage> {
   }
 
   Widget _buildActionButtons(BuildContext context) {
-    final buttons = [
-      'Quick Wear',
-      'Customize',
-      'Try On',
-      'Find Shops',
-    ];
+    final buttons = ['Quick Wear', 'Customize', 'Try On', 'Find Shops'];
     return Wrap(
       spacing: 12,
       runSpacing: 12,
@@ -341,7 +362,9 @@ class _StyleSelectionPageState extends State<StyleSelectionPage> {
             style: ElevatedButton.styleFrom(
               backgroundColor: StyleSelectionPage.primaryColor,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
               padding: const EdgeInsets.symmetric(vertical: 16),
             ),
             child: Text(
@@ -385,7 +408,10 @@ class _StyleSelectionPageState extends State<StyleSelectionPage> {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Text(

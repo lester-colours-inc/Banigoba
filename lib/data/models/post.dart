@@ -23,29 +23,48 @@ class Post {
   });
 
   factory Post.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
+    final data = doc.data() as Map<String, dynamic>? ?? const {};
+    final rawLikes = data['likedBy'] ?? data['likes'] ?? const [];
+    final likes = rawLikes is Iterable
+        ? rawLikes
+              .map((value) => value.toString())
+              .where((value) => value.isNotEmpty)
+              .toList()
+        : <String>[];
+    final rawCreatedAt = data['createdAt'];
+
     return Post(
       id: doc.id,
-      authorId: data['authorId'] ?? '',
-      caption: data['caption'] ?? '',
-      commentCount: data['commentCount'] ?? 0,
-      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      imageURL: data['imageURL'] ?? '',
-      likeCount: data['likeCount'] ?? 0,
-      likes: List<String>.from(data['likes'] ?? []),
+      authorId: (data['authorID'] ?? data['authorId'] ?? '').toString(),
+      caption: (data['caption'] ?? '').toString(),
+      commentCount: _asInt(data['commentCount']),
+      createdAt: rawCreatedAt is Timestamp
+          ? rawCreatedAt.toDate()
+          : rawCreatedAt is DateTime
+          ? rawCreatedAt
+          : DateTime.now(),
+      imageURL: (data['imageURL'] ?? data['imageUrl'] ?? '').toString(),
+      likeCount: _asInt(data['likeCount'], fallback: likes.length),
+      likes: likes,
     );
   }
 
   Map<String, dynamic> toFirestore() {
     return {
       'authorId': authorId,
+      'authorID': authorId,
       'caption': caption,
       'commentCount': commentCount,
       'createdAt': Timestamp.fromDate(createdAt),
       'imageURL': imageURL,
       'likeCount': likeCount,
       'likes': likes,
+      'likedBy': likes,
     };
+  }
+
+  static int _asInt(dynamic value, {int fallback = 0}) {
+    return value is num ? value.toInt() : fallback;
   }
 }
 

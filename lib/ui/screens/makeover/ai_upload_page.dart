@@ -22,10 +22,12 @@ class _AiUploadPageState extends State<AiUploadPage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   Uint8List? _selectedImageBytes;
+  Uint8List? _existingFullBodyImageBytes;
   String? _existingFullBodyImageUrl;
   bool _isPicking = false;
   bool _isLoadingExistingPicture = false;
-  
+  String? _existingImageError;
+
   // Track selected styling preference chip index
   int _selectedPreferenceIndex = 0;
 
@@ -46,19 +48,101 @@ class _AiUploadPageState extends State<AiUploadPage> {
 
   Future<void> _loadExistingFullBodyImage() async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
+    if (user == null) {
+      debugPrint('[AiUpload] Cannot load image: no authenticated user');
+      return;
+    }
+
+    debugPrint('[AiUpload] Loading image for user ${user.uid}');
 
     setState(() {
       _isLoadingExistingPicture = true;
+      _existingImageError = null;
+      _existingFullBodyImageBytes = null;
     });
 
-    final existingUrl = await _storageService.getLatestFullBodyImageUrl(user.uid);
-    if (!mounted) return;
+    try {
+      final userSnapshot = await _firestore
+          .collection('users')
+          .doc(user.uid)
+          .get();
+      final userData = userSnapshot.data();
+      final savedFullBodyUrl = userData?['latestFullBodyImageUrl'];
+      debugPrint(
+        '[AiUpload] User document exists=${userSnapshot.exists}, '
+        'latestFullBodyImageUrl type=${savedFullBodyUrl.runtimeType}',
+      );
+      var existingUrl =
+          savedFullBodyUrl is String && savedFullBodyUrl.isNotEmpty
+          ? savedFullBodyUrl
+          : null;
 
-    setState(() {
-      _existingFullBodyImageUrl = existingUrl;
-      _isLoadingExistingPicture = false;
-    });
+      // Older accounts may have images in Storage without the Firestore field.
+      if (existingUrl == null) {
+        debugPrint(
+          '[AiUpload] Firestore URL is missing or empty; checking Storage directory',
+        );
+        existingUrl = await _storageService.getLatestFullBodyImageUrl(user.uid);
+      } else {
+        debugPrint(
+          '[AiUpload] Firestore URL found: ${StorageService.describeDownloadUrl(existingUrl)}',
+        );
+      }
+
+      if (existingUrl != null) {
+        await _storageService.debugImageAccess(existingUrl);
+        if (kIsWeb) {
+          debugPrint(
+            '[AiUpload] Web detected; using an HTML image element to bypass CORS byte-fetch restrictions',
+          );
+        } else {
+          debugPrint(
+            '[AiUpload] Downloading saved image through Firebase Storage SDK',
+          );
+          final existingBytes = await _storageService.downloadImageBytes(
+            existingUrl,
+          );
+          if (existingBytes == null) {
+            throw StateError(
+              'Firebase Storage returned no bytes for the saved image.',
+            );
+          }
+          debugPrint(
+            '[AiUpload] Saved image bytes loaded: ${existingBytes.length}',
+          );
+          _existingFullBodyImageBytes = existingBytes;
+        }
+      } else {
+        debugPrint('[AiUpload] No saved full-body image URL was found');
+      }
+      if (!mounted) return;
+
+      setState(() {
+        _existingFullBodyImageUrl = existingUrl;
+      });
+    } on FirebaseException catch (e, stackTrace) {
+      debugPrint(
+        '[AiUpload] Firestore image lookup failed: code=${e.code}, message=${e.message}',
+      );
+      debugPrintStack(stackTrace: stackTrace);
+      if (!mounted) return;
+      setState(() {
+        _existingImageError = 'Saved photo could not be loaded.';
+      });
+    } catch (e, stackTrace) {
+      debugPrint('[AiUpload] Saved image lookup failed: $e');
+      debugPrintStack(stackTrace: stackTrace);
+      if (!mounted) return;
+      setState(() {
+        _existingImageError = 'Saved photo could not be loaded.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingExistingPicture = false;
+        });
+      }
+    }
   }
 
   Future<void> _pickImage(ImageSource source) async {
@@ -75,8 +159,12 @@ class _AiUploadPageState extends State<AiUploadPage> {
       if (image == null) return;
 
       final imageBytes = await image.readAsBytes();
+      debugPrint(
+        '[AiUpload] Picked ${imageBytes.length} bytes from ${source.name}',
+      );
       setState(() {
         _selectedImageBytes = imageBytes;
+        _existingImageError = null;
       });
 
       await _saveFullBodyImageToUserDocument(imageBytes);
@@ -88,7 +176,9 @@ class _AiUploadPageState extends State<AiUploadPage> {
           builder: (context) => StyleSelectionPage(imageBytes: imageBytes),
         ),
       );
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('[AiUpload] Pick/upload flow failed: $e');
+      debugPrintStack(stackTrace: stackTrace);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Unable to pick or save image: $e')),
@@ -109,16 +199,20 @@ class _AiUploadPageState extends State<AiUploadPage> {
       return;
     }
 
-    final imageUrl = await _storageService.uploadFullBodyImageBytes(imageBytes, user.uid);
-
-    await _firestore.collection('users').doc(user.uid).set(
-      {
-        'latestFullBodyImageUrl': imageUrl,
-        'fullBodyImageUrls': FieldValue.arrayUnion([imageUrl]),
-        'fullBodyImageUploadedAt': FieldValue.serverTimestamp(),
-      },
-      SetOptions(merge: true),
+    final imageUrl = await _storageService.uploadFullBodyImageBytes(
+      imageBytes,
+      user.uid,
     );
+    debugPrint(
+      '[AiUpload] Upload returned URL: ${StorageService.describeDownloadUrl(imageUrl)}',
+    );
+
+    await _firestore.collection('users').doc(user.uid).set({
+      'latestFullBodyImageUrl': imageUrl,
+      'fullBodyImageUrls': FieldValue.arrayUnion([imageUrl]),
+      'fullBodyImageUploadedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+    debugPrint('[AiUpload] Saved latestFullBodyImageUrl to users/${user.uid}');
   }
 
   @override
@@ -139,7 +233,10 @@ class _AiUploadPageState extends State<AiUploadPage> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.shopping_bag_outlined, color: Colors.black87),
+            icon: const Icon(
+              Icons.shopping_bag_outlined,
+              color: Colors.black87,
+            ),
             onPressed: () {},
           ),
           Container(
@@ -149,7 +246,11 @@ class _AiUploadPageState extends State<AiUploadPage> {
               shape: BoxShape.circle,
             ),
             child: IconButton(
-              icon: const Icon(Icons.arrow_back_ios_new, size: 16, color: Colors.black),
+              icon: const Icon(
+                Icons.arrow_back_ios_new,
+                size: 16,
+                color: Colors.black,
+              ),
               onPressed: () => Navigator.of(context).pop(),
             ),
           ),
@@ -163,23 +264,43 @@ class _AiUploadPageState extends State<AiUploadPage> {
             const SizedBox(height: 10),
             const Text(
               'My Daily Dress Up',
-              style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 24),
+              style: TextStyle(
+                color: Colors.black,
+                fontWeight: FontWeight.bold,
+                fontSize: 24,
+              ),
             ),
             const SizedBox(height: 15),
-            
+
             // Segment Switch Selector Row (Mine, My Friends, Community)
             Row(
               children: [
-                _buildSegmentTab('Mine', isActive: true, activeColor: primaryBlue),
-                _buildSegmentTab('My Friends', isActive: false, activeColor: primaryBlue),
-                _buildSegmentTab('Community', isActive: false, activeColor: primaryBlue),
+                _buildSegmentTab(
+                  'Mine',
+                  isActive: true,
+                  activeColor: primaryBlue,
+                ),
+                _buildSegmentTab(
+                  'My Friends',
+                  isActive: false,
+                  activeColor: primaryBlue,
+                ),
+                _buildSegmentTab(
+                  'Community',
+                  isActive: false,
+                  activeColor: primaryBlue,
+                ),
               ],
             ),
             const SizedBox(height: 25),
-            
+
             const Text(
               'Upload Your Image to Start',
-              style: TextStyle(color: Colors.black87, fontSize: 13, fontWeight: FontWeight.w500),
+              style: TextStyle(
+                color: Colors.black87,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
             ),
             const SizedBox(height: 12),
 
@@ -187,18 +308,25 @@ class _AiUploadPageState extends State<AiUploadPage> {
             _buildUploadPlaceholder(lightPinkBg),
             const SizedBox(height: 15),
 
-            if (_existingFullBodyImageUrl != null && _selectedImageBytes == null)
+            if (_existingFullBodyImageUrl != null &&
+                _selectedImageBytes == null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 16.0),
                 child: ElevatedButton.icon(
                   onPressed: _isPicking ? null : _useExistingSavedPhoto,
-                  icon: const Icon(Icons.refresh, size: 18, color: Colors.white),
+                  icon: const Icon(
+                    Icons.refresh,
+                    size: 18,
+                    color: Colors.white,
+                  ),
                   label: const Text('Use Saved FullBody Photo'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: primaryBlue,
                     foregroundColor: Colors.white,
                     minimumSize: const Size(double.infinity, 52),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                     elevation: 0,
                   ),
                 ),
@@ -209,14 +337,25 @@ class _AiUploadPageState extends State<AiUploadPage> {
               children: [
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: _isPicking ? null : () => _pickImage(ImageSource.gallery),
-                    icon: const Icon(Icons.cloud_upload_outlined, size: 20, color: Colors.white),
-                    label: const Text('Upload Photo', style: TextStyle(fontWeight: FontWeight.bold)),
+                    onPressed: _isPicking
+                        ? null
+                        : () => _pickImage(ImageSource.gallery),
+                    icon: const Icon(
+                      Icons.cloud_upload_outlined,
+                      size: 20,
+                      color: Colors.white,
+                    ),
+                    label: const Text(
+                      'Upload Photo',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: primaryBlue,
                       foregroundColor: Colors.white,
                       minimumSize: const Size(double.infinity, 52),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       elevation: 0,
                     ),
                   ),
@@ -224,14 +363,25 @@ class _AiUploadPageState extends State<AiUploadPage> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: _isPicking ? null : () => _pickImage(ImageSource.camera),
-                    icon: const Icon(Icons.add_a_photo_outlined, size: 20, color: Colors.white),
-                    label: const Text('Take a Photo', style: TextStyle(fontWeight: FontWeight.bold)),
+                    onPressed: _isPicking
+                        ? null
+                        : () => _pickImage(ImageSource.camera),
+                    icon: const Icon(
+                      Icons.add_a_photo_outlined,
+                      size: 20,
+                      color: Colors.white,
+                    ),
+                    label: const Text(
+                      'Take a Photo',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: accentYellow,
                       foregroundColor: Colors.white,
                       minimumSize: const Size(double.infinity, 52),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       elevation: 0,
                     ),
                   ),
@@ -243,7 +393,11 @@ class _AiUploadPageState extends State<AiUploadPage> {
             // Preference Header Text
             const Text(
               'Styling Preferences',
-              style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold, fontSize: 15),
+              style: TextStyle(
+                color: Colors.black87,
+                fontWeight: FontWeight.bold,
+                fontSize: 15,
+              ),
             ),
             const SizedBox(height: 16),
 
@@ -261,7 +415,8 @@ class _AiUploadPageState extends State<AiUploadPage> {
                     icon: item['icon'],
                     isSelected: isSelected,
                     activeColor: primaryBlue,
-                    onTap: () => setState(() => _selectedPreferenceIndex = index),
+                    onTap: () =>
+                        setState(() => _selectedPreferenceIndex = index),
                   );
                 },
               ),
@@ -273,7 +428,11 @@ class _AiUploadPageState extends State<AiUploadPage> {
     );
   }
 
-  Widget _buildSegmentTab(String label, {required bool isActive, required Color activeColor}) {
+  Widget _buildSegmentTab(
+    String label, {
+    required bool isActive,
+    required Color activeColor,
+  }) {
     return Container(
       margin: const EdgeInsets.only(right: 10),
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
@@ -323,7 +482,11 @@ class _AiUploadPageState extends State<AiUploadPage> {
                     child: CircleAvatar(
                       backgroundColor: Colors.black45,
                       child: IconButton(
-                        icon: const Icon(Icons.close, color: Colors.white, size: 18),
+                        icon: const Icon(
+                          Icons.close,
+                          color: Colors.white,
+                          size: 18,
+                        ),
                         onPressed: _clearSelectedImage,
                       ),
                     ),
@@ -331,48 +494,118 @@ class _AiUploadPageState extends State<AiUploadPage> {
                 ],
               )
             : _isLoadingExistingPicture
-                ? const Center(child: CircularProgressIndicator())
-                : (_existingFullBodyImageUrl != null
-                    ? Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          Center(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.check_circle_outline, size: 60, color: Colors.black26),
-                                const SizedBox(height: 12),
-                                const Text(
-                                  'Saved full-body photo ready',
-                                  style: TextStyle(color: Colors.black38, fontSize: 14, fontWeight: FontWeight.w500),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Positioned(
-                            top: 10,
-                            right: 10,
-                            child: CircleAvatar(
-                              backgroundColor: Colors.black45,
-                              child: IconButton(
-                                icon: const Icon(Icons.refresh, color: Colors.white, size: 18),
-                                onPressed: _clearSelectedImage,
+            ? const Center(child: CircularProgressIndicator())
+            : (_existingFullBodyImageUrl != null
+                  ? Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        kIsWeb
+                            ? Image.network(
+                                _existingFullBodyImageUrl!,
+                                width: double.infinity,
+                                height: double.infinity,
+                                fit: BoxFit.contain,
+                                alignment: Alignment.center,
+                                webHtmlElementStrategy:
+                                    WebHtmlElementStrategy.prefer,
+                                errorBuilder: (context, error, stackTrace) {
+                                  debugPrint(
+                                    '[AiUpload] HTML image element failed: $error',
+                                  );
+                                  if (stackTrace != null) {
+                                    debugPrintStack(stackTrace: stackTrace);
+                                  }
+                                  return _buildImageLoadError();
+                                },
+                              )
+                            : _existingFullBodyImageBytes != null
+                            ? Image.memory(
+                                _existingFullBodyImageBytes!,
+                                width: double.infinity,
+                                height: double.infinity,
+                                fit: BoxFit.contain,
+                                alignment: Alignment.center,
+                                errorBuilder: (context, error, stackTrace) {
+                                  debugPrint(
+                                    '[AiUpload] Image.memory failed: $error',
+                                  );
+                                  debugPrintStack(stackTrace: stackTrace);
+                                  return _buildImageLoadError();
+                                },
+                              )
+                            : const Center(child: CircularProgressIndicator()),
+                        Positioned(
+                          top: 10,
+                          right: 10,
+                          child: CircleAvatar(
+                            backgroundColor: Colors.black45,
+                            child: IconButton(
+                              icon: const Icon(
+                                Icons.refresh,
+                                color: Colors.white,
+                                size: 18,
                               ),
+                              onPressed: _clearSelectedImage,
                             ),
                           ),
-                        ],
-                      )
-                    : Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.upload_file_outlined, size: 60, color: Colors.black26),
-                          const SizedBox(height: 12),
-                          const Text(
-                            'Upload Your Photo to Begin',
-                            style: TextStyle(color: Colors.black38, fontSize: 14, fontWeight: FontWeight.w500),
+                        ),
+                      ],
+                    )
+                  : _existingImageError != null
+                  ? _buildImageLoadError()
+                  : Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.upload_file_outlined,
+                          size: 60,
+                          color: Colors.black26,
+                        ),
+                        const SizedBox(height: 12),
+                        const Text(
+                          'Upload Your Photo to Begin',
+                          style: TextStyle(
+                            color: Colors.black38,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
                           ),
-                        ],
-                      )),
+                        ),
+                      ],
+                    )),
+      ),
+    );
+  }
+
+  Widget _buildImageLoadError() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.broken_image_outlined,
+              size: 60,
+              color: Colors.black26,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              _existingImageError ?? 'Saved photo could not be displayed.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.black38,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: _loadExistingFullBodyImage,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Try Again'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -380,7 +613,9 @@ class _AiUploadPageState extends State<AiUploadPage> {
   void _clearSelectedImage() {
     setState(() {
       _selectedImageBytes = null;
+      _existingFullBodyImageBytes = null;
       _existingFullBodyImageUrl = null;
+      _existingImageError = null;
     });
   }
 
@@ -388,6 +623,39 @@ class _AiUploadPageState extends State<AiUploadPage> {
     final savedUrl = _existingFullBodyImageUrl;
     if (savedUrl == null) return;
 
+    if (kIsWeb) {
+      debugPrint(
+        '[AiUpload] Passing saved Firebase URL to style selection on web',
+      );
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => StyleSelectionPage(imageUrl: savedUrl),
+        ),
+      );
+      return;
+    }
+
+    final cachedBytes = _existingFullBodyImageBytes;
+    if (cachedBytes != null) {
+      debugPrint(
+        '[AiUpload] Reusing ${cachedBytes.length} cached saved-image bytes',
+      );
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => StyleSelectionPage(imageBytes: cachedBytes),
+        ),
+      );
+      return;
+    }
+
+    debugPrint(
+      '[AiUpload] Loading saved image bytes from '
+      '${StorageService.describeDownloadUrl(savedUrl)}',
+    );
     setState(() {
       _isPicking = true;
     });
@@ -400,12 +668,18 @@ class _AiUploadPageState extends State<AiUploadPage> {
     });
 
     if (savedBytes == null) {
+      debugPrint('[AiUpload] Saved image byte download returned null');
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Saved image could not be loaded. Please upload it again.')),
+        const SnackBar(
+          content: Text(
+            'Saved image could not be loaded. Please upload it again.',
+          ),
+        ),
       );
       return;
     }
 
+    debugPrint('[AiUpload] Saved image ready: ${savedBytes.length} bytes');
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -432,10 +706,18 @@ class _AiUploadPageState extends State<AiUploadPage> {
               decoration: BoxDecoration(
                 color: isSelected ? activeColor : Colors.white,
                 shape: BoxShape.circle,
-                border: Border.all(color: isSelected ? activeColor : Colors.grey.shade200),
-                boxShadow: isSelected 
-                  ? [BoxShadow(color: activeColor.withAlpha((0.15 * 255).round()), blurRadius: 6, offset: const Offset(0, 3))]
-                  : null,
+                border: Border.all(
+                  color: isSelected ? activeColor : Colors.grey.shade200,
+                ),
+                boxShadow: isSelected
+                    ? [
+                        BoxShadow(
+                          color: activeColor.withAlpha((0.15 * 255).round()),
+                          blurRadius: 6,
+                          offset: const Offset(0, 3),
+                        ),
+                      ]
+                    : null,
               ),
               child: Icon(
                 icon,
@@ -451,7 +733,7 @@ class _AiUploadPageState extends State<AiUploadPage> {
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                 color: isSelected ? activeColor : Colors.grey.shade400,
               ),
-            )
+            ),
           ],
         ),
       ),

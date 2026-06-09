@@ -8,9 +8,9 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:1057057002281:android:3946c7acc8024e8b505d38",
+        "mobilesdk_app_id": "1:1057057002281:android:39ef218f3602fd72505d38",
         "android_client_info": {
-          "package_name": "com.tino.banigoba"
+          "package_name": "com.banigoba"
         }
       },
       "oauth_client": [

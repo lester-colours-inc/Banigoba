@@ -53,24 +53,22 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyAT1RUBbmQiZaPa_b71E19BTa5o-qj2JdU',
-    appId: '1:1057057002281:android:3946c7acc8024e8b505d38',
+    appId: '1:1057057002281:android:39ef218f3602fd72505d38',
     messagingSenderId: '1057057002281',
     projectId: 'internshipproject-68c13',
     databaseURL: 'https://internshipproject-68c13-default-rtdb.europe-west1.firebasedatabase.app',
     storageBucket: 'internshipproject-68c13.firebasestorage.app',
   );
-
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyBFAR8DZP1Fse-fAuv9Qk1a8878VKvvtZI',
-    appId: '1:1057057002281:ios:83c780790eafe109505d38',
+    appId: '1:1057057002281:ios:3542ea90b01a7110505d38',
     messagingSenderId: '1057057002281',
     projectId: 'internshipproject-68c13',
     databaseURL: 'https://internshipproject-68c13-default-rtdb.europe-west1.firebasedatabase.app',
     storageBucket: 'internshipproject-68c13.firebasestorage.app',
-    iosClientId: '1057057002281-rcnc4a2142ididv1fi8l3i2rv02a7vnn.apps.googleusercontent.com',
-    iosBundleId: 'com.tino.banigoba',
+    iosClientId: '1057057002281-m71o9rjc7uoe58ja6dp3im0qedpv0c6g.apps.googleusercontent.com',
+    iosBundleId: 'com.banigoba',
   );
-
   static const FirebaseOptions macos = FirebaseOptions(
     apiKey: 'AIzaSyBFAR8DZP1Fse-fAuv9Qk1a8878VKvvtZI',
     appId: '1:1057057002281:ios:83c780790eafe109505d38',
@@ -92,5 +90,4 @@ class DefaultFirebaseOptions {
     storageBucket: 'internshipproject-68c13.firebasestorage.app',
     measurementId: 'G-T0JNWKMYP3',
   );
-
 }

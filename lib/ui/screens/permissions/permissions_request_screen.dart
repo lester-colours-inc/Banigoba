@@ -1,10 +1,10 @@
-// Explains app permissions, requests them, and reports their current status.
+// Presents permission requests after authentication in a short guided flow.
 import 'package:flutter/material.dart';
-import 'package:permission_handler/permission_handler.dart';
+
 import '../../../data/services/permissions_service.dart';
 
 class PermissionsRequestScreen extends StatefulWidget {
-  final VoidCallback onPermissionsComplete;
+  final Future<void> Function(Map<String, bool> statuses) onPermissionsComplete;
 
   const PermissionsRequestScreen({
     super.key,
@@ -12,41 +12,84 @@ class PermissionsRequestScreen extends StatefulWidget {
   });
 
   @override
-  State<PermissionsRequestScreen> createState() => _PermissionsRequestScreenState();
+  State<PermissionsRequestScreen> createState() =>
+      _PermissionsRequestScreenState();
 }
 
 class _PermissionsRequestScreenState extends State<PermissionsRequestScreen> {
-  static const Color primaryColor = Color(0xFF0D0140);
+  static const _navy = Color(0xFF17008A);
+  final _pageController = PageController();
+  int _pageIndex = 0;
   bool _isRequesting = false;
-  Map<String, bool> _permissionStatuses = {};
+
+  static const _pages = [
+    _PermissionPageData(
+      title: 'CAMERA',
+      description: 'Banigoba needs permission to\naccess your Camera, Photos.',
+      icon: Icons.photo_camera_outlined,
+      accentIcon: Icons.image_outlined,
+    ),
+    _PermissionPageData(
+      title: 'ADD YOUR LOCATION',
+      description: 'Help us deliver your products to\nthe right place for you',
+      icon: Icons.location_on_outlined,
+      accentIcon: Icons.map_outlined,
+    ),
+    _PermissionPageData(
+      title: 'DON’T MISS OUT',
+      description:
+          'Turn on notifications to get\nupdates about new looks & more',
+      icon: Icons.notifications_none_rounded,
+      accentIcon: Icons.chat_bubble_outline_rounded,
+    ),
+  ];
 
   @override
-  void initState() {
-    super.initState();
-    _loadPermissionStatuses();
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
   }
 
-  Future<void> _loadPermissionStatuses() async {
-    final statuses = await PermissionsService.getPermissionsSummary();
-    if (mounted) {
-      setState(() {
-        _permissionStatuses = statuses;
-      });
+  Future<void> _acceptCurrentPermission() async {
+    setState(() => _isRequesting = true);
+    try {
+      switch (_pageIndex) {
+        case 0:
+          await PermissionsService.requestCameraAndPhotosPermissions();
+        case 1:
+          await PermissionsService.requestLocationPermission();
+        case 2:
+          await PermissionsService.requestNotificationPermission();
+      }
+
+      if (!mounted) return;
+      await _advanceOrFinish();
+    } finally {
+      if (mounted) setState(() => _isRequesting = false);
     }
   }
 
-  Future<void> _requestAllPermissions() async {
-    setState(() {
-      _isRequesting = true;
-    });
+  Future<void> _advanceOrFinish() async {
+    if (_pageIndex < _pages.length - 1) {
+      await _pageController.nextPage(
+        duration: const Duration(milliseconds: 280),
+        curve: Curves.easeOutCubic,
+      );
+      return;
+    }
 
-    await PermissionsService.requestAllPermissions();
+    final statuses = await PermissionsService.getPermissionsSummary();
+    await widget.onPermissionsComplete(statuses);
+  }
 
-    if (mounted) {
-      await _loadPermissionStatuses();
-      setState(() {
-        _isRequesting = false;
-      });
+  Future<void> _skip() async {
+    if (_isRequesting) return;
+    setState(() => _isRequesting = true);
+    try {
+      final statuses = await PermissionsService.getPermissionsSummary();
+      await widget.onPermissionsComplete(statuses);
+    } finally {
+      if (mounted) setState(() => _isRequesting = false);
     }
   }
 
@@ -54,190 +97,176 @@ class _PermissionsRequestScreenState extends State<PermissionsRequestScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: const SizedBox(),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      body: SafeArea(
+        bottom: false,
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 20),
-            const Text(
-              'App Permissions',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: Colors.black,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'To provide you with the best experience, we need a few permissions.',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey.shade600,
-                height: 1.4,
-              ),
-            ),
-            const SizedBox(height: 40),
-            _buildPermissionItem(
-              icon: Icons.camera_alt_outlined,
-              title: 'Camera',
-              description: 'For AR glasses try-on and selfies',
-              isGranted: _permissionStatuses['camera'] ?? false,
-            ),
-            const SizedBox(height: 20),
-            _buildPermissionItem(
-              icon: Icons.photo_library_outlined,
-              title: 'Photos',
-              description: 'To access and upload your images',
-              isGranted: _permissionStatuses['photos'] ?? false,
-            ),
-            const SizedBox(height: 20),
-            _buildPermissionItem(
-              icon: Icons.location_on_outlined,
-              title: 'Location',
-              description: 'For weather-based fashion recommendations',
-              isGranted: _permissionStatuses['location'] ?? false,
-            ),
-            const SizedBox(height: 20),
-            _buildPermissionItem(
-              icon: Icons.notifications_outlined,
-              title: 'Notifications',
-              description: 'To get updates about styles and offers',
-              isGranted: _permissionStatuses['notifications'] ?? false,
-            ),
-            const SizedBox(height: 50),
-            SizedBox(
-              width: double.infinity,
-              height: 56,
-              child: ElevatedButton(
-                onPressed: _isRequesting ? null : _requestAllPermissions,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: primaryColor,
-                  foregroundColor: Colors.white,
-                  disabledBackgroundColor: Colors.grey.shade300,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-                child: _isRequesting
-                    ? const SizedBox(
-                        height: 24,
-                        width: 24,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
+            Padding(
+              padding: const EdgeInsets.fromLTRB(28, 20, 22, 0),
+              child: SizedBox(
+                height: 60,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Image.asset('assets/images/logo.png', width: 132),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: _isRequesting ? null : _skip,
+                        style: TextButton.styleFrom(
+                          foregroundColor: const Color(0xFF333333),
                         ),
-                      )
-                    : const Text(
-                        'Allow Permissions',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        child: const Text('Skip'),
                       ),
+                    ),
+                  ],
+                ),
               ),
             ),
-            const SizedBox(height: 16),
-            SizedBox(
+            Expanded(
+              child: PageView.builder(
+                controller: _pageController,
+                physics: const NeverScrollableScrollPhysics(),
+                onPageChanged: (index) => setState(() => _pageIndex = index),
+                itemCount: _pages.length,
+                itemBuilder: (context, index) =>
+                    _PermissionPage(data: _pages[index]),
+              ),
+            ),
+            Container(
               width: double.infinity,
-              height: 56,
-              child: ElevatedButton(
-                onPressed: _isRequesting ? null : widget.onPermissionsComplete,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: primaryColor,
-                  side: BorderSide(color: Colors.grey.shade300),
-                  disabledBackgroundColor: Colors.grey.shade100,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+              color: _navy,
+              padding: EdgeInsets.fromLTRB(
+                24,
+                21,
+                24,
+                16 + MediaQuery.paddingOf(context).bottom,
+              ),
+              child: SizedBox(
+                height: 48,
+                child: TextButton(
+                  onPressed: _isRequesting ? null : _acceptCurrentPermission,
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    disabledForegroundColor: Colors.white70,
                   ),
-                ),
-                child: const Text(
-                  'Skip for Now',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  child: _isRequesting
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Text(
+                          'Accept',
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                 ),
               ),
             ),
-            const SizedBox(height: 40),
           ],
         ),
       ),
     );
   }
+}
 
-  Widget _buildPermissionItem({
-    required IconData icon,
-    required String title,
-    required String description,
-    required bool isGranted,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isGranted ? Colors.green.shade50 : Colors.grey.shade50,
-        border: Border.all(
-          color: isGranted ? Colors.green.shade200 : Colors.grey.shade200,
-          width: 1.5,
-        ),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
+class _PermissionPage extends StatelessWidget {
+  final _PermissionPageData data;
+
+  const _PermissionPage({required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 32),
+      child: Column(
         children: [
-          Icon(
-            icon,
-            size: 32,
-            color: isGranted ? Colors.green : primaryColor,
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  description,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.grey.shade600,
-                  ),
-                ),
-              ],
+          const Spacer(flex: 3),
+          _PermissionIllustration(data: data),
+          const SizedBox(height: 42),
+          Text(
+            data.title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF161616),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(height: 10),
+          Text(
+            data.description,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 14,
+              height: 1.3,
+              color: Color(0xFF666666),
+            ),
+          ),
+          const Spacer(flex: 4),
+        ],
+      ),
+    );
+  }
+}
+
+class _PermissionIllustration extends StatelessWidget {
+  final _PermissionPageData data;
+
+  const _PermissionIllustration({required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 190,
+      height: 150,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
           Container(
-            width: 24,
-            height: 24,
-            decoration: BoxDecoration(
+            width: 120,
+            height: 120,
+            decoration: const BoxDecoration(
               shape: BoxShape.circle,
-              color: isGranted ? Colors.green : Colors.grey.shade300,
+              color: Color(0xFFF2F2F2),
             ),
-            child: isGranted
-                ? const Icon(
-                    Icons.check,
-                    size: 16,
-                    color: Colors.white,
-                  )
-                : null,
+          ),
+          Icon(data.icon, size: 88, color: const Color(0xFF353447)),
+          Positioned(
+            right: 15,
+            bottom: 14,
+            child: Container(
+              width: 52,
+              height: 52,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: Color(0xFFFF8A3D),
+              ),
+              child: Icon(data.accentIcon, size: 27, color: Colors.white),
+            ),
           ),
         ],
       ),
     );
   }
+}
+
+class _PermissionPageData {
+  final String title;
+  final String description;
+  final IconData icon;
+  final IconData accentIcon;
+
+  const _PermissionPageData({
+    required this.title,
+    required this.description,
+    required this.icon,
+    required this.accentIcon,
+  });
 }

@@ -3,32 +3,63 @@ import 'package:flutter/foundation.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 class PermissionsService {
-  /// Request all required permissions
-  static Future<Map<Permission, PermissionStatus>> requestAllPermissions() async {
-    final List<Permission> permissions = [
-      Permission.camera,
-      Permission.location,
-      Permission.notification,
-    ];
+  static const Map<String, bool> emptyPermissionsSummary = {
+    'camera': false,
+    'location': false,
+    'photos': false,
+    'notifications': false,
+  };
 
-    // Add platform-specific photo/media permissions
+  /// Request all required permissions
+  static Future<Map<Permission, PermissionStatus>>
+  requestAllPermissions() async {
+    final statuses = <Permission, PermissionStatus>{};
+    statuses.addAll(await requestCameraAndPhotosPermissions());
+    statuses.addAll(await requestLocationPermission());
+    statuses.addAll(await requestNotificationPermission());
+    return statuses;
+  }
+
+  static Future<Map<Permission, PermissionStatus>>
+  requestCameraAndPhotosPermissions() async {
+    final List<Permission> permissions = [Permission.camera];
+
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
-      permissions.addAll([
-        Permission.photos,
-        Permission.photosAddOnly,
-      ]);
+      permissions.addAll([Permission.photos, Permission.photosAddOnly]);
     } else if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-      permissions.addAll([
-        Permission.storage,
-      ]);
+      permissions.addAll([Permission.storage, Permission.photos]);
     }
 
+    return _requestPermissions(permissions);
+  }
+
+  static Future<Map<Permission, PermissionStatus>> requestLocationPermission() {
+    return _requestPermissions([Permission.location]);
+  }
+
+  static Future<Map<Permission, PermissionStatus>>
+  requestNotificationPermission() {
+    return _requestPermissions([Permission.notification]);
+  }
+
+  static Future<Map<Permission, PermissionStatus>> _requestPermissions(
+    List<Permission> permissions,
+  ) async {
     final Map<Permission, PermissionStatus> statuses = {};
     for (final permission in permissions) {
-      final status = await permission.request();
+      final currentStatus = await permission.status;
+      final status = currentStatus.isGranted
+          ? currentStatus
+          : await permission.request();
       statuses[permission] = status;
     }
     return statuses;
+  }
+
+  static bool areAllPermissionsGranted(Map<String, bool> statuses) {
+    return emptyPermissionsSummary.keys.every(
+      (permission) => statuses[permission] == true,
+    );
   }
 
   /// Check if all critical permissions are granted (camera, location, photos)
@@ -42,7 +73,8 @@ class PermissionsService {
       photoStatus = photos.isGranted;
     } else if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
       final storage = await Permission.storage.status;
-      photoStatus = storage.isGranted;
+      final photos = await Permission.photos.status;
+      photoStatus = storage.isGranted || photos.isGranted;
     }
 
     return cameraStatus.isGranted && photoStatus && locationStatus.isGranted;
@@ -65,7 +97,8 @@ class PermissionsService {
     }
     if (defaultTargetPlatform == TargetPlatform.android) {
       final storage = await Permission.storage.status;
-      return storage.isGranted;
+      final photos = await Permission.photos.status;
+      return storage.isGranted || photos.isGranted;
     }
     return true;
   }
