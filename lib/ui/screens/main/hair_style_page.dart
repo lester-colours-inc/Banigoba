@@ -197,7 +197,7 @@ class _HairStylePageState extends State<HairStylePage> {
           width: double.infinity,
           height: 230,
           decoration: BoxDecoration(
-            color: _hairBlush,
+            color: _latestSelfieUrl == null ? _hairBlush : Colors.white,
             borderRadius: BorderRadius.circular(8),
           ),
           child: _buildSelfiePreview(),

@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:banigoba/data/services/storage_service.dart';
-import 'style_selection_page.dart';
+import '../wardrobe/measurement_page.dart';
 
 /// The starting point of the AI Makeover flow.
 /// Users upload a full-body photo or take a selfie to be used for the AI generation.
@@ -173,7 +173,7 @@ class _AiUploadPageState extends State<AiUploadPage> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => StyleSelectionPage(imageBytes: imageBytes),
+          builder: (context) => MeasurementPage(imageBytes: imageBytes),
         ),
       );
     } catch (e, stackTrace) {
@@ -453,11 +453,14 @@ class _AiUploadPageState extends State<AiUploadPage> {
   }
 
   Widget _buildUploadPlaceholder(Color bgColor) {
+    final hasImage =
+        _selectedImageBytes != null || _existingFullBodyImageUrl != null;
+
     return Container(
       width: double.infinity,
       height: 320,
       decoration: BoxDecoration(
-        color: bgColor,
+        color: hasImage ? Colors.white : bgColor,
         borderRadius: BorderRadius.circular(24),
       ),
       child: ClipRRect(
@@ -631,7 +634,7 @@ class _AiUploadPageState extends State<AiUploadPage> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => StyleSelectionPage(imageUrl: savedUrl),
+          builder: (context) => MeasurementPage(imageUrl: savedUrl),
         ),
       );
       return;
@@ -646,7 +649,7 @@ class _AiUploadPageState extends State<AiUploadPage> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => StyleSelectionPage(imageBytes: cachedBytes),
+          builder: (context) => MeasurementPage(imageBytes: cachedBytes),
         ),
       );
       return;
@@ -683,7 +686,7 @@ class _AiUploadPageState extends State<AiUploadPage> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => StyleSelectionPage(imageBytes: savedBytes),
+        builder: (context) => MeasurementPage(imageBytes: savedBytes),
       ),
     );
   }

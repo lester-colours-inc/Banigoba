@@ -343,7 +343,12 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
                         ),
                         SizedBox(
                           width: imageWidth,
-                          child: _buildMinePostImage(imageUrl),
+                          child: ColoredBox(
+                            color: imageUrl.isEmpty
+                                ? Colors.transparent
+                                : Colors.white,
+                            child: _buildMinePostImage(imageUrl),
+                          ),
                         ),
                       ],
                     ),
