@@ -109,7 +109,7 @@ class _EmailSignUpScreenState extends State<EmailSignUpScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
@@ -335,10 +335,7 @@ class _SignUpField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: const TextStyle(fontSize: 14, color: Color(0xFF707070)),
-        ),
+        Text(label, style: TextStyle(fontSize: 14, color: Color(0xFF707070))),
         const SizedBox(height: 7),
         TextField(
           controller: controller,
@@ -349,9 +346,9 @@ class _SignUpField extends StatelessWidget {
           autofillHints: autofillHints,
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: const TextStyle(color: Color(0xFFC7C7C7)),
+            hintStyle: TextStyle(color: Color(0xFFC7C7C7)),
             filled: true,
-            fillColor: const Color(0xFFFAFAFA),
+            fillColor: Theme.of(context).colorScheme.surfaceContainerLow,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 14,
@@ -392,7 +389,7 @@ class _SignUpSocialButtons extends StatelessWidget {
         const SizedBox(width: 14),
         _SignUpSocialButton(
           icon: Icons.apple,
-          color: Colors.black,
+          color: Theme.of(context).colorScheme.onSurface,
           onPressed: enabled ? () => onPressed('Apple') : null,
         ),
       ],
@@ -422,7 +419,7 @@ class _SignUpSocialButton extends StatelessWidget {
           tooltip: label == 'G' ? 'Google' : null,
           onPressed: onPressed,
           style: IconButton.styleFrom(
-            backgroundColor: const Color(0xFFF6F6F6),
+            backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(7),
             ),

@@ -31,22 +31,25 @@ class Product {
   });
 
   factory Product.fromFirestore(DocumentSnapshot doc) {
-    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-    
+    final data = doc.data() as Map<String, dynamic>;
+    return Product.fromMap(data, id: doc.id);
+  }
+
+  factory Product.fromMap(Map<String, dynamic> data, {String? id}) {
     // Handle different naming conventions in database
-    String img = data['imageUrl'] ?? data['imageURL'] ?? '';
-    String? rawImg = data['rawImageUrl'];
-    
+    final String img = data['imageUrl'] ?? data['imageURL'] ?? '';
+    final String? rawImg = data['rawImageUrl'];
+
     // Handle colours being potentially a single string or a list
-    List<String> colList = [];
+    final List<String> colList = [];
     if (data['colours'] is List) {
-      colList = List<String>.from(data['colours']);
+      colList.addAll(List<String>.from(data['colours']));
     } else if (data['colour'] != null) {
-      colList = [data['colour'].toString()];
+      colList.add(data['colour'].toString());
     }
 
     return Product(
-      id: doc.id,
+      id: id ?? (data['id'] ?? '').toString(),
       name: data['name'] ?? '',
       imageUrl: img,
       rawImageUrl: rawImg,
@@ -73,7 +76,9 @@ class Product {
       'gender': gender,
       'weatherTags': weatherTags,
       'functionalTags': functionalTags,
-      'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : FieldValue.serverTimestamp(),
+      'createdAt': createdAt != null
+          ? Timestamp.fromDate(createdAt!)
+          : FieldValue.serverTimestamp(),
     };
   }
 }

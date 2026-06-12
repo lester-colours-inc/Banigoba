@@ -46,10 +46,7 @@ class _MainScreenState extends State<MainScreen> {
           Navigator.pop(context);
         },
       ),
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _pages,
-      ),
+      body: IndexedStack(index: _currentIndex, children: _pages),
       bottomNavigationBar: CustomBottomNavigation(
         currentIndex: _currentIndex,
         onTap: (index) {

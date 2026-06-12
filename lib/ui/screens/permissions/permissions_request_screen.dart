@@ -4,10 +4,12 @@ import 'package:flutter/material.dart';
 import '../../../data/services/permissions_service.dart';
 
 class PermissionsRequestScreen extends StatefulWidget {
+  final Set<String> requiredPermissions;
   final Future<void> Function(Map<String, bool> statuses) onPermissionsComplete;
 
   const PermissionsRequestScreen({
     super.key,
+    required this.requiredPermissions,
     required this.onPermissionsComplete,
   });
 
@@ -22,20 +24,23 @@ class _PermissionsRequestScreenState extends State<PermissionsRequestScreen> {
   int _pageIndex = 0;
   bool _isRequesting = false;
 
-  static const _pages = [
+  static const _allPages = [
     _PermissionPageData(
+      permissionKeys: {'camera', 'photos'},
       title: 'CAMERA',
       description: 'Banigoba needs permission to\naccess your Camera, Photos.',
       icon: Icons.photo_camera_outlined,
       accentIcon: Icons.image_outlined,
     ),
     _PermissionPageData(
+      permissionKeys: {'location'},
       title: 'ADD YOUR LOCATION',
       description: 'Help us deliver your products to\nthe right place for you',
       icon: Icons.location_on_outlined,
       accentIcon: Icons.map_outlined,
     ),
     _PermissionPageData(
+      permissionKeys: {'notifications'},
       title: 'DON’T MISS OUT',
       description:
           'Turn on notifications to get\nupdates about new looks & more',
@@ -43,6 +48,12 @@ class _PermissionsRequestScreenState extends State<PermissionsRequestScreen> {
       accentIcon: Icons.chat_bubble_outline_rounded,
     ),
   ];
+
+  late final List<_PermissionPageData> _pages = _allPages
+      .where(
+        (page) => page.permissionKeys.any(widget.requiredPermissions.contains),
+      )
+      .toList();
 
   @override
   void dispose() {
@@ -53,13 +64,14 @@ class _PermissionsRequestScreenState extends State<PermissionsRequestScreen> {
   Future<void> _acceptCurrentPermission() async {
     setState(() => _isRequesting = true);
     try {
-      switch (_pageIndex) {
-        case 0:
-          await PermissionsService.requestCameraAndPhotosPermissions();
-        case 1:
-          await PermissionsService.requestLocationPermission();
-        case 2:
-          await PermissionsService.requestNotificationPermission();
+      final page = _pages[_pageIndex];
+      if (page.permissionKeys.contains('camera') ||
+          page.permissionKeys.contains('photos')) {
+        await PermissionsService.requestCameraAndPhotosPermissions();
+      } else if (page.permissionKeys.contains('location')) {
+        await PermissionsService.requestLocationPermission();
+      } else if (page.permissionKeys.contains('notifications')) {
+        await PermissionsService.requestNotificationPermission();
       }
 
       if (!mounted) return;
@@ -96,7 +108,7 @@ class _PermissionsRequestScreenState extends State<PermissionsRequestScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -232,9 +244,9 @@ class _PermissionIllustration extends StatelessWidget {
           Container(
             width: 120,
             height: 120,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Color(0xFFF2F2F2),
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
             ),
           ),
           Icon(data.icon, size: 88, color: const Color(0xFF353447)),
@@ -258,12 +270,14 @@ class _PermissionIllustration extends StatelessWidget {
 }
 
 class _PermissionPageData {
+  final Set<String> permissionKeys;
   final String title;
   final String description;
   final IconData icon;
   final IconData accentIcon;
 
   const _PermissionPageData({
+    required this.permissionKeys,
     required this.title,
     required this.description,
     required this.icon,

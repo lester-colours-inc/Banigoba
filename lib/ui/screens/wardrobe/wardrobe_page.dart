@@ -24,34 +24,40 @@ class _WardrobePageState extends State<WardrobePage> {
   final String _currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
   int _selectedTabIndex = 0; // 0: Mine, 1: My Friends, 2: Community
   final ImagePicker _picker = ImagePicker();
-  static const Color primaryColor = Color(0xFF0D0140);
+  static Color primaryColor = Color(0xFF0D0140);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.menu, color: Colors.black),
+          icon: Icon(
+            Icons.menu,
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
           onPressed: () => Scaffold.of(context).openDrawer(),
         ),
         actions: [
-          _buildAppBarAction(Icons.shopping_bag_outlined, () => Navigator.pushNamed(context, AppRoutes.cart)),
+          _buildAppBarAction(
+            Icons.shopping_bag_outlined,
+            () => Navigator.pushNamed(context, AppRoutes.cart),
+          ),
           _buildAppBarAction(Icons.chat_bubble_outline, () {
-             Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const NotificationsPage()),
-              );
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => NotificationsPage()),
+            );
           }, hasNotification: true),
-          const SizedBox(width: 10),
+          SizedBox(width: 10),
         ],
       ),
       body: Stack(
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 25.0),
+            padding: EdgeInsets.symmetric(horizontal: 25.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -59,60 +65,68 @@ class _WardrobePageState extends State<WardrobePage> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Expanded(
+                    Expanded(
                       child: Text(
                         'My Daily Dress Up',
                         style: TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.bold,
-                          color: Colors.black,
+                          color: Theme.of(context).colorScheme.onSurface,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    SizedBox(width: 10),
                     GestureDetector(
                       onTap: () => Navigator.of(context).pop(),
                       child: Container(
-                        padding: const EdgeInsets.all(8),
+                        padding: EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: Colors.grey.shade100,
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.surfaceContainerHighest,
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.arrow_back_ios_new, size: 16, color: Colors.black),
+                        child: Icon(
+                          Icons.arrow_back_ios_new,
+                          size: 16,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 25),
+                SizedBox(height: 25),
                 // Custom Tab Bar
                 _buildTabs(),
-                const SizedBox(height: 25),
+                SizedBox(height: 25),
                 // Main Content depending on selected tab
-                Expanded(
-                  child: _buildSelectedTab(),
-                ),
+                Expanded(child: _buildSelectedTab()),
               ],
             ),
           ),
           // Floating Action Button for adding new items (visible in "Mine" tab)
           if (_selectedTabIndex == 0)
-            Positioned(
-              bottom: 30,
-              right: 25,
-              child: _buildAddItemButton(),
-            ),
+            Positioned(bottom: 30, right: 25, child: _buildAddItemButton()),
         ],
       ),
     );
   }
 
   /// Build a single action button for the AppBar
-  Widget _buildAppBarAction(IconData icon, VoidCallback onTap, {bool hasNotification = false}) {
+  Widget _buildAppBarAction(
+    IconData icon,
+    VoidCallback onTap, {
+    bool hasNotification = false,
+  }) {
     return Stack(
       children: [
         IconButton(
-          icon: Icon(icon, color: Colors.black, size: 28),
+          icon: Icon(
+            icon,
+            color: Theme.of(context).colorScheme.onSurface,
+            size: 28,
+          ),
           onPressed: onTap,
         ),
         if (hasNotification)
@@ -140,9 +154,9 @@ class _WardrobePageState extends State<WardrobePage> {
       child: Row(
         children: [
           _tabButton("Mine", 0),
-          const SizedBox(width: 15),
+          SizedBox(width: 15),
           _tabButton("My Friends", 1),
-          const SizedBox(width: 15),
+          SizedBox(width: 15),
           _tabButton("Community", 2),
         ],
       ),
@@ -155,19 +169,23 @@ class _WardrobePageState extends State<WardrobePage> {
     return GestureDetector(
       onTap: () => setState(() => _selectedTabIndex = index),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 12),
+        padding: EdgeInsets.symmetric(horizontal: 25, vertical: 12),
         decoration: BoxDecoration(
           color: isSelected ? primaryColor : Colors.white,
           borderRadius: BorderRadius.circular(30),
           border: Border.all(
-            color: isSelected ? primaryColor : Colors.grey.shade200,
+            color: isSelected
+                ? primaryColor
+                : Theme.of(context).colorScheme.outlineVariant,
             width: 1.5,
           ),
         ),
         child: Text(
           title,
           style: TextStyle(
-            color: isSelected ? Colors.white : Colors.grey.shade600,
+            color: isSelected
+                ? Colors.white
+                : Theme.of(context).colorScheme.onSurfaceVariant,
             fontWeight: FontWeight.w600,
             fontSize: 15,
           ),
@@ -181,7 +199,7 @@ class _WardrobePageState extends State<WardrobePage> {
     return GestureDetector(
       onTap: _showUploadItemDialog,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         decoration: BoxDecoration(
           color: primaryColor,
           borderRadius: BorderRadius.circular(30),
@@ -189,11 +207,11 @@ class _WardrobePageState extends State<WardrobePage> {
             BoxShadow(
               color: primaryColor.withValues(alpha: 0.3),
               blurRadius: 10,
-              offset: const Offset(0, 5),
+              offset: Offset(0, 5),
             ),
           ],
         ),
-        child: const Row(
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.add, color: Colors.white, size: 22),
@@ -231,10 +249,15 @@ class _WardrobePageState extends State<WardrobePage> {
     return StreamBuilder<List<String>>(
       stream: _friendService.getMutualFriendsIds(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+        if (snapshot.connectionState == ConnectionState.waiting)
+          return Center(child: CircularProgressIndicator());
         final mutualIds = snapshot.data ?? [];
         if (mutualIds.isEmpty) {
-          return const Center(child: Text("Mutual friends' items will appear here. Follow people back to see them!"));
+          return Center(
+            child: Text(
+              "Mutual friends' items will appear here. Follow people back to see them!",
+            ),
+          );
         }
 
         return StreamBuilder<QuerySnapshot>(
@@ -244,14 +267,20 @@ class _WardrobePageState extends State<WardrobePage> {
               .where('visibility', isEqualTo: 'public')
               .snapshots(),
           builder: (context, prodSnapshot) {
-            if (prodSnapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-            final items = List<QueryDocumentSnapshot>.from(prodSnapshot.data?.docs ?? []);
-            if (items.isEmpty) return const Center(child: Text("No public items from friends."));
+            if (prodSnapshot.connectionState == ConnectionState.waiting)
+              return Center(child: CircularProgressIndicator());
+            final items = List<QueryDocumentSnapshot>.from(
+              prodSnapshot.data?.docs ?? [],
+            );
+            if (items.isEmpty)
+              return Center(child: Text("No public items from friends."));
 
             // Sort by creation date in memory to avoid needing complex indexes
             items.sort((a, b) {
-              final aTime = (a.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
-              final bTime = (b.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
+              final aTime =
+                  (a.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
+              final bTime =
+                  (b.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
               if (aTime == null) return -1;
               if (bTime == null) return 1;
               return bTime.compareTo(aTime);
@@ -272,15 +301,27 @@ class _WardrobePageState extends State<WardrobePage> {
           .where('visibility', isEqualTo: 'public')
           .snapshots(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-        final items = List<QueryDocumentSnapshot>.from(snapshot.data?.docs ?? []);
-        if (items.isEmpty) return const Center(child: Text("No community items found."));
+        if (snapshot.connectionState == ConnectionState.waiting)
+          return Center(child: CircularProgressIndicator());
+        final items = List<QueryDocumentSnapshot>.from(
+          snapshot.data?.docs ?? [],
+        );
+        if (items.isEmpty)
+          return Center(child: Text("No community items found."));
 
         // Filter out own items and sort by date in memory
-        final communityItems = items.where((doc) => (doc.data() as Map<String, dynamic>)['userId'] != _currentUserId).toList();
+        final communityItems = items
+            .where(
+              (doc) =>
+                  (doc.data() as Map<String, dynamic>)['userId'] !=
+                  _currentUserId,
+            )
+            .toList();
         communityItems.sort((a, b) {
-          final aTime = (a.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
-          final bTime = (b.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
+          final aTime =
+              (a.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
+          final bTime =
+              (b.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
           if (aTime == null) return -1;
           if (bTime == null) return 1;
           return bTime.compareTo(aTime);
@@ -304,7 +345,7 @@ class _WardrobePageState extends State<WardrobePage> {
     final categories = groupedItems.keys.toList()..sort();
 
     return ListView.builder(
-      padding: const EdgeInsets.only(bottom: 100),
+      padding: EdgeInsets.only(bottom: 100),
       itemCount: categories.length,
       itemBuilder: (context, catIndex) {
         final category = categories[catIndex];
@@ -314,16 +355,20 @@ class _WardrobePageState extends State<WardrobePage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 20.0),
+              padding: EdgeInsets.symmetric(vertical: 20.0),
               child: Text(
                 category[0].toUpperCase() + category.substring(1),
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87),
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
               ),
             ),
             GridView.builder(
               shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              physics: NeverScrollableScrollPhysics(),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
                 childAspectRatio: 0.72,
                 crossAxisSpacing: 20,
@@ -331,7 +376,9 @@ class _WardrobePageState extends State<WardrobePage> {
               ),
               itemCount: categoryItems.length,
               itemBuilder: (context, index) {
-                final data = Map<String, dynamic>.from(categoryItems[index].data() as Map<String, dynamic>);
+                final data = Map<String, dynamic>.from(
+                  categoryItems[index].data() as Map<String, dynamic>,
+                );
                 data['id'] = categoryItems[index].id;
                 return _buildWardrobeCard(data);
               },
@@ -347,15 +394,20 @@ class _WardrobePageState extends State<WardrobePage> {
     return StreamBuilder<QuerySnapshot>(
       stream: _productService.getUserProducts(_currentUserId),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+        if (snapshot.connectionState == ConnectionState.waiting)
+          return Center(child: CircularProgressIndicator());
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return const Center(child: Text("Your wardrobe is empty. Upload some items!"));
+          return Center(
+            child: Text("Your wardrobe is empty. Upload some items!"),
+          );
         }
 
         final items = List<QueryDocumentSnapshot>.from(snapshot.data!.docs);
         items.sort((a, b) {
-          final aTime = (a.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
-          final bTime = (b.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
+          final aTime =
+              (a.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
+          final bTime =
+              (b.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
           if (aTime == null) return -1;
           if (bTime == null) return 1;
           return bTime.compareTo(aTime);
@@ -370,27 +422,35 @@ class _WardrobePageState extends State<WardrobePage> {
   Widget _buildWardrobeCard(Map<String, dynamic> data) {
     final imageUrl = data['imageUrl'] ?? data['imageURL'] ?? '';
     final rawImageUrl = data['rawImageUrl'] ?? imageUrl;
-    
+
     final String? originalProductId = data['originalProductId'];
     final String? originalPosterId = data['originalPosterId'];
     final String? uploaderId = data['userId'];
-    
+
     // Only attribute to a user if it was an original upload or saved from a user
-    final String? posterId = originalProductId != null ? originalPosterId : uploaderId;
+    final String? posterId = originalProductId != null
+        ? originalPosterId
+        : uploaderId;
 
     return GestureDetector(
       onTap: () {
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => ProductDetailPage(productData: data)),
+          MaterialPageRoute(
+            builder: (context) => ProductDetailPage(productData: data),
+          ),
         );
       },
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).colorScheme.surfaceContainerLow,
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
-            BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 15, offset: const Offset(0, 8)),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 15,
+              offset: Offset(0, 8),
+            ),
           ],
         ),
         child: Column(
@@ -398,33 +458,54 @@ class _WardrobePageState extends State<WardrobePage> {
           children: [
             Expanded(
               child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
                 child: rawImageUrl.isNotEmpty
-                    ? Image.network(rawImageUrl, fit: BoxFit.contain, width: double.infinity)
-                    : Container(color: Colors.grey.shade100, child: const Icon(Icons.image, size: 40, color: Colors.grey)),
+                    ? Image.network(
+                        rawImageUrl,
+                        fit: BoxFit.contain,
+                        width: double.infinity,
+                      )
+                    : Container(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.surfaceContainerHighest,
+                        child: Icon(Icons.image, size: 40, color: Colors.grey),
+                      ),
               ),
             ),
             Padding(
-              padding: const EdgeInsets.all(12.0),
+              padding: EdgeInsets.all(12.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     data['name'] ?? 'No Name',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.black),
-                    maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 2),
+                  SizedBox(height: 2),
                   // Display original poster name if not admin
                   if (posterId != null)
                     StreamBuilder<DocumentSnapshot>(
-                      stream: FirebaseFirestore.instance.collection('users').doc(posterId).snapshots(),
+                      stream: FirebaseFirestore.instance
+                          .collection('users')
+                          .doc(posterId)
+                          .snapshots(),
                       builder: (context, snapshot) {
-                        if (!snapshot.hasData || !snapshot.data!.exists) return const SizedBox.shrink();
-                        final userData = snapshot.data!.data() as Map<String, dynamic>;
-                        
+                        if (!snapshot.hasData || !snapshot.data!.exists)
+                          return SizedBox.shrink();
+                        final userData =
+                            snapshot.data!.data() as Map<String, dynamic>;
+
                         // Check if user is admin
-                        final bool isAdmin = userData['role'] == 'admin' || userData['isAdmin'] == true;
+                        final bool isAdmin =
+                            userData['role'] == 'admin' ||
+                            userData['isAdmin'] == true;
                         if (isAdmin) {
                           // For admin items, show colors or nothing extra
                           return _buildColorSubtitle(data);
@@ -432,9 +513,16 @@ class _WardrobePageState extends State<WardrobePage> {
 
                         final posterName = userData['displayName'] ?? 'User';
                         return Text(
-                          posterId == _currentUserId ? 'by you' : 'by $posterName',
-                          style: TextStyle(color: primaryColor.withValues(alpha: 0.6), fontSize: 11, fontWeight: FontWeight.w600),
-                          maxLines: 1, overflow: TextOverflow.ellipsis,
+                          posterId == _currentUserId
+                              ? 'by you'
+                              : 'by $posterName',
+                          style: TextStyle(
+                            color: primaryColor.withValues(alpha: 0.6),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         );
                       },
                     )
@@ -453,8 +541,10 @@ class _WardrobePageState extends State<WardrobePage> {
   Widget _buildColorSubtitle(Map<String, dynamic> data) {
     final dynamic rawColours = data['colours'] ?? data['colour'];
     List<dynamic> coloursList = [];
-    if (rawColours is List) coloursList = rawColours;
-    else if (rawColours != null && rawColours.toString().isNotEmpty) coloursList = [rawColours];
+    if (rawColours is List)
+      coloursList = rawColours;
+    else if (rawColours != null && rawColours.toString().isNotEmpty)
+      coloursList = [rawColours];
 
     String colourText = 'Various';
     if (coloursList.isNotEmpty) {
@@ -464,8 +554,14 @@ class _WardrobePageState extends State<WardrobePage> {
         if (coloursList.length > 1) colourText += ' +${coloursList.length - 1}';
       }
     }
-    return Text(colourText, style: TextStyle(color: Colors.grey.shade400, fontSize: 11),
-      maxLines: 1, overflow: TextOverflow.ellipsis,
+    return Text(
+      colourText,
+      style: TextStyle(
+        color: Theme.of(context).colorScheme.outline,
+        fontSize: 11,
+      ),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
     );
   }
 
@@ -487,33 +583,74 @@ class _WardrobePageState extends State<WardrobePage> {
       'bottoms': ['none', 'jeans', 'joggers', 'leggings', 'shorts', 'skirts'],
       'dresses': ['none'],
       'outerwear': ['none', 'blazers', 'jackets'],
-      'tops': ['none', 'hoodies', 'polo shirts', 'shirts', 'sweatshirts', 't-shirts', 'tank tops'],
+      'tops': [
+        'none',
+        'hoodies',
+        'polo shirts',
+        'shirts',
+        'sweatshirts',
+        't-shirts',
+        'tank tops',
+      ],
       'other': ['none'],
     };
 
-    final List<String> availableColors = ['black', 'white', 'grey', 'blue', 'red', 'green', 'yellow', 'orange', 'pink', 'purple', 'brown', 'beige'];
+    final List<String> availableColors = [
+      'black',
+      'white',
+      'grey',
+      'blue',
+      'red',
+      'green',
+      'yellow',
+      'orange',
+      'pink',
+      'purple',
+      'brown',
+      'beige',
+    ];
     final List<String> weatherTags = ["hot", "mild", "cool", "cold", "rainy"];
-    final List<String> functionalTags = ["waterproof", "breathable", "insulated", "windproof"];
+    final List<String> functionalTags = [
+      "waterproof",
+      "breathable",
+      "insulated",
+      "windproof",
+    ];
     final List<String> genders = ['male', 'female', 'unisex'];
-    final List<String> styleTags = ['casual', 'afrochic', 'corporate', 'streetwear', 'glamour'];
+    final List<String> styleTags = [
+      'casual',
+      'afrochic',
+      'corporate',
+      'streetwear',
+      'glamour',
+    ];
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (context) => StatefulBuilder(
         builder: (context, setModalState) => SingleChildScrollView(
           padding: EdgeInsets.only(
             bottom: MediaQuery.of(context).viewInsets.bottom,
-            left: 20, right: 20, top: 20,
+            left: 20,
+            right: 20,
+            top: 20,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Center(child: Text("Upload to Wardrobe", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold))),
-              const SizedBox(height: 20),
+              Center(
+                child: Text(
+                  "Upload to Wardrobe",
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+              ),
+              SizedBox(height: 20),
               // Image Picker Box
               GestureDetector(
                 onTap: () async {
@@ -521,29 +658,91 @@ class _WardrobePageState extends State<WardrobePage> {
                   if (image != null) setModalState(() => selectedImage = image);
                 },
                 child: Container(
-                  height: 120, width: double.infinity,
-                  decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.grey.shade300)),
+                  height: 120,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(15),
+                    border: Border.all(
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                    ),
+                  ),
                   child: selectedImage != null
-                      ? ClipRRect(borderRadius: BorderRadius.circular(15), child: Image.file(selectedImage!, fit: BoxFit.contain))
-                      : const Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.add_a_photo, size: 40, color: Colors.grey), SizedBox(height: 10), Text("Select Image", style: TextStyle(color: Colors.grey))]),
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(15),
+                          child: Image.file(
+                            selectedImage!,
+                            fit: BoxFit.contain,
+                          ),
+                        )
+                      : Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.add_a_photo,
+                              size: 40,
+                              color: Colors.grey,
+                            ),
+                            SizedBox(height: 10),
+                            Text(
+                              "Select Image",
+                              style: TextStyle(color: Colors.grey),
+                            ),
+                          ],
+                        ),
                 ),
               ),
-              const SizedBox(height: 15),
+              SizedBox(height: 15),
               // Name input and dropdowns for category, color, etc.
-              TextField(controller: nameController, decoration: const InputDecoration(labelText: "Item Name", border: OutlineInputBorder())),
-              const SizedBox(height: 15),
-              Row(children: [
-                Expanded(child: _buildSimpleDropdown("Category", category, categoryData.keys.toList(), (val) {
-                  setModalState(() { category = val!; subcategory = categoryData[category]![0]; });
-                })),
-                const SizedBox(width: 10),
-                Expanded(child: _buildSimpleDropdown("Subcategory", subcategory, categoryData[category]!, (val) => setModalState(() => subcategory = val!))),
-              ]),
-              const SizedBox(height: 15),
-              _buildSimpleDropdown("Style", styleTag, styleTags, (val) => setModalState(() => styleTag = val!)),
-              const SizedBox(height: 15),
-              const Text("Select Colours", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
+              TextField(
+                controller: nameController,
+                decoration: InputDecoration(
+                  labelText: "Item Name",
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              SizedBox(height: 15),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildSimpleDropdown(
+                      "Category",
+                      category,
+                      categoryData.keys.toList(),
+                      (val) {
+                        setModalState(() {
+                          category = val!;
+                          subcategory = categoryData[category]![0];
+                        });
+                      },
+                    ),
+                  ),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: _buildSimpleDropdown(
+                      "Subcategory",
+                      subcategory,
+                      categoryData[category]!,
+                      (val) => setModalState(() => subcategory = val!),
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 15),
+              _buildSimpleDropdown(
+                "Style",
+                styleTag,
+                styleTags,
+                (val) => setModalState(() => styleTag = val!),
+              ),
+              SizedBox(height: 15),
+              Text(
+                "Select Colours",
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+              SizedBox(height: 8),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -554,28 +753,51 @@ class _WardrobePageState extends State<WardrobePage> {
                     selected: isSelected,
                     onSelected: (bool selected) {
                       setModalState(() {
-                        if (selected) selectedColours.add(color);
-                        else selectedColours.remove(color);
+                        if (selected)
+                          selectedColours.add(color);
+                        else
+                          selectedColours.remove(color);
                       });
                     },
                     selectedColor: primaryColor.withValues(alpha: 0.2),
                     checkmarkColor: primaryColor,
                     labelStyle: TextStyle(
                       color: isSelected ? primaryColor : Colors.black87,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      fontWeight: isSelected
+                          ? FontWeight.bold
+                          : FontWeight.normal,
                     ),
                   );
                 }).toList(),
               ),
-              const SizedBox(height: 15),
-              Row(children: [
-                Expanded(child: _buildSimpleDropdown("Gender", gender, genders, (val) => setModalState(() => gender = val!))),
-                const SizedBox(width: 10),
-                Expanded(child: _buildSimpleDropdown("Visibility", visibility, ['private', 'public'], (val) => setModalState(() => visibility = val!))),
-              ]),
-              const SizedBox(height: 15),
-              const Text("Weather Tags", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
+              SizedBox(height: 15),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildSimpleDropdown(
+                      "Gender",
+                      gender,
+                      genders,
+                      (val) => setModalState(() => gender = val!),
+                    ),
+                  ),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: _buildSimpleDropdown(
+                      "Visibility",
+                      visibility,
+                      ['private', 'public'],
+                      (val) => setModalState(() => visibility = val!),
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 15),
+              Text(
+                "Weather Tags",
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+              SizedBox(height: 8),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -586,22 +808,29 @@ class _WardrobePageState extends State<WardrobePage> {
                     selected: isSelected,
                     onSelected: (bool selected) {
                       setModalState(() {
-                        if (selected) selectedWeatherTags.add(tag);
-                        else selectedWeatherTags.remove(tag);
+                        if (selected)
+                          selectedWeatherTags.add(tag);
+                        else
+                          selectedWeatherTags.remove(tag);
                       });
                     },
                     selectedColor: primaryColor.withValues(alpha: 0.2),
                     checkmarkColor: primaryColor,
                     labelStyle: TextStyle(
                       color: isSelected ? primaryColor : Colors.black87,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      fontWeight: isSelected
+                          ? FontWeight.bold
+                          : FontWeight.normal,
                     ),
                   );
                 }).toList(),
               ),
-              const SizedBox(height: 15),
-              const Text("Functional Tags", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
+              SizedBox(height: 15),
+              Text(
+                "Functional Tags",
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+              SizedBox(height: 8),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -612,31 +841,54 @@ class _WardrobePageState extends State<WardrobePage> {
                     selected: isSelected,
                     onSelected: (bool selected) {
                       setModalState(() {
-                        if (selected) selectedFunctionalTags.add(tag);
-                        else selectedFunctionalTags.remove(tag);
+                        if (selected)
+                          selectedFunctionalTags.add(tag);
+                        else
+                          selectedFunctionalTags.remove(tag);
                       });
                     },
                     selectedColor: primaryColor.withValues(alpha: 0.2),
                     checkmarkColor: primaryColor,
                     labelStyle: TextStyle(
                       color: isSelected ? primaryColor : Colors.black87,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      fontWeight: isSelected
+                          ? FontWeight.bold
+                          : FontWeight.normal,
                     ),
                   );
                 }).toList(),
               ),
-              const SizedBox(height: 25),
+              SizedBox(height: 25),
               // Upload Button
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: primaryColor, padding: const EdgeInsets.symmetric(vertical: 15), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryColor,
+                    padding: EdgeInsets.symmetric(vertical: 15),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
                   onPressed: () async {
-                    if (selectedImage == null || nameController.text.isEmpty || selectedColours.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Missing info (ensure image, name, and at least one colour)")));
+                    if (selectedImage == null ||
+                        nameController.text.isEmpty ||
+                        selectedColours.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            "Missing info (ensure image, name, and at least one colour)",
+                          ),
+                        ),
+                      );
                       return;
                     }
-                    showDialog(context: context, barrierDismissible: false, builder: (context) => const Center(child: CircularProgressIndicator()));
+                    showDialog(
+                      context: context,
+                      barrierDismissible: false,
+                      builder: (context) =>
+                          Center(child: CircularProgressIndicator()),
+                    );
                     try {
                       // Process image with background remover API using item name as filename
                       final urls = await _productService.removeBackground(
@@ -646,35 +898,53 @@ class _WardrobePageState extends State<WardrobePage> {
                       final imageUrl = urls['processed_url'] ?? '';
                       final rawImageUrl = urls['raw_url'] ?? '';
 
-                      if (imageUrl.isEmpty) throw Exception('API returned empty processed image URL');
+                      if (imageUrl.isEmpty)
+                        throw Exception(
+                          'API returned empty processed image URL',
+                        );
 
                       // Save record to Firestore
                       await _productService.uploadUserProduct(
-                        userId: _currentUserId, 
-                        name: nameController.text, 
-                        imageUrl: imageUrl, 
+                        userId: _currentUserId,
+                        name: nameController.text,
+                        imageUrl: imageUrl,
                         rawImageUrl: rawImageUrl,
                         category: category,
-                        subcategory: subcategory == 'none' ? null : subcategory, 
+                        subcategory: subcategory == 'none' ? null : subcategory,
                         styleTag: styleTag,
-                        colours: selectedColours, 
-                        gender: gender, 
+                        colours: selectedColours,
+                        gender: gender,
                         visibility: visibility,
                         weatherTags: selectedWeatherTags,
                         functionalTags: selectedFunctionalTags,
                       );
                       if (context.mounted) {
-                        Navigator.pop(context); Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Uploaded successfully!")));
+                        Navigator.pop(context);
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text("Uploaded successfully!")),
+                        );
                       }
                     } catch (e) {
-                      if (context.mounted) { Navigator.pop(context); ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed: $e"))); }
+                      if (context.mounted) {
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(
+                          context,
+                        ).showSnackBar(SnackBar(content: Text("Failed: $e")));
+                      }
                     }
                   },
-                  child: const Text("Upload Item", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                  child: Text(
+                    "Upload Item",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
                 ),
               ),
-              const SizedBox(height: 30),
+              SizedBox(height: 30),
             ],
           ),
         ),
@@ -683,17 +953,35 @@ class _WardrobePageState extends State<WardrobePage> {
   }
 
   /// Helper for building standard dropdowns in the upload form
-  Widget _buildSimpleDropdown(String label, String value, List<String> items, Function(String?) onChanged) {
+  Widget _buildSimpleDropdown(
+    String label,
+    String value,
+    List<String> items,
+    Function(String?) onChanged,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+        ),
+        SizedBox(height: 4),
         DropdownButtonFormField<String>(
           value: value,
-          items: items.map((e) => DropdownMenuItem(value: e, child: Text(e[0].toUpperCase() + e.substring(1)))).toList(),
+          items: items
+              .map(
+                (e) => DropdownMenuItem(
+                  value: e,
+                  child: Text(e[0].toUpperCase() + e.substring(1)),
+                ),
+              )
+              .toList(),
           onChanged: onChanged,
-          decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 10), border: OutlineInputBorder()),
+          decoration: InputDecoration(
+            contentPadding: EdgeInsets.symmetric(horizontal: 10),
+            border: OutlineInputBorder(),
+          ),
         ),
       ],
     );
@@ -707,13 +995,13 @@ class _WardrobePageState extends State<WardrobePage> {
         child: Wrap(
           children: [
             ListTile(
-              leading: const Icon(Icons.photo_library),
-              title: const Text('Photo Gallery'),
+              leading: Icon(Icons.photo_library),
+              title: Text('Photo Gallery'),
               onTap: () => Navigator.of(context).pop(ImageSource.gallery),
             ),
             ListTile(
-              leading: const Icon(Icons.photo_camera),
-              title: const Text('Camera'),
+              leading: Icon(Icons.photo_camera),
+              title: Text('Camera'),
               onTap: () => Navigator.of(context).pop(ImageSource.camera),
             ),
           ],

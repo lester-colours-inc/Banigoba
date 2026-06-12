@@ -1,59 +1,139 @@
-// Exposes an HTTP function that proxies protected AI makeover requests.
-const functions = require('firebase-functions');
+// Exposes authenticated backend operations for the Banigoba app.
 const admin = require('firebase-admin');
+const { HttpsError, onCall } = require('firebase-functions/v2/https');
+const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 
 admin.initializeApp();
 const db = admin.firestore();
 
-exports.generateMakeover = functions.region('europe-west1').https.onRequest(async (req, res) => {
-  if (req.method !== 'POST') {
-    res.status(405).send({ error: 'Method not allowed. Use POST.' });
-    return;
-  }
+exports.sendPushNotification = onDocumentCreated(
+  {
+    document: 'users/{userId}/notifications/{notificationId}',
+    region: 'europe-west1',
+  },
+  async (event) => {
+    const notification = event.data?.data();
+    if (!notification) return;
 
-  const authHeader = req.get('Authorization') || req.get('authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    res.status(401).send({ error: 'Missing or invalid Authorization header.' });
-    return;
-  }
+    const tokenSnapshot = await db
+      .collection('users')
+      .doc(event.params.userId)
+      .collection('fcmTokens')
+      .get();
 
-  const idToken = authHeader.split('Bearer ')[1];
-  let decodedToken;
-  try {
-    decodedToken = await admin.auth().verifyIdToken(idToken);
-  } catch (error) {
-    res.status(401).send({ error: 'Invalid authentication token.' });
-    return;
-  }
+    if (tokenSnapshot.empty) return;
 
-  const { userId, style, imageUrl } = req.body || {};
-  if (!userId || !style || !imageUrl) {
-    res.status(400).send({ error: 'userId, style, and imageUrl are required.' });
-    return;
-  }
+    const title =
+      typeof notification.title === 'string'
+        ? notification.title
+        : 'Banigoba';
+    const body =
+      typeof notification.body === 'string'
+        ? notification.body
+        : 'You have a new notification.';
+    const type =
+      typeof notification.type === 'string'
+        ? notification.type
+        : 'general';
 
-  if (decodedToken.uid !== userId) {
-    res.status(403).send({ error: 'User ID does not match the authenticated user.' });
-    return;
-  }
+    const tokenDocs = tokenSnapshot.docs.filter((doc) => {
+      const token = doc.get('token');
+      return typeof token === 'string' && token.length > 0;
+    });
 
-  const timestamp = Date.now();
-  const recordId = `makeover_${userId}_${timestamp}`;
-  const generatedImageUrls = [
-    imageUrl,
-    imageUrl,
-    imageUrl,
-  ];
+    for (let index = 0; index < tokenDocs.length; index += 500) {
+      const batch = tokenDocs.slice(index, index + 500);
+      const response = await admin.messaging().sendEachForMulticast({
+        tokens: batch.map((doc) => doc.get('token')),
+        notification: { title, body },
+        data: {
+          type,
+          notificationId: event.params.notificationId,
+        },
+        android: {
+          priority: 'high',
+        },
+        apns: {
+          payload: {
+            aps: {
+              sound: 'default',
+            },
+          },
+        },
+      });
 
-  const record = {
-    userId,
-    style,
-    sourceImageUrl: imageUrl,
-    generatedImageUrls,
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-  };
+      const staleTokenDeletes = [];
+      response.responses.forEach((result, responseIndex) => {
+        const code = result.error?.code;
+        if (
+          code === 'messaging/registration-token-not-registered' ||
+          code === 'messaging/invalid-registration-token'
+        ) {
+          staleTokenDeletes.push(batch[responseIndex].ref.delete());
+        }
+      });
+      await Promise.all(staleTokenDeletes);
+    }
+  },
+);
 
-  await db.collection('ai_makeovers').doc(recordId).set(record);
+exports.generateMakeover = onCall(
+  { region: 'europe-west1' },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError(
+        'unauthenticated',
+        'You must be signed in to generate a makeover.',
+      );
+    }
 
-  res.status(200).send({ recordId, generatedImageUrls });
-});
+    const data = request.data;
+    const style = typeof data?.style === 'string' ? data.style.trim() : '';
+    const imageUrl =
+      typeof data?.imageUrl === 'string' ? data.imageUrl.trim() : '';
+
+    if (!style || !imageUrl) {
+      throw new HttpsError(
+        'invalid-argument',
+        'style and imageUrl are required.',
+      );
+    }
+
+    let parsedImageUrl;
+    try {
+      parsedImageUrl = new URL(imageUrl);
+    } catch (_) {
+      throw new HttpsError(
+        'invalid-argument',
+        'imageUrl must be a valid URL.',
+      );
+    }
+
+    if (parsedImageUrl.protocol !== 'https:') {
+      throw new HttpsError(
+        'invalid-argument',
+        'imageUrl must use HTTPS.',
+      );
+    }
+
+    const userId = request.auth.uid;
+    const recordRef = db.collection('ai_makeovers').doc();
+
+    // Replace this placeholder with the protected AI provider call.
+    const generatedImageUrls = [imageUrl, imageUrl, imageUrl];
+
+    await recordRef.set({
+      userId,
+      style,
+      sourceImageUrl: imageUrl,
+      generatedImageUrls,
+      status: 'completed',
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    return {
+      recordId: recordRef.id,
+      generatedImageUrls,
+    };
+  },
+);

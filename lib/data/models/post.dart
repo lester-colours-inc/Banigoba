@@ -10,6 +10,9 @@ class Post {
   final String imageURL;
   final int likeCount;
   final List<String> likes;
+  final String outfitId;
+  final List<String> productIds;
+  final List<Map<String, dynamic>> products;
 
   Post({
     required this.id,
@@ -20,6 +23,9 @@ class Post {
     required this.imageURL,
     required this.likeCount,
     required this.likes,
+    this.outfitId = '',
+    this.productIds = const [],
+    this.products = const [],
   });
 
   factory Post.fromFirestore(DocumentSnapshot doc) {
@@ -32,6 +38,8 @@ class Post {
               .toList()
         : <String>[];
     final rawCreatedAt = data['createdAt'];
+    final rawProductIds = data['productIds'];
+    final rawProducts = data['products'] ?? data['outfitProducts'];
 
     return Post(
       id: doc.id,
@@ -46,6 +54,19 @@ class Post {
       imageURL: (data['imageURL'] ?? data['imageUrl'] ?? '').toString(),
       likeCount: _asInt(data['likeCount'], fallback: likes.length),
       likes: likes,
+      outfitId: (data['outfitId'] ?? '').toString(),
+      productIds: rawProductIds is Iterable
+          ? rawProductIds
+                .map((value) => value.toString())
+                .where((value) => value.isNotEmpty)
+                .toList()
+          : const [],
+      products: rawProducts is Iterable
+          ? rawProducts
+                .whereType<Map>()
+                .map((value) => Map<String, dynamic>.from(value))
+                .toList()
+          : const [],
     );
   }
 
@@ -60,6 +81,9 @@ class Post {
       'likeCount': likeCount,
       'likes': likes,
       'likedBy': likes,
+      if (outfitId.isNotEmpty) 'outfitId': outfitId,
+      if (productIds.isNotEmpty) 'productIds': productIds,
+      if (products.isNotEmpty) 'products': products,
     };
   }
 

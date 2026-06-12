@@ -8,9 +8,11 @@ import '../../../data/services/weather_service.dart';
 import '../../../data/services/notification_service.dart';
 import '../../../data/services/post_service.dart';
 import '../../../data/services/friend_service.dart';
+import '../../../data/services/product_service.dart';
 import '../../../data/models/weather.dart';
 import 'package:geolocator/geolocator.dart';
 import '../../../core/app_routes.dart';
+import '../../widgets/try_on_product_picker.dart';
 import '../wardrobe/wardrobe_calendar_page.dart';
 
 /// Page displaying daily dress up recommendations and user posts
@@ -23,11 +25,12 @@ class DailyDressUpPage extends StatefulWidget {
 
 class _DailyDressUpPageState extends State<DailyDressUpPage> {
   int _selectedTabIndex = 0;
-  static const Color primaryColor = Color(0xFF0D0140);
+  static Color primaryColor = Color(0xFF0D0140);
 
   final WeatherService _weatherService = WeatherService();
   final PostService _postService = PostService();
   final FriendService _friendService = FriendService();
+  final ProductService _productService = ProductService();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final Map<String, Future<_PostAuthor>> _authorProfiles = {};
   Weather? _currentWeather;
@@ -96,30 +99,715 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
     }
 
     return await Geolocator.getCurrentPosition(
-      locationSettings: const LocationSettings(accuracy: LocationAccuracy.low),
+      locationSettings: LocationSettings(accuracy: LocationAccuracy.low),
     );
+  }
+
+  // Kept temporarily for compatibility while all active entry points use the
+  // shared Build Your Look picker.
+  // ignore: unused_element
+  Future<void> _openTryOnProductPicker({
+    Map<String, dynamic>? fallbackProduct,
+  }) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Please sign in to choose a product.')),
+      );
+      return;
+    }
+
+    Future<_TryOnSources> loadProducts() async {
+      final results = await Future.wait([
+        _productService.getCatalogProducts(),
+        _productService.getWardrobeProducts(user.uid),
+      ]);
+      final catalogProducts = results[0];
+      final wardrobeProducts = results[1];
+      final fallbackImage = fallbackProduct == null
+          ? ''
+          : _productImageUrl(fallbackProduct);
+      if (fallbackImage.isNotEmpty &&
+          !catalogProducts.any(
+            (product) => _productImageUrl(product) == fallbackImage,
+          )) {
+        catalogProducts.insert(0, fallbackProduct!);
+      }
+      return _TryOnSources(
+        catalog: catalogProducts,
+        wardrobe: wardrobeProducts,
+      );
+    }
+
+    try {
+      var productsFuture = loadProducts();
+      final products = await showModalBottomSheet<List<Map<String, dynamic>>>(
+        context: context,
+        useRootNavigator: true,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        barrierColor: Colors.black54,
+        builder: (sheetContext) {
+          var selectedGroup = 'all';
+          var selectedSource = 'catalog';
+          final selectedProducts = <String, Map<String, dynamic>>{};
+
+          return StatefulBuilder(
+            builder: (context, setSheetState) {
+              return FractionallySizedBox(
+                heightFactor: 0.9,
+                child: SafeArea(
+                  top: false,
+                  child: Builder(
+                    builder: (context) {
+                      final colors = Theme.of(context).colorScheme;
+                      return Container(
+                        decoration: BoxDecoration(
+                          color: colors.surface,
+                          borderRadius: BorderRadius.vertical(
+                            top: Radius.circular(28),
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Center(
+                              child: Container(
+                                width: 44,
+                                height: 5,
+                                margin: EdgeInsets.only(top: 12),
+                                decoration: BoxDecoration(
+                                  color: colors.outlineVariant,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                            ),
+                            Padding(
+                              padding: EdgeInsets.fromLTRB(20, 18, 12, 8),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Choose what to try on',
+                                          style: TextStyle(
+                                            fontSize: 22,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        SizedBox(height: 4),
+                                        Text(
+                                          'Build a look from the catalog or your wardrobe.',
+                                          style: TextStyle(color: Colors.grey),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  IconButton(
+                                    onPressed: () =>
+                                        Navigator.pop(sheetContext),
+                                    icon: Icon(Icons.close),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Padding(
+                              padding: EdgeInsets.fromLTRB(16, 4, 16, 8),
+                              child: SegmentedButton<String>(
+                                segments: [
+                                  ButtonSegment(
+                                    value: 'catalog',
+                                    icon: Icon(Icons.storefront_outlined),
+                                    label: Text('Catalog'),
+                                  ),
+                                  ButtonSegment(
+                                    value: 'wardrobe',
+                                    icon: Icon(Icons.favorite_outline),
+                                    label: Text('My Wardrobe'),
+                                  ),
+                                ],
+                                selected: {selectedSource},
+                                onSelectionChanged: (selection) {
+                                  setSheetState(() {
+                                    selectedSource = selection.first;
+                                    selectedGroup = 'all';
+                                  });
+                                },
+                              ),
+                            ),
+                            SizedBox(
+                              height: 84,
+                              child: ListView(
+                                padding: EdgeInsets.symmetric(horizontal: 16),
+                                scrollDirection: Axis.horizontal,
+                                children: [
+                                  _buildTryOnCategory(
+                                    label: 'All',
+                                    value: 'all',
+                                    icon: Icons.grid_view_rounded,
+                                    selectedValue: selectedGroup,
+                                    onTap: (value) {
+                                      setSheetState(
+                                        () => selectedGroup = value,
+                                      );
+                                    },
+                                  ),
+                                  _buildTryOnCategory(
+                                    label: 'Tops',
+                                    value: 'tops',
+                                    icon: Icons.checkroom_outlined,
+                                    selectedValue: selectedGroup,
+                                    onTap: (value) {
+                                      setSheetState(
+                                        () => selectedGroup = value,
+                                      );
+                                    },
+                                  ),
+                                  _buildTryOnCategory(
+                                    label: 'Bottoms',
+                                    value: 'bottoms',
+                                    icon: Icons.dry_cleaning_outlined,
+                                    selectedValue: selectedGroup,
+                                    onTap: (value) {
+                                      setSheetState(
+                                        () => selectedGroup = value,
+                                      );
+                                    },
+                                  ),
+                                  _buildTryOnCategory(
+                                    label: 'Dresses',
+                                    value: 'dresses',
+                                    icon: Icons.woman_2_outlined,
+                                    selectedValue: selectedGroup,
+                                    onTap: (value) {
+                                      setSheetState(
+                                        () => selectedGroup = value,
+                                      );
+                                    },
+                                  ),
+                                  _buildTryOnCategory(
+                                    label: 'Accessories',
+                                    value: 'accessories',
+                                    icon: Icons.watch_outlined,
+                                    selectedValue: selectedGroup,
+                                    onTap: (value) {
+                                      setSheetState(
+                                        () => selectedGroup = value,
+                                      );
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Divider(height: 1),
+                            Expanded(
+                              child: FutureBuilder<_TryOnSources>(
+                                future: productsFuture,
+                                builder: (context, snapshot) {
+                                  if (snapshot.hasError) {
+                                    return Center(
+                                      child: Padding(
+                                        padding: EdgeInsets.all(24),
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              'Unable to load products right now.',
+                                              textAlign: TextAlign.center,
+                                            ),
+                                            SizedBox(height: 12),
+                                            FilledButton.icon(
+                                              onPressed: () {
+                                                setSheetState(() {
+                                                  productsFuture =
+                                                      loadProducts();
+                                                });
+                                              },
+                                              icon: Icon(Icons.refresh),
+                                              label: Text('Retry'),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                  if (snapshot.connectionState ==
+                                      ConnectionState.waiting) {
+                                    return Center(
+                                      child: CircularProgressIndicator(),
+                                    );
+                                  }
+
+                                  final sources =
+                                      snapshot.data ?? const _TryOnSources();
+                                  final allProducts =
+                                      selectedSource == 'wardrobe'
+                                      ? sources.wardrobe
+                                      : sources.catalog;
+                                  final products = allProducts
+                                      .where(
+                                        (item) =>
+                                            (selectedGroup == 'all' ||
+                                                _tryOnGroup(item) ==
+                                                    selectedGroup) &&
+                                            _productImageUrl(item).isNotEmpty,
+                                      )
+                                      .toList();
+
+                                  if (products.isEmpty) {
+                                    return Center(
+                                      child: Padding(
+                                        padding: EdgeInsets.all(24),
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              Icons.inventory_2_outlined,
+                                              size: 58,
+                                              color: colors.outline,
+                                            ),
+                                            SizedBox(height: 12),
+                                            Text(
+                                              allProducts.isEmpty
+                                                  ? 'No products are available yet.'
+                                                  : 'No ${_tryOnGroupLabel(selectedGroup).toLowerCase()} available. Try another category.',
+                                              textAlign: TextAlign.center,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  }
+
+                                  return GridView.builder(
+                                    padding: EdgeInsets.all(16),
+                                    gridDelegate:
+                                        SliverGridDelegateWithFixedCrossAxisCount(
+                                          crossAxisCount: 2,
+                                          crossAxisSpacing: 12,
+                                          mainAxisSpacing: 12,
+                                          childAspectRatio: 0.72,
+                                        ),
+                                    itemCount: products.length,
+                                    itemBuilder: (context, index) {
+                                      final data = products[index];
+                                      final imageUrl = _productImageUrl(data);
+                                      final name = (data['name'] ?? 'Clothing')
+                                          .toString();
+                                      final group = _tryOnGroup(data);
+                                      final selected =
+                                          selectedProducts[group] != null &&
+                                          _productImageUrl(
+                                                selectedProducts[group]!,
+                                              ) ==
+                                              imageUrl;
+
+                                      return Material(
+                                        color: colors.surfaceContainerLow,
+                                        borderRadius: BorderRadius.circular(18),
+                                        child: InkWell(
+                                          borderRadius: BorderRadius.circular(
+                                            18,
+                                          ),
+                                          onTap: () {
+                                            setSheetState(() {
+                                              if (selected) {
+                                                selectedProducts.remove(group);
+                                                return;
+                                              }
+                                              if (group == 'dresses') {
+                                                selectedProducts.remove('tops');
+                                                selectedProducts.remove(
+                                                  'bottoms',
+                                                );
+                                              } else if (group == 'tops' ||
+                                                  group == 'bottoms') {
+                                                selectedProducts.remove(
+                                                  'dresses',
+                                                );
+                                              }
+                                              selectedProducts[group] = data;
+                                            });
+                                          },
+                                          child: Container(
+                                            decoration: BoxDecoration(
+                                              borderRadius:
+                                                  BorderRadius.circular(18),
+                                              border: Border.all(
+                                                color: selected
+                                                    ? primaryColor
+                                                    : colors.outlineVariant,
+                                                width: selected ? 3 : 1,
+                                              ),
+                                            ),
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Expanded(
+                                                  child: Stack(
+                                                    fit: StackFit.expand,
+                                                    children: [
+                                                      ClipRRect(
+                                                        borderRadius:
+                                                            BorderRadius.vertical(
+                                                              top:
+                                                                  Radius.circular(
+                                                                    17,
+                                                                  ),
+                                                            ),
+                                                        child: Container(
+                                                          color: colors
+                                                              .surfaceContainerLow,
+                                                          child: Image.network(
+                                                            imageUrl,
+                                                            fit: BoxFit.contain,
+                                                            errorBuilder:
+                                                                (
+                                                                  context,
+                                                                  error,
+                                                                  stackTrace,
+                                                                ) => Icon(
+                                                                  Icons
+                                                                      .broken_image_outlined,
+                                                                  color: Colors
+                                                                      .grey,
+                                                                ),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      if (selected)
+                                                        Positioned(
+                                                          top: 8,
+                                                          right: 8,
+                                                          child: CircleAvatar(
+                                                            radius: 15,
+                                                            backgroundColor:
+                                                                primaryColor,
+                                                            child: Icon(
+                                                              Icons.check,
+                                                              size: 18,
+                                                              color:
+                                                                  Colors.white,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                    ],
+                                                  ),
+                                                ),
+                                                Padding(
+                                                  padding: EdgeInsets.all(12),
+                                                  child: Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    children: [
+                                                      Text(
+                                                        name,
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
+                                                        style: TextStyle(
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                        ),
+                                                      ),
+                                                      SizedBox(height: 4),
+                                                      Text(
+                                                        'Tap to try on',
+                                                        style: TextStyle(
+                                                          color: primaryColor
+                                                              .withValues(
+                                                                alpha: 0.7,
+                                                              ),
+                                                          fontSize: 12,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  );
+                                },
+                              ),
+                            ),
+                            SafeArea(
+                              top: false,
+                              child: Padding(
+                                padding: EdgeInsets.fromLTRB(16, 8, 16, 12),
+                                child: FilledButton.icon(
+                                  onPressed: selectedProducts.isEmpty
+                                      ? null
+                                      : () => Navigator.pop(
+                                          sheetContext,
+                                          selectedProducts.values.toList(),
+                                        ),
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: primaryColor,
+                                    foregroundColor: Colors.white,
+                                    minimumSize: Size(double.infinity, 54),
+                                  ),
+                                  icon: Icon(Icons.auto_awesome),
+                                  label: Text(
+                                    selectedProducts.isEmpty
+                                        ? 'Select products'
+                                        : 'Complete Look (${selectedProducts.length})',
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      );
+
+      if (!mounted || products == null || products.isEmpty) return;
+
+      await Navigator.pushNamed(
+        context,
+        AppRoutes.avatarTryOn,
+        arguments: {
+          'products': products,
+          'garmentImageUrl': _productImageUrl(products.first),
+          'garmentName': products
+              .map((product) => (product['name'] ?? 'Clothing').toString())
+              .join(' + '),
+          'category':
+              (products.first['category'] ?? _tryOnGroup(products.first))
+                  .toString(),
+        },
+      );
+    } catch (error, stackTrace) {
+      debugPrint('Unable to open try-on product picker: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Unable to open products: $error')),
+      );
+    }
+  }
+
+  Future<void> _tryOnPost(Post post) async {
+    if (FirebaseAuth.instance.currentUser == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Please sign in first.')));
+      return;
+    }
+
+    var loadingVisible = true;
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final products = await _postService.getPostOutfitProducts(post);
+      if (!mounted) return;
+      Navigator.of(context, rootNavigator: true).pop();
+      loadingVisible = false;
+
+      if (products.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'This older post has no saved product details. Choose products to recreate the look.',
+            ),
+          ),
+        );
+      }
+
+      final selectedProducts = await showTryOnProductPicker(
+        context,
+        initialProducts: products,
+        outfitLabel: post.authorId == FirebaseAuth.instance.currentUser?.uid
+            ? 'This Look'
+            : "Friend's Look",
+      );
+      if (!mounted || selectedProducts == null || selectedProducts.isEmpty) {
+        return;
+      }
+
+      await Navigator.pushNamed(
+        context,
+        AppRoutes.avatarTryOn,
+        arguments: {
+          'products': selectedProducts,
+          'garmentImageUrl': _productImageUrl(selectedProducts.first),
+          'garmentName': selectedProducts
+              .map((product) => (product['name'] ?? 'Clothing').toString())
+              .join(' + '),
+          'category':
+              (selectedProducts.first['category'] ??
+                      _tryOnGroup(selectedProducts.first))
+                  .toString(),
+          'sourcePostId': post.id,
+          'sourceOutfitId': post.outfitId,
+        },
+      );
+    } catch (error) {
+      if (!mounted) return;
+      if (loadingVisible) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Unable to load outfit: $error')));
+    }
+  }
+
+  Widget _buildTryOnCategory({
+    required String label,
+    required String value,
+    required IconData icon,
+    required String selectedValue,
+    required ValueChanged<String> onTap,
+  }) {
+    final isSelected = value == selectedValue;
+    final colors = Theme.of(context).colorScheme;
+    return Padding(
+      padding: EdgeInsets.only(right: 10, top: 8, bottom: 10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () => onTap(value),
+        child: AnimatedContainer(
+          duration: Duration(milliseconds: 180),
+          width: 104,
+          padding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+          decoration: BoxDecoration(
+            color: isSelected ? primaryColor : colors.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isSelected ? primaryColor : colors.outlineVariant,
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 19,
+                color: isSelected ? Colors.white : primaryColor,
+              ),
+              SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  label,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: isSelected ? Colors.white : primaryColor,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _tryOnGroup(Map<String, dynamic> product) {
+    final category = (product['category'] ?? '').toString().toLowerCase();
+    final subcategory = (product['subcategory'] ?? '').toString().toLowerCase();
+    final value = '$category $subcategory';
+
+    if (value.contains('accessor') ||
+        value.contains('hat') ||
+        value.contains('cap') ||
+        value.contains('glass') ||
+        value.contains('bag') ||
+        value.contains('jewel') ||
+        value.contains('watch')) {
+      return 'accessories';
+    }
+    if (value.contains('dress') ||
+        value.contains('jumpsuit') ||
+        value.contains('one-piece')) {
+      return 'dresses';
+    }
+    if (value.contains('bottom') ||
+        value.contains('trouser') ||
+        value.contains('pants') ||
+        value.contains('jean') ||
+        value.contains('short') ||
+        value.contains('skirt') ||
+        value.contains('legging') ||
+        value.contains('jogger')) {
+      return 'bottoms';
+    }
+    return 'tops';
+  }
+
+  String _tryOnGroupLabel(String group) {
+    switch (group) {
+      case 'bottoms':
+        return 'Bottoms';
+      case 'dresses':
+        return 'Dresses';
+      case 'accessories':
+        return 'Accessories';
+      case 'all':
+        return 'Products';
+      default:
+        return 'Tops';
+    }
+  }
+
+  String _productImageUrl(Map<String, dynamic> product) {
+    const imageFields = [
+      'rawImageUrl',
+      'imageUrl',
+      'imageURL',
+      'processedImageUrl',
+      'processed_url',
+      'raw_url',
+    ];
+    for (final field in imageFields) {
+      final value = product[field];
+      if (value is String && value.trim().isNotEmpty) return value.trim();
+    }
+    return '';
   }
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: colors.surface,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: colors.surface,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.menu, color: Colors.black),
+          icon: Icon(Icons.menu, color: colors.onSurface),
           onPressed: () => Scaffold.of(context).openDrawer(),
         ),
         title: Row(
           children: [
-            const Expanded(
+            Expanded(
               child: Text(
                 'My Daily Dress Up',
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
-                  color: Colors.black,
+                  color: colors.onSurface,
                 ),
               ),
             ),
@@ -132,47 +820,45 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
         ),
         actions: [
           Container(
-            margin: const EdgeInsets.symmetric(vertical: 8),
+            margin: EdgeInsets.symmetric(vertical: 8),
             decoration: BoxDecoration(
-              color: Colors.grey.shade100,
+              color: colors.surfaceContainerHighest,
               shape: BoxShape.circle,
             ),
             child: IconButton(
-              icon: const Icon(
+              icon: Icon(
                 Icons.arrow_back_ios_new,
                 size: 16,
-                color: Colors.black,
+                color: colors.onSurface,
               ),
               onPressed: () => Navigator.of(context).maybePop(),
             ),
           ),
-          const SizedBox(width: 20),
+          SizedBox(width: 20),
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20.0),
+        padding: EdgeInsets.symmetric(horizontal: 20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 10),
+            SizedBox(height: 10),
             _buildTabs(),
-            const SizedBox(height: 20),
+            SizedBox(height: 20),
             _buildStatusHeader(),
-            const SizedBox(height: 25),
+            SizedBox(height: 25),
             _buildPostsFeed(),
-            const SizedBox(height: 30),
+            SizedBox(height: 30),
           ],
         ),
       ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: primaryColor,
-        child: const Icon(Icons.add, color: Colors.white),
+        child: Icon(Icons.add, color: Colors.white),
         onPressed: () {
           Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (context) => const WardrobeCalendarPage(),
-            ),
+            MaterialPageRoute(builder: (context) => WardrobeCalendarPage()),
           );
         },
       ),
@@ -192,7 +878,7 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
         }
 
         if (!postSnapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
+          return Center(child: CircularProgressIndicator());
         }
 
         final posts = postSnapshot.data!;
@@ -207,7 +893,7 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
                 );
               }
               if (!friendSnapshot.hasData) {
-                return const Center(child: CircularProgressIndicator());
+                return Center(child: CircularProgressIndicator());
               }
 
               final friendIds = friendSnapshot.data!.toSet();
@@ -263,7 +949,7 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
   }
 
   Widget _buildMinePostItem(Post post, int index) {
-    const cardColors = [
+    final cardColors = [
       Color(0xFFF1B4F1),
       Color(0xFFBDB7FF),
       Color(0xFFFFECB0),
@@ -321,19 +1007,21 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
                                   title,
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     color: primaryColor,
                                     fontSize: 21,
                                     fontWeight: FontWeight.w800,
                                   ),
                                 ),
-                                const SizedBox(height: 3),
+                                SizedBox(height: 3),
                                 Text(
                                   subtitle,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: Colors.black87,
+                                  style: TextStyle(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurface,
                                     fontSize: 14,
                                   ),
                                 ),
@@ -357,7 +1045,7 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
                     top: 16,
                     left: 16,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(
+                      padding: EdgeInsets.symmetric(
                         horizontal: 12,
                         vertical: 5,
                       ),
@@ -367,7 +1055,7 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
                       ),
                       child: Text(
                         _formatPostTime(post.createdAt),
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: Colors.white,
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
@@ -387,30 +1075,29 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
                             label: 'Try On',
                             backgroundColor: primaryColor,
                             foregroundColor: Colors.white,
-                            onTap: imageUrl.isEmpty
-                                ? null
-                                : () => Navigator.pushNamed(
-                                    context,
-                                    AppRoutes.camera,
-                                  ),
+                            onTap: () => _tryOnPost(post),
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        SizedBox(width: 8),
                         Expanded(
                           child: _buildMineCommand(
                             icon: Icons.chat_bubble_outline,
                             label: 'Comment',
-                            backgroundColor: const Color(0xFFFF8A2A),
+                            backgroundColor: Color(0xFFFF8A2A),
                             foregroundColor: Colors.white,
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        SizedBox(width: 8),
                         Expanded(
                           child: _buildMineCommand(
                             icon: Icons.share_outlined,
                             label: 'Share',
-                            backgroundColor: Colors.white,
-                            foregroundColor: Colors.black87,
+                            backgroundColor: Theme.of(
+                              context,
+                            ).colorScheme.surface,
+                            foregroundColor: Theme.of(
+                              context,
+                            ).colorScheme.onSurface,
                           ),
                         ),
                       ],
@@ -422,8 +1109,10 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
                     bottom: 0,
                     child: Container(
                       height: 42,
-                      color: Colors.white.withValues(alpha: 0.82),
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.surface.withValues(alpha: 0.92),
+                      padding: EdgeInsets.symmetric(horizontal: 14),
                       child: Row(
                         children: [
                           Expanded(
@@ -444,7 +1133,7 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
                           Container(
                             width: 1,
                             height: 22,
-                            color: Colors.black12,
+                            color: Theme.of(context).colorScheme.outlineVariant,
                           ),
                           Expanded(
                             child: _buildMineReaction(
@@ -468,9 +1157,13 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
 
   Widget _buildMinePostImage(String imageUrl) {
     if (imageUrl.isEmpty) {
-      return const Align(
+      return Align(
         alignment: Alignment.center,
-        child: Icon(Icons.checkroom_outlined, size: 72, color: Colors.black26),
+        child: Icon(
+          Icons.checkroom_outlined,
+          size: 72,
+          color: Theme.of(context).colorScheme.outlineVariant,
+        ),
       );
     }
 
@@ -483,12 +1176,12 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
           : WebHtmlElementStrategy.never,
       errorBuilder: (context, error, stackTrace) {
         debugPrint('Unable to display Mine post image: $error');
-        return const Align(
+        return Align(
           alignment: Alignment.center,
           child: Icon(
             Icons.broken_image_outlined,
             size: 54,
-            color: Colors.black26,
+            color: Theme.of(context).colorScheme.outlineVariant,
           ),
         );
       },
@@ -516,7 +1209,7 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(icon, size: 17, color: foregroundColor),
-              const SizedBox(width: 5),
+              SizedBox(width: 5),
               Flexible(
                 child: Text(
                   label,
@@ -547,13 +1240,13 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(icon, size: 17, color: color),
-          const SizedBox(width: 6),
+          SizedBox(width: 6),
           Flexible(
             child: Text(
               label,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.black87,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface,
                 fontSize: 11,
                 fontWeight: FontWeight.w500,
               ),
@@ -565,22 +1258,23 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
   }
 
   Widget _buildFeedMessage({required IconData icon, required String message}) {
+    final colors = Theme.of(context).colorScheme;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 44),
+      padding: EdgeInsets.symmetric(horizontal: 24, vertical: 44),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
+        color: colors.surfaceContainerLow,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: colors.outlineVariant),
       ),
       child: Column(
         children: [
-          Icon(icon, size: 42, color: Colors.grey.shade400),
-          const SizedBox(height: 12),
+          Icon(icon, size: 42, color: colors.outline),
+          SizedBox(height: 12),
           Text(
             message,
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey.shade600),
+            style: TextStyle(color: colors.onSurfaceVariant),
           ),
         ],
       ),
@@ -596,7 +1290,11 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
     return Stack(
       children: [
         IconButton(
-          icon: Icon(icon, color: Colors.black, size: 28),
+          icon: Icon(
+            icon,
+            color: Theme.of(context).colorScheme.onSurface,
+            size: 28,
+          ),
           onPressed: onTap,
         ),
         if (hasNotification)
@@ -604,7 +1302,7 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
             stream: NotificationService().getUnreadCount(),
             builder: (context, snapshot) {
               final unreadCount = snapshot.data ?? 0;
-              if (unreadCount == 0) return const SizedBox.shrink();
+              if (unreadCount == 0) return SizedBox.shrink();
 
               return Positioned(
                 right: 12,
@@ -615,7 +1313,10 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
                   decoration: BoxDecoration(
                     color: Colors.red,
                     shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 2),
+                    border: Border.all(
+                      color: Theme.of(context).colorScheme.surface,
+                      width: 2,
+                    ),
                   ),
                 ),
               );
@@ -632,9 +1333,9 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
       child: Row(
         children: [
           _tabButton("Mine", 0),
-          const SizedBox(width: 15),
+          SizedBox(width: 15),
           _tabButton("My Friends", 1),
-          const SizedBox(width: 15),
+          SizedBox(width: 15),
           _tabButton("Community", 2),
         ],
       ),
@@ -644,22 +1345,23 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
   /// Individual tab button with selection state
   Widget _tabButton(String title, int index) {
     bool isSelected = _selectedTabIndex == index;
+    final colors = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: () => setState(() => _selectedTabIndex = index),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 10),
+        padding: EdgeInsets.symmetric(horizontal: 25, vertical: 10),
         decoration: BoxDecoration(
-          color: isSelected ? primaryColor : Colors.white,
+          color: isSelected ? primaryColor : colors.surfaceContainerLow,
           borderRadius: BorderRadius.circular(25),
           border: Border.all(
-            color: isSelected ? primaryColor : Colors.grey.shade200,
+            color: isSelected ? primaryColor : colors.outlineVariant,
             width: 1,
           ),
         ),
         child: Text(
           title,
           style: TextStyle(
-            color: isSelected ? Colors.white : Colors.grey.shade400,
+            color: isSelected ? Colors.white : colors.onSurfaceVariant,
             fontWeight: FontWeight.w600,
             fontSize: 14,
           ),
@@ -675,10 +1377,10 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
         height: 50,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: const Color(0xFFC5CAE9),
+          color: Color(0xFFC5CAE9),
           borderRadius: BorderRadius.circular(15),
         ),
-        child: const SizedBox(
+        child: SizedBox(
           width: 20,
           height: 20,
           child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
@@ -692,41 +1394,37 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
         : "";
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFC5CAE9),
+        color: Color(0xFFC5CAE9),
         borderRadius: BorderRadius.circular(15),
       ),
       child: Row(
         children: [
-          const Icon(Icons.cloud_outlined, color: Colors.white, size: 20),
-          const SizedBox(width: 8),
+          Icon(Icons.cloud_outlined, color: Colors.white, size: 20),
+          SizedBox(width: 8),
           Expanded(
             child: Text(
               _currentWeather != null
                   ? "$conditionText | $tempText"
                   : conditionText,
-              style: const TextStyle(
+              style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w500,
               ),
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          const Padding(
+          Padding(
             padding: EdgeInsets.symmetric(horizontal: 10),
             child: Text(
               "|",
               style: TextStyle(color: Colors.white54, fontSize: 20),
             ),
           ),
-          const Icon(
-            Icons.calendar_today_outlined,
-            color: Colors.white,
-            size: 18,
-          ),
-          const SizedBox(width: 8),
-          const Text(
+          Icon(Icons.calendar_today_outlined, color: Colors.white, size: 18),
+          SizedBox(width: 8),
+          Text(
             "11 AM Meeting",
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
           ),
@@ -754,14 +1452,14 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
             Row(
               children: [
                 _buildAuthorAvatar(author),
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         author.displayName,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: primaryColor,
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
@@ -770,7 +1468,7 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
                       Text(
                         post.caption.isEmpty ? 'Daily dress-up' : post.caption,
                         style: TextStyle(
-                          color: Colors.grey.shade600,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontSize: 13,
                         ),
                       ),
@@ -779,13 +1477,13 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
                 ),
                 Text(
                   _formatPostTime(post.createdAt),
-                  style: const TextStyle(color: Colors.grey, fontSize: 12),
+                  style: TextStyle(color: Colors.grey, fontSize: 12),
                 ),
               ],
             ),
-            const SizedBox(height: 15),
+            SizedBox(height: 15),
             _buildPostContent(post),
-            const SizedBox(height: 15),
+            SizedBox(height: 15),
             Wrap(
               spacing: 20,
               runSpacing: 12,
@@ -799,12 +1497,11 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
                       : () => _postService.toggleLike(post.id, post.likes),
                 ),
                 _buildAction(Icons.chat_bubble_outline, '${post.commentCount}'),
-                if (post.imageURL.isNotEmpty)
-                  _buildAction(
-                    Icons.shortcut_outlined,
-                    'Try On',
-                    onTap: () => Navigator.pushNamed(context, AppRoutes.camera),
-                  ),
+                _buildAction(
+                  Icons.shortcut_outlined,
+                  'Try On',
+                  onTap: () => _tryOnPost(post),
+                ),
                 _buildAction(Icons.share_outlined, 'Share'),
               ],
             ),
@@ -817,7 +1514,7 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
   Widget _buildAuthorAvatar(_PostAuthor author) {
     final imageUrl = author.profileImageUrl;
     return Container(
-      padding: const EdgeInsets.all(2),
+      padding: EdgeInsets.all(2),
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         border: Border.all(color: Colors.orange, width: 2),
@@ -829,7 +1526,7 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
         child: imageUrl.isEmpty
             ? Text(
                 author.initial,
-                style: const TextStyle(
+                style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
                 ),
@@ -843,17 +1540,17 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
     if (post.imageURL.isEmpty) {
       return Container(
         width: double.infinity,
-        constraints: const BoxConstraints(minHeight: 150),
-        padding: const EdgeInsets.all(24),
+        constraints: BoxConstraints(minHeight: 150),
+        padding: EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: const Color(0xFFF2EEFF),
+          color: Theme.of(context).colorScheme.surfaceContainerLow,
           borderRadius: BorderRadius.circular(20),
         ),
         alignment: Alignment.center,
         child: Text(
           post.caption.isEmpty ? 'Daily dress-up post' : post.caption,
           textAlign: TextAlign.center,
-          style: const TextStyle(
+          style: TextStyle(
             color: primaryColor,
             fontSize: 20,
             fontWeight: FontWeight.w600,
@@ -876,17 +1573,17 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
           loadingBuilder: (context, child, progress) {
             if (progress == null) return child;
             return Container(
-              color: Colors.grey.shade100,
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
               alignment: Alignment.center,
-              child: const CircularProgressIndicator(),
+              child: CircularProgressIndicator(),
             );
           },
           errorBuilder: (context, error, stackTrace) {
             debugPrint('Unable to display post ${post.id} image: $error');
             return Container(
-              color: Colors.grey.shade100,
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
               alignment: Alignment.center,
-              child: const Icon(
+              child: Icon(
                 Icons.broken_image_outlined,
                 size: 48,
                 color: Colors.grey,
@@ -954,13 +1651,13 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
     Color? color,
     VoidCallback? onTap,
   }) {
-    final actionColor = color ?? Colors.grey.shade600;
+    final actionColor = color ?? Theme.of(context).colorScheme.onSurfaceVariant;
     return GestureDetector(
       onTap: onTap,
       child: Row(
         children: [
           Icon(icon, color: actionColor, size: 20),
-          const SizedBox(width: 5),
+          SizedBox(width: 5),
           Text(label, style: TextStyle(color: actionColor, fontSize: 13)),
         ],
       ),
@@ -974,7 +1671,7 @@ class _PostAuthor {
   final String fullBodyImageUrl;
   final String stylePreference;
 
-  const _PostAuthor({
+  _PostAuthor({
     required this.displayName,
     required this.profileImageUrl,
     required this.fullBodyImageUrl,
@@ -997,4 +1694,11 @@ class _PostAuthor {
     final trimmedName = displayName.trim();
     return trimmedName.isEmpty ? 'U' : trimmedName[0].toUpperCase();
   }
+}
+
+class _TryOnSources {
+  final List<Map<String, dynamic>> catalog;
+  final List<Map<String, dynamic>> wardrobe;
+
+  const _TryOnSources({this.catalog = const [], this.wardrobe = const []});
 }

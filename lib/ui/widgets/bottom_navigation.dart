@@ -14,16 +14,16 @@ class CustomBottomNavigation extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const Color primaryColor = Color(0xFF0D0140);
+    final colors = Theme.of(context).colorScheme;
 
     return Container(
       height: 85,
       padding: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colors.surface,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: colors.shadow.withValues(alpha: 0.12),
             blurRadius: 20,
             offset: const Offset(0, -5),
           ),
@@ -42,7 +42,12 @@ class CustomBottomNavigation extends StatelessWidget {
     );
   }
 
-  Widget _buildNavItem(BuildContext context, IconData icon, int index, {bool hasBadge = false}) {
+  Widget _buildNavItem(
+    BuildContext context,
+    IconData icon,
+    int index, {
+    bool hasBadge = false,
+  }) {
     bool isActive = currentIndex == index;
     const Color primaryColor = Color(0xFF0D0140);
     final notificationService = NotificationService();
@@ -62,7 +67,9 @@ class CustomBottomNavigation extends StatelessWidget {
             ),
             child: Icon(
               icon,
-              color: isActive ? Colors.white : Colors.black,
+              color: isActive
+                  ? Colors.white
+                  : Theme.of(context).colorScheme.onSurface,
               size: 24,
             ),
           ),
@@ -72,7 +79,7 @@ class CustomBottomNavigation extends StatelessWidget {
               builder: (context, snapshot) {
                 final unreadCount = snapshot.data ?? 0;
                 if (unreadCount == 0) return const SizedBox.shrink();
-                
+
                 return Positioned(
                   right: 8,
                   top: 8,
@@ -82,7 +89,10 @@ class CustomBottomNavigation extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: Colors.red,
                       shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 2),
+                      border: Border.all(
+                        color: Theme.of(context).colorScheme.surface,
+                        width: 2,
+                      ),
                     ),
                   ),
                 );
@@ -111,7 +121,9 @@ class CustomBottomNavigation extends StatelessWidget {
         child: Text(
           text,
           style: TextStyle(
-            color: isActive ? Colors.white : Colors.black,
+            color: isActive
+                ? Colors.white
+                : Theme.of(context).colorScheme.onSurface,
             fontWeight: FontWeight.bold,
             fontSize: 16,
           ),

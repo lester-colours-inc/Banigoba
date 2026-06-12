@@ -48,12 +48,16 @@ class PermissionsService {
     final Map<Permission, PermissionStatus> statuses = {};
     for (final permission in permissions) {
       final currentStatus = await permission.status;
-      final status = currentStatus.isGranted
+      final status = isAcceptedStatus(currentStatus)
           ? currentStatus
           : await permission.request();
       statuses[permission] = status;
     }
     return statuses;
+  }
+
+  static bool isAcceptedStatus(PermissionStatus status) {
+    return status.isGranted || status.isLimited;
   }
 
   static bool areAllPermissionsGranted(Map<String, bool> statuses) {
@@ -70,11 +74,12 @@ class PermissionsService {
     bool photoStatus = true;
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
       final photos = await Permission.photos.status;
-      photoStatus = photos.isGranted;
+      final photosAddOnly = await Permission.photosAddOnly.status;
+      photoStatus = isAcceptedStatus(photos) || isAcceptedStatus(photosAddOnly);
     } else if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
       final storage = await Permission.storage.status;
       final photos = await Permission.photos.status;
-      photoStatus = storage.isGranted || photos.isGranted;
+      photoStatus = isAcceptedStatus(storage) || isAcceptedStatus(photos);
     }
 
     return cameraStatus.isGranted && photoStatus && locationStatus.isGranted;
@@ -93,12 +98,14 @@ class PermissionsService {
   static Future<bool> _arePhotosGranted() async {
     if (kIsWeb) return true;
     if (defaultTargetPlatform == TargetPlatform.iOS) {
-      return (await Permission.photos.status).isGranted;
+      final photos = await Permission.photos.status;
+      final photosAddOnly = await Permission.photosAddOnly.status;
+      return isAcceptedStatus(photos) || isAcceptedStatus(photosAddOnly);
     }
     if (defaultTargetPlatform == TargetPlatform.android) {
       final storage = await Permission.storage.status;
       final photos = await Permission.photos.status;
-      return storage.isGranted || photos.isGranted;
+      return isAcceptedStatus(storage) || isAcceptedStatus(photos);
     }
     return true;
   }

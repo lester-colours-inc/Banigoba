@@ -72,7 +72,7 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                       : Container(
                           width: 50,
                           height: 50,
-                          color: Colors.grey.shade200,
+                          color: Theme.of(context).colorScheme.outlineVariant,
                           child: const Icon(Icons.image),
                         ),
                 ),
@@ -224,7 +224,7 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -245,10 +245,7 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                   isEditing
                       ? "Edit Catalog Product"
                       : "Add New Catalog Product",
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
               ),
               const SizedBox(height: 20),
@@ -262,9 +259,13 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                   height: 120,
                   width: double.infinity,
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(15),
-                    border: Border.all(color: Colors.grey.shade300),
+                    border: Border.all(
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                    ),
                   ),
                   child: selectedImage != null
                       ? ClipRRect(
@@ -549,7 +550,7 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                   },
                   child: Text(
                     isEditing ? "Update Product" : "Add Product to Catalog",
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
@@ -577,7 +578,7 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
       children: [
         Text(
           label,
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 4),
         DropdownButtonFormField<String>(

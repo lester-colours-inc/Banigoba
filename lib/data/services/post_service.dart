@@ -13,6 +13,8 @@ class PostService {
   Future<void> createPost({
     required String caption,
     required String imageURL,
+    String? outfitId,
+    List<Map<String, dynamic>> products = const [],
   }) async {
     if (_currentUserId.isEmpty) return;
 
@@ -26,7 +28,65 @@ class PostService {
       'likeCount': 0,
       'likedBy': [],
       'likes': [],
+      if (outfitId?.isNotEmpty == true) 'outfitId': outfitId,
+      if (products.isNotEmpty) ...{
+        'products': products,
+        'productIds': products
+            .map((product) => (product['id'] ?? '').toString())
+            .where((id) => id.isNotEmpty)
+            .toList(),
+      },
     });
+  }
+
+  /// Resolves the garments used by a Daily Dress Up post.
+  Future<List<Map<String, dynamic>>> getPostOutfitProducts(Post post) async {
+    if (post.products.isNotEmpty) return post.products;
+
+    if (post.outfitId.isNotEmpty && post.authorId.isNotEmpty) {
+      final outfit = await _db
+          .collection('users')
+          .doc(post.authorId)
+          .collection('outfits')
+          .doc(post.outfitId)
+          .get();
+      final products = _embeddedProducts(outfit.data()?['products']);
+      if (products.isNotEmpty) return products;
+    }
+
+    if (post.productIds.isNotEmpty) {
+      final products = <Map<String, dynamic>>[];
+      for (final productId in post.productIds) {
+        final product = await _db.collection('products').doc(productId).get();
+        if (product.exists && product.data() != null) {
+          products.add({...product.data()!, 'id': product.id});
+        }
+      }
+      if (products.isNotEmpty) return products;
+    }
+
+    if (post.authorId.isNotEmpty && post.imageURL.isNotEmpty) {
+      final outfits = await _db
+          .collection('users')
+          .doc(post.authorId)
+          .collection('outfits')
+          .where('imageUrl', isEqualTo: post.imageURL)
+          .limit(1)
+          .get();
+      if (outfits.docs.isNotEmpty) {
+        return _embeddedProducts(outfits.docs.first.data()['products']);
+      }
+    }
+
+    return const [];
+  }
+
+  List<Map<String, dynamic>> _embeddedProducts(dynamic value) {
+    if (value is! Iterable) return const [];
+    return value
+        .whereType<Map>()
+        .map((product) => Map<String, dynamic>.from(product))
+        .toList();
   }
 
   /// Gets a stream of posts

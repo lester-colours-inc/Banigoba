@@ -67,7 +67,7 @@ class OnboardingScreen extends StatelessWidget {
                       onPressed: () => _finishOnboarding(context),
                       style: ElevatedButton.styleFrom(
                         elevation: 0,
-                        backgroundColor: Colors.white,
+                        backgroundColor: Theme.of(context).colorScheme.surface,
                         foregroundColor: Colors.black,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(7),

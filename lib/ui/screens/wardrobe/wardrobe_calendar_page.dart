@@ -7,36 +7,50 @@ import '../../../core/app_routes.dart';
 class WardrobeCalendarPage extends StatelessWidget {
   const WardrobeCalendarPage({super.key});
 
-  static const Color primaryColor = Color(0xFF0D0140);
+  static Color primaryColor = Color(0xFF0D0140);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.menu, color: Colors.black),
+          icon: Icon(
+            Icons.menu,
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
           onPressed: () {},
         ),
-        title: const Text(
+        title: Text(
           'Quick Wear',
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 22),
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurface,
+            fontWeight: FontWeight.bold,
+            fontSize: 22,
+          ),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.shopping_bag_outlined, color: Colors.black),
+            icon: Icon(
+              Icons.shopping_bag_outlined,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
             onPressed: () {},
           ),
           Container(
-            margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+            margin: EdgeInsets.symmetric(vertical: 8, horizontal: 8),
             decoration: BoxDecoration(
-              color: Colors.grey.shade100,
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
               shape: BoxShape.circle,
             ),
             child: IconButton(
-              icon: const Icon(Icons.arrow_back_ios_new, size: 16, color: Colors.black),
+              icon: Icon(
+                Icons.arrow_back_ios_new,
+                size: 16,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
               onPressed: () => Navigator.of(context).pop(),
             ),
           ),
@@ -45,12 +59,12 @@ class WardrobeCalendarPage extends StatelessWidget {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            _buildCalendarHeader(),
-            const SizedBox(height: 20),
-            _buildOutfitSection("Wear This", "Look Saved!"),
-            const SizedBox(height: 30),
+            _buildCalendarHeader(context),
+            SizedBox(height: 20),
+            _buildOutfitSection(context, "Wear This", "Look Saved!"),
+            SizedBox(height: 30),
             Padding(
-              padding: const EdgeInsets.all(25.0),
+              padding: EdgeInsets.all(25.0),
               child: ElevatedButton(
                 onPressed: () {
                   Navigator.pushNamed(context, AppRoutes.search);
@@ -58,10 +72,12 @@ class WardrobeCalendarPage extends StatelessWidget {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: primaryColor,
                   foregroundColor: Colors.white,
-                  minimumSize: const Size(double.infinity, 55),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                  minimumSize: Size(double.infinity, 55),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(15),
+                  ),
                 ),
-                child: const Text(
+                child: Text(
                   'Explore More',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
@@ -73,20 +89,23 @@ class WardrobeCalendarPage extends StatelessWidget {
     );
   }
 
-  Widget _buildCalendarHeader() {
+  Widget _buildCalendarHeader(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(20),
-      color: Colors.white,
+      padding: EdgeInsets.all(20),
+      color: Theme.of(context).colorScheme.surfaceContainerLow,
       child: Column(
         children: [
-          const Row(
+          Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text("September 2023", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+              Text(
+                "September 2023",
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+              ),
               Icon(Icons.calendar_month, color: primaryColor),
             ],
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: 20),
           // Mocking a week view
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -94,22 +113,32 @@ class WardrobeCalendarPage extends StatelessWidget {
               bool isSelected = index == 3;
               return Container(
                 width: 40,
-                padding: const EdgeInsets.symmetric(vertical: 10),
+                padding: EdgeInsets.symmetric(vertical: 10),
                 decoration: BoxDecoration(
                   color: isSelected ? primaryColor : Colors.white,
                   borderRadius: BorderRadius.circular(10),
-                  border: isSelected ? null : Border.all(color: Colors.grey.shade200),
+                  border: isSelected
+                      ? null
+                      : Border.all(
+                          color: Theme.of(context).colorScheme.outlineVariant,
+                        ),
                 ),
                 child: Column(
                   children: [
                     Text(
                       ["S", "M", "T", "W", "T", "F", "S"][index],
-                      style: TextStyle(color: isSelected ? Colors.white : Colors.grey, fontSize: 12),
+                      style: TextStyle(
+                        color: isSelected ? Colors.white : Colors.grey,
+                        fontSize: 12,
+                      ),
                     ),
-                    const SizedBox(height: 5),
+                    SizedBox(height: 5),
                     Text(
                       "${10 + index}",
-                      style: TextStyle(color: isSelected ? Colors.white : Colors.black, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        color: isSelected ? Colors.white : Colors.black,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ],
                 ),
@@ -121,19 +150,26 @@ class WardrobeCalendarPage extends StatelessWidget {
     );
   }
 
-  Widget _buildOutfitSection(String title, String status) {
+  Widget _buildOutfitSection(
+    BuildContext context,
+    String title,
+    String status,
+  ) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 25.0),
+      padding: EdgeInsets.symmetric(horizontal: 25.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
-          const SizedBox(height: 20),
+          Text(
+            title,
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+          ),
+          SizedBox(height: 20),
           Container(
             height: 400,
             width: double.infinity,
             decoration: BoxDecoration(
-              color: const Color(0xFFFFF5F5),
+              color: Theme.of(context).colorScheme.surfaceContainerLow,
               borderRadius: BorderRadius.circular(30),
             ),
             child: Column(
@@ -147,13 +183,19 @@ class WardrobeCalendarPage extends StatelessWidget {
                     fit: BoxFit.cover,
                   ),
                 ),
-                const SizedBox(height: 20),
+                SizedBox(height: 20),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.check_circle, color: Colors.green),
-                    const SizedBox(width: 10),
-                    Text(status, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                    Icon(Icons.check_circle, color: Colors.green),
+                    SizedBox(width: 10),
+                    Text(
+                      status,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                    ),
                   ],
                 ),
               ],

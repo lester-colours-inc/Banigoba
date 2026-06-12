@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import '../../../data/models/weather.dart';
 import '../../../data/services/weather_service.dart';
+import '../../widgets/try_on_product_picker.dart';
+import 'avatar_try_on_page.dart';
 
 class StyleSelectionPage extends StatefulWidget {
   final Uint8List? imageBytes;
@@ -15,7 +17,7 @@ class StyleSelectionPage extends StatefulWidget {
         'Either imageBytes or imageUrl must be provided.',
       );
 
-  static const Color primaryColor = Color(0xFF0D0140);
+  static Color primaryColor = Color(0xFF0D0140);
 
   @override
   State<StyleSelectionPage> createState() => _StyleSelectionPageState();
@@ -85,28 +87,66 @@ class _StyleSelectionPageState extends State<StyleSelectionPage> {
     }
 
     return await Geolocator.getCurrentPosition(
-      locationSettings: const LocationSettings(
+      locationSettings: LocationSettings(
         accuracy: LocationAccuracy.low,
         distanceFilter: 1000,
       ),
     );
   }
 
+  Future<void> _openTryOn() async {
+    final products = await showTryOnProductPicker(context);
+    if (!mounted || products == null || products.isEmpty) return;
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const AvatarTryOnPage(),
+        settings: RouteSettings(
+          arguments: {
+            'products': products,
+            'garmentImageUrl': _productImageUrl(products.first),
+            'garmentName': products
+                .map((product) => (product['name'] ?? 'Clothing').toString())
+                .join(' + '),
+            'category': (products.first['category'] ?? 'auto').toString(),
+          },
+        ),
+      ),
+    );
+  }
+
+  String _productImageUrl(Map<String, dynamic> product) {
+    for (final field in const [
+      'rawImageUrl',
+      'imageUrl',
+      'imageURL',
+      'processedImageUrl',
+    ]) {
+      final value = product[field];
+      if (value is String && value.trim().isNotEmpty) return value.trim();
+    }
+    return '';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.menu, color: Colors.black),
+          icon: Icon(
+            Icons.menu,
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
           onPressed: () => Scaffold.of(context).openDrawer(),
         ),
-        title: const Text(
+        title: Text(
           'My Daily Dress Up',
           style: TextStyle(
-            color: Colors.black,
+            color: Theme.of(context).colorScheme.onSurface,
             fontWeight: FontWeight.bold,
             fontSize: 22,
           ),
@@ -115,9 +155,9 @@ class _StyleSelectionPageState extends State<StyleSelectionPage> {
           Stack(
             children: [
               IconButton(
-                icon: const Icon(
+                icon: Icon(
                   Icons.shopping_bag_outlined,
-                  color: Colors.black,
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
                 onPressed: () {},
               ),
@@ -137,16 +177,16 @@ class _StyleSelectionPageState extends State<StyleSelectionPage> {
             ],
           ),
           Container(
-            margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+            margin: EdgeInsets.symmetric(vertical: 8, horizontal: 8),
             decoration: BoxDecoration(
-              color: Colors.grey.shade100,
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
               shape: BoxShape.circle,
             ),
             child: IconButton(
-              icon: const Icon(
+              icon: Icon(
                 Icons.arrow_back_ios_new,
                 size: 16,
-                color: Colors.black,
+                color: Theme.of(context).colorScheme.onSurface,
               ),
               onPressed: () => Navigator.of(context).pop(),
             ),
@@ -154,40 +194,46 @@ class _StyleSelectionPageState extends State<StyleSelectionPage> {
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
+        padding: EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 10),
+            SizedBox(height: 10),
             _buildTabBar(),
-            const SizedBox(height: 20),
+            SizedBox(height: 20),
             _buildHeroCard(context),
-            const SizedBox(height: 20),
+            SizedBox(height: 20),
             _buildInfoRow(),
-            const SizedBox(height: 20),
+            SizedBox(height: 20),
             _buildActionButtons(context),
-            const SizedBox(height: 25),
+            SizedBox(height: 25),
             _buildSectionTile(
               icon: Icons.lightbulb_outline,
               title: 'Trending Styles',
               subtitle: 'Discover your global style icon twin',
-              backgroundColor: const Color(0xFFF9E7E9),
+              backgroundColor: Theme.of(
+                context,
+              ).colorScheme.surfaceContainerLow,
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             _buildSectionTile(
               icon: Icons.shopping_bag_outlined,
               title: 'Designer Pick',
               subtitle: 'Discover your global style icon twin',
-              backgroundColor: const Color(0xFFF9E7E9),
+              backgroundColor: Theme.of(
+                context,
+              ).colorScheme.surfaceContainerLow,
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             _buildSectionTile(
               icon: Icons.storefront_outlined,
               title: 'My Closet',
               subtitle: 'Discover your global style icon twin',
-              backgroundColor: const Color(0xFFF9E7E9),
+              backgroundColor: Theme.of(
+                context,
+              ).colorScheme.surfaceContainerLow,
             ),
-            const SizedBox(height: 30),
+            SizedBox(height: 30),
           ],
         ),
       ),
@@ -200,9 +246,9 @@ class _StyleSelectionPageState extends State<StyleSelectionPage> {
       child: Row(
         children: [
           _tabButton('Mine', 0),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           _tabButton('My Friends', 1),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           _tabButton('Community', 2),
         ],
       ),
@@ -214,21 +260,23 @@ class _StyleSelectionPageState extends State<StyleSelectionPage> {
     return GestureDetector(
       onTap: () => setState(() => _selectedTabIndex = index),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+        padding: EdgeInsets.symmetric(horizontal: 22, vertical: 12),
         decoration: BoxDecoration(
           color: isSelected ? StyleSelectionPage.primaryColor : Colors.white,
           borderRadius: BorderRadius.circular(25),
           border: Border.all(
             color: isSelected
                 ? StyleSelectionPage.primaryColor
-                : Colors.grey.shade200,
+                : Theme.of(context).colorScheme.outlineVariant,
             width: 1,
           ),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: isSelected ? Colors.white : Colors.grey.shade600,
+            color: isSelected
+                ? Colors.white
+                : Theme.of(context).colorScheme.onSurfaceVariant,
             fontWeight: FontWeight.w600,
             fontSize: 14,
           ),
@@ -241,7 +289,7 @@ class _StyleSelectionPageState extends State<StyleSelectionPage> {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: const Color(0xFFFDF2F5),
+        color: Theme.of(context).colorScheme.surfaceContainerLow,
         borderRadius: BorderRadius.circular(30),
       ),
       child: ClipRRect(
@@ -268,22 +316,23 @@ class _StyleSelectionPageState extends State<StyleSelectionPage> {
                           fit: BoxFit.contain,
                           alignment: Alignment.center,
                           webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
-                          errorBuilder: (context, error, stackTrace) =>
-                              const Center(
-                                child: Icon(
-                                  Icons.broken_image,
-                                  size: 64,
-                                  color: Colors.black26,
-                                ),
-                              ),
+                          errorBuilder: (context, error, stackTrace) => Center(
+                            child: Icon(
+                              Icons.broken_image,
+                              size: 64,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.outlineVariant,
+                            ),
+                          ),
                         ),
                   Positioned(
                     bottom: 12,
                     left: 12,
                     child: ElevatedButton.icon(
-                      onPressed: () {},
-                      icon: const Icon(Icons.checkroom, size: 18),
-                      label: const Text('Try On'),
+                      onPressed: _openTryOn,
+                      icon: Icon(Icons.checkroom, size: 18),
+                      label: Text('Try On'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: StyleSelectionPage.primaryColor,
                         elevation: 2,
@@ -296,7 +345,7 @@ class _StyleSelectionPageState extends State<StyleSelectionPage> {
                 ],
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
           ],
         ),
       ),
@@ -323,23 +372,20 @@ class _StyleSelectionPageState extends State<StyleSelectionPage> {
   Widget _infoChip(IconData icon, String label) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         decoration: BoxDecoration(
-          color: const Color(0xFFF7F3FF),
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(18),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(icon, color: StyleSelectionPage.primaryColor, size: 18),
-            const SizedBox(width: 8),
+            SizedBox(width: 8),
             Flexible(
               child: Text(
                 label,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -358,19 +404,19 @@ class _StyleSelectionPageState extends State<StyleSelectionPage> {
         return SizedBox(
           width: (MediaQuery.of(context).size.width - 68) / 2,
           child: ElevatedButton(
-            onPressed: () {},
+            onPressed: label == 'Try On' ? _openTryOn : () {},
             style: ElevatedButton.styleFrom(
               backgroundColor: StyleSelectionPage.primaryColor,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(14),
               ),
-              padding: const EdgeInsets.symmetric(vertical: 16),
+              padding: EdgeInsets.symmetric(vertical: 16),
             ),
             child: Text(
               label,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
             ),
           ),
         );
@@ -385,7 +431,7 @@ class _StyleSelectionPageState extends State<StyleSelectionPage> {
     required Color backgroundColor,
   }) {
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: backgroundColor,
         borderRadius: BorderRadius.circular(20),
@@ -396,33 +442,33 @@ class _StyleSelectionPageState extends State<StyleSelectionPage> {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: const Color(0xFFDED6FF),
+              color: Color(0xFFDED6FF),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(icon, color: StyleSelectionPage.primaryColor, size: 22),
           ),
-          const SizedBox(width: 16),
+          SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: 4),
                 Text(
                   subtitle,
-                  style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontSize: 13,
+                  ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
           ),
-          const Icon(Icons.arrow_forward_ios, color: Colors.grey, size: 18),
+          Icon(Icons.arrow_forward_ios, color: Colors.grey, size: 18),
         ],
       ),
     );

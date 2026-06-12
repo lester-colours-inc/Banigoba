@@ -32,7 +32,7 @@ class _AiUploadPageState extends State<AiUploadPage> {
   int _selectedPreferenceIndex = 0;
 
   // Statically instantiated list of preferences to protect Flutter Web compilation
-  static const List<Map<String, dynamic>> _preferences = [
+  static final List<Map<String, dynamic>> _preferences = [
     {'label': 'Casual', 'icon': Icons.brightness_low},
     {'label': 'Afro-Chic', 'icon': Icons.blur_circular},
     {'label': 'Corporate', 'icon': Icons.business_center},
@@ -218,38 +218,41 @@ class _AiUploadPageState extends State<AiUploadPage> {
   @override
   Widget build(BuildContext context) {
     // Custom Brand Colors Extracted Directly From UI Mockup Design
-    const primaryBlue = Color(0xFF0A0088);
-    const accentYellow = Color(0xFFFFAE00);
-    const lightPinkBg = Color(0xFFFFF2F2);
+    final primaryBlue = Color(0xFF0A0088);
+    final accentYellow = Color(0xFFFFAE00);
+    final lightPinkBg = Theme.of(context).colorScheme.surfaceContainerLow;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.menu, color: Colors.black87),
+          icon: Icon(
+            Icons.menu,
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
           onPressed: () {},
         ),
         actions: [
           IconButton(
-            icon: const Icon(
+            icon: Icon(
               Icons.shopping_bag_outlined,
-              color: Colors.black87,
+              color: Theme.of(context).colorScheme.onSurface,
             ),
             onPressed: () {},
           ),
           Container(
-            margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+            margin: EdgeInsets.symmetric(vertical: 8, horizontal: 8),
             decoration: BoxDecoration(
-              color: Colors.grey.shade100,
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
               shape: BoxShape.circle,
             ),
             child: IconButton(
-              icon: const Icon(
+              icon: Icon(
                 Icons.arrow_back_ios_new,
                 size: 16,
-                color: Colors.black,
+                color: Theme.of(context).colorScheme.onSurface,
               ),
               onPressed: () => Navigator.of(context).pop(),
             ),
@@ -257,20 +260,20 @@ class _AiUploadPageState extends State<AiUploadPage> {
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20.0),
+        padding: EdgeInsets.symmetric(horizontal: 20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 10),
-            const Text(
+            SizedBox(height: 10),
+            Text(
               'My Daily Dress Up',
               style: TextStyle(
-                color: Colors.black,
+                color: Theme.of(context).colorScheme.onSurface,
                 fontWeight: FontWeight.bold,
                 fontSize: 24,
               ),
             ),
-            const SizedBox(height: 15),
+            SizedBox(height: 15),
 
             // Segment Switch Selector Row (Mine, My Friends, Community)
             Row(
@@ -292,38 +295,34 @@ class _AiUploadPageState extends State<AiUploadPage> {
                 ),
               ],
             ),
-            const SizedBox(height: 25),
+            SizedBox(height: 25),
 
-            const Text(
+            Text(
               'Upload Your Image to Start',
               style: TextStyle(
-                color: Colors.black87,
+                color: Theme.of(context).colorScheme.onSurface,
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
               ),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
 
             // Main Frame Upload Display Block
             _buildUploadPlaceholder(lightPinkBg),
-            const SizedBox(height: 15),
+            SizedBox(height: 15),
 
             if (_existingFullBodyImageUrl != null &&
                 _selectedImageBytes == null)
               Padding(
-                padding: const EdgeInsets.only(bottom: 16.0),
+                padding: EdgeInsets.only(bottom: 16.0),
                 child: ElevatedButton.icon(
                   onPressed: _isPicking ? null : _useExistingSavedPhoto,
-                  icon: const Icon(
-                    Icons.refresh,
-                    size: 18,
-                    color: Colors.white,
-                  ),
-                  label: const Text('Use Saved FullBody Photo'),
+                  icon: Icon(Icons.refresh, size: 18, color: Colors.white),
+                  label: Text('Use Saved FullBody Photo'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: primaryBlue,
                     foregroundColor: Colors.white,
-                    minimumSize: const Size(double.infinity, 52),
+                    minimumSize: Size(double.infinity, 52),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -340,19 +339,19 @@ class _AiUploadPageState extends State<AiUploadPage> {
                     onPressed: _isPicking
                         ? null
                         : () => _pickImage(ImageSource.gallery),
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.cloud_upload_outlined,
                       size: 20,
                       color: Colors.white,
                     ),
-                    label: const Text(
+                    label: Text(
                       'Upload Photo',
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: primaryBlue,
                       foregroundColor: Colors.white,
-                      minimumSize: const Size(double.infinity, 52),
+                      minimumSize: Size(double.infinity, 52),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -360,25 +359,25 @@ class _AiUploadPageState extends State<AiUploadPage> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: _isPicking
                         ? null
                         : () => _pickImage(ImageSource.camera),
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.add_a_photo_outlined,
                       size: 20,
                       color: Colors.white,
                     ),
-                    label: const Text(
+                    label: Text(
                       'Take a Photo',
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: accentYellow,
                       foregroundColor: Colors.white,
-                      minimumSize: const Size(double.infinity, 52),
+                      minimumSize: Size(double.infinity, 52),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -388,18 +387,18 @@ class _AiUploadPageState extends State<AiUploadPage> {
                 ),
               ],
             ),
-            const SizedBox(height: 30),
+            SizedBox(height: 30),
 
             // Preference Header Text
-            const Text(
+            Text(
               'Styling Preferences',
               style: TextStyle(
-                color: Colors.black87,
+                color: Theme.of(context).colorScheme.onSurface,
                 fontWeight: FontWeight.bold,
                 fontSize: 15,
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
 
             // Horizontal Preference Picker Row Section
             SizedBox(
@@ -421,7 +420,7 @@ class _AiUploadPageState extends State<AiUploadPage> {
                 },
               ),
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: 20),
           ],
         ),
       ),
@@ -434,17 +433,21 @@ class _AiUploadPageState extends State<AiUploadPage> {
     required Color activeColor,
   }) {
     return Container(
-      margin: const EdgeInsets.only(right: 10),
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+      margin: EdgeInsets.only(right: 10),
+      padding: EdgeInsets.symmetric(horizontal: 18, vertical: 8),
       decoration: BoxDecoration(
         color: isActive ? activeColor : Colors.transparent,
         borderRadius: BorderRadius.circular(20),
-        border: isActive ? null : Border.all(color: Colors.grey.shade200),
+        border: isActive
+            ? null
+            : Border.all(color: Theme.of(context).colorScheme.outlineVariant),
       ),
       child: Text(
         label,
         style: TextStyle(
-          color: isActive ? Colors.white : Colors.grey.shade500,
+          color: isActive
+              ? Colors.white
+              : Theme.of(context).colorScheme.onSurfaceVariant,
           fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
           fontSize: 13,
         ),
@@ -485,11 +488,7 @@ class _AiUploadPageState extends State<AiUploadPage> {
                     child: CircleAvatar(
                       backgroundColor: Colors.black45,
                       child: IconButton(
-                        icon: const Icon(
-                          Icons.close,
-                          color: Colors.white,
-                          size: 18,
-                        ),
+                        icon: Icon(Icons.close, color: Colors.white, size: 18),
                         onPressed: _clearSelectedImage,
                       ),
                     ),
@@ -497,7 +496,7 @@ class _AiUploadPageState extends State<AiUploadPage> {
                 ],
               )
             : _isLoadingExistingPicture
-            ? const Center(child: CircularProgressIndicator())
+            ? Center(child: CircularProgressIndicator())
             : (_existingFullBodyImageUrl != null
                   ? Stack(
                       fit: StackFit.expand,
@@ -536,14 +535,14 @@ class _AiUploadPageState extends State<AiUploadPage> {
                                   return _buildImageLoadError();
                                 },
                               )
-                            : const Center(child: CircularProgressIndicator()),
+                            : Center(child: CircularProgressIndicator()),
                         Positioned(
                           top: 10,
                           right: 10,
                           child: CircleAvatar(
                             backgroundColor: Colors.black45,
                             child: IconButton(
-                              icon: const Icon(
+                              icon: Icon(
                                 Icons.refresh,
                                 color: Colors.white,
                                 size: 18,
@@ -562,13 +561,13 @@ class _AiUploadPageState extends State<AiUploadPage> {
                         Icon(
                           Icons.upload_file_outlined,
                           size: 60,
-                          color: Colors.black26,
+                          color: Theme.of(context).colorScheme.outlineVariant,
                         ),
-                        const SizedBox(height: 12),
-                        const Text(
+                        SizedBox(height: 12),
+                        Text(
                           'Upload Your Photo to Begin',
                           style: TextStyle(
-                            color: Colors.black38,
+                            color: Theme.of(context).colorScheme.outline,
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
                           ),
@@ -582,30 +581,30 @@ class _AiUploadPageState extends State<AiUploadPage> {
   Widget _buildImageLoadError() {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
+            Icon(
               Icons.broken_image_outlined,
               size: 60,
-              color: Colors.black26,
+              color: Theme.of(context).colorScheme.outlineVariant,
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             Text(
               _existingImageError ?? 'Saved photo could not be displayed.',
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.black38,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.outline,
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
               ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             TextButton.icon(
               onPressed: _loadExistingFullBodyImage,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Try Again'),
+              icon: Icon(Icons.refresh),
+              label: Text('Try Again'),
             ),
           ],
         ),
@@ -673,7 +672,7 @@ class _AiUploadPageState extends State<AiUploadPage> {
     if (savedBytes == null) {
       debugPrint('[AiUpload] Saved image byte download returned null');
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
             'Saved image could not be loaded. Please upload it again.',
           ),
@@ -701,23 +700,25 @@ class _AiUploadPageState extends State<AiUploadPage> {
     return GestureDetector(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.only(right: 20.0),
+        padding: EdgeInsets.only(right: 20.0),
         child: Column(
           children: [
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: isSelected ? activeColor : Colors.white,
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: isSelected ? activeColor : Colors.grey.shade200,
+                  color: isSelected
+                      ? activeColor
+                      : Theme.of(context).colorScheme.outlineVariant,
                 ),
                 boxShadow: isSelected
                     ? [
                         BoxShadow(
                           color: activeColor.withAlpha((0.15 * 255).round()),
                           blurRadius: 6,
-                          offset: const Offset(0, 3),
+                          offset: Offset(0, 3),
                         ),
                       ]
                     : null,
@@ -725,16 +726,20 @@ class _AiUploadPageState extends State<AiUploadPage> {
               child: Icon(
                 icon,
                 size: 22,
-                color: isSelected ? Colors.white : Colors.grey.shade400,
+                color: isSelected
+                    ? Colors.white
+                    : Theme.of(context).colorScheme.outline,
               ),
             ),
-            const SizedBox(height: 6),
+            SizedBox(height: 6),
             Text(
               label,
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                color: isSelected ? activeColor : Colors.grey.shade400,
+                color: isSelected
+                    ? activeColor
+                    : Theme.of(context).colorScheme.outline,
               ),
             ),
           ],

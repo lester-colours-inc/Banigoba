@@ -15,7 +15,7 @@ class StyledLookPage extends StatefulWidget {
     required this.generatedImageUrls,
   });
 
-  static const Color primaryColor = Color(0xFF0D0140);
+  static Color primaryColor = Color(0xFF0D0140);
 
   @override
   State<StyledLookPage> createState() => _StyledLookPageState();
@@ -30,7 +30,7 @@ class _StyledLookPageState extends State<StyledLookPage> {
     if (user == null) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('You must be signed in to save your look.')),
+        SnackBar(content: Text('You must be signed in to save your look.')),
       );
       return;
     }
@@ -48,14 +48,16 @@ class _StyledLookPageState extends State<StyledLookPage> {
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Your AI makeover has been saved to your wardrobe.')),
+          SnackBar(
+            content: Text('Your AI makeover has been saved to your wardrobe.'),
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save look: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to save look: $e')));
       }
     } finally {
       if (mounted) {
@@ -69,75 +71,106 @@ class _StyledLookPageState extends State<StyledLookPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.menu, color: Colors.black),
+          icon: Icon(
+            Icons.menu,
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
           onPressed: () {},
         ),
-        title: const Text(
+        title: Text(
           'Your Styled Look',
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 22),
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurface,
+            fontWeight: FontWeight.bold,
+            fontSize: 22,
+          ),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.shopping_bag_outlined, color: Colors.black),
+            icon: Icon(
+              Icons.shopping_bag_outlined,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
             onPressed: () {},
           ),
           Container(
-            margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+            margin: EdgeInsets.symmetric(vertical: 8, horizontal: 8),
             decoration: BoxDecoration(
-              color: Colors.grey.shade100,
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
               shape: BoxShape.circle,
             ),
             child: IconButton(
-              icon: const Icon(Icons.arrow_back_ios_new, size: 16, color: Colors.black),
+              icon: Icon(
+                Icons.arrow_back_ios_new,
+                size: 16,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
               onPressed: () => Navigator.of(context).pop(),
             ),
           ),
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(25),
+        padding: EdgeInsets.all(25),
         child: Column(
           children: [
             _buildMainLookCard(),
-            const SizedBox(height: 25),
+            SizedBox(height: 25),
             Row(
               children: widget.generatedImageUrls
                   .take(3)
-                  .map((url) => Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.only(right: 10),
-                          child: _buildSmallImageCard(url),
-                        ),
-                      ))
+                  .map(
+                    (url) => Expanded(
+                      child: Padding(
+                        padding: EdgeInsets.only(right: 10),
+                        child: _buildSmallImageCard(url),
+                      ),
+                    ),
+                  )
                   .toList(),
             ),
-            const SizedBox(height: 40),
+            SizedBox(height: 40),
             ElevatedButton(
               onPressed: _isSaving ? null : _saveLook,
               style: ElevatedButton.styleFrom(
                 backgroundColor: StyledLookPage.primaryColor,
                 foregroundColor: Colors.white,
-                minimumSize: const Size(double.infinity, 55),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                minimumSize: Size(double.infinity, 55),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(15),
+                ),
               ),
               child: _isSaving
-                  ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : const Text(
+                  ? SizedBox(
+                      height: 24,
+                      width: 24,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : Text(
                       'Save to Wardrobe',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
             ),
-            const SizedBox(height: 15),
+            SizedBox(height: 15),
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text(
+              child: Text(
                 'Try Another Style',
-                style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: Colors.orange,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ],
@@ -147,12 +180,14 @@ class _StyledLookPageState extends State<StyledLookPage> {
   }
 
   Widget _buildMainLookCard() {
-    final firstImageUrl = widget.generatedImageUrls.isNotEmpty ? widget.generatedImageUrls.first : widget.sourceImageUrl;
+    final firstImageUrl = widget.generatedImageUrls.isNotEmpty
+        ? widget.generatedImageUrls.first
+        : widget.sourceImageUrl;
     return Container(
       width: double.infinity,
       height: 450,
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF5F5),
+        color: Theme.of(context).colorScheme.surfaceContainerLow,
         borderRadius: BorderRadius.circular(30),
       ),
       child: ClipRRect(
@@ -160,7 +195,9 @@ class _StyledLookPageState extends State<StyledLookPage> {
         child: Image.network(
           firstImageUrl,
           fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) => const Center(child: Icon(Icons.broken_image, size: 60, color: Colors.grey)),
+          errorBuilder: (context, error, stackTrace) => Center(
+            child: Icon(Icons.broken_image, size: 60, color: Colors.grey),
+          ),
         ),
       ),
     );
@@ -170,7 +207,7 @@ class _StyledLookPageState extends State<StyledLookPage> {
     return Container(
       height: 100,
       decoration: BoxDecoration(
-        color: Colors.grey.shade100,
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(15),
       ),
       child: ClipRRect(
@@ -178,7 +215,9 @@ class _StyledLookPageState extends State<StyledLookPage> {
         child: Image.network(
           imageUrl,
           fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) => const Center(child: Icon(Icons.broken_image, size: 28, color: Colors.grey)),
+          errorBuilder: (context, error, stackTrace) => Center(
+            child: Icon(Icons.broken_image, size: 28, color: Colors.grey),
+          ),
         ),
       ),
     );

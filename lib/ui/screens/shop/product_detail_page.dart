@@ -1,17 +1,20 @@
 // Shows product information and supports owner/admin editing, deletion, and try-on actions.
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../data/services/product_service.dart';
-import '../onboarding/camera_screen.dart';
+import '../makeover/avatar_try_on_page.dart';
 
 /// Screen displaying detailed information about a product
 class ProductDetailPage extends StatefulWidget {
   final String? productId;
   final Map<String, dynamic> productData;
 
-  const ProductDetailPage({super.key, this.productId, required this.productData});
+  const ProductDetailPage({
+    super.key,
+    this.productId,
+    required this.productData,
+  });
 
   @override
   State<ProductDetailPage> createState() => _ProductDetailPageState();
@@ -33,50 +36,64 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
   @override
   Widget build(BuildContext context) {
     final String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
-    
+
     // Extract display data with fallbacks
-    final imageUrl = _currentProductData['imageUrl'] ?? _currentProductData['imageURL'] ?? '';
+    final imageUrl =
+        _currentProductData['imageUrl'] ??
+        _currentProductData['imageURL'] ??
+        '';
     final rawImageUrl = _currentProductData['rawImageUrl'] ?? imageUrl;
     final name = _currentProductData['name'] ?? 'No Name';
     final String category = _currentProductData['category'] ?? 'N/A';
     final String subcategory = _currentProductData['subcategory'] ?? 'N/A';
-    final String styleTag = _currentProductData['styleTag'] ?? _currentProductData['style'] ?? 'casual';
-    
+    final String styleTag =
+        _currentProductData['styleTag'] ??
+        _currentProductData['style'] ??
+        'casual';
+
     // Normalize color data for display
-    final dynamic rawColours = _currentProductData['colours'] ?? _currentProductData['colour'];
+    final dynamic rawColours =
+        _currentProductData['colours'] ?? _currentProductData['colour'];
     List<dynamic> coloursList = [];
-    if (rawColours is List) coloursList = rawColours;
-    else if (rawColours != null && rawColours.toString().isNotEmpty) coloursList = [rawColours];
+    if (rawColours is List)
+      coloursList = rawColours;
+    else if (rawColours != null && rawColours.toString().isNotEmpty)
+      coloursList = [rawColours];
 
     final String colourDisplay = coloursList.isNotEmpty
-        ? coloursList.map((c) {
-            final s = c.toString().trim();
-            if (s.isEmpty) return s;
-            return s[0].toUpperCase() + s.substring(1).toLowerCase();
-          }).join(', ')
+        ? coloursList
+              .map((c) {
+                final s = c.toString().trim();
+                if (s.isEmpty) return s;
+                return s[0].toUpperCase() + s.substring(1).toLowerCase();
+              })
+              .join(', ')
         : 'N/A';
 
     final gender = _currentProductData['gender'] ?? 'N/A';
     final visibility = _currentProductData['visibility'] ?? 'private';
-    
+
     // Identify the product ID and uploader
     final String? originalProductId = _currentProductData['originalProductId'];
     final String? originalPosterId = _currentProductData['originalPosterId'];
-    final String? uploaderId = _currentProductData['userId'] ?? _currentProductData['uploaderId'];
-    
+    final String? uploaderId =
+        _currentProductData['userId'] ?? _currentProductData['uploaderId'];
+
     final productId = _currentProductData['id'] ?? originalProductId;
 
     // Check if current user is the owner
     final bool isMe = uploaderId == currentUserId;
-    
+
     // Determine if it's a catalog product or user product copy
-    final bool isCatalogProduct = _currentProductData.containsKey('uploaderId') && originalProductId == null;
+    final bool isCatalogProduct =
+        _currentProductData.containsKey('uploaderId') &&
+        originalProductId == null;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         title: Text(name),
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         foregroundColor: Colors.black,
         elevation: 0,
         actions: [
@@ -88,7 +105,8 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
             ),
             IconButton(
               icon: const Icon(Icons.delete, color: Colors.red),
-              onPressed: () => _confirmDelete(productId, name, isCatalogProduct),
+              onPressed: () =>
+                  _confirmDelete(productId, name, isCatalogProduct),
             ),
           ],
           // Favourite (Heart) icon
@@ -120,10 +138,18 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
             AspectRatio(
               aspectRatio: 1,
               child: rawImageUrl.isNotEmpty
-                  ? Image.network(rawImageUrl, fit: BoxFit.contain, width: double.infinity)
+                  ? Image.network(
+                      rawImageUrl,
+                      fit: BoxFit.contain,
+                      width: double.infinity,
+                    )
                   : Container(
-                      color: Colors.grey.shade200,
-                      child: const Icon(Icons.image, size: 100, color: Colors.grey),
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                      child: const Icon(
+                        Icons.image,
+                        size: 100,
+                        color: Colors.grey,
+                      ),
                     ),
             ),
             Padding(
@@ -134,11 +160,18 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                   // Poster Name
                   if (uploaderId != null)
                     StreamBuilder<DocumentSnapshot>(
-                      stream: FirebaseFirestore.instance.collection('users').doc(uploaderId).snapshots(),
+                      stream: FirebaseFirestore.instance
+                          .collection('users')
+                          .doc(uploaderId)
+                          .snapshots(),
                       builder: (context, snapshot) {
-                        if (!snapshot.hasData || !snapshot.data!.exists) return const SizedBox.shrink();
-                        final userData = snapshot.data!.data() as Map<String, dynamic>;
-                        final bool isAdmin = userData['role'] == 'admin' || userData['isAdmin'] == true;
+                        if (!snapshot.hasData || !snapshot.data!.exists)
+                          return const SizedBox.shrink();
+                        final userData =
+                            snapshot.data!.data() as Map<String, dynamic>;
+                        final bool isAdmin =
+                            userData['role'] == 'admin' ||
+                            userData['isAdmin'] == true;
                         if (isAdmin && !isMe) return const SizedBox.shrink();
 
                         final posterName = userData['displayName'] ?? 'User';
@@ -146,11 +179,17 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                           padding: const EdgeInsets.only(bottom: 10.0),
                           child: Row(
                             children: [
-                              Text(isMe ? "Uploaded by: " : "Uploaded by: ", style: const TextStyle(color: Colors.grey)),
+                              Text(
+                                isMe ? "Uploaded by: " : "Uploaded by: ",
+                                style: TextStyle(color: Colors.grey),
+                              ),
                               Expanded(
                                 child: Text(
                                   isMe ? "You" : posterName,
-                                  style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0D0140)),
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF0D0140),
+                                  ),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
@@ -162,7 +201,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                   // Product Name and Details
                   Text(
                     name,
-                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 10),
                   _buildDetailRow("Category", category),
@@ -172,15 +211,25 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                   _buildDetailRow("Gender", gender),
                   if (_currentProductData.containsKey('visibility'))
                     _buildDetailRow("Visibility", visibility),
-                  
+
                   // Weather and Functional Tags
                   if (_currentProductData.containsKey('weatherTags'))
-                    _buildTagsRow("Weather", List<String>.from(_currentProductData['weatherTags'] ?? [])),
+                    _buildTagsRow(
+                      "Weather",
+                      List<String>.from(
+                        _currentProductData['weatherTags'] ?? [],
+                      ),
+                    ),
                   if (_currentProductData.containsKey('functionalTags'))
-                    _buildTagsRow("Functional", List<String>.from(_currentProductData['functionalTags'] ?? [])),
-                  
+                    _buildTagsRow(
+                      "Functional",
+                      List<String>.from(
+                        _currentProductData['functionalTags'] ?? [],
+                      ),
+                    ),
+
                   const SizedBox(height: 30),
-                  // Try On (AR) Button
+                  // Generate a virtual try-on using the user's saved avatar.
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
@@ -188,8 +237,9 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => CameraScreen(
-                              imageUrl: imageUrl,
+                            builder: (context) => AvatarTryOnPage(
+                              garmentImageUrl: imageUrl,
+                              garmentName: name,
                               category: category,
                             ),
                           ),
@@ -198,11 +248,17 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF0D0140),
                         padding: const EdgeInsets.symmetric(vertical: 15),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
                       child: const Text(
                         "Try On",
-                        style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ),
@@ -211,7 +267,10 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                     Padding(
                       padding: const EdgeInsets.only(top: 15.0),
                       child: StreamBuilder<bool>(
-                        stream: _productService.isInWardrobe(currentUserId, productId),
+                        stream: _productService.isInWardrobe(
+                          currentUserId,
+                          productId,
+                        ),
                         builder: (context, snapshot) {
                           final isSaved = snapshot.data ?? false;
                           return SizedBox(
@@ -227,7 +286,11 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                                   if (context.mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
-                                        content: Text(isSaved ? "Removed from Wardrobe" : "Added to Wardrobe"),
+                                        content: Text(
+                                          isSaved
+                                              ? "Removed from Wardrobe"
+                                              : "Added to Wardrobe",
+                                        ),
                                         duration: const Duration(seconds: 1),
                                       ),
                                     );
@@ -241,21 +304,33 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                                 }
                               },
                               icon: Icon(
-                                isSaved ? Icons.favorite : Icons.favorite_border,
+                                isSaved
+                                    ? Icons.favorite
+                                    : Icons.favorite_border,
                                 color: isSaved ? Colors.red : Colors.white,
                               ),
                               label: Text(
-                                isSaved ? "In Your Wardrobe" : "Add to Wardrobe",
-                                style: const TextStyle(
+                                isSaved
+                                    ? "In Your Wardrobe"
+                                    : "Add to Wardrobe",
+                                style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
                                   color: Colors.white,
                                 ),
                               ),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: isSaved ? const Color(0xFF0D0140).withValues(alpha: 0.8) : const Color(0xFF0D0140),
-                                padding: const EdgeInsets.symmetric(vertical: 15),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                backgroundColor: isSaved
+                                    ? const Color(
+                                        0xFF0D0140,
+                                      ).withValues(alpha: 0.8)
+                                    : const Color(0xFF0D0140),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 15,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
                                 elevation: 0,
                               ),
                             ),
@@ -280,15 +355,27 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("$label Tags:", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          Text(
+            "$label Tags:",
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
           const SizedBox(height: 5),
           Wrap(
             spacing: 8,
-            children: tags.map((tag) => Chip(
-              label: Text(tag[0].toUpperCase() + tag.substring(1)),
-              backgroundColor: const Color(0xFF0D0140).withValues(alpha: 0.1),
-              labelStyle: const TextStyle(fontSize: 12, color: Color(0xFF0D0140)),
-            )).toList(),
+            children: tags
+                .map(
+                  (tag) => Chip(
+                    label: Text(tag[0].toUpperCase() + tag.substring(1)),
+                    backgroundColor: const Color(
+                      0xFF0D0140,
+                    ).withValues(alpha: 0.1),
+                    labelStyle: TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF0D0140),
+                    ),
+                  ),
+                )
+                .toList(),
           ),
         ],
       ),
@@ -301,12 +388,18 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text("Delete Item?"),
-        content: Text("Are you sure you want to delete '$name'? This cannot be undone."),
+        content: Text(
+          "Are you sure you want to delete '$name'? This cannot be undone.",
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel"),
+          ),
           TextButton(
             onPressed: () async {
-              final String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
+              final String currentUserId =
+                  FirebaseAuth.instance.currentUser?.uid ?? '';
               if (isCatalog) {
                 await _productService.deleteProduct(id);
               } else {
@@ -315,7 +408,9 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
               if (mounted) {
                 Navigator.pop(context); // Close dialog
                 Navigator.pop(context); // Go back from detail page
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Item deleted")));
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(const SnackBar(content: Text("Item deleted")));
               }
             },
             child: const Text("Delete", style: TextStyle(color: Colors.red)),
@@ -327,93 +422,194 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
 
   /// Show edit dialog
   void _showEditDialog(String id, bool isCatalog) {
-    final nameController = TextEditingController(text: _currentProductData['name']);
+    final nameController = TextEditingController(
+      text: _currentProductData['name'],
+    );
     String category = _currentProductData['category'] ?? 'tops';
-    String styleTag = _currentProductData['styleTag'] ?? _currentProductData['style'] ?? 'casual';
+    String styleTag =
+        _currentProductData['styleTag'] ??
+        _currentProductData['style'] ??
+        'casual';
     String visibility = _currentProductData['visibility'] ?? 'private';
-    List<String> selectedColours = List<String>.from(_currentProductData['colours'] ?? []);
-    List<String> selectedWeatherTags = List<String>.from(_currentProductData['weatherTags'] ?? []);
-    List<String> selectedFunctionalTags = List<String>.from(_currentProductData['functionalTags'] ?? []);
+    List<String> selectedColours = List<String>.from(
+      _currentProductData['colours'] ?? [],
+    );
+    List<String> selectedWeatherTags = List<String>.from(
+      _currentProductData['weatherTags'] ?? [],
+    );
+    List<String> selectedFunctionalTags = List<String>.from(
+      _currentProductData['functionalTags'] ?? [],
+    );
 
-    final List<String> availableColors = ['black', 'white', 'grey', 'blue', 'red', 'green', 'yellow', 'orange', 'pink', 'purple', 'brown', 'beige'];
-    final List<String> styleTags = ['casual', 'afrochic', 'corporate', 'streetwear', 'glamour'];
+    final List<String> availableColors = [
+      'black',
+      'white',
+      'grey',
+      'blue',
+      'red',
+      'green',
+      'yellow',
+      'orange',
+      'pink',
+      'purple',
+      'brown',
+      'beige',
+    ];
+    final List<String> styleTags = [
+      'casual',
+      'afrochic',
+      'corporate',
+      'streetwear',
+      'glamour',
+    ];
     final List<String> weatherTags = ["hot", "mild", "cool", "cold", "rainy"];
-    final List<String> functionalTags = ["waterproof", "breathable", "insulated", "windproof"];
+    final List<String> functionalTags = [
+      "waterproof",
+      "breathable",
+      "insulated",
+      "windproof",
+    ];
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (context) => StatefulBuilder(
         builder: (context, setModalState) => Padding(
           padding: EdgeInsets.only(
             bottom: MediaQuery.of(context).viewInsets.bottom,
-            left: 20, right: 20, top: 20,
+            left: 20,
+            right: 20,
+            top: 20,
           ),
           child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text("Edit Item", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                const Text(
+                  "Edit Item",
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
                 const SizedBox(height: 20),
-                TextField(controller: nameController, decoration: const InputDecoration(labelText: "Name", border: OutlineInputBorder())),
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(
+                    labelText: "Name",
+                    border: OutlineInputBorder(),
+                  ),
+                ),
                 const SizedBox(height: 15),
                 DropdownButtonFormField<String>(
                   value: styleTag,
-                  decoration: const InputDecoration(labelText: "Style", border: OutlineInputBorder()),
-                  items: styleTags.map((v) => DropdownMenuItem(value: v, child: Text(_formatLabel(v)))).toList(),
+                  decoration: const InputDecoration(
+                    labelText: "Style",
+                    border: OutlineInputBorder(),
+                  ),
+                  items: styleTags
+                      .map(
+                        (v) => DropdownMenuItem(
+                          value: v,
+                          child: Text(_formatLabel(v)),
+                        ),
+                      )
+                      .toList(),
                   onChanged: (v) => setModalState(() => styleTag = v!),
                 ),
                 const SizedBox(height: 15),
                 if (!isCatalog)
                   DropdownButtonFormField<String>(
                     value: visibility,
-                    decoration: const InputDecoration(labelText: "Visibility", border: OutlineInputBorder()),
-                    items: ['private', 'public'].map((v) => DropdownMenuItem(value: v, child: Text(v.toUpperCase()))).toList(),
+                    decoration: const InputDecoration(
+                      labelText: "Visibility",
+                      border: OutlineInputBorder(),
+                    ),
+                    items: ['private', 'public']
+                        .map(
+                          (v) => DropdownMenuItem(
+                            value: v,
+                            child: Text(v.toUpperCase()),
+                          ),
+                        )
+                        .toList(),
                     onChanged: (v) => setModalState(() => visibility = v!),
                   ),
                 const SizedBox(height: 15),
-                const Text("Colours", style: TextStyle(fontWeight: FontWeight.bold)),
+                const Text(
+                  "Colours",
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
                 Wrap(
                   spacing: 8,
-                  children: availableColors.map((color) => FilterChip(
-                    label: Text(color),
-                    selected: selectedColours.contains(color),
-                    onSelected: (selected) => setModalState(() {
-                      if (selected) selectedColours.add(color); else selectedColours.remove(color);
-                    }),
-                  )).toList(),
+                  children: availableColors
+                      .map(
+                        (color) => FilterChip(
+                          label: Text(color),
+                          selected: selectedColours.contains(color),
+                          onSelected: (selected) => setModalState(() {
+                            if (selected)
+                              selectedColours.add(color);
+                            else
+                              selectedColours.remove(color);
+                          }),
+                        ),
+                      )
+                      .toList(),
                 ),
                 const SizedBox(height: 15),
-                const Text("Weather Tags", style: TextStyle(fontWeight: FontWeight.bold)),
+                const Text(
+                  "Weather Tags",
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
                 Wrap(
                   spacing: 8,
-                  children: weatherTags.map((tag) => FilterChip(
-                    label: Text(tag),
-                    selected: selectedWeatherTags.contains(tag),
-                    onSelected: (selected) => setModalState(() {
-                      if (selected) selectedWeatherTags.add(tag); else selectedWeatherTags.remove(tag);
-                    }),
-                  )).toList(),
+                  children: weatherTags
+                      .map(
+                        (tag) => FilterChip(
+                          label: Text(tag),
+                          selected: selectedWeatherTags.contains(tag),
+                          onSelected: (selected) => setModalState(() {
+                            if (selected)
+                              selectedWeatherTags.add(tag);
+                            else
+                              selectedWeatherTags.remove(tag);
+                          }),
+                        ),
+                      )
+                      .toList(),
                 ),
                 const SizedBox(height: 15),
-                const Text("Functional Tags", style: TextStyle(fontWeight: FontWeight.bold)),
+                const Text(
+                  "Functional Tags",
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
                 Wrap(
                   spacing: 8,
-                  children: functionalTags.map((tag) => FilterChip(
-                    label: Text(tag),
-                    selected: selectedFunctionalTags.contains(tag),
-                    onSelected: (selected) => setModalState(() {
-                      if (selected) selectedFunctionalTags.add(tag); else selectedFunctionalTags.remove(tag);
-                    }),
-                  )).toList(),
+                  children: functionalTags
+                      .map(
+                        (tag) => FilterChip(
+                          label: Text(tag),
+                          selected: selectedFunctionalTags.contains(tag),
+                          onSelected: (selected) => setModalState(() {
+                            if (selected)
+                              selectedFunctionalTags.add(tag);
+                            else
+                              selectedFunctionalTags.remove(tag);
+                          }),
+                        ),
+                      )
+                      .toList(),
                 ),
                 const SizedBox(height: 25),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0D0140), padding: const EdgeInsets.symmetric(vertical: 15)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0D0140),
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                    ),
                     onPressed: () async {
                       final updated = {
                         'name': nameController.text,
@@ -423,7 +619,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                         'functionalTags': selectedFunctionalTags,
                         if (!isCatalog) 'visibility': visibility,
                       };
-                      
+
                       if (isCatalog) {
                         await _productService.updateCatalogProduct(id, updated);
                       } else {
@@ -433,17 +629,22 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                           updatedData: updated,
                         );
                       }
-                      
+
                       setState(() {
                         _currentProductData.addAll(updated);
                       });
-                      
+
                       if (mounted) {
                         Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Item updated")));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text("Item updated")),
+                        );
                       }
                     },
-                    child: const Text("Save Changes", style: TextStyle(color: Colors.white)),
+                    child: const Text(
+                      "Save Changes",
+                      style: TextStyle(color: Colors.white),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 30),
@@ -476,14 +677,9 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
         children: [
           Text(
             "$label: ",
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
           ),
-          Expanded(
-            child: Text(
-              displayValue,
-              style: const TextStyle(fontSize: 16),
-            ),
-          ),
+          Expanded(child: Text(displayValue, style: TextStyle(fontSize: 16))),
         ],
       ),
     );

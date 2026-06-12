@@ -5,39 +5,49 @@ import 'package:flutter/material.dart';
 class PlanAheadPage extends StatelessWidget {
   const PlanAheadPage({super.key});
 
-  static const Color primaryColor = Color(0xFF0D0140);
+  static Color primaryColor = Color(0xFF0D0140);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: Icon(
+            Icons.arrow_back,
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Text(
+        title: Text(
           'Plan Ahead',
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 22),
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurface,
+            fontWeight: FontWeight.bold,
+            fontSize: 22,
+          ),
         ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(25),
+        padding: EdgeInsets.all(25),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               "Organize Your Style",
               style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 10),
+            SizedBox(height: 10),
             Text(
               "Prepare for your upcoming week, trips, and special events.",
-              style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontSize: 16,
+              ),
             ),
-            const SizedBox(height: 30),
+            SizedBox(height: 30),
             _buildPlanningCard(
               context,
               title: "Week Planner",
@@ -48,7 +58,7 @@ class PlanAheadPage extends StatelessWidget {
                 // Future: Navigate to Week Planner details
               },
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: 20),
             _buildPlanningCard(
               context,
               title: "Trip Packer",
@@ -59,7 +69,7 @@ class PlanAheadPage extends StatelessWidget {
                 // Future: Navigate to Trip Packer details
               },
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: 20),
             _buildPlanningCard(
               context,
               title: "Event Series",
@@ -70,13 +80,13 @@ class PlanAheadPage extends StatelessWidget {
                 // Future: Navigate to Event Series details
               },
             ),
-            const SizedBox(height: 40),
-            const Text(
+            SizedBox(height: 40),
+            Text(
               "Upcoming Plans",
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 15),
-            _buildEmptyState(),
+            SizedBox(height: 15),
+            _buildEmptyState(context),
           ],
         ),
       ),
@@ -94,73 +104,79 @@ class PlanAheadPage extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(20),
+        padding: EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).colorScheme.surfaceContainerLow,
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 15,
-              offset: const Offset(0, 5),
+              offset: Offset(0, 5),
             ),
           ],
         ),
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: color.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(15),
               ),
               child: Icon(icon, color: color, size: 30),
             ),
-            const SizedBox(width: 20),
+            SizedBox(width: 20),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
                   ),
-                  const SizedBox(height: 4),
+                  SizedBox(height: 4),
                   Text(
                     subtitle,
-                    style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontSize: 13,
+                    ),
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+            Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(40),
+      padding: EdgeInsets.all(40),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF5F5),
+        color: Theme.of(context).colorScheme.surfaceContainerLow,
         borderRadius: BorderRadius.circular(25),
       ),
       child: Column(
         children: [
           Icon(Icons.auto_awesome, size: 50, color: Colors.orange.shade200),
-          const SizedBox(height: 20),
-          const Text(
+          SizedBox(height: 20),
+          Text(
             "No plans scheduled yet",
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           Text(
             "Start by scheduling your first outfit\nor creating a packing list.",
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontSize: 14,
+            ),
           ),
         ],
       ),

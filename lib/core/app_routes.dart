@@ -7,7 +7,7 @@ import '../ui/screens/wardrobe/wardrobe_page.dart';
 import '../ui/screens/shop/cart_page.dart';
 import '../ui/screens/main/search_page.dart';
 import '../ui/screens/social/profile_page.dart';
-import '../ui/screens/onboarding/camera_screen.dart';
+import '../ui/screens/makeover/avatar_try_on_page.dart';
 import '../ui/screens/auth/custom_login_screen.dart';
 import '../ui/screens/onboarding/onboarding_screen.dart';
 import '../ui/screens/permissions/permissions_request_screen.dart';
@@ -67,6 +67,8 @@ class _AuthGateState extends State<AuthGate> {
   }
 
   Future<_PermissionGateState> _checkUserPermissions(User user) async {
+    await _upsertUserProfile(user);
+
     final userRef = FirebaseFirestore.instance
         .collection('users')
         .doc(user.uid);
@@ -82,6 +84,9 @@ class _AuthGateState extends State<AuthGate> {
       userData?['permissionStatus'] as Map? ?? const {},
     );
     final storedAsGranted = userData?['permissionsGranted'] == true;
+    final isAdmin =
+        userData?['role'] == 'admin' || userData?['isAdmin'] == true;
+
     final devicePermissionsGranted =
         PermissionsService.areAllPermissionsGranted(deviceStatuses);
     final storedStatusesMatch = deviceStatuses.entries.every(
@@ -93,8 +98,11 @@ class _AuthGateState extends State<AuthGate> {
     }
 
     return _PermissionGateState(
-      shouldRequestPermissions: !devicePermissionsGranted,
-      isAdmin: userData?['role'] == 'admin' || userData?['isAdmin'] == true,
+      missingPermissions: deviceStatuses.entries
+          .where((entry) => !entry.value)
+          .map((entry) => entry.key)
+          .toSet(),
+      isAdmin: isAdmin,
     );
   }
 
@@ -155,7 +163,6 @@ class _AuthGateState extends State<AuthGate> {
         if (user != null) {
           if (user.uid != _lastUser?.uid) {
             _lastUser = user;
-            _upsertUserProfile(user);
           }
 
           return FutureBuilder<_PermissionGateState>(
@@ -182,9 +189,10 @@ class _AuthGateState extends State<AuthGate> {
               final promptHandled = _permissionPromptHandledThisSession
                   .contains(user.uid);
 
-              if (gateState?.shouldRequestPermissions == true &&
+              if (gateState?.missingPermissions.isNotEmpty == true &&
                   !promptHandled) {
                 return PermissionsRequestScreen(
+                  requiredPermissions: gateState!.missingPermissions,
                   onPermissionsComplete: (statuses) =>
                       _completePermissionPrompt(user, statuses),
                 );
@@ -216,7 +224,7 @@ class AppRoutes {
   static const String cart = '/cart';
   static const String search = '/search';
   static const String profile = '/profile';
-  static const String camera = '/camera';
+  static const String avatarTryOn = '/avatar-try-on';
   static const String planAhead = '/plan-ahead';
   static const String measurement = '/measurement';
 
@@ -227,18 +235,18 @@ class AppRoutes {
     cart: (context) => const CartPage(),
     search: (context) => const SearchPage(),
     profile: (context) => const ProfilePage(),
-    camera: (context) => const CameraScreen(),
+    avatarTryOn: (context) => const AvatarTryOnPage(),
     planAhead: (context) => const PlanAheadPage(),
     measurement: (context) => const MeasurementPage(),
   };
 }
 
 class _PermissionGateState {
-  final bool shouldRequestPermissions;
+  final Set<String> missingPermissions;
   final bool isAdmin;
 
   const _PermissionGateState({
-    required this.shouldRequestPermissions,
+    required this.missingPermissions,
     required this.isAdmin,
   });
 }

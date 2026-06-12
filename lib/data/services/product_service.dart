@@ -162,6 +162,112 @@ class ProductService {
     return _db.collection('products').snapshots();
   }
 
+  Future<List<Map<String, dynamic>>> getCatalogProducts() async {
+    return _loadTryOnCollection(_db.collection('products'), 'catalog');
+  }
+
+  Future<List<Map<String, dynamic>>> getWardrobeProducts(String userId) async {
+    return _loadTryOnCollection(
+      _db.collection('users').doc(userId).collection('wardrobe'),
+      'wardrobe',
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> _loadTryOnCollection(
+    Query<Map<String, dynamic>> query,
+    String source,
+  ) async {
+    final snapshot = await query.get();
+    return snapshot.docs
+        .map(
+          (doc) => <String, dynamic>{
+            ...doc.data(),
+            'id': doc.id,
+            'tryOnSource': source,
+          },
+        )
+        .where((product) => _tryOnImageUrl(product).isNotEmpty)
+        .toList();
+  }
+
+  /// Load products that can be selected for avatar try-on.
+  ///
+  /// Catalog products and the user's wardrobe are queried independently so a
+  /// permission or connectivity failure in one source does not empty the picker.
+  Future<List<Map<String, dynamic>>> getTryOnProducts(String userId) async {
+    Future<List<Map<String, dynamic>>> loadCollection(
+      Query<Map<String, dynamic>> query,
+      String source,
+    ) async {
+      try {
+        final snapshot = await query.get();
+        return snapshot.docs.map((doc) {
+          return <String, dynamic>{
+            ...doc.data(),
+            'id': doc.id,
+            'tryOnSource': source,
+          };
+        }).toList();
+      } catch (error) {
+        debugPrint('Unable to load $source products for try-on: $error');
+        return <Map<String, dynamic>>[];
+      }
+    }
+
+    final results = await Future.wait([
+      loadCollection(_db.collection('products'), 'catalog'),
+      loadCollection(
+        _db.collection('users').doc(userId).collection('wardrobe'),
+        'wardrobe',
+      ),
+      loadCollection(
+        _db.collection('user_products').where('userId', isEqualTo: userId),
+        'uploads',
+      ),
+      loadCollection(
+        _db
+            .collection('user_products')
+            .where('visibility', isEqualTo: 'public'),
+        'community',
+      ),
+    ]);
+
+    final products = <Map<String, dynamic>>[];
+    final seen = <String>{};
+    for (final sourceProducts in results) {
+      for (final product in sourceProducts) {
+        final imageUrl = _tryOnImageUrl(product);
+        if (imageUrl.isEmpty) continue;
+
+        final originalId = (product['originalProductId'] ?? '').toString();
+        final id = (product['id'] ?? '').toString();
+        final key = originalId.isNotEmpty
+            ? 'product:$originalId'
+            : imageUrl.isNotEmpty
+            ? 'image:$imageUrl'
+            : 'id:$id';
+        if (seen.add(key)) products.add(product);
+      }
+    }
+    return products;
+  }
+
+  String _tryOnImageUrl(Map<String, dynamic> product) {
+    const imageFields = [
+      'rawImageUrl',
+      'imageUrl',
+      'imageURL',
+      'processedImageUrl',
+      'processed_url',
+      'raw_url',
+    ];
+    for (final field in imageFields) {
+      final value = product[field];
+      if (value is String && value.trim().isNotEmpty) return value.trim();
+    }
+    return '';
+  }
+
   /// Get products filtered by weather tags
   Stream<QuerySnapshot> getRecommendedProducts(List<String> tags) {
     if (tags.isEmpty) return getProducts();

@@ -23,7 +23,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int _selectedTabIndex = 0;
-  static const Color primaryColor = Color(0xFF0D0140);
+  static Color primaryColor = Color(0xFF0D0140);
 
   final WeatherService _weatherService = WeatherService();
   final ProductService _productService = ProductService();
@@ -36,7 +36,7 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     // Check for location permissions and fetch weather data after a brief delay
     // to allow the UI to settle.
-    Future.delayed(const Duration(milliseconds: 500), () {
+    Future.delayed(Duration(milliseconds: 500), () {
       if (mounted) _checkPermissionAndFetchWeather();
     });
   }
@@ -58,7 +58,8 @@ class _HomePageState extends State<HomePage> {
         bool? shouldRequest = await _showLocationPermissionDialog();
         if (shouldRequest == true) {
           status = await Geolocator.requestPermission();
-          if (status == LocationPermission.whileInUse || status == LocationPermission.always) {
+          if (status == LocationPermission.whileInUse ||
+              status == LocationPermission.always) {
             _fetchWeather();
           } else if (status == LocationPermission.deniedForever) {
             setState(() {
@@ -90,38 +91,54 @@ class _HomePageState extends State<HomePage> {
       barrierDismissible: false,
       builder: (BuildContext context) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           title: Row(
             children: [
-              const Icon(Icons.location_on, color: primaryColor),
-              const SizedBox(width: 10),
+              Icon(Icons.location_on, color: primaryColor),
+              SizedBox(width: 10),
               Expanded(
                 child: Text(
                   'Local Recommendations',
-                  style: const TextStyle(fontSize: 18),
+                  style: TextStyle(fontSize: 18),
                 ),
               ),
             ],
           ),
-          content: const Text(
+          content: Text(
             'To suggest the perfect fashion for your current day, we need access to your location for real-time weather updates.',
             style: TextStyle(fontSize: 15, height: 1.4),
           ),
           actions: <Widget>[
             TextButton(
-              child: const Text('Not Now', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w600)),
+              child: Text(
+                'Not Now',
+                style: TextStyle(
+                  color: Colors.grey,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
               onPressed: () => Navigator.of(context).pop(false),
             ),
             Padding(
-              padding: const EdgeInsets.only(right: 8.0),
+              padding: EdgeInsets.only(right: 8.0),
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: primaryColor,
                   elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                 ),
-                child: const Text('Allow Access', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                child: Text(
+                  'Allow Access',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 onPressed: () => Navigator.of(context).pop(true),
               ),
             ),
@@ -189,7 +206,7 @@ class _HomePageState extends State<HomePage> {
     }
 
     return await Geolocator.getCurrentPosition(
-      locationSettings: const LocationSettings(
+      locationSettings: LocationSettings(
         accuracy: LocationAccuracy.low,
         distanceFilter: 1000,
       ),
@@ -199,67 +216,78 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.menu, color: Colors.black),
+          icon: Icon(
+            Icons.menu,
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
           onPressed: () => Scaffold.of(context).openDrawer(),
         ),
         title: Row(
           children: [
-            const Expanded(
+            Expanded(
               child: Text(
                 'My Fashion Style',
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
-                  color: Colors.black,
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
               ),
             ),
-            _buildAppBarAction(Icons.shopping_bag_outlined, () => Navigator.pushNamed(context, AppRoutes.cart), hasNotification: true),
+            _buildAppBarAction(
+              Icons.shopping_bag_outlined,
+              () => Navigator.pushNamed(context, AppRoutes.cart),
+              hasNotification: true,
+            ),
           ],
         ),
         actions: [
           Container(
-            margin: const EdgeInsets.symmetric(vertical: 8),
+            margin: EdgeInsets.symmetric(vertical: 8),
             decoration: BoxDecoration(
-              color: Colors.grey.shade100,
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
               shape: BoxShape.circle,
             ),
             child: IconButton(
-              icon: const Icon(Icons.arrow_back_ios_new, size: 16, color: Colors.black),
+              icon: Icon(
+                Icons.arrow_back_ios_new,
+                size: 16,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
               onPressed: () => Navigator.of(context).maybePop(),
             ),
           ),
-          const SizedBox(width: 20),
+          SizedBox(width: 20),
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20.0),
+        padding: EdgeInsets.symmetric(horizontal: 20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 10),
+            SizedBox(height: 10),
             _buildTabs(),
-            const SizedBox(height: 25),
+            SizedBox(height: 25),
             // AI Makeover Card
             _buildAiMakeoverCard(),
-            const SizedBox(height: 25),
+            SizedBox(height: 25),
             // Main Content Area (Light Background)
             Container(
-              padding: const EdgeInsets.all(20),
+              padding: EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: const Color(0xFFFFF5F5), // Light peach/pink background
+                color: Theme.of(context).colorScheme.surfaceContainerLow,
                 borderRadius: BorderRadius.circular(30),
               ),
               child: Column(
                 children: [
                   // Style By Occasion
                   _buildStyleByOccasion(),
-                  const SizedBox(height: 25),
+                  SizedBox(height: 25),
                   // Feature shortcuts
                   _buildFeatureCard(
                     title: "Idol Style Match",
@@ -268,7 +296,7 @@ class _HomePageState extends State<HomePage> {
                     color: primaryColor,
                     onTap: () {},
                   ),
-                  const SizedBox(height: 15),
+                  SizedBox(height: 15),
                   _buildFeatureCard(
                     title: "Plan Ahead",
                     subtitle: "Week planner, trip packer & event series",
@@ -278,7 +306,7 @@ class _HomePageState extends State<HomePage> {
                       Navigator.pushNamed(context, AppRoutes.planAhead);
                     },
                   ),
-                  const SizedBox(height: 15),
+                  SizedBox(height: 15),
                   _buildFeatureCard(
                     title: "Shopping Intelligence",
                     subtitle: "Smart insights for your wardrobe",
@@ -291,10 +319,10 @@ class _HomePageState extends State<HomePage> {
                 ],
               ),
             ),
-            const SizedBox(height: 25),
+            SizedBox(height: 25),
             // Weather Recommendation Section (Moved outside main container)
             _buildWeatherRecommendation(),
-             const SizedBox(height: 30),
+            SizedBox(height: 30),
           ],
         ),
       ),
@@ -302,11 +330,19 @@ class _HomePageState extends State<HomePage> {
   }
 
   /// AppBar action buttons helper
-  Widget _buildAppBarAction(IconData icon, VoidCallback onTap, {bool hasNotification = false}) {
+  Widget _buildAppBarAction(
+    IconData icon,
+    VoidCallback onTap, {
+    bool hasNotification = false,
+  }) {
     return Stack(
       children: [
         IconButton(
-          icon: Icon(icon, color: Colors.black, size: 28),
+          icon: Icon(
+            icon,
+            color: Theme.of(context).colorScheme.onSurface,
+            size: 28,
+          ),
           onPressed: onTap,
         ),
         if (hasNotification)
@@ -314,8 +350,8 @@ class _HomePageState extends State<HomePage> {
             stream: NotificationService().getUnreadCount(),
             builder: (context, snapshot) {
               final unreadCount = snapshot.data ?? 0;
-              if (unreadCount == 0) return const SizedBox.shrink();
-              
+              if (unreadCount == 0) return SizedBox.shrink();
+
               return Positioned(
                 right: 12,
                 top: 12,
@@ -342,9 +378,9 @@ class _HomePageState extends State<HomePage> {
       child: Row(
         children: [
           _tabButton("Makeover", 0),
-          const SizedBox(width: 15),
+          SizedBox(width: 15),
           _tabButton("Community", 1),
-          const SizedBox(width: 15),
+          SizedBox(width: 15),
           _tabButton("Events", 2),
         ],
       ),
@@ -357,19 +393,23 @@ class _HomePageState extends State<HomePage> {
     return GestureDetector(
       onTap: () => setState(() => _selectedTabIndex = index),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 10),
+        padding: EdgeInsets.symmetric(horizontal: 25, vertical: 10),
         decoration: BoxDecoration(
           color: isSelected ? primaryColor : Colors.white,
           borderRadius: BorderRadius.circular(25),
           border: Border.all(
-            color: isSelected ? primaryColor : Colors.grey.shade200,
+            color: isSelected
+                ? primaryColor
+                : Theme.of(context).colorScheme.outlineVariant,
             width: 1,
           ),
         ),
         child: Text(
           title,
           style: TextStyle(
-            color: isSelected ? Colors.white : Colors.grey.shade400,
+            color: isSelected
+                ? Colors.white
+                : Theme.of(context).colorScheme.outline,
             fontWeight: FontWeight.w600,
             fontSize: 14,
           ),
@@ -384,12 +424,12 @@ class _HomePageState extends State<HomePage> {
       onTap: () {
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const AiUploadPage()),
+          MaterialPageRoute(builder: (context) => AiUploadPage()),
         );
       },
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(25),
+        padding: EdgeInsets.all(25),
         decoration: BoxDecoration(
           color: primaryColor,
           borderRadius: BorderRadius.circular(20),
@@ -400,7 +440,7 @@ class _HomePageState extends State<HomePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Start Your\nAI Makeover',
                     style: TextStyle(
                       color: Colors.white,
@@ -409,7 +449,7 @@ class _HomePageState extends State<HomePage> {
                       height: 1.2,
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  SizedBox(height: 10),
                   Text(
                     'Upload a full-body photo or\nselfie to begin.',
                     style: TextStyle(
@@ -426,9 +466,12 @@ class _HomePageState extends State<HomePage> {
               decoration: BoxDecoration(
                 color: Colors.transparent,
                 borderRadius: BorderRadius.circular(15),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 2),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.3),
+                  width: 2,
+                ),
               ),
-              child: const Icon(Icons.add, color: Colors.white, size: 35),
+              child: Icon(Icons.add, color: Colors.white, size: 35),
             ),
           ],
         ),
@@ -441,8 +484,16 @@ class _HomePageState extends State<HomePage> {
     final List<Map<String, dynamic>> occasions = [
       {'name': 'Casual', 'value': 'casual', 'icon': Icons.check_circle_outline},
       {'name': 'Afro-Chic', 'value': 'afrochic', 'icon': Icons.eco_outlined},
-      {'name': 'Corporate', 'value': 'corporate', 'icon': Icons.business_center_outlined},
-      {'name': 'Street wear', 'value': 'streetwear', 'icon': Icons.style_outlined},
+      {
+        'name': 'Corporate',
+        'value': 'corporate',
+        'icon': Icons.business_center_outlined,
+      },
+      {
+        'name': 'Street wear',
+        'value': 'streetwear',
+        'icon': Icons.style_outlined,
+      },
       {'name': 'Glamour', 'value': 'glamour', 'icon': Icons.diamond_outlined},
     ];
     final userId = FirebaseAuth.instance.currentUser?.uid;
@@ -450,21 +501,30 @@ class _HomePageState extends State<HomePage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           "Style By Occasion",
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
-        const SizedBox(height: 4),
+        SizedBox(height: 4),
         Text(
           "Discover your global style icon twin",
-          style: TextStyle(color: Colors.grey.shade400, fontSize: 11),
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.outline,
+            fontSize: 11,
+          ),
         ),
-        const SizedBox(height: 15),
+        SizedBox(height: 15),
         StreamBuilder<DocumentSnapshot>(
-          stream: userId == null ? null : FirebaseFirestore.instance.collection('users').doc(userId).snapshots(),
+          stream: userId == null
+              ? null
+              : FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(userId)
+                    .snapshots(),
           builder: (context, snapshot) {
             final userData = snapshot.data?.data() as Map<String, dynamic>?;
-            final selectedStyle = (userData?['stylePreference'] ?? 'casual').toString();
+            final selectedStyle = (userData?['stylePreference'] ?? 'casual')
+                .toString();
             return SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
@@ -472,7 +532,9 @@ class _HomePageState extends State<HomePage> {
                   return _buildOccasionItem(
                     occ,
                     isSelected: occ['value'] == selectedStyle,
-                    onTap: userId == null ? null : () => _updateStylePreference(userId, occ['value']),
+                    onTap: userId == null
+                        ? null
+                        : () => _updateStylePreference(userId, occ['value']),
                   );
                 }).toList(),
               ),
@@ -483,16 +545,23 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Future<void> _updateStylePreference(String userId, String stylePreference) async {
+  Future<void> _updateStylePreference(
+    String userId,
+    String stylePreference,
+  ) async {
     await FirebaseFirestore.instance.collection('users').doc(userId).set({
       'stylePreference': stylePreference,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }
 
-  Widget _buildOccasionItem(Map<String, dynamic> occasion, {required bool isSelected, VoidCallback? onTap}) {
+  Widget _buildOccasionItem(
+    Map<String, dynamic> occasion, {
+    required bool isSelected,
+    VoidCallback? onTap,
+  }) {
     return Padding(
-      padding: const EdgeInsets.only(right: 15),
+      padding: EdgeInsets.only(right: 15),
       child: GestureDetector(
         onTap: onTap,
         child: Column(
@@ -506,16 +575,20 @@ class _HomePageState extends State<HomePage> {
               ),
               child: Icon(
                 occasion['icon'],
-                color: isSelected ? Colors.white : Colors.grey.shade400,
+                color: isSelected
+                    ? Colors.white
+                    : Theme.of(context).colorScheme.outline,
                 size: 24,
               ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             Text(
               occasion['name'],
               style: TextStyle(
                 fontSize: 11,
-                color: isSelected ? Colors.black : Colors.grey.shade500,
+                color: isSelected
+                    ? Colors.black
+                    : Theme.of(context).colorScheme.onSurfaceVariant,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               ),
             ),
@@ -537,10 +610,10 @@ class _HomePageState extends State<HomePage> {
       onTap: onTap,
       child: Container(
         width: double.infinity,
-        margin: const EdgeInsets.only(bottom: 15),
-        padding: const EdgeInsets.all(12),
+        margin: EdgeInsets.only(bottom: 15),
+        padding: EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).colorScheme.surfaceContainerLow,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
@@ -554,23 +627,20 @@ class _HomePageState extends State<HomePage> {
               ),
               child: Icon(icon, color: Colors.white, size: 28),
             ),
-            const SizedBox(width: 15),
+            SizedBox(width: 15),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                   ),
-                  const SizedBox(height: 2),
+                  SizedBox(height: 2),
                   Text(
                     subtitle,
                     style: TextStyle(
-                      color: Colors.grey.shade400,
+                      color: Theme.of(context).colorScheme.outline,
                       fontSize: 11,
                     ),
                   ),
@@ -582,3 +652,224 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
+
+  Widget _buildWeatherRecommendation() {
+    if (_isLoadingWeather) {
+      return Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 24),
+          child: CircularProgressIndicator(color: primaryColor),
+        ),
+      );
+    }
+
+    if (_errorMessage != null) {
+      return Container(
+        width: double.infinity,
+        padding: EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Column(
+          children: [
+            Icon(Icons.location_off_outlined, color: primaryColor),
+            SizedBox(height: 10),
+            Text(
+              _errorMessage!,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+            ),
+            SizedBox(height: 12),
+            TextButton.icon(
+              onPressed: _checkPermissionAndFetchWeather,
+              icon: Icon(Icons.refresh),
+              label: Text('Try again'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final weather = _currentWeather;
+    if (weather == null) {
+      return SizedBox.shrink();
+    }
+
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: double.infinity,
+          padding: EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: primaryColor,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Row(
+            children: [
+              Image.network(
+                weather.iconUrl,
+                width: 58,
+                height: 58,
+                errorBuilder: (_, _, _) =>
+                    Icon(Icons.cloud_outlined, color: Colors.white, size: 46),
+              ),
+              SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${weather.temperatureC.round()}°C in ${weather.locationName}',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      '${weather.condition}. ${weather.clothingRecommendation}',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.75),
+                        fontSize: 12,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        SizedBox(height: 18),
+        Text(
+          'Recommended for today',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        SizedBox(height: 12),
+        StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+          stream: userId == null
+              ? null
+              : FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(userId)
+                    .snapshots(),
+          builder: (context, userSnapshot) {
+            final stylePreference = userSnapshot.data
+                ?.data()?['stylePreference']
+                ?.toString();
+            return StreamBuilder<
+              List<QueryDocumentSnapshot<Map<String, dynamic>>>
+            >(
+              stream: _productService.getRecommendedProductDocs(
+                weatherTags: weather.weatherTags,
+                stylePreference: stylePreference,
+              ),
+              builder: (context, productSnapshot) {
+                if (productSnapshot.connectionState ==
+                    ConnectionState.waiting) {
+                  return Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(16),
+                      child: CircularProgressIndicator(color: primaryColor),
+                    ),
+                  );
+                }
+
+                if (productSnapshot.hasError) {
+                  return Text(
+                    'Unable to load recommendations right now.',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  );
+                }
+
+                final products = productSnapshot.data ?? [];
+                if (products.isEmpty) {
+                  return Text(
+                    'No matching items yet. Try another style or check back later.',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  );
+                }
+
+                return SizedBox(
+                  height: 190,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: products.length,
+                    separatorBuilder: (_, _) => SizedBox(width: 12),
+                    itemBuilder: (context, index) {
+                      final product = products[index].data();
+                      final imageUrl =
+                          (product['imageUrl'] ?? product['imageURL'] ?? '')
+                              .toString();
+                      final name = (product['name'] ?? 'Fashion item')
+                          .toString();
+                      return GestureDetector(
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                ProductDetailPage(productData: product),
+                          ),
+                        ),
+                        child: SizedBox(
+                          width: 135,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(16),
+                                child: Container(
+                                  width: 135,
+                                  height: 145,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.surfaceContainerHighest,
+                                  child: imageUrl.isEmpty
+                                      ? Icon(
+                                          Icons.checkroom_outlined,
+                                          color: Colors.grey,
+                                          size: 38,
+                                        )
+                                      : Image.network(
+                                          imageUrl,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (_, _, _) => Icon(
+                                            Icons.broken_image_outlined,
+                                            color: Colors.grey,
+                                          ),
+                                        ),
+                                ),
+                              ),
+                              SizedBox(height: 7),
+                              Text(
+                                name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                );
+              },
+            );
+          },
+        ),
+      ],
+    );
+  }
+}

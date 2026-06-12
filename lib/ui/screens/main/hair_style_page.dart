@@ -11,7 +11,6 @@ import '../../../data/services/hairstyle_service.dart';
 
 const _hairNavy = Color(0xFF17008A);
 const _hairOrange = Color(0xFFFFB51B);
-const _hairBlush = Color(0xFFFFF2F2);
 
 const _styleOptions = [
   _HairStyleOption(
@@ -197,7 +196,9 @@ class _HairStylePageState extends State<HairStylePage> {
           width: double.infinity,
           height: 230,
           decoration: BoxDecoration(
-            color: _latestSelfieUrl == null ? _hairBlush : Colors.white,
+            color: _latestSelfieUrl == null
+                ? Theme.of(context).colorScheme.surfaceContainerLow
+                : Theme.of(context).colorScheme.surface,
             borderRadius: BorderRadius.circular(8),
           ),
           child: _buildSelfiePreview(),
@@ -311,12 +312,16 @@ class _HairStylePageState extends State<HairStylePage> {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(Icons.upload_rounded, size: 78, color: Colors.grey.shade400),
+        Icon(
+          Icons.upload_rounded,
+          size: 78,
+          color: Theme.of(context).colorScheme.outline,
+        ),
         const SizedBox(height: 10),
         Text(
           'Upload Your Photo to Begin',
           style: TextStyle(
-            color: Colors.grey.shade500,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
             fontSize: 13,
             fontWeight: FontWeight.w600,
           ),
@@ -633,7 +638,7 @@ class _HairResultPageState extends State<_HairResultPage> {
   Widget _buildResultImage() {
     if (_error != null) {
       return ColoredBox(
-        color: _hairBlush,
+        color: Theme.of(context).colorScheme.surfaceContainerLow,
         child: Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
@@ -661,7 +666,7 @@ class _HairResultPageState extends State<_HairResultPage> {
     final generation = _generation;
     if (generation == null) {
       return ColoredBox(
-        color: _hairBlush,
+        color: Theme.of(context).colorScheme.surfaceContainerLow,
         child: const Center(child: CircularProgressIndicator(color: _hairNavy)),
       );
     }
@@ -769,7 +774,7 @@ class _HairFlowScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       body: SafeArea(
         child: Column(
           children: [
@@ -827,7 +832,9 @@ class _HairHeader extends StatelessWidget {
                 tooltip: 'Back',
                 onPressed: onBack,
                 style: IconButton.styleFrom(
-                  backgroundColor: const Color(0xFFF5F5F5),
+                  backgroundColor: Theme.of(
+                    context,
+                  ).colorScheme.surfaceContainerHighest,
                 ),
                 icon: const Icon(Icons.chevron_left_rounded),
               ),
@@ -840,10 +847,7 @@ class _HairHeader extends StatelessWidget {
                 Expanded(
                   child: Text(
                     title,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
                   ),
                 ),
                 Stack(
@@ -894,14 +898,22 @@ class _HairTabs extends StatelessWidget {
                   ? null
                   : () => onSelected?.call(index),
               style: OutlinedButton.styleFrom(
-                foregroundColor: selected ? Colors.white : Colors.grey.shade600,
-                backgroundColor: selected ? _hairNavy : Colors.white,
+                foregroundColor: selected
+                    ? Colors.white
+                    : Theme.of(context).colorScheme.onSurfaceVariant,
+                backgroundColor: selected
+                    ? _hairNavy
+                    : Theme.of(context).colorScheme.surfaceContainerLow,
                 disabledForegroundColor: selected
                     ? Colors.white
-                    : Colors.grey.shade600,
-                disabledBackgroundColor: selected ? _hairNavy : Colors.white,
+                    : Theme.of(context).colorScheme.onSurfaceVariant,
+                disabledBackgroundColor: selected
+                    ? _hairNavy
+                    : Theme.of(context).colorScheme.surfaceContainerLow,
                 side: BorderSide(
-                  color: selected ? _hairNavy : Colors.grey.shade200,
+                  color: selected
+                      ? _hairNavy
+                      : Theme.of(context).colorScheme.outlineVariant,
                 ),
                 padding: const EdgeInsets.symmetric(vertical: 10),
                 shape: const StadiumBorder(),
@@ -910,7 +922,7 @@ class _HairTabs extends StatelessWidget {
                 fit: BoxFit.scaleDown,
                 child: Text(
                   labels[index],
-                  style: const TextStyle(fontWeight: FontWeight.w600),
+                  style: TextStyle(fontWeight: FontWeight.w600),
                 ),
               ),
             ),
@@ -964,7 +976,7 @@ class _HairButton extends StatelessWidget {
           fit: BoxFit.scaleDown,
           child: Text(
             label,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
           ),
         ),
       ),
@@ -991,14 +1003,14 @@ class _FaceSlider extends StatelessWidget {
           width: 58,
           child: Text(
             label,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
           ),
         ),
         Expanded(
           child: SliderTheme(
             data: SliderTheme.of(context).copyWith(
               activeTrackColor: _hairNavy,
-              inactiveTrackColor: Colors.grey.shade300,
+              inactiveTrackColor: Theme.of(context).colorScheme.outlineVariant,
               thumbColor: _hairNavy,
               trackHeight: 4,
             ),
@@ -1052,7 +1064,9 @@ class _StyleRow extends StatelessWidget {
                           option.imageUrl,
                           fit: BoxFit.cover,
                           errorBuilder: (_, _, _) => ColoredBox(
-                            color: Colors.grey.shade100,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerHighest,
                             child: const Icon(Icons.face_retouching_natural),
                           ),
                         ),
@@ -1097,7 +1111,7 @@ class _HairActionStrip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 9),
       decoration: BoxDecoration(
-        color: _hairBlush,
+        color: Theme.of(context).colorScheme.surfaceContainerLow,
         borderRadius: BorderRadius.circular(7),
       ),
       child: Row(
@@ -1126,7 +1140,7 @@ class _HairActionStrip extends StatelessWidget {
                     textAlign: TextAlign.center,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 8),
+                    style: TextStyle(fontSize: 8),
                   ),
                 ],
               ),
@@ -1163,7 +1177,9 @@ class _SavedLookRow extends StatelessWidget {
                   url,
                   fit: BoxFit.cover,
                   errorBuilder: (_, _, _) => ColoredBox(
-                    color: Colors.grey.shade100,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
                     child: const Icon(Icons.broken_image_outlined),
                   ),
                 ),
@@ -1192,10 +1208,15 @@ class _EmptyHairFeed extends StatelessWidget {
             Icon(
               Icons.auto_awesome_outlined,
               size: 44,
-              color: Colors.grey.shade400,
+              color: Theme.of(context).colorScheme.outline,
             ),
             const SizedBox(height: 12),
-            Text(title, style: TextStyle(color: Colors.grey.shade600)),
+            Text(
+              title,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
           ],
         ),
       ),
@@ -1213,7 +1234,7 @@ class _HairBottomBar extends StatelessWidget {
       child: Container(
         height: 66,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).colorScheme.surface,
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.05),

@@ -18,7 +18,7 @@ class MeasurementPage extends StatefulWidget {
 }
 
 class _MeasurementPageState extends State<MeasurementPage> {
-  static const _primaryColor = Color(0xFF17008A);
+  static final Color _primaryColor = Color(0xFF17008A);
   double _height = 0.68;
   double _waist = 0.48;
   double _shoulders = 0.46;
@@ -57,7 +57,7 @@ class _MeasurementPageState extends State<MeasurementPage> {
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Measurements saved successfully.')),
+          SnackBar(content: Text('Measurements saved successfully.')),
         );
         Navigator.pop(context);
       }
@@ -75,19 +75,22 @@ class _MeasurementPageState extends State<MeasurementPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         elevation: 0,
         leading: IconButton(
           tooltip: 'Menu',
-          icon: const Icon(Icons.menu, color: Colors.black),
+          icon: Icon(
+            Icons.menu,
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
           onPressed: () {},
         ),
-        title: const Text(
+        title: Text(
           'My Fashion Style',
           style: TextStyle(
-            color: Colors.black,
+            color: Theme.of(context).colorScheme.onSurface,
             fontWeight: FontWeight.w700,
             fontSize: 20,
           ),
@@ -97,13 +100,13 @@ class _MeasurementPageState extends State<MeasurementPage> {
             children: [
               IconButton(
                 tooltip: 'Cart',
-                icon: const Icon(
+                icon: Icon(
                   Icons.shopping_bag_outlined,
-                  color: Colors.black,
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
                 onPressed: () {},
               ),
-              const Positioned(
+              Positioned(
                 right: 10,
                 top: 9,
                 child: CircleAvatar(radius: 4, backgroundColor: Colors.red),
@@ -114,23 +117,28 @@ class _MeasurementPageState extends State<MeasurementPage> {
             tooltip: 'Back',
             onPressed: () => Navigator.pop(context),
             style: IconButton.styleFrom(
-              backgroundColor: const Color(0xFFF5F5F5),
+              backgroundColor: Theme.of(
+                context,
+              ).colorScheme.surfaceContainerHighest,
             ),
-            icon: const Icon(Icons.chevron_left_rounded, color: Colors.black),
+            icon: Icon(
+              Icons.chevron_left_rounded,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
           ),
-          const SizedBox(width: 10),
+          SizedBox(width: 10),
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(22, 12, 22, 28),
+        padding: EdgeInsets.fromLTRB(22, 12, 22, 28),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Analyzing Your Measurement',
               style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             AspectRatio(
               aspectRatio: 0.92,
               child: ClipRRect(
@@ -138,7 +146,7 @@ class _MeasurementPageState extends State<MeasurementPage> {
                 child: _buildSourceImage(),
               ),
             ),
-            const SizedBox(height: 18),
+            SizedBox(height: 18),
             _MeasurementSlider(
               label: 'Height',
               value: _height,
@@ -154,7 +162,7 @@ class _MeasurementPageState extends State<MeasurementPage> {
               value: _shoulders,
               onChanged: (value) => setState(() => _shoulders = value),
             ),
-            const SizedBox(height: 14),
+            SizedBox(height: 14),
             Center(
               child: SizedBox(
                 width: 190,
@@ -170,7 +178,7 @@ class _MeasurementPageState extends State<MeasurementPage> {
                     ),
                   ),
                   child: _isSaving
-                      ? const SizedBox(
+                      ? SizedBox(
                           width: 20,
                           height: 20,
                           child: CircularProgressIndicator(
@@ -178,7 +186,7 @@ class _MeasurementPageState extends State<MeasurementPage> {
                             strokeWidth: 2,
                           ),
                         )
-                      : const Text(
+                      : Text(
                           'Confirm Measurement',
                           style: TextStyle(fontWeight: FontWeight.w700),
                         ),
@@ -206,7 +214,7 @@ class _MeasurementPageState extends State<MeasurementPage> {
   }
 
   Widget _buildPlaceholder() {
-    return const ColoredBox(
+    return ColoredBox(
       color: Color(0xFF9A84F5),
       child: Center(
         child: Icon(Icons.person_outline, size: 140, color: Colors.white70),
@@ -234,14 +242,14 @@ class _MeasurementSlider extends StatelessWidget {
           width: 70,
           child: Text(
             label,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
           ),
         ),
         Expanded(
           child: SliderTheme(
             data: SliderTheme.of(context).copyWith(
               activeTrackColor: _MeasurementPageState._primaryColor,
-              inactiveTrackColor: Colors.grey.shade300,
+              inactiveTrackColor: Theme.of(context).colorScheme.outlineVariant,
               thumbColor: _MeasurementPageState._primaryColor,
               trackHeight: 4,
             ),
