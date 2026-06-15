@@ -120,6 +120,7 @@ class HairstyleService {
     required String userId,
     required String styleName,
     required String prompt,
+    required String styleReferenceImageUrl,
     required HairstyleGeneration generation,
   }) async {
     await _firestore
@@ -131,7 +132,9 @@ class HairstyleService {
           'prompt': prompt,
           'sourceImageUrl': generation.sourceImageUrl,
           'resultImageUrl': generation.resultImageUrl,
+          'styleReferenceImageUrl': styleReferenceImageUrl,
           'isPreview': generation.isPreview,
+          'previewType': generation.isPreview ? 'mock_collage' : 'generated',
           'createdAt': FieldValue.serverTimestamp(),
         });
   }

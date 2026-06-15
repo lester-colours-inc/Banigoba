@@ -13,6 +13,7 @@ class Post {
   final String outfitId;
   final List<String> productIds;
   final List<Map<String, dynamic>> products;
+  final bool isPublic;
 
   Post({
     required this.id,
@@ -26,6 +27,7 @@ class Post {
     this.outfitId = '',
     this.productIds = const [],
     this.products = const [],
+    this.isPublic = false,
   });
 
   factory Post.fromFirestore(DocumentSnapshot doc) {
@@ -67,6 +69,7 @@ class Post {
                 .map((value) => Map<String, dynamic>.from(value))
                 .toList()
           : const [],
+      isPublic: data['isPublic'] == true || data['visibility'] == 'public',
     );
   }
 
@@ -84,6 +87,8 @@ class Post {
       if (outfitId.isNotEmpty) 'outfitId': outfitId,
       if (productIds.isNotEmpty) 'productIds': productIds,
       if (products.isNotEmpty) 'products': products,
+      'isPublic': isPublic,
+      'visibility': isPublic ? 'public' : 'private',
     };
   }
 

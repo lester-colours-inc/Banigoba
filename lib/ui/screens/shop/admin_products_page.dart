@@ -1,4 +1,4 @@
-// Provides administrators with catalog product creation, editing, and deletion tools.
+// Lets sellers manage products listed by their shop or boutique.
 import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../data/services/product_service.dart';
 
-/// Admin-only screen to manage (add/delete) products in the main global catalog
+/// Product and inventory manager for the current seller.
 class AdminProductsPage extends StatefulWidget {
   const AdminProductsPage({super.key});
 
@@ -24,16 +24,9 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Admin Product Manager"),
+        title: const Text("Products & Inventory"),
         backgroundColor: primaryColor,
         foregroundColor: Colors.white,
-        actions: [
-          // Logout for admin to exit the panel
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () => FirebaseAuth.instance.signOut(),
-          ),
-        ],
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: _productService.getAdminProducts(_currentUserId),
@@ -42,7 +35,9 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
             return const Center(child: CircularProgressIndicator());
           }
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return const Center(child: Text("No products found in catalog."));
+            return const Center(
+              child: Text("No products yet. Add your first listing."),
+            );
           }
 
           final products = snapshot.data!.docs;
@@ -78,7 +73,9 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                 ),
                 title: Text(name),
                 subtitle: Text(
-                  "${data['category'] ?? 'No Category'} - ${data['styleTag'] ?? data['style'] ?? 'casual'}",
+                  "${data['category'] ?? 'No Category'} • "
+                  "\$${((data['price'] as num?)?.toDouble() ?? 0).toStringAsFixed(2)} • "
+                  "${(data['stock'] as num?)?.toInt() ?? 0} in stock",
                 ),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -113,7 +110,7 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
       builder: (context) => AlertDialog(
         title: const Text("Delete Product?"),
         content: Text(
-          "Are you sure you want to delete '$name' from the global catalog? This cannot be undone.",
+          "Are you sure you want to remove '$name' from your boutique? This cannot be undone.",
         ),
         actions: [
           TextButton(
@@ -126,7 +123,7 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
               if (mounted) {
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Product deleted from catalog")),
+                  const SnackBar(content: Text("Product removed")),
                 );
               }
             },
@@ -155,6 +152,14 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
     final bool isEditing = docId != null;
     final nameController = TextEditingController(
       text: existingData?['name'] ?? '',
+    );
+    final priceController = TextEditingController(
+      text: ((existingData?['price'] as num?)?.toDouble() ?? 0).toStringAsFixed(
+        2,
+      ),
+    );
+    final stockController = TextEditingController(
+      text: ((existingData?['stock'] as num?)?.toInt() ?? 0).toString(),
     );
     String category = existingData?['category'] ?? 'tops';
     String subcategory = existingData?['subcategory'] ?? 'none';
@@ -242,9 +247,7 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
             children: [
               Center(
                 child: Text(
-                  isEditing
-                      ? "Edit Catalog Product"
-                      : "Add New Catalog Product",
+                  isEditing ? "Edit Product" : "Add Boutique Product",
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
               ),
@@ -305,6 +308,35 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                   labelText: "Product Name",
                   border: OutlineInputBorder(),
                 ),
+              ),
+              const SizedBox(height: 15),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: priceController,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      decoration: const InputDecoration(
+                        labelText: "Price",
+                        prefixText: "\$ ",
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: TextField(
+                      controller: stockController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: "Stock",
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 15),
               Row(
@@ -462,11 +494,13 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                   onPressed: () async {
                     if ((selectedImage == null && !isEditing) ||
                         nameController.text.isEmpty ||
+                        double.tryParse(priceController.text) == null ||
+                        int.tryParse(stockController.text) == null ||
                         selectedColours.isEmpty) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text(
-                            "Missing info (ensure image, name, and at least one colour)",
+                            "Add an image, name, valid price, stock, and colour.",
                           ),
                         ),
                       );
@@ -500,6 +534,8 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                       final productUpdateData = {
                         'uploaderId': _currentUserId,
                         'name': nameController.text,
+                        'price': double.parse(priceController.text),
+                        'stock': int.parse(stockController.text),
                         'imageUrl': imageUrl,
                         'rawImageUrl': rawImageUrl,
                         'category': category,
@@ -516,6 +552,21 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                         if (isEditing)
                           'updatedAt': FieldValue.serverTimestamp(),
                       };
+
+                      final sellerSnapshot = await FirebaseFirestore.instance
+                          .collection('users')
+                          .doc(_currentUserId)
+                          .get();
+                      final sellerData =
+                          sellerSnapshot.data() ?? const <String, dynamic>{};
+                      final shop = Map<String, dynamic>.from(
+                        sellerData['shop'] as Map? ?? const {},
+                      );
+                      productUpdateData['shopName'] =
+                          (shop['name'] ??
+                                  sellerData['displayName'] ??
+                                  'Boutique')
+                              .toString();
 
                       if (isEditing) {
                         await _productService.updateCatalogProduct(
@@ -534,7 +585,7 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                             content: Text(
                               isEditing
                                   ? "Product successfully updated!"
-                                  : "Product successfully added to catalog!",
+                                  : "Product added to your boutique!",
                             ),
                           ),
                         );
@@ -549,7 +600,7 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                     }
                   },
                   child: Text(
-                    isEditing ? "Update Product" : "Add Product to Catalog",
+                    isEditing ? "Update Product" : "Add Product",
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,

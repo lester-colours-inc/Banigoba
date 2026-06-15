@@ -10,7 +10,16 @@ import '../wardrobe/measurement_page.dart';
 /// The starting point of the AI Makeover flow.
 /// Users upload a full-body photo or take a selfie to be used for the AI generation.
 class AiUploadPage extends StatefulWidget {
-  const AiUploadPage({super.key});
+  const AiUploadPage({
+    super.key,
+    this.plannedDate,
+    this.eventId,
+    this.eventName,
+  });
+
+  final DateTime? plannedDate;
+  final String? eventId;
+  final String? eventName;
 
   @override
   State<AiUploadPage> createState() => _AiUploadPageState();
@@ -173,7 +182,12 @@ class _AiUploadPageState extends State<AiUploadPage> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => MeasurementPage(imageBytes: imageBytes),
+          builder: (context) => MeasurementPage(
+            imageBytes: imageBytes,
+            plannedDate: widget.plannedDate,
+            eventId: widget.eventId,
+            eventName: widget.eventName,
+          ),
         ),
       );
     } catch (e, stackTrace) {
@@ -272,28 +286,6 @@ class _AiUploadPageState extends State<AiUploadPage> {
                 fontWeight: FontWeight.bold,
                 fontSize: 24,
               ),
-            ),
-            SizedBox(height: 15),
-
-            // Segment Switch Selector Row (Mine, My Friends, Community)
-            Row(
-              children: [
-                _buildSegmentTab(
-                  'Mine',
-                  isActive: true,
-                  activeColor: primaryBlue,
-                ),
-                _buildSegmentTab(
-                  'My Friends',
-                  isActive: false,
-                  activeColor: primaryBlue,
-                ),
-                _buildSegmentTab(
-                  'Community',
-                  isActive: false,
-                  activeColor: primaryBlue,
-                ),
-              ],
             ),
             SizedBox(height: 25),
 
@@ -422,34 +414,6 @@ class _AiUploadPageState extends State<AiUploadPage> {
             ),
             SizedBox(height: 20),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSegmentTab(
-    String label, {
-    required bool isActive,
-    required Color activeColor,
-  }) {
-    return Container(
-      margin: EdgeInsets.only(right: 10),
-      padding: EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-      decoration: BoxDecoration(
-        color: isActive ? activeColor : Colors.transparent,
-        borderRadius: BorderRadius.circular(20),
-        border: isActive
-            ? null
-            : Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: isActive
-              ? Colors.white
-              : Theme.of(context).colorScheme.onSurfaceVariant,
-          fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-          fontSize: 13,
         ),
       ),
     );
@@ -633,7 +597,12 @@ class _AiUploadPageState extends State<AiUploadPage> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => MeasurementPage(imageUrl: savedUrl),
+          builder: (context) => MeasurementPage(
+            imageUrl: savedUrl,
+            plannedDate: widget.plannedDate,
+            eventId: widget.eventId,
+            eventName: widget.eventName,
+          ),
         ),
       );
       return;
@@ -648,7 +617,12 @@ class _AiUploadPageState extends State<AiUploadPage> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => MeasurementPage(imageBytes: cachedBytes),
+          builder: (context) => MeasurementPage(
+            imageBytes: cachedBytes,
+            plannedDate: widget.plannedDate,
+            eventId: widget.eventId,
+            eventName: widget.eventName,
+          ),
         ),
       );
       return;
@@ -685,7 +659,12 @@ class _AiUploadPageState extends State<AiUploadPage> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => MeasurementPage(imageBytes: savedBytes),
+        builder: (context) => MeasurementPage(
+          imageBytes: savedBytes,
+          plannedDate: widget.plannedDate,
+          eventId: widget.eventId,
+          eventName: widget.eventName,
+        ),
       ),
     );
   }

@@ -89,6 +89,28 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
     return null;
   }
 
+  DateTime? get _plannedDate {
+    final arguments = ModalRoute.of(context)?.settings.arguments;
+    if (arguments is Map) {
+      final value = arguments['plannedDate'];
+      if (value is DateTime) return value;
+      if (value is String) return DateTime.tryParse(value);
+    }
+    return null;
+  }
+
+  String? get _eventId {
+    final arguments = ModalRoute.of(context)?.settings.arguments;
+    final value = arguments is Map ? arguments['eventId'] : null;
+    return value is String && value.isNotEmpty ? value : null;
+  }
+
+  String? get _eventName {
+    final arguments = ModalRoute.of(context)?.settings.arguments;
+    final value = arguments is Map ? arguments['eventName'] : null;
+    return value is String && value.isNotEmpty ? value : null;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -246,17 +268,39 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
 
     setState(() => _isSavingOutfit = true);
     try {
-      await _outfitService.saveOutfitToDailyDressUp(
-        userId: user.uid,
-        avatarImageUrl: avatarUrl,
-        resultImageUrl: resultUrl,
-        products: _selectedProducts,
-        previewType: _resultImageUrl == null ? 'mock_collage' : 'generated',
-      );
+      final plannedDate = _plannedDate;
+      if (plannedDate == null) {
+        await _outfitService.saveOutfitToDailyDressUp(
+          userId: user.uid,
+          avatarImageUrl: avatarUrl,
+          resultImageUrl: resultUrl,
+          products: _selectedProducts,
+          previewType: _resultImageUrl == null ? 'mock_collage' : 'generated',
+        );
+      } else {
+        await _outfitService.saveOutfitForDate(
+          userId: user.uid,
+          avatarImageUrl: avatarUrl,
+          resultImageUrl: resultUrl,
+          products: _selectedProducts,
+          previewType: _resultImageUrl == null ? 'mock_collage' : 'generated',
+          date: plannedDate,
+          eventId: _eventId,
+          eventName: _eventName,
+        );
+      }
       if (!mounted) return;
       setState(() => _outfitSaved = true);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Look saved to My Daily Dress Up.')),
+        SnackBar(
+          content: Text(
+            plannedDate == null
+                ? 'Look saved to My Daily Dress Up.'
+                : _eventName == null
+                ? 'Look saved to your Week Planner.'
+                : 'Look saved to $_eventName.',
+          ),
+        ),
       );
     } catch (error) {
       if (!mounted) return;
@@ -300,9 +344,15 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
   }
 
   Future<void> _createOrUpdateAvatar() async {
-    await Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (context) => const AiUploadPage()));
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => AiUploadPage(
+          plannedDate: _plannedDate,
+          eventId: _eventId,
+          eventName: _eventName,
+        ),
+      ),
+    );
     if (!mounted) return;
     setState(() {
       _isLoadingAvatar = true;
@@ -534,8 +584,12 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
                             ),
                       label: Text(
                         _outfitSaved
-                            ? 'Saved to My Daily Dress Up'
-                            : 'Save to My Daily Dress Up',
+                            ? (_plannedDate == null
+                                  ? 'Saved to My Daily Dress Up'
+                                  : 'Saved to Week Planner')
+                            : (_plannedDate == null
+                                  ? 'Save to My Daily Dress Up'
+                                  : 'Save for Planned Day'),
                       ),
                     ),
                   ],

@@ -3,8 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/app_routes.dart';
 import '../social/profile_page.dart';
-import 'notifications_page.dart';
 
 class SearchPage extends StatefulWidget {
   const SearchPage({super.key});
@@ -31,16 +31,41 @@ class _SearchPageState extends State<SearchPage> {
           icon: Icon(Icons.menu, color: colors.onSurface),
           onPressed: () => Scaffold.of(context).openDrawer(),
         ),
-        actions: [
-          _buildAppBarAction(Icons.chat_bubble_outline, () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const NotificationsPage(),
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Search',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: colors.onSurface,
+                ),
               ),
-            );
-          }),
-          const SizedBox(width: 10),
+            ),
+            _buildAppBarAction(
+              Icons.shopping_bag_outlined,
+              () => Navigator.pushNamed(context, AppRoutes.cart),
+            ),
+          ],
+        ),
+        actions: [
+          Container(
+            margin: const EdgeInsets.symmetric(vertical: 8),
+            decoration: BoxDecoration(
+              color: colors.surfaceContainerHighest,
+              shape: BoxShape.circle,
+            ),
+            child: IconButton(
+              icon: Icon(
+                Icons.arrow_back_ios_new,
+                size: 16,
+                color: colors.onSurface,
+              ),
+              onPressed: () => Navigator.of(context).maybePop(),
+            ),
+          ),
+          const SizedBox(width: 20),
         ],
       ),
       body: Padding(
@@ -48,37 +73,7 @@ class _SearchPageState extends State<SearchPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    'Search',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: colors.onSurface,
-                    ),
-                  ),
-                ),
-                GestureDetector(
-                  onTap: () => Navigator.of(context).maybePop(),
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: colors.surfaceContainerHighest,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.arrow_back_ios_new,
-                      size: 16,
-                      color: colors.onSurface,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 25),
+            const SizedBox(height: 10),
             _buildSearchBar(),
             const SizedBox(height: 25),
             _buildTabs(),

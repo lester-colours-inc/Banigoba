@@ -8,10 +8,20 @@ import 'package:flutter/material.dart';
 import '../makeover/style_selection_page.dart';
 
 class MeasurementPage extends StatefulWidget {
-  const MeasurementPage({super.key, this.imageBytes, this.imageUrl});
+  const MeasurementPage({
+    super.key,
+    this.imageBytes,
+    this.imageUrl,
+    this.plannedDate,
+    this.eventId,
+    this.eventName,
+  });
 
   final Uint8List? imageBytes;
   final String? imageUrl;
+  final DateTime? plannedDate;
+  final String? eventId;
+  final String? eventName;
 
   @override
   State<MeasurementPage> createState() => _MeasurementPageState();
@@ -52,6 +62,9 @@ class _MeasurementPageState extends State<MeasurementPage> {
             builder: (_) => StyleSelectionPage(
               imageBytes: widget.imageBytes,
               imageUrl: widget.imageUrl,
+              plannedDate: widget.plannedDate,
+              eventId: widget.eventId,
+              eventName: widget.eventName,
             ),
           ),
         );

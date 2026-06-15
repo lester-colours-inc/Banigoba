@@ -1,7 +1,9 @@
 // Handles creation and retrieval of social posts, likes, and comments in Firestore.
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import '../models/post.dart';
+import 'notification_service.dart';
 
 class PostService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -28,6 +30,8 @@ class PostService {
       'likeCount': 0,
       'likedBy': [],
       'likes': [],
+      'isPublic': false,
+      'visibility': 'private',
       if (outfitId?.isNotEmpty == true) 'outfitId': outfitId,
       if (products.isNotEmpty) ...{
         'products': products,
@@ -36,6 +40,22 @@ class PostService {
             .where((id) => id.isNotEmpty)
             .toList(),
       },
+    });
+  }
+
+  Future<void> makePostPublic(String postId) async {
+    if (_currentUserId.isEmpty) return;
+    final ref = _db.collection('posts').doc(postId);
+    final snapshot = await ref.get();
+    if (!snapshot.exists ||
+        (snapshot.data()?['authorId'] ?? snapshot.data()?['authorID']) !=
+            _currentUserId) {
+      throw Exception('You can only share your own post.');
+    }
+    await ref.update({
+      'isPublic': true,
+      'visibility': 'public',
+      'publishedAt': FieldValue.serverTimestamp(),
     });
   }
 
@@ -107,6 +127,10 @@ class PostService {
 
     final postRef = _db.collection('posts').doc(postId);
     final likeRef = postRef.collection('likes').doc(_currentUserId);
+    final post = await postRef.get();
+    if (post.data()?['isPublic'] != true) {
+      throw Exception('Private posts cannot be liked.');
+    }
 
     if (currentLikes.contains(_currentUserId)) {
       // Unlike
@@ -124,6 +148,12 @@ class PostService {
         'likeCount': FieldValue.increment(1),
       });
       await likeRef.set({'userId': _currentUserId});
+      await _notifyPostAuthor(
+        postData: post.data(),
+        postId: postId,
+        type: 'like',
+        body: 'liked your Daily Dress Up.',
+      );
     }
   }
 
@@ -139,6 +169,10 @@ class PostService {
     final postRef = _db.collection('posts').doc(postId);
 
     await _db.runTransaction((transaction) async {
+      final post = await transaction.get(postRef);
+      if (post.data()?['isPublic'] != true) {
+        throw Exception('Private posts cannot be commented on.');
+      }
       // Add comment to subcollection
       final commentRef = postRef.collection('comments').doc();
       transaction.set(commentRef, {
@@ -152,6 +186,50 @@ class PostService {
       // Update comment count on post
       transaction.update(postRef, {'commentCount': FieldValue.increment(1)});
     });
+
+    final post = await postRef.get();
+    await _notifyPostAuthor(
+      postData: post.data(),
+      postId: postId,
+      type: 'comment',
+      body: 'commented on your Daily Dress Up.',
+    );
+  }
+
+  Future<void> _notifyPostAuthor({
+    required Map<String, dynamic>? postData,
+    required String postId,
+    required String type,
+    required String body,
+  }) async {
+    final authorId = (postData?['authorId'] ?? postData?['authorID'] ?? '')
+        .toString();
+    if (authorId.isEmpty || authorId == _currentUserId) return;
+
+    try {
+      final user = await _db.collection('users').doc(_currentUserId).get();
+      final userData = user.data();
+      final senderName =
+          (userData?['displayName'] ??
+                  _auth.currentUser?.displayName ??
+                  _auth.currentUser?.email?.split('@').first ??
+                  'Someone')
+              .toString();
+
+      await NotificationService().addNotification(
+        receiverId: authorId,
+        title: type == 'like' ? 'New Like' : 'New Comment',
+        body: '$senderName $body',
+        type: type,
+        extraData: {
+          'fromId': _currentUserId,
+          'fromName': senderName,
+          'postId': postId,
+        },
+      );
+    } catch (error) {
+      debugPrint('Unable to create $type notification: $error');
+    }
   }
 
   /// Gets a stream of comments for a specific post

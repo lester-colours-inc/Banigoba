@@ -1,0 +1,424 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
+
+import '../../../core/app_routes.dart';
+import '../../../data/services/product_service.dart';
+import '../../../data/services/shop_chat_service.dart';
+import 'product_detail_page.dart';
+import 'shop_chat_page.dart';
+
+class ShopsPage extends StatefulWidget {
+  const ShopsPage({super.key});
+
+  @override
+  State<ShopsPage> createState() => _ShopsPageState();
+}
+
+class _ShopsPageState extends State<ShopsPage> {
+  static const _primary = Color(0xFF0D0140);
+  final _productService = ProductService();
+  int _tab = 0;
+  String _query = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Scaffold(
+      backgroundColor: colors.surface,
+      appBar: AppBar(
+        title: const Text(
+          'Shops & Boutiques',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: colors.surface,
+        actions: [
+          IconButton(
+            tooltip: 'Cart',
+            onPressed: () => Navigator.pushNamed(context, AppRoutes.cart),
+            icon: const Icon(Icons.shopping_bag_outlined),
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
+            child: TextField(
+              onChanged: (value) =>
+                  setState(() => _query = value.trim().toLowerCase()),
+              decoration: InputDecoration(
+                hintText: 'Search boutiques or products',
+                prefixIcon: const Icon(Icons.search),
+                filled: true,
+                fillColor: colors.surfaceContainerLow,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              children: [
+                Expanded(child: _tabButton('Boutiques', 0)),
+                const SizedBox(width: 10),
+                Expanded(child: _tabButton('All Products', 1)),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          Expanded(
+            child: StreamBuilder<QuerySnapshot>(
+              stream: _productService.getProducts(),
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return const Center(child: Text('Unable to load shops.'));
+                }
+                if (!snapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                final products = snapshot.data!.docs
+                    .map((doc) {
+                      final data = Map<String, dynamic>.from(
+                        doc.data() as Map<String, dynamic>,
+                      );
+                      data['id'] = doc.id;
+                      return data;
+                    })
+                    .where((product) {
+                      final name = (product['name'] ?? '')
+                          .toString()
+                          .toLowerCase();
+                      final shop = (product['shopName'] ?? '')
+                          .toString()
+                          .toLowerCase();
+                      return _query.isEmpty ||
+                          name.contains(_query) ||
+                          shop.contains(_query);
+                    })
+                    .toList();
+
+                return _tab == 0
+                    ? _buildBoutiques(products)
+                    : _buildProducts(products);
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _tabButton(String label, int index) {
+    final selected = _tab == index;
+    return FilledButton(
+      onPressed: () => setState(() => _tab = index),
+      style: FilledButton.styleFrom(
+        backgroundColor: selected
+            ? _primary
+            : Theme.of(context).colorScheme.surfaceContainerLow,
+        foregroundColor: selected
+            ? Colors.white
+            : Theme.of(context).colorScheme.onSurface,
+        elevation: 0,
+      ),
+      child: Text(label),
+    );
+  }
+
+  Widget _buildBoutiques(List<Map<String, dynamic>> products) {
+    final grouped = <String, List<Map<String, dynamic>>>{};
+    for (final product in products) {
+      final sellerId = (product['uploaderId'] ?? '').toString();
+      if (sellerId.isNotEmpty) {
+        grouped.putIfAbsent(sellerId, () => []).add(product);
+      }
+    }
+    if (grouped.isEmpty) {
+      return const Center(
+        child: Text('No boutiques have listed products yet.'),
+      );
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 30),
+      itemCount: grouped.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 14),
+      itemBuilder: (context, index) {
+        final entry = grouped.entries.elementAt(index);
+        return FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+          future: FirebaseFirestore.instance
+              .collection('users')
+              .doc(entry.key)
+              .get(),
+          builder: (context, snapshot) {
+            final user = snapshot.data?.data() ?? const <String, dynamic>{};
+            final shop = Map<String, dynamic>.from(
+              user['shop'] as Map? ?? const {},
+            );
+            final shopName =
+                (shop['name'] ??
+                        entry.value.first['shopName'] ??
+                        user['displayName'] ??
+                        'Boutique')
+                    .toString();
+            final description = (shop['description'] ?? '').toString();
+            final imageUrl =
+                (user['profileImageURL'] ?? user['profileImageUrl'] ?? '')
+                    .toString();
+
+            return Card(
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) => BoutiqueDetailPage(
+                      sellerId: entry.key,
+                      shopName: shopName,
+                      description: description,
+                      products: entry.value,
+                    ),
+                  ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 32,
+                        backgroundColor: _primary,
+                        backgroundImage: imageUrl.isEmpty
+                            ? null
+                            : NetworkImage(imageUrl),
+                        child: imageUrl.isEmpty
+                            ? Text(
+                                shopName.isEmpty
+                                    ? 'B'
+                                    : shopName[0].toUpperCase(),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              )
+                            : null,
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              shopName,
+                              style: const TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            if (description.isNotEmpty) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                description,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                            const SizedBox(height: 6),
+                            Text('${entry.value.length} products'),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.arrow_forward_ios, size: 16),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildProducts(List<Map<String, dynamic>> products) {
+    if (products.isEmpty) {
+      return const Center(child: Text('No products available.'));
+    }
+    return GridView.builder(
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 30),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 14,
+        childAspectRatio: 0.68,
+      ),
+      itemCount: products.length,
+      itemBuilder: (context, index) => _ProductShopCard(
+        product: products[index],
+        onTap: () => _openProduct(products[index]),
+      ),
+    );
+  }
+
+  void _openProduct(Map<String, dynamic> product) {
+    Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => ProductDetailPage(
+          productId: product['id']?.toString(),
+          productData: product,
+        ),
+      ),
+    );
+  }
+}
+
+class BoutiqueDetailPage extends StatelessWidget {
+  const BoutiqueDetailPage({
+    super.key,
+    required this.sellerId,
+    required this.shopName,
+    required this.description,
+    required this.products,
+  });
+
+  final String sellerId;
+  final String shopName;
+  final String description;
+  final List<Map<String, dynamic>> products;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text(shopName)),
+      body: ListView(
+        padding: const EdgeInsets.all(20),
+        children: [
+          if (description.isNotEmpty) ...[
+            Text(description, style: const TextStyle(fontSize: 16)),
+            const SizedBox(height: 12),
+          ],
+          FilledButton.icon(
+            onPressed: () => _messageBoutique(context),
+            icon: const Icon(Icons.chat_bubble_outline),
+            label: const Text('Message Boutique'),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF0D0140),
+              minimumSize: const Size(double.infinity, 48),
+            ),
+          ),
+          const SizedBox(height: 20),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 14,
+              childAspectRatio: 0.68,
+            ),
+            itemCount: products.length,
+            itemBuilder: (context, index) => _ProductShopCard(
+              product: products[index],
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) => ProductDetailPage(
+                    productId: products[index]['id']?.toString(),
+                    productData: products[index],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _messageBoutique(BuildContext context) async {
+    final customer = FirebaseAuth.instance.currentUser;
+    if (customer == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sign in to send messages.')),
+      );
+      return;
+    }
+    if (customer.uid == sellerId) return;
+    final chatId = await ShopChatService().ensureConversation(
+      sellerId: sellerId,
+      customerId: customer.uid,
+      shopName: shopName,
+    );
+    if (!context.mounted) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            ShopChatPage(chatId: chatId, title: shopName, asSeller: false),
+      ),
+    );
+  }
+}
+
+class _ProductShopCard extends StatelessWidget {
+  const _ProductShopCard({required this.product, required this.onTap});
+
+  final Map<String, dynamic> product;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final imageUrl =
+        (product['rawImageUrl'] ??
+                product['imageUrl'] ??
+                product['imageURL'] ??
+                '')
+            .toString();
+    final price = (product['price'] as num?)?.toDouble() ?? 0;
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: imageUrl.isEmpty
+                  ? const Center(child: Icon(Icons.checkroom, size: 50))
+                  : Image.network(
+                      imageUrl,
+                      width: double.infinity,
+                      fit: BoxFit.contain,
+                    ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 8, 10, 2),
+              child: Text(
+                (product['name'] ?? 'Product').toString(),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 2, 10, 10),
+              child: Text(
+                price > 0 ? '\$${price.toStringAsFixed(2)}' : 'View product',
+                style: const TextStyle(
+                  color: Color(0xFF0D0140),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

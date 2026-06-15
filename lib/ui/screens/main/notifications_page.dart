@@ -1,7 +1,9 @@
 // Displays social and product notifications and lets users respond to follow requests.
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../../../data/services/notification_service.dart';
+import '../shop/shop_chat_page.dart';
 import '../../../data/services/friend_service.dart';
 import '../social/profile_page.dart';
 
@@ -313,6 +315,11 @@ class _NotificationsPageState extends State<NotificationsPage> {
     final String type = data['type'] ?? '';
     final extraData = data['extraData'] as Map<String, dynamic>?;
     final fromName = extraData?['fromName'] as String? ?? 'Someone';
+    final requesterId = extraData?['fromId'] as String?;
+    final senderId =
+        (data['senderId'] ?? extraData?['fromId'] ?? extraData?['userId'])
+            ?.toString();
+    final response = data['response'] as String?;
     final String? body = data['body'];
     final timestamp = data['timestamp'] as Timestamp?;
 
@@ -346,15 +353,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
               child: Icon(typeIcon, color: Colors.white, size: 28),
             )
           else
-            Container(
-              width: 50,
-              height: 50,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.orange.shade200, width: 2),
-              ),
-              child: CircleAvatar(backgroundImage: NetworkImage('')),
-            ),
+            _buildSenderAvatar(senderId, fromName),
           SizedBox(width: 15),
           // Text Content
           Expanded(
@@ -415,6 +414,38 @@ class _NotificationsPageState extends State<NotificationsPage> {
                       style: TextStyle(color: Colors.grey, fontSize: 12),
                     ),
                   ),
+                if (type == 'follow_request' && requesterId != null) ...[
+                  SizedBox(height: 10),
+                  if (response == null)
+                    Row(
+                      children: [
+                        FilledButton(
+                          onPressed: () =>
+                              _respondToFollowRequest(id, requesterId, true),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: primaryColor,
+                          ),
+                          child: Text('Accept'),
+                        ),
+                        SizedBox(width: 8),
+                        OutlinedButton(
+                          onPressed: () =>
+                              _respondToFollowRequest(id, requesterId, false),
+                          child: Text('Decline'),
+                        ),
+                      ],
+                    )
+                  else
+                    Text(
+                      response == 'accepted' ? 'Accepted' : 'Declined',
+                      style: TextStyle(
+                        color: response == 'accepted'
+                            ? Colors.green
+                            : Colors.red,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                ],
                 if (type == 'challenge')
                   Padding(
                     padding: EdgeInsets.only(top: 4.0),
@@ -434,11 +465,107 @@ class _NotificationsPageState extends State<NotificationsPage> {
     );
   }
 
+  Widget _buildSenderAvatar(String? senderId, String fallbackName) {
+    if (senderId == null || senderId.isEmpty) {
+      return _buildInitialAvatar(fallbackName);
+    }
+
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .doc(senderId)
+          .snapshots(),
+      builder: (context, snapshot) {
+        final data = snapshot.data?.data();
+        final name = (data?['displayName'] ?? fallbackName).toString();
+        final imageUrl =
+            (data?['profileImageURL'] ?? data?['profileImageUrl'] ?? '')
+                .toString();
+
+        if (imageUrl.isEmpty) return _buildInitialAvatar(name);
+
+        return Container(
+          width: 50,
+          height: 50,
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.orange.shade200, width: 2),
+          ),
+          child: Image.network(
+            imageUrl,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) =>
+                _buildInitialAvatar(name, includeBorder: false),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildInitialAvatar(String name, {bool includeBorder = true}) {
+    final normalizedName = name.trim();
+    final initial = normalizedName.isEmpty
+        ? 'U'
+        : normalizedName.substring(0, 1).toUpperCase();
+    return Container(
+      width: 50,
+      height: 50,
+      decoration: BoxDecoration(
+        color: primaryColor,
+        shape: BoxShape.circle,
+        border: includeBorder
+            ? Border.all(color: Colors.orange.shade200, width: 2)
+            : null,
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        initial,
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 19,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _respondToFollowRequest(
+    String notificationId,
+    String requesterId,
+    bool accept,
+  ) async {
+    try {
+      if (accept) {
+        await friendService.acceptFollowRequest(requesterId);
+      } else {
+        await friendService.declineFollowRequest(requesterId);
+      }
+      await notificationService.updateNotification(
+        notificationId: notificationId,
+        data: {
+          'response': accept ? 'accepted' : 'declined',
+          'isRead': true,
+          'respondedAt': FieldValue.serverTimestamp(),
+        },
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Unable to respond to request: $error')),
+      );
+    }
+  }
+
   /// Maps internal notification types to specific action strings
   String _getNotificationActionText(String type, String? defaultBody) {
     switch (type) {
       case 'like':
-        return 'liked our Try On look!';
+        return 'liked your Daily Dress Up.';
+      case 'comment':
+        return 'commented on your Daily Dress Up.';
+      case 'shop_message':
+        return 'sent you a shop message.';
       case 'follow_request':
         return 'wants to follow you.';
       case 'follow_accepted':
@@ -464,12 +591,35 @@ class _NotificationsPageState extends State<NotificationsPage> {
   }
 
   /// Logic for navigating when a notification is tapped
-  void _handleNotificationTap(
+  Future<void> _handleNotificationTap(
     BuildContext context,
     String type,
     Map<String, dynamic>? extraData,
-  ) {
+  ) async {
     if (extraData == null) return;
+    if (type == 'shop_message') {
+      final chatId = (extraData['chatId'] ?? '').toString();
+      if (chatId.isEmpty) return;
+      final chat = await FirebaseFirestore.instance
+          .collection('shop_chats')
+          .doc(chatId)
+          .get();
+      if (!context.mounted || !chat.exists) return;
+      final data = chat.data() ?? const <String, dynamic>{};
+      final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
+      final asSeller = data['sellerId'] == currentUserId;
+      final title = asSeller
+          ? (data['customerName'] ?? 'Customer').toString()
+          : (data['shopName'] ?? 'Boutique').toString();
+      Navigator.push(
+        context,
+        MaterialPageRoute<void>(
+          builder: (_) =>
+              ShopChatPage(chatId: chatId, title: title, asSeller: asSeller),
+        ),
+      );
+      return;
+    }
     final userId = extraData['fromId'] ?? extraData['userId'];
     if (userId != null) {
       Navigator.push(

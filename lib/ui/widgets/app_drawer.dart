@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme_provider.dart';
 import '../../core/app_routes.dart';
 import '../screens/shop/admin_products_page.dart';
+import '../screens/shop/shop_chat_page.dart';
 
 class AppDrawer extends StatelessWidget {
   final ThemeProvider themeProvider;
@@ -76,11 +77,9 @@ class AppDrawer extends StatelessWidget {
                   Icons.storefront,
                   'Shops & Boutiques',
                   onTap: () {
-                    if (onTabSelect != null) {
-                      onTabSelect!(3);
-                    } else {
-                      Navigator.pushReplacementNamed(context, '/search');
-                    }
+                    final navigator = Navigator.of(context);
+                    navigator.pop();
+                    navigator.pushNamed(AppRoutes.shops);
                   },
                 ),
                 _buildDrawerItem(
@@ -160,8 +159,26 @@ class AppDrawer extends StatelessWidget {
                     ),
                   ),
                 ),
-                _buildDrawerItem(context, Icons.chat_bubble_outline, 'Chat'),
-                _buildDrawerItem(context, Icons.settings_outlined, 'Settings'),
+                _buildDrawerItem(
+                  context,
+                  Icons.chat_bubble_outline,
+                  'Shop Messages',
+                  onTap: () {
+                    final navigator = Navigator.of(context);
+                    navigator.pop();
+                    navigator.push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const ShopChatInboxPage(),
+                      ),
+                    );
+                  },
+                ),
+                _buildDrawerItem(
+                  context,
+                  Icons.settings_outlined,
+                  'Settings',
+                  onTap: () => Navigator.pushNamed(context, AppRoutes.settings),
+                ),
                 _buildDrawerItem(
                   context,
                   Icons.logout,
@@ -173,7 +190,45 @@ class AppDrawer extends StatelessWidget {
               ],
             ),
           ),
-          _buildFooter(context, userName, userEmail, initials, primaryColor),
+          if (user == null)
+            _buildFooter(
+              context,
+              userName,
+              userEmail,
+              initials,
+              primaryColor,
+              '',
+            )
+          else
+            StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+              stream: FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(user.uid)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                final data = snapshot.data?.data();
+                final liveName =
+                    (data?['displayName'] ?? user.displayName ?? userName)
+                        .toString();
+                final profileImageUrl =
+                    (data?['profileImageURL'] ??
+                            data?['profileImageUrl'] ??
+                            user.photoURL ??
+                            '')
+                        .toString();
+                final liveInitial = liveName.trim().isNotEmpty
+                    ? liveName.trim()[0].toUpperCase()
+                    : initials;
+                return _buildFooter(
+                  context,
+                  liveName,
+                  userEmail,
+                  liveInitial,
+                  primaryColor,
+                  profileImageUrl,
+                );
+              },
+            ),
         ],
       ),
     );
@@ -238,6 +293,7 @@ class AppDrawer extends StatelessWidget {
     String email,
     String initials,
     Color primaryColor,
+    String profileImageUrl,
   ) {
     return Padding(
       padding: const EdgeInsets.all(25.0),
@@ -283,68 +339,93 @@ class AppDrawer extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 30),
-          Row(
-            children: [
-              Stack(
-                children: [
-                  Container(
-                    width: 55,
-                    height: 55,
-                    decoration: BoxDecoration(
-                      color: primaryColor,
-                      borderRadius: BorderRadius.circular(15),
+          InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: () {
+              final navigator = Navigator.of(context);
+              navigator.pop();
+              navigator.pushNamed(AppRoutes.profile);
+            },
+            child: Row(
+              children: [
+                Stack(
+                  children: [
+                    Container(
+                      width: 55,
+                      height: 55,
+                      clipBehavior: Clip.antiAlias,
+                      decoration: BoxDecoration(
+                        color: primaryColor,
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                      child: profileImageUrl.isEmpty
+                          ? Center(
+                              child: Text(
+                                initials,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 20,
+                                ),
+                              ),
+                            )
+                          : Image.network(
+                              profileImageUrl,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  Center(
+                                    child: Text(
+                                      initials,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 20,
+                                      ),
+                                    ),
+                                  ),
+                            ),
                     ),
-                    child: Center(
-                      child: Text(
-                        initials,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 20,
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      child: Container(
+                        width: 14,
+                        height: 14,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF4CAF50),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
                         ),
                       ),
                     ),
-                  ),
-                  Positioned(
-                    right: 0,
-                    top: 0,
-                    child: Container(
-                      width: 14,
-                      height: 14,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF4CAF50),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(width: 15),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      name,
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                        color: Theme.of(context).colorScheme.onSurface,
-                      ),
-                    ),
-                    Text(
-                      email,
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        fontSize: 13,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
                   ],
                 ),
-              ),
-            ],
+                const SizedBox(width: 15),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        name,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                      ),
+                      Text(
+                        email,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          fontSize: 13,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),

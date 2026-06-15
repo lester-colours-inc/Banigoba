@@ -242,7 +242,6 @@ class _HomePageState extends State<HomePage> {
             _buildAppBarAction(
               Icons.shopping_bag_outlined,
               () => Navigator.pushNamed(context, AppRoutes.cart),
-              hasNotification: true,
             ),
           ],
         ),

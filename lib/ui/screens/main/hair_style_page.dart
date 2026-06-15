@@ -7,7 +7,9 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/app_routes.dart';
+import '../../../data/services/notification_service.dart';
 import '../../../data/services/hairstyle_service.dart';
+import 'notifications_page.dart';
 
 const _hairNavy = Color(0xFF17008A);
 const _hairOrange = Color(0xFFFFB51B);
@@ -46,7 +48,6 @@ class HairStylePage extends StatefulWidget {
 class _HairStylePageState extends State<HairStylePage> {
   final _picker = ImagePicker();
   final _hairstyleService = HairstyleService();
-  int _selectedTab = 0;
   bool _isPicking = false;
   bool _isLoadingLatest = true;
   String? _latestSelfieUrl;
@@ -156,30 +157,17 @@ class _HairStylePageState extends State<HairStylePage> {
       child: Column(
         children: [
           _HairHeader(
-            title: 'Hair Style Feed',
+            title: 'My Hair Style',
             onMenu: () => Scaffold.of(context).openDrawer(),
             onBack: () => Navigator.of(context).maybePop(),
+            fashionStyleLayout: true,
           ),
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(22, 6, 22, 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _HairTabs(
-                    selectedIndex: _selectedTab,
-                    onSelected: (index) => setState(() => _selectedTab = index),
-                  ),
-                  const SizedBox(height: 24),
-                  if (_selectedTab == 0)
-                    _buildMineContent()
-                  else
-                    _EmptyHairFeed(
-                      title: _selectedTab == 1
-                          ? 'No friend styles yet'
-                          : 'Community styles are coming soon',
-                    ),
-                ],
+                children: [_buildMineContent()],
               ),
             ),
           ),
@@ -354,11 +342,10 @@ class _HairAnalysisPageState extends State<HairAnalysisPage> {
   Widget build(BuildContext context) {
     return _HairFlowScaffold(
       title: 'Start Your Makeover',
+      backOnly: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _HairTabs(selectedIndex: 0),
-          const SizedBox(height: 24),
           const Text(
             'Analyzing Your Look',
             style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
@@ -433,18 +420,10 @@ class _HairStyleSelectionPageState extends State<HairStyleSelectionPage> {
   Widget build(BuildContext context) {
     return _HairFlowScaffold(
       title: 'Choose Your Style',
-      bottom: _HairActionStrip(
-        selectedIndex: 0,
-        onJourney: () => Navigator.push(
-          context,
-          MaterialPageRoute<void>(builder: (_) => const HairJourneyPage()),
-        ),
-      ),
+      backOnly: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _HairTabs(selectedIndex: 0),
-          const SizedBox(height: 24),
           const Text(
             'Set Your Style Preferences',
             style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
@@ -513,6 +492,7 @@ class _HairResultPageState extends State<_HairResultPage> {
   HairstyleGeneration? _generation;
   Object? _error;
   bool _isSaving = false;
+  bool _isSaved = false;
 
   @override
   void initState() {
@@ -537,7 +517,15 @@ class _HairResultPageState extends State<_HairResultPage> {
       );
       if (mounted) setState(() => _generation = generation);
     } catch (error) {
-      if (mounted) setState(() => _error = error);
+      if (!mounted) return;
+      setState(() {
+        _error = error;
+        _generation = HairstyleGeneration(
+          sourceImageUrl: widget.sourceImageUrl,
+          resultImageUrl: widget.sourceImageUrl,
+          isPreview: true,
+        );
+      });
     }
   }
 
@@ -552,12 +540,20 @@ class _HairResultPageState extends State<_HairResultPage> {
         userId: user.uid,
         styleName: widget.style.name,
         prompt: widget.style.prompt,
+        styleReferenceImageUrl: widget.style.imageUrl,
         generation: generation,
       );
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Hairstyle saved.')));
+        setState(() => _isSaved = true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              generation.isPreview
+                  ? 'Hairstyle collage saved.'
+                  : 'Hairstyle saved.',
+            ),
+          ),
+        );
       }
     } catch (error) {
       if (mounted) {
@@ -591,8 +587,10 @@ class _HairResultPageState extends State<_HairResultPage> {
           ),
           if (_generation?.isPreview == true) ...[
             const SizedBox(height: 10),
-            const Text(
-              'Preview mode: add FASHN_API_KEY to generate the selected hairstyle.',
+            Text(
+              _error == null
+                  ? 'Mock collage preview. Add FASHN_API_KEY to generate the hairstyle on your selfie.'
+                  : 'Generation was unavailable, so this mock collage can be saved instead.',
               style: TextStyle(fontSize: 12, color: Colors.grey),
             ),
           ],
@@ -612,10 +610,19 @@ class _HairResultPageState extends State<_HairResultPage> {
               const SizedBox(width: 8),
               Expanded(
                 child: _HairButton(
-                  label: 'Save Look',
-                  icon: Icons.download_rounded,
+                  label: _isSaved
+                      ? (_generation?.isPreview == true
+                            ? 'Collage Saved'
+                            : 'Look Saved')
+                      : (_generation?.isPreview == true
+                            ? 'Save Collage'
+                            : 'Save Look'),
+                  icon: _isSaved
+                      ? Icons.check_circle_outline
+                      : Icons.download_rounded,
                   color: _hairNavy,
                   loading: _isSaving,
+                  enabled: !_isSaved,
                   onPressed: _save,
                 ),
               ),
@@ -636,38 +643,20 @@ class _HairResultPageState extends State<_HairResultPage> {
   }
 
   Widget _buildResultImage() {
-    if (_error != null) {
-      return ColoredBox(
-        color: Theme.of(context).colorScheme.surfaceContainerLow,
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.error_outline, size: 42, color: Colors.grey),
-                const SizedBox(height: 12),
-                Text(
-                  'Unable to create this look.\n$_error',
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 12),
-                TextButton(
-                  onPressed: _generate,
-                  child: const Text('Try again'),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
     final generation = _generation;
     if (generation == null) {
       return ColoredBox(
         color: Theme.of(context).colorScheme.surfaceContainerLow,
         child: const Center(child: CircularProgressIndicator(color: _hairNavy)),
+      );
+    }
+
+    if (generation.isPreview) {
+      return _HairMockCollage(
+        sourceImageUrl: generation.sourceImageUrl,
+        sourceBytes: widget.sourceBytes,
+        styleName: widget.style.name,
+        styleImageUrl: widget.style.imageUrl,
       );
     }
 
@@ -688,12 +677,9 @@ class HairJourneyPage extends StatelessWidget {
     final user = FirebaseAuth.instance.currentUser;
     return _HairFlowScaffold(
       title: 'Your Styling Journey',
-      bottom: const _HairActionStrip(selectedIndex: 2),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _HairTabs(selectedIndex: 0),
-          const SizedBox(height: 24),
           if (user == null)
             const _EmptyHairFeed(title: 'Sign in to see saved hairstyles')
           else
@@ -746,7 +732,12 @@ class HairJourneyPage extends StatelessWidget {
                           label: 'View All Saved Styles',
                           icon: Icons.keyboard_double_arrow_right_rounded,
                           color: _hairNavy,
-                          onPressed: () {},
+                          onPressed: () => Navigator.push(
+                            context,
+                            MaterialPageRoute<void>(
+                              builder: (_) => const AllSavedHairStylesPage(),
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -760,16 +751,156 @@ class HairJourneyPage extends StatelessWidget {
   }
 }
 
+class AllSavedHairStylesPage extends StatelessWidget {
+  const AllSavedHairStylesPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+    return _HairFlowScaffold(
+      title: 'All Saved Styles',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _HairTabs(selectedIndex: 0, onSelected: null),
+          const SizedBox(height: 24),
+          if (user == null)
+            const _EmptyHairFeed(title: 'Sign in to see saved hairstyles')
+          else
+            StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              stream: HairstyleService().watchSavedLooks(user.uid),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                    child: CircularProgressIndicator(color: _hairNavy),
+                  );
+                }
+                if (snapshot.hasError) {
+                  return const _EmptyHairFeed(
+                    title: 'Saved hairstyles could not be loaded',
+                  );
+                }
+
+                final looks = snapshot.data?.docs ?? [];
+                if (looks.isEmpty) {
+                  return const _EmptyHairFeed(
+                    title: 'Your saved hairstyles will appear here',
+                  );
+                }
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${looks.length} saved ${looks.length == 1 ? 'style' : 'styles'}',
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            crossAxisSpacing: 14,
+                            mainAxisSpacing: 16,
+                            childAspectRatio: 0.72,
+                          ),
+                      itemCount: looks.length,
+                      itemBuilder: (context, index) =>
+                          _SavedHairStyleCard(data: looks[index].data()),
+                    ),
+                  ],
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SavedHairStyleCard extends StatelessWidget {
+  const _SavedHairStyleCard({required this.data});
+
+  final Map<String, dynamic> data;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final styleName = (data['styleName'] ?? 'Hairstyle').toString();
+    final resultUrl = (data['resultImageUrl'] ?? '').toString();
+    final isMock =
+        data['previewType'] == 'mock_collage' || data['isPreview'] == true;
+
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colors.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: SizedBox(
+              width: double.infinity,
+              child: isMock
+                  ? _HairMockCollage(
+                      sourceImageUrl: (data['sourceImageUrl'] ?? '').toString(),
+                      styleName: styleName,
+                      styleImageUrl: (data['styleReferenceImageUrl'] ?? '')
+                          .toString(),
+                      compact: true,
+                    )
+                  : Image.network(
+                      resultUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => ColoredBox(
+                        color: colors.surfaceContainerHighest,
+                        child: const Icon(Icons.broken_image_outlined),
+                      ),
+                    ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 8, 8, 2),
+            child: Text(
+              styleName,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+            child: Text(
+              isMock ? 'Mock collage' : 'Generated look',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 9, color: colors.onSurfaceVariant),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _HairFlowScaffold extends StatelessWidget {
   const _HairFlowScaffold({
     required this.title,
     required this.child,
-    this.bottom,
+    this.backOnly = false,
   });
 
   final String title;
   final Widget child;
-  final Widget? bottom;
+  final bool backOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -783,6 +914,7 @@ class _HairFlowScaffold extends StatelessWidget {
               onMenu: () =>
                   Navigator.popUntil(context, (route) => route.isFirst),
               onBack: () => Navigator.pop(context),
+              backOnly: backOnly,
             ),
             Expanded(
               child: SingleChildScrollView(
@@ -790,15 +922,10 @@ class _HairFlowScaffold extends StatelessWidget {
                 child: child,
               ),
             ),
-            if (bottom != null)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(22, 0, 22, 14),
-                child: bottom,
-              ),
           ],
         ),
       ),
-      bottomNavigationBar: const _HairBottomBar(),
+      bottomNavigationBar: backOnly ? null : const _HairBottomBar(),
     );
   }
 }
@@ -808,25 +935,82 @@ class _HairHeader extends StatelessWidget {
     required this.title,
     required this.onMenu,
     required this.onBack,
+    this.backOnly = false,
+    this.fashionStyleLayout = false,
   });
 
   final String title;
   final VoidCallback onMenu;
   final VoidCallback onBack;
+  final bool backOnly;
+  final bool fashionStyleLayout;
 
   @override
   Widget build(BuildContext context) {
+    if (fashionStyleLayout) {
+      final colors = Theme.of(context).colorScheme;
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(4, 4, 20, 4),
+        child: Row(
+          children: [
+            IconButton(
+              tooltip: 'Menu',
+              onPressed: onMenu,
+              icon: Icon(Icons.menu, color: colors.onSurface),
+            ),
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: colors.onSurface,
+                ),
+              ),
+            ),
+            IconButton(
+              tooltip: 'Cart',
+              onPressed: () => Navigator.pushNamed(context, AppRoutes.cart),
+              icon: Icon(
+                Icons.shopping_bag_outlined,
+                color: colors.onSurface,
+                size: 28,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Container(
+              margin: const EdgeInsets.symmetric(vertical: 8),
+              decoration: BoxDecoration(
+                color: colors.surfaceContainerHighest,
+                shape: BoxShape.circle,
+              ),
+              child: IconButton(
+                tooltip: 'Back',
+                onPressed: onBack,
+                icon: Icon(
+                  Icons.arrow_back_ios_new,
+                  size: 16,
+                  color: colors.onSurface,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(14, 8, 14, 14),
       child: Column(
         children: [
           Row(
             children: [
-              IconButton(
-                tooltip: 'Menu',
-                onPressed: onMenu,
-                icon: const Icon(Icons.menu_rounded),
-              ),
+              if (!backOnly)
+                IconButton(
+                  tooltip: 'Menu',
+                  onPressed: onMenu,
+                  icon: const Icon(Icons.menu_rounded),
+                ),
               const Spacer(),
               IconButton.filledTonal(
                 tooltip: 'Back',
@@ -850,25 +1034,26 @@ class _HairHeader extends StatelessWidget {
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
                   ),
                 ),
-                Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    IconButton(
-                      tooltip: 'Cart',
-                      onPressed: () =>
-                          Navigator.pushNamed(context, AppRoutes.cart),
-                      icon: const Icon(Icons.shopping_bag_outlined),
-                    ),
-                    const Positioned(
-                      right: 8,
-                      top: 7,
-                      child: CircleAvatar(
-                        radius: 4,
-                        backgroundColor: Colors.red,
+                if (!backOnly)
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      IconButton(
+                        tooltip: 'Cart',
+                        onPressed: () =>
+                            Navigator.pushNamed(context, AppRoutes.cart),
+                        icon: const Icon(Icons.shopping_bag_outlined),
                       ),
-                    ),
-                  ],
-                ),
+                      const Positioned(
+                        right: 8,
+                        top: 7,
+                        child: CircleAvatar(
+                          radius: 4,
+                          backgroundColor: Colors.red,
+                        ),
+                      ),
+                    ],
+                  ),
               ],
             ),
           ),
@@ -940,6 +1125,7 @@ class _HairButton extends StatelessWidget {
     required this.onPressed,
     this.icon,
     this.loading = false,
+    this.enabled = true,
   });
 
   final String label;
@@ -947,13 +1133,14 @@ class _HairButton extends StatelessWidget {
   final Color color;
   final VoidCallback onPressed;
   final bool loading;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       height: 46,
       child: ElevatedButton.icon(
-        onPressed: loading ? null : onPressed,
+        onPressed: loading || !enabled ? null : onPressed,
         style: ElevatedButton.styleFrom(
           elevation: 0,
           backgroundColor: color,
@@ -1166,6 +1353,8 @@ class _SavedLookRow extends StatelessWidget {
         }
         final data = looks[index].data();
         final url = (data['resultImageUrl'] ?? '').toString();
+        final isMock =
+            data['previewType'] == 'mock_collage' || data['isPreview'] == true;
         return Expanded(
           child: Padding(
             padding: EdgeInsets.only(right: index < 2 ? 10 : 0),
@@ -1173,21 +1362,134 @@ class _SavedLookRow extends StatelessWidget {
               aspectRatio: 0.92,
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(7),
-                child: Image.network(
-                  url,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => ColoredBox(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.surfaceContainerHighest,
-                    child: const Icon(Icons.broken_image_outlined),
-                  ),
-                ),
+                child: isMock
+                    ? _HairMockCollage(
+                        sourceImageUrl: (data['sourceImageUrl'] ?? '')
+                            .toString(),
+                        styleName: (data['styleName'] ?? 'Hairstyle')
+                            .toString(),
+                        styleImageUrl: (data['styleReferenceImageUrl'] ?? '')
+                            .toString(),
+                        compact: true,
+                      )
+                    : Image.network(
+                        url,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => ColoredBox(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.surfaceContainerHighest,
+                          child: const Icon(Icons.broken_image_outlined),
+                        ),
+                      ),
               ),
             ),
           ),
         );
       }),
+    );
+  }
+}
+
+class _HairMockCollage extends StatelessWidget {
+  const _HairMockCollage({
+    required this.sourceImageUrl,
+    required this.styleName,
+    required this.styleImageUrl,
+    this.sourceBytes,
+    this.compact = false,
+  });
+
+  final String sourceImageUrl;
+  final Uint8List? sourceBytes;
+  final String styleName;
+  final String styleImageUrl;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+      padding: EdgeInsets.all(compact ? 5 : 12),
+      color: colors.surfaceContainerLow,
+      child: Row(
+        children: [
+          Expanded(
+            flex: 3,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(compact ? 5 : 12),
+              child: _sourceImage(colors),
+            ),
+          ),
+          SizedBox(width: compact ? 4 : 10),
+          Expanded(
+            flex: 2,
+            child: Container(
+              padding: EdgeInsets.all(compact ? 3 : 8),
+              decoration: BoxDecoration(
+                color: colors.surface,
+                borderRadius: BorderRadius.circular(compact ? 5 : 12),
+                border: Border.all(color: colors.outlineVariant),
+              ),
+              child: Column(
+                children: [
+                  Expanded(
+                    child: Image.network(
+                      styleImageUrl,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => Icon(
+                        Icons.face_retouching_natural,
+                        color: colors.outline,
+                      ),
+                    ),
+                  ),
+                  if (!compact) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      styleName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _sourceImage(ColorScheme colors) {
+    final bytes = sourceBytes;
+    if (bytes != null) {
+      return Image.memory(
+        bytes,
+        width: double.infinity,
+        height: double.infinity,
+        fit: BoxFit.cover,
+      );
+    }
+    if (sourceImageUrl.isEmpty) {
+      return ColoredBox(
+        color: colors.surface,
+        child: Icon(Icons.person_outline, color: colors.outline),
+      );
+    }
+    return Image.network(
+      sourceImageUrl,
+      width: double.infinity,
+      height: double.infinity,
+      fit: BoxFit.cover,
+      errorBuilder: (_, _, _) => ColoredBox(
+        color: colors.surface,
+        child: Icon(Icons.person_outline, color: colors.outline),
+      ),
     );
   }
 }
@@ -1265,7 +1567,59 @@ class _HairBottomBar extends StatelessWidget {
               ),
             ),
             const Icon(Icons.search_rounded),
-            const Icon(Icons.chat_bubble_outline_rounded),
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                IconButton(
+                  tooltip: 'Notifications',
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (_) => const NotificationsPage(),
+                    ),
+                  ),
+                  icon: const Icon(Icons.chat_bubble_outline_rounded),
+                ),
+                StreamBuilder<int>(
+                  stream: NotificationService().getUnreadCount(),
+                  builder: (context, snapshot) {
+                    if ((snapshot.data ?? 0) == 0) {
+                      return const SizedBox.shrink();
+                    }
+                    return Positioned(
+                      right: 1,
+                      top: 1,
+                      child: Container(
+                        constraints: const BoxConstraints(
+                          minWidth: 20,
+                          minHeight: 20,
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: Theme.of(context).colorScheme.surface,
+                            width: 2,
+                          ),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          (snapshot.data ?? 0) > 99
+                              ? '99+'
+                              : '${snapshot.data ?? 0}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 8,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
           ],
         ),
       ),

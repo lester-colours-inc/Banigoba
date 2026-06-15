@@ -36,7 +36,12 @@ class CustomBottomNavigation extends StatelessWidget {
           _buildTextNavItem(context, 'DD', 1),
           _buildTextNavItem(context, 'HS', 2),
           _buildNavItem(context, Icons.search, 3),
-          _buildNavItem(context, Icons.chat_bubble_outline, 4, hasBadge: true),
+          _buildNavItem(
+            context,
+            Icons.notifications_none_rounded,
+            4,
+            hasBadge: true,
+          ),
         ],
       ),
     );
@@ -81,17 +86,29 @@ class CustomBottomNavigation extends StatelessWidget {
                 if (unreadCount == 0) return const SizedBox.shrink();
 
                 return Positioned(
-                  right: 8,
-                  top: 8,
+                  right: 0,
+                  top: 0,
                   child: Container(
-                    width: 10,
-                    height: 10,
+                    constraints: const BoxConstraints(
+                      minWidth: 20,
+                      minHeight: 20,
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
                     decoration: BoxDecoration(
                       color: Colors.red,
-                      shape: BoxShape.circle,
+                      borderRadius: BorderRadius.circular(10),
                       border: Border.all(
                         color: Theme.of(context).colorScheme.surface,
                         width: 2,
+                      ),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      unreadCount > 99 ? '99+' : '$unreadCount',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 8,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),

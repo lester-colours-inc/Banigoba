@@ -2,8 +2,12 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../../core/app_routes.dart';
+import '../../../data/services/cart_service.dart';
 import '../../../data/services/product_service.dart';
+import '../../../data/services/shop_chat_service.dart';
 import '../makeover/avatar_try_on_page.dart';
+import 'shop_chat_page.dart';
 
 /// Screen displaying detailed information about a product
 class ProductDetailPage extends StatefulWidget {
@@ -23,6 +27,7 @@ class ProductDetailPage extends StatefulWidget {
 class _ProductDetailPageState extends State<ProductDetailPage> {
   late Map<String, dynamic> _currentProductData;
   final ProductService _productService = ProductService();
+  final CartService _cartService = CartService();
 
   @override
   void initState() {
@@ -72,10 +77,12 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
 
     final gender = _currentProductData['gender'] ?? 'N/A';
     final visibility = _currentProductData['visibility'] ?? 'private';
+    final price = (_currentProductData['price'] as num?)?.toDouble() ?? 0;
+    final stock = (_currentProductData['stock'] as num?)?.toInt() ?? 0;
+    final shopName = (_currentProductData['shopName'] ?? '').toString();
 
     // Identify the product ID and uploader
     final String? originalProductId = _currentProductData['originalProductId'];
-    final String? originalPosterId = _currentProductData['originalPosterId'];
     final String? uploaderId =
         _currentProductData['userId'] ?? _currentProductData['uploaderId'];
 
@@ -204,6 +211,22 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                     style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 10),
+                  if (price > 0)
+                    Text(
+                      '\$${price.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        color: Color(0xFF0D0140),
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  if (shopName.isNotEmpty)
+                    _buildDetailRow("Boutique", shopName),
+                  if (_currentProductData.containsKey('stock'))
+                    _buildDetailRow(
+                      "Availability",
+                      stock > 0 ? '$stock in stock' : 'Out of stock',
+                    ),
                   _buildDetailRow("Category", category),
                   _buildDetailRow("Subcategory", subcategory),
                   _buildDetailRow("Style", styleTag),
@@ -338,11 +361,99 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                         },
                       ),
                     ),
+                  if (!isMe && productId != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: currentUserId.isEmpty
+                              ? null
+                              : stock <= 0 &&
+                                    _currentProductData.containsKey('stock')
+                              ? null
+                              : () async {
+                                  await _cartService.addToCart(
+                                    userId: currentUserId,
+                                    productId: productId,
+                                    productData: _currentProductData,
+                                  );
+                                  if (!context.mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: const Text('Added to cart.'),
+                                      action: SnackBarAction(
+                                        label: 'View Cart',
+                                        onPressed: () => Navigator.pushNamed(
+                                          context,
+                                          AppRoutes.cart,
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                          icon: const Icon(Icons.add_shopping_cart),
+                          label: const Text('Add to Cart'),
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size(double.infinity, 52),
+                            foregroundColor: const Color(0xFF0D0140),
+                            side: const BorderSide(color: Color(0xFF0D0140)),
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (!isMe &&
+                      uploaderId != null &&
+                      uploaderId.isNotEmpty &&
+                      shopName.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: TextButton.icon(
+                          onPressed: currentUserId.isEmpty
+                              ? null
+                              : () => _messageSeller(
+                                  sellerId: uploaderId,
+                                  customerId: currentUserId,
+                                  shopName: shopName,
+                                  productId: productId?.toString(),
+                                  productName: name.toString(),
+                                ),
+                          icon: const Icon(Icons.chat_bubble_outline),
+                          label: const Text('Ask Boutique About This Product'),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Future<void> _messageSeller({
+    required String sellerId,
+    required String customerId,
+    required String shopName,
+    required String? productId,
+    required String productName,
+  }) async {
+    final chatId = await ShopChatService().ensureConversation(
+      sellerId: sellerId,
+      customerId: customerId,
+      shopName: shopName,
+      productId: productId,
+      productName: productName,
+    );
+    if (!mounted) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            ShopChatPage(chatId: chatId, title: shopName, asSeller: false),
       ),
     );
   }
@@ -425,7 +536,6 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     final nameController = TextEditingController(
       text: _currentProductData['name'],
     );
-    String category = _currentProductData['category'] ?? 'tops';
     String styleTag =
         _currentProductData['styleTag'] ??
         _currentProductData['style'] ??

@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/app_routes.dart';
 import '../../../data/services/product_service.dart';
 import '../../../data/services/friend_service.dart';
+import '../../../data/services/notification_service.dart';
 import '../shop/product_detail_page.dart';
 import '../main/notifications_page.dart';
 
@@ -45,7 +46,7 @@ class _WardrobePageState extends State<WardrobePage> {
             Icons.shopping_bag_outlined,
             () => Navigator.pushNamed(context, AppRoutes.cart),
           ),
-          _buildAppBarAction(Icons.chat_bubble_outline, () {
+          _buildAppBarAction(Icons.notifications_none_rounded, () {
             Navigator.push(
               context,
               MaterialPageRoute(builder: (context) => NotificationsPage()),
@@ -130,18 +131,40 @@ class _WardrobePageState extends State<WardrobePage> {
           onPressed: onTap,
         ),
         if (hasNotification)
-          Positioned(
-            right: 12,
-            top: 12,
-            child: Container(
-              width: 10,
-              height: 10,
-              decoration: BoxDecoration(
-                color: Colors.red,
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 2),
-              ),
-            ),
+          StreamBuilder<int>(
+            stream: NotificationService().getUnreadCount(),
+            builder: (context, snapshot) {
+              final unreadCount = snapshot.data ?? 0;
+              if (unreadCount == 0) return const SizedBox.shrink();
+              return Positioned(
+                right: 5,
+                top: 5,
+                child: Container(
+                  constraints: const BoxConstraints(
+                    minWidth: 18,
+                    minHeight: 18,
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.red,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: Theme.of(context).colorScheme.surface,
+                      width: 2,
+                    ),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    unreadCount > 9 ? '9+' : '$unreadCount',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              );
+            },
           ),
       ],
     );

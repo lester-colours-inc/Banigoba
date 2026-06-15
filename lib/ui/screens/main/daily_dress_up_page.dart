@@ -12,6 +12,7 @@ import '../../../data/services/product_service.dart';
 import '../../../data/models/weather.dart';
 import 'package:geolocator/geolocator.dart';
 import '../../../core/app_routes.dart';
+import '../../widgets/post_comments_sheet.dart';
 import '../../widgets/try_on_product_picker.dart';
 import '../wardrobe/wardrobe_calendar_page.dart';
 
@@ -814,7 +815,6 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
             _buildAppBarAction(
               Icons.shopping_bag_outlined,
               () => Navigator.pushNamed(context, AppRoutes.cart),
-              hasNotification: true,
             ),
           ],
         ),
@@ -858,7 +858,9 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
         onPressed: () {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => WardrobeCalendarPage()),
+            MaterialPageRoute(
+              builder: (context) => const WardrobeCalendarPage(),
+            ),
           );
         },
       ),
@@ -899,7 +901,10 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
               final friendIds = friendSnapshot.data!.toSet();
               return _buildPostList(
                 posts
-                    .where((post) => friendIds.contains(post.authorId))
+                    .where(
+                      (post) =>
+                          post.isPublic && friendIds.contains(post.authorId),
+                    )
                     .toList(),
                 emptyMessage: 'No posts from your friends yet.',
               );
@@ -910,7 +915,7 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
         final currentUserId = FirebaseAuth.instance.currentUser?.uid;
         final filteredPosts = _selectedTabIndex == 0
             ? posts.where((post) => post.authorId == currentUserId).toList()
-            : posts;
+            : posts.where((post) => post.isPublic).toList();
 
         return _buildPostList(
           filteredPosts,
@@ -976,183 +981,219 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
             ? 'Styled for your day'
             : '${_titleCase(author.stylePreference)} style';
 
-        return Container(
-          width: double.infinity,
-          height: 245,
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
-            color: cardColors[index % cardColors.length],
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final imageWidth = constraints.maxWidth * 0.38;
-              return Stack(
-                children: [
-                  Positioned.fill(
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Padding(
-                            padding: EdgeInsets.fromLTRB(
-                              20,
-                              55,
-                              imageWidth > 150 ? 6 : 12,
-                              88,
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  title,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: primaryColor,
-                                    fontSize: 21,
-                                    fontWeight: FontWeight.w800,
-                                  ),
+        return Column(
+          children: [
+            Container(
+              width: double.infinity,
+              height: 220,
+              clipBehavior: Clip.antiAlias,
+              decoration: BoxDecoration(
+                color: cardColors[index % cardColors.length],
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final imageWidth = constraints.maxWidth * 0.46;
+                  return Stack(
+                    children: [
+                      Positioned.fill(
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Padding(
+                                padding: EdgeInsets.fromLTRB(
+                                  20,
+                                  58,
+                                  imageWidth > 160 ? 6 : 12,
+                                  20,
                                 ),
-                                SizedBox(height: 3),
-                                Text(
-                                  subtitle,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.onSurface,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        SizedBox(
-                          width: imageWidth,
-                          child: ColoredBox(
-                            color: imageUrl.isEmpty
-                                ? Colors.transparent
-                                : Colors.white,
-                            child: _buildMinePostImage(imageUrl),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Positioned(
-                    top: 16,
-                    left: 16,
-                    child: Container(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: primaryColor,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        _formatPostTime(post.createdAt),
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    left: 16,
-                    right: 16,
-                    bottom: 49,
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: _buildMineCommand(
-                            icon: Icons.shortcut_outlined,
-                            label: 'Try On',
-                            backgroundColor: primaryColor,
-                            foregroundColor: Colors.white,
-                            onTap: () => _tryOnPost(post),
-                          ),
-                        ),
-                        SizedBox(width: 8),
-                        Expanded(
-                          child: _buildMineCommand(
-                            icon: Icons.chat_bubble_outline,
-                            label: 'Comment',
-                            backgroundColor: Color(0xFFFF8A2A),
-                            foregroundColor: Colors.white,
-                          ),
-                        ),
-                        SizedBox(width: 8),
-                        Expanded(
-                          child: _buildMineCommand(
-                            icon: Icons.share_outlined,
-                            label: 'Share',
-                            backgroundColor: Theme.of(
-                              context,
-                            ).colorScheme.surface,
-                            foregroundColor: Theme.of(
-                              context,
-                            ).colorScheme.onSurface,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    child: Container(
-                      height: 42,
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.surface.withValues(alpha: 0.92),
-                      padding: EdgeInsets.symmetric(horizontal: 14),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: _buildMineReaction(
-                              icon: isLiked
-                                  ? Icons.favorite
-                                  : Icons.favorite_border,
-                              label: '${post.likeCount} likes',
-                              color: Colors.red,
-                              onTap: currentUserId.isEmpty
-                                  ? null
-                                  : () => _postService.toggleLike(
-                                      post.id,
-                                      post.likes,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      title,
+                                      maxLines: 3,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: primaryColor,
+                                        fontSize: 21,
+                                        fontWeight: FontWeight.w800,
+                                      ),
                                     ),
+                                    SizedBox(height: 5),
+                                    Text(
+                                      subtitle,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onSurface,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
-                          ),
-                          Container(
-                            width: 1,
-                            height: 22,
-                            color: Theme.of(context).colorScheme.outlineVariant,
-                          ),
-                          Expanded(
-                            child: _buildMineReaction(
-                              icon: Icons.chat_bubble_outline,
-                              label: '${post.commentCount} comments',
-                              color: primaryColor,
+                            SizedBox(
+                              width: imageWidth,
+                              child: ColoredBox(
+                                color: imageUrl.isEmpty
+                                    ? Colors.transparent
+                                    : Colors.white,
+                                child: _buildMinePostVisual(post, imageUrl),
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
+                      Positioned(
+                        top: 16,
+                        left: 16,
+                        child: Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: primaryColor,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            _formatPostTime(post.createdAt),
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+            SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildMineCommand(
+                    icon: Icons.shortcut_outlined,
+                    label: 'Try On',
+                    backgroundColor: primaryColor,
+                    foregroundColor: Colors.white,
+                    onTap: () => _tryOnPost(post),
+                  ),
+                ),
+                SizedBox(width: 8),
+                if (post.isPublic) ...[
+                  Expanded(
+                    child: _buildMineCommand(
+                      icon: Icons.chat_bubble_outline,
+                      label: 'Comment',
+                      backgroundColor: Color(0xFFFF8A2A),
+                      foregroundColor: Colors.white,
+                      onTap: () => showPostCommentsSheet(context, post),
                     ),
                   ),
+                  SizedBox(width: 8),
                 ],
-              );
-            },
-          ),
+                Expanded(
+                  child: _buildMineCommand(
+                    icon: post.isPublic ? Icons.public : Icons.share_outlined,
+                    label: post.isPublic ? 'Public' : 'Share',
+                    backgroundColor: Theme.of(context).colorScheme.surface,
+                    foregroundColor: Theme.of(context).colorScheme.onSurface,
+                    onTap: post.isPublic ? null : () => _sharePost(post),
+                  ),
+                ),
+              ],
+            ),
+            if (post.isPublic) ...[
+              SizedBox(height: 8),
+              Container(
+                height: 42,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                padding: EdgeInsets.symmetric(horizontal: 14),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _buildMineReaction(
+                        icon: isLiked ? Icons.favorite : Icons.favorite_border,
+                        label: '${post.likeCount} likes',
+                        color: Colors.red,
+                        onTap: currentUserId.isEmpty
+                            ? null
+                            : () =>
+                                  _postService.toggleLike(post.id, post.likes),
+                      ),
+                    ),
+                    Container(
+                      width: 1,
+                      height: 22,
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                    ),
+                    Expanded(
+                      child: _buildMineReaction(
+                        icon: Icons.chat_bubble_outline,
+                        label: '${post.commentCount} comments',
+                        color: primaryColor,
+                        onTap: () => showPostCommentsSheet(context, post),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
         );
       },
     );
+  }
+
+  Future<void> _sharePost(Post post) async {
+    final shouldShare = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Make this post public?'),
+        content: const Text(
+          'Friends and community members will be able to see, like, and comment on this look.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton.icon(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            icon: const Icon(Icons.public),
+            label: const Text('Make Public'),
+          ),
+        ],
+      ),
+    );
+    if (shouldShare != true) return;
+
+    try {
+      await _postService.makePostPublic(post.id);
+      await NotificationService().notifyFollowersNewPost(
+        post.caption.isEmpty ? 'Daily Outfit' : post.caption,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Post is now public.')));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Unable to share post: $error')));
+    }
   }
 
   Widget _buildMinePostImage(String imageUrl) {
@@ -1185,6 +1226,41 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildMinePostVisual(Post post, String imageUrl) {
+    final products = _collageProducts(post);
+    if (products.isEmpty) return _buildMinePostImage(imageUrl);
+
+    return Padding(
+      padding: EdgeInsets.all(8),
+      child: Column(
+        children: [
+          Expanded(
+            flex: 3,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                width: double.infinity,
+                color: Theme.of(context).colorScheme.surfaceContainerLow,
+                child: _buildMinePostImage(imageUrl),
+              ),
+            ),
+          ),
+          SizedBox(height: 6),
+          Expanded(
+            child: Row(
+              children: [
+                for (var index = 0; index < products.length; index++) ...[
+                  if (index > 0) SizedBox(width: 5),
+                  Expanded(child: _buildCollageProduct(products[index])),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1496,7 +1572,11 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
                       ? null
                       : () => _postService.toggleLike(post.id, post.likes),
                 ),
-                _buildAction(Icons.chat_bubble_outline, '${post.commentCount}'),
+                _buildAction(
+                  Icons.chat_bubble_outline,
+                  '${post.commentCount}',
+                  onTap: () => showPostCommentsSheet(context, post),
+                ),
                 _buildAction(
                   Icons.shortcut_outlined,
                   'Try On',
@@ -1537,6 +1617,11 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
   }
 
   Widget _buildPostContent(Post post) {
+    final products = _collageProducts(post);
+    if (products.isNotEmpty) {
+      return _buildPostCollage(post, products);
+    }
+
     if (post.imageURL.isEmpty) {
       return Container(
         width: double.infinity,
@@ -1591,6 +1676,90 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
             );
           },
         ),
+      ),
+    );
+  }
+
+  List<Map<String, dynamic>> _collageProducts(Post post) {
+    return post.products
+        .where((product) => _productImageUrl(product).isNotEmpty)
+        .take(3)
+        .toList();
+  }
+
+  Widget _buildPostCollage(Post post, List<Map<String, dynamic>> products) {
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+      height: 310,
+      padding: EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: colors.outlineVariant),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 3,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: Container(
+                color: colors.surface,
+                child: post.imageURL.isEmpty
+                    ? Icon(
+                        Icons.person_outline,
+                        size: 72,
+                        color: colors.outline,
+                      )
+                    : Image.network(
+                        post.imageURL,
+                        width: double.infinity,
+                        height: double.infinity,
+                        fit: BoxFit.contain,
+                        webHtmlElementStrategy: kIsWeb
+                            ? WebHtmlElementStrategy.prefer
+                            : WebHtmlElementStrategy.never,
+                        errorBuilder: (context, error, stackTrace) => Icon(
+                          Icons.broken_image_outlined,
+                          size: 52,
+                          color: colors.outline,
+                        ),
+                      ),
+              ),
+            ),
+          ),
+          SizedBox(width: 10),
+          Expanded(
+            flex: 2,
+            child: Column(
+              children: [
+                for (var index = 0; index < products.length; index++) ...[
+                  Expanded(child: _buildCollageProduct(products[index])),
+                  if (index != products.length - 1) SizedBox(height: 8),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCollageProduct(Map<String, dynamic> product) {
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(5),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: colors.outlineVariant),
+      ),
+      child: Image.network(
+        _productImageUrl(product),
+        fit: BoxFit.contain,
+        errorBuilder: (context, error, stackTrace) =>
+            Icon(Icons.checkroom_outlined, color: colors.outline),
       ),
     );
   }

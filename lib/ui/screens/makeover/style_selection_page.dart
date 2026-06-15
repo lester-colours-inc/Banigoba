@@ -5,17 +5,27 @@ import 'package:geolocator/geolocator.dart';
 import '../../../data/models/weather.dart';
 import '../../../data/services/weather_service.dart';
 import '../../widgets/try_on_product_picker.dart';
+import '../wardrobe/wardrobe_calendar_page.dart';
 import 'avatar_try_on_page.dart';
 
 class StyleSelectionPage extends StatefulWidget {
   final Uint8List? imageBytes;
   final String? imageUrl;
+  final DateTime? plannedDate;
+  final String? eventId;
+  final String? eventName;
 
-  const StyleSelectionPage({super.key, this.imageBytes, this.imageUrl})
-    : assert(
-        imageBytes != null || imageUrl != null,
-        'Either imageBytes or imageUrl must be provided.',
-      );
+  const StyleSelectionPage({
+    super.key,
+    this.imageBytes,
+    this.imageUrl,
+    this.plannedDate,
+    this.eventId,
+    this.eventName,
+  }) : assert(
+         imageBytes != null || imageUrl != null,
+         'Either imageBytes or imageUrl must be provided.',
+       );
 
   static Color primaryColor = Color(0xFF0D0140);
 
@@ -27,7 +37,6 @@ class _StyleSelectionPageState extends State<StyleSelectionPage> {
   final WeatherService _weatherService = WeatherService();
   Weather? _currentWeather;
   bool _isLoadingWeather = true;
-  int _selectedTabIndex = 0;
 
   @override
   void initState() {
@@ -110,6 +119,10 @@ class _StyleSelectionPageState extends State<StyleSelectionPage> {
                 .map((product) => (product['name'] ?? 'Clothing').toString())
                 .join(' + '),
             'category': (products.first['category'] ?? 'auto').toString(),
+            if (widget.plannedDate != null)
+              'plannedDate': widget.plannedDate!.toIso8601String(),
+            if (widget.eventId != null) 'eventId': widget.eventId,
+            if (widget.eventName != null) 'eventName': widget.eventName,
           },
         ),
       ),
@@ -199,8 +212,6 @@ class _StyleSelectionPageState extends State<StyleSelectionPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SizedBox(height: 10),
-            _buildTabBar(),
-            SizedBox(height: 20),
             _buildHeroCard(context),
             SizedBox(height: 20),
             _buildInfoRow(),
@@ -235,51 +246,6 @@ class _StyleSelectionPageState extends State<StyleSelectionPage> {
             ),
             SizedBox(height: 30),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTabBar() {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          _tabButton('Mine', 0),
-          SizedBox(width: 12),
-          _tabButton('My Friends', 1),
-          SizedBox(width: 12),
-          _tabButton('Community', 2),
-        ],
-      ),
-    );
-  }
-
-  Widget _tabButton(String label, int index) {
-    final bool isSelected = _selectedTabIndex == index;
-    return GestureDetector(
-      onTap: () => setState(() => _selectedTabIndex = index),
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 22, vertical: 12),
-        decoration: BoxDecoration(
-          color: isSelected ? StyleSelectionPage.primaryColor : Colors.white,
-          borderRadius: BorderRadius.circular(25),
-          border: Border.all(
-            color: isSelected
-                ? StyleSelectionPage.primaryColor
-                : Theme.of(context).colorScheme.outlineVariant,
-            width: 1,
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: isSelected
-                ? Colors.white
-                : Theme.of(context).colorScheme.onSurfaceVariant,
-            fontWeight: FontWeight.w600,
-            fontSize: 14,
-          ),
         ),
       ),
     );
@@ -404,7 +370,16 @@ class _StyleSelectionPageState extends State<StyleSelectionPage> {
         return SizedBox(
           width: (MediaQuery.of(context).size.width - 68) / 2,
           child: ElevatedButton(
-            onPressed: label == 'Try On' ? _openTryOn : () {},
+            onPressed: label == 'Try On'
+                ? _openTryOn
+                : label == 'Quick Wear'
+                ? () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const WardrobeCalendarPage(),
+                    ),
+                  )
+                : () {},
             style: ElevatedButton.styleFrom(
               backgroundColor: StyleSelectionPage.primaryColor,
               foregroundColor: Colors.white,

@@ -1,11 +1,16 @@
-// Displays user profiles, wardrobes, follower lists, and follow controls.
+// Displays user profiles, public dress-up posts, and follow controls.
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../../../core/app_routes.dart';
+import '../../../data/models/post.dart';
 import '../../../data/services/friend_service.dart';
-import '../shop/product_detail_page.dart';
+import '../../../data/services/post_service.dart';
+import '../../widgets/post_comments_sheet.dart';
+import '../../widgets/try_on_product_picker.dart';
 
-/// Screen displaying user profile, stats, and personal wardrobe items
+/// Screen displaying user profile details and public Daily Dress Up posts.
 class ProfilePage extends StatelessWidget {
   final String? userId; // If null, displays the current user's profile
   const ProfilePage({super.key, this.userId});
@@ -37,6 +42,9 @@ class ProfilePage extends StatelessWidget {
         final userData = snapshot.data!.data() as Map<String, dynamic>;
         final userName = userData['displayName'] ?? 'User';
         final userEmail = userData['email'] ?? '';
+        final profileImageUrl =
+            (userData['profileImageURL'] ?? userData['profileImageUrl'] ?? '')
+                .toString();
 
         return StreamBuilder<bool>(
           stream: friendService.isFollowing(targetUserId),
@@ -67,10 +75,23 @@ class ProfilePage extends StatelessWidget {
                     CircleAvatar(
                       radius: 50,
                       backgroundColor: const Color(0xFF0D0140),
-                      child: Text(
-                        userName.substring(0, 1).toUpperCase(),
-                        style: TextStyle(fontSize: 40, color: Colors.white),
-                      ),
+                      backgroundImage: profileImageUrl.isEmpty
+                          ? null
+                          : NetworkImage(profileImageUrl),
+                      child: profileImageUrl.isEmpty
+                          ? Text(
+                              userName.toString().isEmpty
+                                  ? 'U'
+                                  : userName
+                                        .toString()
+                                        .substring(0, 1)
+                                        .toUpperCase(),
+                              style: TextStyle(
+                                fontSize: 40,
+                                color: Colors.white,
+                              ),
+                            )
+                          : null,
                     ),
                     const SizedBox(height: 10),
                     // User Name and Email
@@ -148,41 +169,12 @@ class ProfilePage extends StatelessWidget {
                     ),
                     const SizedBox(height: 30),
                     const Divider(),
-                    // User's Wardrobe items (grid view) or locked screen
-                    if (canSeeContent) ...[
-                      _buildUserItems(targetUserId, isMe),
-                      if (isMe) ...[
-                        ListTile(
-                          leading: const Icon(Icons.settings),
-                          title: const Text("Settings"),
-                          onTap: () {},
-                        ),
-                        ListTile(
-                          leading: const Icon(Icons.help_outline),
-                          title: const Text("Help & Support"),
-                          onTap: () {},
-                        ),
-                      ],
-                    ] else ...[
-                      const SizedBox(height: 50),
-                      const Icon(
-                        Icons.lock_outline,
-                        size: 80,
-                        color: Colors.grey,
-                      ),
-                      const SizedBox(height: 10),
-                      const Text(
-                        "This Account is Private",
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const Text(
-                        "Follow this user to see their wardrobe",
-                        style: TextStyle(color: Colors.grey),
-                      ),
-                    ],
+                    _buildPublicDailyDressUps(
+                      context,
+                      targetUserId,
+                      userName.toString(),
+                      profileImageUrl,
+                    ),
                   ],
                 ),
               ),
@@ -193,92 +185,410 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  /// Build the wardrobe items grid directly from user's wardrobe sub-collection
-  Widget _buildUserItems(String userId, bool isMe) {
-    Stream<QuerySnapshot> stream;
-    // Current user sees all their items; others see only public items
-    if (isMe) {
-      stream = FirebaseFirestore.instance
-          .collection('users')
-          .doc(userId)
-          .collection('wardrobe')
-          .snapshots();
-    } else {
-      stream = FirebaseFirestore.instance
-          .collection('users')
-          .doc(userId)
-          .collection('wardrobe')
-          .where('visibility', isEqualTo: 'public')
-          .snapshots();
-    }
+  Widget _buildPublicDailyDressUps(
+    BuildContext context,
+    String userId,
+    String userName,
+    String profileImageUrl,
+  ) {
+    final stream = FirebaseFirestore.instance
+        .collection('posts')
+        .where('authorId', isEqualTo: userId)
+        .where('isPublic', isEqualTo: true)
+        .snapshots();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 30),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+            stream: stream,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(24),
+                    child: CircularProgressIndicator(),
+                  ),
+                );
+              }
+
+              if (snapshot.hasError) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: Text('Unable to load public Daily Dress Ups.'),
+                );
+              }
+
+              final posts =
+                  snapshot.data?.docs.map(Post.fromFirestore).toList() ??
+                  <Post>[];
+              posts.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+              if (posts.isEmpty) {
+                return Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 44,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: const Column(
+                    children: [
+                      Icon(
+                        Icons.checkroom_outlined,
+                        size: 42,
+                        color: Colors.grey,
+                      ),
+                      SizedBox(height: 12),
+                      Text(
+                        'No public Daily Dress Ups yet.',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              return Column(
+                children: [
+                  for (var index = 0; index < posts.length; index++) ...[
+                    _buildPublicDailyDressUpCard(
+                      context,
+                      posts[index],
+                      userName,
+                      profileImageUrl,
+                    ),
+                    if (index != posts.length - 1) const SizedBox(height: 30),
+                  ],
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPublicDailyDressUpCard(
+    BuildContext context,
+    Post post,
+    String userName,
+    String profileImageUrl,
+  ) {
+    final colors = Theme.of(context).colorScheme;
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final isLiked = post.likes.contains(currentUserId);
+    final initial = userName.trim().isEmpty
+        ? 'U'
+        : userName.trim()[0].toUpperCase();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-          child: Text(
-            isMe ? "My Wardrobe" : "Wardrobe",
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-        ),
-        StreamBuilder<QuerySnapshot>(
-          stream: stream,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting)
-              return const Center(child: CircularProgressIndicator());
-            if (!snapshot.hasData || snapshot.data!.docs.isEmpty)
-              return const Padding(
-                padding: EdgeInsets.all(20.0),
-                child: Text("No public items to show."),
-              );
-
-            final items = snapshot.data!.docs;
-
-            return GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                crossAxisSpacing: 10,
-                mainAxisSpacing: 10,
-                childAspectRatio: 1,
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(2),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.orange, width: 2),
               ),
-              itemCount: items.length,
-              itemBuilder: (context, index) {
-                final doc = items[index];
-                final data = Map<String, dynamic>.from(
-                  doc.data() as Map<String, dynamic>,
-                );
-                data['id'] = doc.id;
-                final imageUrl = data['imageUrl'] ?? data['imageURL'] ?? '';
-                final rawImageUrl = data['rawImageUrl'] ?? imageUrl;
-                return GestureDetector(
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) =>
-                          ProductDetailPage(productData: data),
+              child: CircleAvatar(
+                radius: 20,
+                backgroundColor: const Color(0xFF0D0140),
+                backgroundImage: profileImageUrl.isEmpty
+                    ? null
+                    : NetworkImage(profileImageUrl),
+                child: profileImageUrl.isEmpty
+                    ? Text(
+                        initial,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      )
+                    : null,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    userName,
+                    style: const TextStyle(
+                      color: Color(0xFF0D0140),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
                     ),
                   ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: rawImageUrl.isNotEmpty
-                        ? Image.network(rawImageUrl, fit: BoxFit.contain)
-                        : Container(
-                            color: Theme.of(context).colorScheme.outlineVariant,
-                            child: const Icon(Icons.image),
-                          ),
+                  Text(
+                    post.caption.isEmpty ? 'Daily dress-up' : post.caption,
+                    style: TextStyle(
+                      color: colors.onSurfaceVariant,
+                      fontSize: 13,
+                    ),
                   ),
-                );
-              },
-            );
-          },
+                ],
+              ),
+            ),
+            Text(
+              _formatPostTime(post.createdAt),
+              style: const TextStyle(color: Colors.grey, fontSize: 12),
+            ),
+          ],
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 15),
+        _buildPublicPostPreview(context, post),
+        const SizedBox(height: 15),
+        Wrap(
+          spacing: 20,
+          runSpacing: 12,
+          children: [
+            _buildPostAction(
+              context,
+              isLiked ? Icons.favorite : Icons.favorite_border,
+              '${post.likeCount}',
+              color: isLiked ? Colors.red : null,
+              onTap: currentUserId.isEmpty
+                  ? null
+                  : () => PostService().toggleLike(post.id, post.likes),
+            ),
+            _buildPostAction(
+              context,
+              Icons.chat_bubble_outline,
+              '${post.commentCount}',
+              onTap: () => showPostCommentsSheet(context, post),
+            ),
+            _buildPostAction(
+              context,
+              Icons.shortcut_outlined,
+              'Try On',
+              onTap: () => _tryOnPost(context, post),
+            ),
+            _buildPostAction(context, Icons.share_outlined, 'Share'),
+          ],
+        ),
       ],
     );
+  }
+
+  Widget _buildPublicPostPreview(BuildContext context, Post post) {
+    final colors = Theme.of(context).colorScheme;
+    final products = post.products
+        .where((product) => _productImageUrl(product).isNotEmpty)
+        .take(3)
+        .toList();
+
+    if (products.isEmpty) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: SizedBox(
+          height: 280,
+          width: double.infinity,
+          child: _buildNetworkImage(
+            post.imageURL,
+            colors,
+            fit: BoxFit.cover,
+            fallbackIcon: Icons.checkroom_outlined,
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      height: 310,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: colors.outlineVariant),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 3,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: _buildNetworkImage(
+                post.imageURL,
+                colors,
+                fit: BoxFit.contain,
+                fallbackIcon: Icons.person_outline,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            flex: 2,
+            child: Column(
+              children: [
+                for (var index = 0; index < products.length; index++) ...[
+                  Expanded(
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(5),
+                      decoration: BoxDecoration(
+                        color: colors.surface,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: colors.outlineVariant),
+                      ),
+                      child: _buildNetworkImage(
+                        _productImageUrl(products[index]),
+                        colors,
+                        fit: BoxFit.contain,
+                        fallbackIcon: Icons.checkroom_outlined,
+                      ),
+                    ),
+                  ),
+                  if (index != products.length - 1) const SizedBox(height: 8),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNetworkImage(
+    String imageUrl,
+    ColorScheme colors, {
+    required BoxFit fit,
+    required IconData fallbackIcon,
+  }) {
+    if (imageUrl.isEmpty) {
+      return Container(
+        color: colors.surfaceContainerHighest,
+        alignment: Alignment.center,
+        child: Icon(fallbackIcon, color: colors.outline, size: 38),
+      );
+    }
+
+    return Image.network(
+      imageUrl,
+      width: double.infinity,
+      height: double.infinity,
+      fit: fit,
+      webHtmlElementStrategy: kIsWeb
+          ? WebHtmlElementStrategy.prefer
+          : WebHtmlElementStrategy.never,
+      errorBuilder: (context, error, stackTrace) => Container(
+        color: colors.surfaceContainerHighest,
+        alignment: Alignment.center,
+        child: Icon(Icons.broken_image_outlined, color: colors.outline),
+      ),
+    );
+  }
+
+  String _productImageUrl(Map<String, dynamic> product) {
+    const fields = [
+      'rawImageUrl',
+      'imageUrl',
+      'imageURL',
+      'processedImageUrl',
+      'processed_url',
+      'raw_url',
+    ];
+    for (final field in fields) {
+      final value = product[field];
+      if (value is String && value.trim().isNotEmpty) return value.trim();
+    }
+    return '';
+  }
+
+  Widget _buildPostAction(
+    BuildContext context,
+    IconData icon,
+    String label, {
+    Color? color,
+    VoidCallback? onTap,
+  }) {
+    final actionColor = color ?? Theme.of(context).colorScheme.onSurfaceVariant;
+    return GestureDetector(
+      onTap: onTap,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: actionColor, size: 20),
+          const SizedBox(width: 5),
+          Text(label, style: TextStyle(color: actionColor, fontSize: 13)),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _tryOnPost(BuildContext context, Post post) async {
+    if (FirebaseAuth.instance.currentUser == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Please sign in first.')));
+      return;
+    }
+
+    var loadingVisible = true;
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final products = await PostService().getPostOutfitProducts(post);
+      if (!context.mounted) return;
+      Navigator.of(context, rootNavigator: true).pop();
+      loadingVisible = false;
+
+      final selectedProducts = await showTryOnProductPicker(
+        context,
+        initialProducts: products,
+        outfitLabel: "Friend's Look",
+      );
+      if (!context.mounted ||
+          selectedProducts == null ||
+          selectedProducts.isEmpty) {
+        return;
+      }
+
+      await Navigator.pushNamed(
+        context,
+        AppRoutes.avatarTryOn,
+        arguments: {
+          'products': selectedProducts,
+          'garmentImageUrl': _productImageUrl(selectedProducts.first),
+          'garmentName': selectedProducts
+              .map((product) => (product['name'] ?? 'Clothing').toString())
+              .join(' + '),
+          'category': (selectedProducts.first['category'] ?? '').toString(),
+          'sourcePostId': post.id,
+          'sourceOutfitId': post.outfitId,
+        },
+      );
+    } catch (error) {
+      if (!context.mounted) return;
+      if (loadingVisible) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Unable to load outfit: $error')));
+    }
+  }
+
+  String _formatPostTime(DateTime createdAt) {
+    final difference = DateTime.now().difference(createdAt);
+    if (difference.isNegative || difference.inMinutes < 1) return 'Now';
+    if (difference.inMinutes < 60) return '${difference.inMinutes}m';
+    if (difference.inHours < 24) return '${difference.inHours}h';
+    if (difference.inDays == 1) return 'Yesterday';
+    if (difference.inDays < 7) return '${difference.inDays}d';
+    return '${createdAt.day}/${createdAt.month}/${createdAt.year}';
   }
 
   /// Helper for building statistic columns (Followers/Following)
@@ -375,18 +685,16 @@ class FollowRequestsPage extends StatelessWidget {
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        IconButton(
-                          icon: const Icon(
-                            Icons.check_circle,
-                            color: Colors.green,
-                          ),
+                        FilledButton(
                           onPressed: () =>
                               friendService.acceptFollowRequest(requesterId),
+                          child: const Text('Accept'),
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.cancel, color: Colors.red),
+                        const SizedBox(width: 6),
+                        OutlinedButton(
                           onPressed: () =>
                               friendService.declineFollowRequest(requesterId),
+                          child: const Text('Decline'),
                         ),
                       ],
                     ),

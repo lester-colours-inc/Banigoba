@@ -12,8 +12,11 @@ import '../ui/screens/auth/custom_login_screen.dart';
 import '../ui/screens/onboarding/onboarding_screen.dart';
 import '../ui/screens/permissions/permissions_request_screen.dart';
 import '../ui/screens/shop/admin_products_page.dart';
+import '../ui/screens/shop/seller_dashboard_page.dart';
+import '../ui/screens/shop/shops_page.dart';
 import '../ui/screens/wardrobe/plan_ahead_page.dart';
 import '../ui/screens/wardrobe/measurement_page.dart';
+import '../ui/screens/settings/settings_page.dart';
 import '../data/services/permissions_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -198,9 +201,25 @@ class _AuthGateState extends State<AuthGate> {
                 );
               }
 
-              return gateState?.isAdmin == true
-                  ? const AdminProductsPage()
-                  : const MainScreen();
+              if (gateState?.isAdmin == true) {
+                return const AdminProductsPage();
+              }
+              return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                stream: FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(user.uid)
+                    .snapshots(),
+                builder: (context, userSnapshot) {
+                  if (!userSnapshot.hasData) {
+                    return const Scaffold(
+                      body: Center(child: CircularProgressIndicator()),
+                    );
+                  }
+                  return userSnapshot.data?.data()?['sellerMode'] == true
+                      ? const SellerDashboardPage()
+                      : const MainScreen();
+                },
+              );
             },
           );
         }
@@ -227,6 +246,8 @@ class AppRoutes {
   static const String avatarTryOn = '/avatar-try-on';
   static const String planAhead = '/plan-ahead';
   static const String measurement = '/measurement';
+  static const String settings = '/settings';
+  static const String shops = '/shops';
 
   static Map<String, WidgetBuilder> routes = {
     root: (context) => const AuthGate(),
@@ -238,6 +259,8 @@ class AppRoutes {
     avatarTryOn: (context) => const AvatarTryOnPage(),
     planAhead: (context) => const PlanAheadPage(),
     measurement: (context) => const MeasurementPage(),
+    settings: (context) => const SettingsPage(),
+    shops: (context) => const ShopsPage(),
   };
 }
 
