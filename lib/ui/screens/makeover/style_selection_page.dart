@@ -2,8 +2,10 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import '../../../core/app_routes.dart';
 import '../../../data/models/weather.dart';
 import '../../../data/services/weather_service.dart';
+import '../../widgets/cart_badge_button.dart';
 import '../../widgets/try_on_product_picker.dart';
 import '../wardrobe/wardrobe_calendar_page.dart';
 import 'avatar_try_on_page.dart';
@@ -165,29 +167,9 @@ class _StyleSelectionPageState extends State<StyleSelectionPage> {
           ),
         ),
         actions: [
-          Stack(
-            children: [
-              IconButton(
-                icon: Icon(
-                  Icons.shopping_bag_outlined,
-                  color: Theme.of(context).colorScheme.onSurface,
-                ),
-                onPressed: () {},
-              ),
-              Positioned(
-                right: 12,
-                top: 12,
-                child: Container(
-                  width: 10,
-                  height: 10,
-                  decoration: BoxDecoration(
-                    color: Colors.red,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 1.5),
-                  ),
-                ),
-              ),
-            ],
+          CartBadgeButton(
+            onPressed: () => Navigator.pushNamed(context, AppRoutes.cart),
+            color: Theme.of(context).colorScheme.onSurface,
           ),
           Container(
             margin: EdgeInsets.symmetric(vertical: 8, horizontal: 8),
@@ -379,6 +361,8 @@ class _StyleSelectionPageState extends State<StyleSelectionPage> {
                       builder: (_) => const WardrobeCalendarPage(),
                     ),
                   )
+                : label == 'Find Shops'
+                ? () => Navigator.pushNamed(context, AppRoutes.shops)
                 : () {},
             style: ElevatedButton.styleFrom(
               backgroundColor: StyleSelectionPage.primaryColor,

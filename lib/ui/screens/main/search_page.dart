@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/app_routes.dart';
+import '../../widgets/cart_badge_button.dart';
 import '../social/profile_page.dart';
 
 class SearchPage extends StatefulWidget {
@@ -96,6 +97,13 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   Widget _buildAppBarAction(IconData icon, VoidCallback onTap) {
+    if (icon == Icons.shopping_bag_outlined) {
+      return CartBadgeButton(
+        onPressed: onTap,
+        color: Theme.of(context).colorScheme.onSurface,
+      );
+    }
+
     return IconButton(
       icon: Icon(
         icon,

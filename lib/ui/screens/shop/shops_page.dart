@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../core/app_routes.dart';
 import '../../../data/services/product_service.dart';
 import '../../../data/services/shop_chat_service.dart';
+import '../../widgets/cart_badge_button.dart';
 import 'product_detail_page.dart';
 import 'shop_chat_page.dart';
 
@@ -33,10 +34,8 @@ class _ShopsPageState extends State<ShopsPage> {
         ),
         backgroundColor: colors.surface,
         actions: [
-          IconButton(
-            tooltip: 'Cart',
+          CartBadgeButton(
             onPressed: () => Navigator.pushNamed(context, AppRoutes.cart),
-            icon: const Icon(Icons.shopping_bag_outlined),
           ),
           const SizedBox(width: 8),
         ],

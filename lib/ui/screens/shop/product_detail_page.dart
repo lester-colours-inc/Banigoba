@@ -372,26 +372,10 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                               : stock <= 0 &&
                                     _currentProductData.containsKey('stock')
                               ? null
-                              : () async {
-                                  await _cartService.addToCart(
-                                    userId: currentUserId,
-                                    productId: productId,
-                                    productData: _currentProductData,
-                                  );
-                                  if (!context.mounted) return;
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: const Text('Added to cart.'),
-                                      action: SnackBarAction(
-                                        label: 'View Cart',
-                                        onPressed: () => Navigator.pushNamed(
-                                          context,
-                                          AppRoutes.cart,
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                },
+                              : () => _addToCartWithShopGuard(
+                                  userId: currentUserId,
+                                  productId: productId.toString(),
+                                ),
                           icon: const Icon(Icons.add_shopping_cart),
                           label: const Text('Add to Cart'),
                           style: OutlinedButton.styleFrom(
@@ -454,6 +438,69 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
       MaterialPageRoute<void>(
         builder: (_) =>
             ShopChatPage(chatId: chatId, title: shopName, asSeller: false),
+      ),
+    );
+  }
+
+  Future<void> _addToCartWithShopGuard({
+    required String userId,
+    required String productId,
+  }) async {
+    try {
+      await _cartService.addToCart(
+        userId: userId,
+        productId: productId,
+        productData: _currentProductData,
+      );
+      if (!mounted) return;
+      _showAddedToCartMessage();
+    } on CartShopConflictException catch (error) {
+      if (!mounted) return;
+      final shouldClear = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Start a new bag?'),
+          content: Text(
+            'Your bag has items from ${error.currentShopName}. Clear it and start a new bag for ${error.newShopName}?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Keep Bag'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Clear & Add'),
+            ),
+          ],
+        ),
+      );
+      if (shouldClear != true) return;
+
+      await _cartService.clearCart(userId);
+      await _cartService.addToCart(
+        userId: userId,
+        productId: productId,
+        productData: _currentProductData,
+      );
+      if (!mounted) return;
+      _showAddedToCartMessage();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Unable to add to cart: $error')));
+    }
+  }
+
+  void _showAddedToCartMessage() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Added to cart.'),
+        action: SnackBarAction(
+          label: 'View Cart',
+          onPressed: () => Navigator.pushNamed(context, AppRoutes.cart),
+        ),
       ),
     );
   }

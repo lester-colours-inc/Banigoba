@@ -5,6 +5,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/app_routes.dart';
+import '../../widgets/cart_badge_button.dart';
 import '../makeover/style_selection_page.dart';
 
 class MeasurementPage extends StatefulWidget {
@@ -109,22 +111,9 @@ class _MeasurementPageState extends State<MeasurementPage> {
           ),
         ),
         actions: [
-          Stack(
-            children: [
-              IconButton(
-                tooltip: 'Cart',
-                icon: Icon(
-                  Icons.shopping_bag_outlined,
-                  color: Theme.of(context).colorScheme.onSurface,
-                ),
-                onPressed: () {},
-              ),
-              Positioned(
-                right: 10,
-                top: 9,
-                child: CircleAvatar(radius: 4, backgroundColor: Colors.red),
-              ),
-            ],
+          CartBadgeButton(
+            onPressed: () => Navigator.pushNamed(context, AppRoutes.cart),
+            color: Theme.of(context).colorScheme.onSurface,
           ),
           IconButton.filledTonal(
             tooltip: 'Back',

@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../../data/services/shop_chat_service.dart';
+import 'shop_products_page.dart';
 
 class ShopChatInboxPage extends StatelessWidget {
   const ShopChatInboxPage({super.key, this.sellerOnly = false});
@@ -162,7 +163,7 @@ class _ShopChatPageState extends State<ShopChatPage> {
   Widget build(BuildContext context) {
     final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
     return Scaffold(
-      appBar: AppBar(title: Text(widget.title)),
+      appBar: AppBar(title: _buildTitle(context)),
       body: Column(
         children: [
           Expanded(
@@ -182,7 +183,38 @@ class _ShopChatPageState extends State<ShopChatPage> {
                   itemCount: messages.length,
                   itemBuilder: (context, index) {
                     final data = messages[index].data();
+                    final isSystem = data['senderType'] == 'system';
                     final mine = data['senderId'] == currentUserId;
+                    if (isSystem) {
+                      return Center(
+                        child: Container(
+                          constraints: BoxConstraints(
+                            maxWidth: MediaQuery.sizeOf(context).width * 0.82,
+                          ),
+                          margin: const EdgeInsets.only(bottom: 10),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 9,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerHighest,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Text(
+                            (data['text'] ?? '').toString(),
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      );
+                    }
                     return Align(
                       alignment: mine
                           ? Alignment.centerRight
@@ -251,6 +283,47 @@ class _ShopChatPageState extends State<ShopChatPage> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildTitle(BuildContext context) {
+    if (widget.asSeller) return Text(widget.title);
+
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance
+          .collection('shop_chats')
+          .doc(widget.chatId)
+          .snapshots(),
+      builder: (context, snapshot) {
+        final data = snapshot.data?.data();
+        final sellerId = (data?['sellerId'] ?? '').toString();
+        final shopName = (data?['shopName'] ?? widget.title).toString();
+
+        return InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: sellerId.isEmpty
+              ? null
+              : () => Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) => ShopProductsPage(
+                      sellerId: sellerId,
+                      shopName: shopName,
+                    ),
+                  ),
+                ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(child: Text(shopName, overflow: TextOverflow.ellipsis)),
+              if (sellerId.isNotEmpty) ...[
+                const SizedBox(width: 6),
+                const Icon(Icons.storefront_outlined, size: 18),
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
 }

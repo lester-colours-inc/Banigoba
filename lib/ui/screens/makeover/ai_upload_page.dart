@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:banigoba/data/services/storage_service.dart';
+import '../../../core/app_routes.dart';
+import '../../widgets/cart_badge_button.dart';
 import '../wardrobe/measurement_page.dart';
 
 /// The starting point of the AI Makeover flow.
@@ -249,12 +251,9 @@ class _AiUploadPageState extends State<AiUploadPage> {
           onPressed: () {},
         ),
         actions: [
-          IconButton(
-            icon: Icon(
-              Icons.shopping_bag_outlined,
-              color: Theme.of(context).colorScheme.onSurface,
-            ),
-            onPressed: () {},
+          CartBadgeButton(
+            onPressed: () => Navigator.pushNamed(context, AppRoutes.cart),
+            color: Theme.of(context).colorScheme.onSurface,
           ),
           Container(
             margin: EdgeInsets.symmetric(vertical: 8, horizontal: 8),

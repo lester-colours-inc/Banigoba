@@ -11,7 +11,6 @@ import '../ui/screens/makeover/avatar_try_on_page.dart';
 import '../ui/screens/auth/custom_login_screen.dart';
 import '../ui/screens/onboarding/onboarding_screen.dart';
 import '../ui/screens/permissions/permissions_request_screen.dart';
-import '../ui/screens/shop/admin_products_page.dart';
 import '../ui/screens/shop/seller_dashboard_page.dart';
 import '../ui/screens/shop/shops_page.dart';
 import '../ui/screens/wardrobe/plan_ahead_page.dart';
@@ -87,9 +86,6 @@ class _AuthGateState extends State<AuthGate> {
       userData?['permissionStatus'] as Map? ?? const {},
     );
     final storedAsGranted = userData?['permissionsGranted'] == true;
-    final isAdmin =
-        userData?['role'] == 'admin' || userData?['isAdmin'] == true;
-
     final devicePermissionsGranted =
         PermissionsService.areAllPermissionsGranted(deviceStatuses);
     final storedStatusesMatch = deviceStatuses.entries.every(
@@ -105,7 +101,6 @@ class _AuthGateState extends State<AuthGate> {
           .where((entry) => !entry.value)
           .map((entry) => entry.key)
           .toSet(),
-      isAdmin: isAdmin,
     );
   }
 
@@ -201,9 +196,6 @@ class _AuthGateState extends State<AuthGate> {
                 );
               }
 
-              if (gateState?.isAdmin == true) {
-                return const AdminProductsPage();
-              }
               return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
                 stream: FirebaseFirestore.instance
                     .collection('users')
@@ -266,10 +258,6 @@ class AppRoutes {
 
 class _PermissionGateState {
   final Set<String> missingPermissions;
-  final bool isAdmin;
 
-  const _PermissionGateState({
-    required this.missingPermissions,
-    required this.isAdmin,
-  });
+  const _PermissionGateState({required this.missingPermissions});
 }

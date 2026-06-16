@@ -88,6 +88,7 @@ class ShopChatService {
 
     final sellerId = (data['sellerId'] ?? '').toString();
     final customerId = (data['customerId'] ?? '').toString();
+    final shopName = (data['shopName'] ?? 'Boutique').toString();
     final receiverId = senderId == sellerId ? customerId : sellerId;
     final messageRef = chatRef.collection('messages').doc();
     final batch = _db.batch();
@@ -116,8 +117,50 @@ class ShopChatService {
       title: 'New Shop Message',
       body: '$senderName sent you a message.',
       type: 'shop_message',
-      extraData: {'fromId': senderId, 'fromName': senderName, 'chatId': chatId},
+      extraData: {
+        'fromId': senderId,
+        'fromName': senderId == sellerId ? shopName : senderName,
+        'shopName': shopName,
+        'sellerId': sellerId,
+        'customerId': customerId,
+        'chatId': chatId,
+      },
     );
+  }
+
+  Future<void> addSystemMessage({
+    required String chatId,
+    required String text,
+    bool unreadForSeller = false,
+    bool unreadForCustomer = false,
+    String? orderId,
+  }) async {
+    if (text.trim().isEmpty) return;
+
+    final chatRef = _db.collection('shop_chats').doc(chatId);
+    final messageRef = chatRef.collection('messages').doc();
+    final update = <String, dynamic>{
+      'lastMessage': text.trim(),
+      'lastMessageAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+    if (unreadForSeller) {
+      update['unreadBySeller'] = FieldValue.increment(1);
+    }
+    if (unreadForCustomer) {
+      update['unreadByCustomer'] = FieldValue.increment(1);
+    }
+
+    final batch = _db.batch();
+    batch.set(messageRef, {
+      'senderId': 'system',
+      'senderType': 'system',
+      'text': text.trim(),
+      if (orderId?.isNotEmpty == true) 'orderId': orderId,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+    batch.set(chatRef, update, SetOptions(merge: true));
+    await batch.commit();
   }
 
   Future<void> markRead({

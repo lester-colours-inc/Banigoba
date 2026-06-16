@@ -13,6 +13,7 @@ import '../../../data/models/weather.dart';
 import 'package:geolocator/geolocator.dart';
 import '../../../core/app_routes.dart';
 import '../../widgets/post_comments_sheet.dart';
+import '../../widgets/cart_badge_button.dart';
 import '../../widgets/try_on_product_picker.dart';
 import '../wardrobe/wardrobe_calendar_page.dart';
 
@@ -1100,15 +1101,16 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
                   ),
                   SizedBox(width: 8),
                 ],
-                Expanded(
-                  child: _buildMineCommand(
-                    icon: post.isPublic ? Icons.public : Icons.share_outlined,
-                    label: post.isPublic ? 'Public' : 'Share',
-                    backgroundColor: Theme.of(context).colorScheme.surface,
-                    foregroundColor: Theme.of(context).colorScheme.onSurface,
-                    onTap: post.isPublic ? null : () => _sharePost(post),
+                if (!post.isPublic)
+                  Expanded(
+                    child: _buildMineCommand(
+                      icon: Icons.share_outlined,
+                      label: 'Share',
+                      backgroundColor: Theme.of(context).colorScheme.surface,
+                      foregroundColor: Theme.of(context).colorScheme.onSurface,
+                      onTap: () => _sharePost(post),
+                    ),
                   ),
-                ),
               ],
             ),
             if (post.isPublic) ...[
@@ -1363,6 +1365,13 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
     VoidCallback onTap, {
     bool hasNotification = false,
   }) {
+    if (icon == Icons.shopping_bag_outlined) {
+      return CartBadgeButton(
+        onPressed: onTap,
+        color: Theme.of(context).colorScheme.onSurface,
+      );
+    }
+
     return Stack(
       children: [
         IconButton(
@@ -1381,17 +1390,29 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
               if (unreadCount == 0) return SizedBox.shrink();
 
               return Positioned(
-                right: 12,
-                top: 12,
+                right: 5,
+                top: 5,
                 child: Container(
-                  width: 10,
-                  height: 10,
+                  constraints: const BoxConstraints(
+                    minWidth: 18,
+                    minHeight: 18,
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
                   decoration: BoxDecoration(
                     color: Colors.red,
-                    shape: BoxShape.circle,
+                    borderRadius: BorderRadius.circular(10),
                     border: Border.all(
                       color: Theme.of(context).colorScheme.surface,
                       width: 2,
+                    ),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    unreadCount > 99 ? '99+' : '$unreadCount',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 8,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
@@ -1582,7 +1603,6 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
                   'Try On',
                   onTap: () => _tryOnPost(post),
                 ),
-                _buildAction(Icons.share_outlined, 'Share'),
               ],
             ),
           ],

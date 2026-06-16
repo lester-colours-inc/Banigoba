@@ -1,10 +1,9 @@
-// Builds the authenticated navigation drawer, account controls, and admin links.
-import 'package:firebase_auth/firebase_auth.dart';
+// Builds the authenticated navigation drawer and account controls.
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../../core/theme_provider.dart';
 import '../../core/app_routes.dart';
-import '../screens/shop/admin_products_page.dart';
 import '../screens/shop/shop_chat_page.dart';
 
 class AppDrawer extends StatelessWidget {
@@ -100,53 +99,6 @@ class AppDrawer extends StatelessWidget {
                     Navigator.pushNamed(context, AppRoutes.measurement);
                   },
                 ),
-
-                // Admin-only section
-                if (user != null)
-                  StreamBuilder<DocumentSnapshot>(
-                    stream: FirebaseFirestore.instance
-                        .collection('users')
-                        .doc(user.uid)
-                        .snapshots(),
-                    builder: (context, snapshot) {
-                      if (snapshot.hasData && snapshot.data!.exists) {
-                        final data =
-                            snapshot.data!.data() as Map<String, dynamic>;
-                        if (data['role'] == 'admin' ||
-                            data['isAdmin'] == true) {
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Padding(
-                                padding: EdgeInsets.fromLTRB(25, 20, 25, 10),
-                                child: Text(
-                                  'Admin Panel',
-                                  style: TextStyle(
-                                    color: Colors.redAccent,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ),
-                              _buildDrawerItem(
-                                context,
-                                Icons.admin_panel_settings,
-                                'Manage Products',
-                                onTap: () => Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) =>
-                                        const AdminProductsPage(),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          );
-                        }
-                      }
-                      return const SizedBox.shrink();
-                    },
-                  ),
 
                 const Padding(
                   padding: EdgeInsets.fromLTRB(25, 20, 25, 10),

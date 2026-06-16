@@ -1,6 +1,9 @@
 // Presents the steps involved in creating an AI-assisted styled look.
 import 'package:flutter/material.dart';
 
+import '../../../core/app_routes.dart';
+import '../../widgets/cart_badge_button.dart';
+
 class StylingJourneyPage extends StatelessWidget {
   const StylingJourneyPage({super.key});
 
@@ -29,12 +32,9 @@ class StylingJourneyPage extends StatelessWidget {
           ),
         ),
         actions: [
-          IconButton(
-            icon: Icon(
-              Icons.shopping_bag_outlined,
-              color: Theme.of(context).colorScheme.onSurface,
-            ),
-            onPressed: () {},
+          CartBadgeButton(
+            onPressed: () => Navigator.pushNamed(context, AppRoutes.cart),
+            color: Theme.of(context).colorScheme.onSurface,
           ),
           Container(
             margin: EdgeInsets.symmetric(vertical: 8, horizontal: 8),

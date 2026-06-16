@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import 'admin_products_page.dart';
+import 'seller_orders_page.dart';
 import 'shop_chat_page.dart';
 
 class SellerDashboardPage extends StatefulWidget {
@@ -181,6 +182,31 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
                       context,
                       MaterialPageRoute<void>(
                         builder: (_) => const AdminProductsPage(),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Card(
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.all(18),
+                    leading: const CircleAvatar(
+                      backgroundColor: _primary,
+                      foregroundColor: Colors.white,
+                      child: Icon(Icons.receipt_long_outlined),
+                    ),
+                    title: const Text(
+                      'Orders',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: const Text(
+                      'Review collection orders and update customer status.',
+                    ),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => const SellerOrdersPage(),
                       ),
                     ),
                   ),

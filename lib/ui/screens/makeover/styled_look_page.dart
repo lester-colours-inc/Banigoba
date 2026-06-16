@@ -1,7 +1,9 @@
 // Generates, displays, and saves the completed AI-styled look.
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../../../core/app_routes.dart';
 import '../../../data/services/makeover_service.dart';
+import '../../widgets/cart_badge_button.dart';
 
 class StyledLookPage extends StatefulWidget {
   final String style;
@@ -91,12 +93,9 @@ class _StyledLookPageState extends State<StyledLookPage> {
           ),
         ),
         actions: [
-          IconButton(
-            icon: Icon(
-              Icons.shopping_bag_outlined,
-              color: Theme.of(context).colorScheme.onSurface,
-            ),
-            onPressed: () {},
+          CartBadgeButton(
+            onPressed: () => Navigator.pushNamed(context, AppRoutes.cart),
+            color: Theme.of(context).colorScheme.onSurface,
           ),
           Container(
             margin: EdgeInsets.symmetric(vertical: 8, horizontal: 8),

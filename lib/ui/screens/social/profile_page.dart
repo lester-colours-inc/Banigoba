@@ -7,8 +7,10 @@ import '../../../core/app_routes.dart';
 import '../../../data/models/post.dart';
 import '../../../data/services/friend_service.dart';
 import '../../../data/services/post_service.dart';
+import '../../widgets/bottom_navigation.dart';
 import '../../widgets/post_comments_sheet.dart';
 import '../../widgets/try_on_product_picker.dart';
+import '../main/main_screen.dart';
 
 /// Screen displaying user profile details and public Daily Dress Up posts.
 class ProfilePage extends StatelessWidget {
@@ -21,8 +23,9 @@ class ProfilePage extends StatelessWidget {
     final targetUserId = userId ?? currentUserId;
     final FriendService friendService = FriendService();
 
-    if (targetUserId == null)
+    if (targetUserId == null) {
       return const Scaffold(body: Center(child: Text("Not logged in")));
+    }
 
     final bool isMe = targetUserId == currentUserId;
 
@@ -32,12 +35,14 @@ class ProfilePage extends StatelessWidget {
           .doc(targetUserId)
           .snapshots(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting)
+        if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
             body: Center(child: CircularProgressIndicator()),
           );
-        if (!snapshot.hasData || !snapshot.data!.exists)
+        }
+        if (!snapshot.hasData || !snapshot.data!.exists) {
           return const Scaffold(body: Center(child: Text("User not found")));
+        }
 
         final userData = snapshot.data!.data() as Map<String, dynamic>;
         final userName = userData['displayName'] ?? 'User';
@@ -178,10 +183,21 @@ class ProfilePage extends StatelessWidget {
                   ],
                 ),
               ),
+              bottomNavigationBar: CustomBottomNavigation(
+                currentIndex: -1,
+                onTap: (index) => _openMainTab(context, index),
+              ),
             );
           },
         );
       },
+    );
+  }
+
+  void _openMainTab(BuildContext context, int index) {
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute<void>(builder: (_) => MainScreen(initialIndex: index)),
+      (route) => false,
     );
   }
 
@@ -372,7 +388,6 @@ class ProfilePage extends StatelessWidget {
               'Try On',
               onTap: () => _tryOnPost(context, post),
             ),
-            _buildPostAction(context, Icons.share_outlined, 'Share'),
           ],
         ),
       ],
@@ -602,7 +617,7 @@ class ProfilePage extends StatelessWidget {
   ) {
     return GestureDetector(
       onTap: () {
-        if (canSee)
+        if (canSee) {
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -610,12 +625,13 @@ class ProfilePage extends StatelessWidget {
                   UserListPage(userId: userId, type: type, title: label),
             ),
           );
-        else
+        } else {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text("Follow this account to see their list"),
             ),
           );
+        }
       },
       child: StreamBuilder<int>(
         stream: stream,
@@ -649,10 +665,12 @@ class FollowRequestsPage extends StatelessWidget {
       body: StreamBuilder<QuerySnapshot>(
         stream: friendService.getIncomingRequests(),
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting)
+          if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty)
+          }
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
             return const Center(child: Text("No pending requests"));
+          }
 
           final requests = snapshot.data!.docs;
 
@@ -666,8 +684,9 @@ class FollowRequestsPage extends StatelessWidget {
                     .doc(requesterId)
                     .snapshots(),
                 builder: (context, userSnapshot) {
-                  if (!userSnapshot.hasData || !userSnapshot.data!.exists)
+                  if (!userSnapshot.hasData || !userSnapshot.data!.exists) {
                     return const SizedBox.shrink();
+                  }
                   final userData =
                       userSnapshot.data!.data() as Map<String, dynamic>;
                   final name = userData['displayName'] ?? 'User';
@@ -733,10 +752,12 @@ class UserListPage extends StatelessWidget {
             .collection(type)
             .snapshots(),
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting)
+          if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty)
+          }
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
             return Center(child: Text("No $title yet"));
+          }
 
           final userIds = snapshot.data!.docs.map((doc) => doc.id).toList();
 
@@ -749,8 +770,9 @@ class UserListPage extends StatelessWidget {
                     .doc(userIds[index])
                     .snapshots(),
                 builder: (context, userSnapshot) {
-                  if (!userSnapshot.hasData || !userSnapshot.data!.exists)
+                  if (!userSnapshot.hasData || !userSnapshot.data!.exists) {
                     return const SizedBox.shrink();
+                  }
                   final userData =
                       userSnapshot.data!.data() as Map<String, dynamic>;
                   final name = userData['displayName'] ?? 'User';

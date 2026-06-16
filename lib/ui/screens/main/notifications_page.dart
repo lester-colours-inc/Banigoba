@@ -1,11 +1,15 @@
 // Displays social and product notifications and lets users respond to follow requests.
+import 'package:flutter/gestures.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../../../core/app_routes.dart';
 import '../../../data/services/notification_service.dart';
+import '../../widgets/cart_badge_button.dart';
 import '../shop/shop_chat_page.dart';
 import '../../../data/services/friend_service.dart';
 import '../social/profile_page.dart';
+import '../shop/shop_products_page.dart';
 
 /// Screen displaying a list of user notifications, matching the provided designs
 class NotificationsPage extends StatefulWidget {
@@ -17,6 +21,7 @@ class NotificationsPage extends StatefulWidget {
 
 class _NotificationsPageState extends State<NotificationsPage> {
   int _selectedTabIndex = 0;
+  final Set<String> _newNotificationIds = {};
   final NotificationService notificationService = NotificationService();
   final FriendService friendService = FriendService();
   static Color primaryColor = Color(0xFF0D0140);
@@ -24,8 +29,25 @@ class _NotificationsPageState extends State<NotificationsPage> {
   @override
   void initState() {
     super.initState();
-    // Mark all as read when opening the page
-    notificationService.markAllAsRead();
+    _captureNewNotificationsAndClearBell();
+  }
+
+  Future<void> _captureNewNotificationsAndClearBell() async {
+    final userId = FirebaseAuth.instance.currentUser?.uid ?? '';
+    if (userId.isEmpty) return;
+
+    final unread = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(userId)
+        .collection('notifications')
+        .where('isRead', isEqualTo: false)
+        .get();
+    if (!mounted) return;
+
+    setState(() {
+      _newNotificationIds.addAll(unread.docs.map((doc) => doc.id));
+    });
+    await notificationService.markAllAsRead();
   }
 
   @override
@@ -53,8 +75,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
         actions: [
           _buildAppBarAction(
             Icons.shopping_bag_outlined,
-            () {},
-            hasNotification: true,
+            () => Navigator.pushNamed(context, AppRoutes.cart),
           ),
           SizedBox(width: 10),
           Container(
@@ -110,6 +131,13 @@ class _NotificationsPageState extends State<NotificationsPage> {
     VoidCallback onTap, {
     bool hasNotification = false,
   }) {
+    if (icon == Icons.shopping_bag_outlined) {
+      return CartBadgeButton(
+        onPressed: onTap,
+        color: Theme.of(context).colorScheme.onSurface,
+      );
+    }
+
     return Stack(
       children: [
         IconButton(
@@ -128,15 +156,30 @@ class _NotificationsPageState extends State<NotificationsPage> {
               if (unreadCount == 0) return SizedBox.shrink();
 
               return Positioned(
-                right: 12,
-                top: 12,
+                right: 5,
+                top: 5,
                 child: Container(
-                  width: 10,
-                  height: 10,
+                  constraints: const BoxConstraints(
+                    minWidth: 18,
+                    minHeight: 18,
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
                   decoration: BoxDecoration(
                     color: Colors.red,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 2),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: Theme.of(context).colorScheme.surface,
+                      width: 2,
+                    ),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    unreadCount > 99 ? '99+' : '$unreadCount',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 8,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               );
@@ -264,7 +307,11 @@ class _NotificationsPageState extends State<NotificationsPage> {
           itemBuilder: (context, index) {
             final doc = filteredNotifications[index];
             final data = doc.data() as Map<String, dynamic>;
-            return _buildNotificationItem(doc.id, data);
+            return _buildNotificationItem(
+              doc.id,
+              data,
+              _newNotificationIds.contains(doc.id) || data['isRead'] == false,
+            );
           },
         );
       },
@@ -311,16 +358,38 @@ class _NotificationsPageState extends State<NotificationsPage> {
   }
 
   /// Individual notification row widget
-  Widget _buildNotificationItem(String id, Map<String, dynamic> data) {
+  Widget _buildNotificationItem(
+    String id,
+    Map<String, dynamic> data,
+    bool isNew,
+  ) {
     final String type = data['type'] ?? '';
     final extraData = data['extraData'] as Map<String, dynamic>?;
-    final fromName = extraData?['fromName'] as String? ?? 'Someone';
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final String? title = data['title']?.toString();
+    final String? body = data['body'];
+    final fromName = _notificationSenderName(
+      type: type,
+      extraData: extraData,
+      currentUserId: currentUserId,
+      title: title,
+      body: body,
+    );
+    final actionText = _getNotificationActionText(
+      type,
+      body,
+      actorName: fromName,
+    );
     final requesterId = extraData?['fromId'] as String?;
     final senderId =
         (data['senderId'] ?? extraData?['fromId'] ?? extraData?['userId'])
             ?.toString();
+    final useShopIdentity = _usesShopIdentity(
+      type: type,
+      extraData: extraData,
+      currentUserId: currentUserId,
+    );
     final response = data['response'] as String?;
-    final String? body = data['body'];
     final timestamp = data['timestamp'] as Timestamp?;
 
     // Style elements based on notification type
@@ -336,6 +405,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
     return GestureDetector(
       onTap: () {
         notificationService.markAsRead(id);
+        setState(() => _newNotificationIds.remove(id));
         _handleNotificationTap(context, type, extraData);
       },
       child: Row(
@@ -353,7 +423,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
               child: Icon(typeIcon, color: Colors.white, size: 28),
             )
           else
-            _buildSenderAvatar(senderId, fromName),
+            useShopIdentity
+                ? _buildInitialAvatar(fromName)
+                : _buildSenderAvatar(senderId, fromName),
           SizedBox(width: 15),
           // Text Content
           Expanded(
@@ -370,13 +442,23 @@ class _NotificationsPageState extends State<NotificationsPage> {
                             fontSize: 14,
                           ),
                           children: [
+                            if (fromName.isNotEmpty) ...[
+                              TextSpan(
+                                text: fromName,
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                                recognizer: TapGestureRecognizer()
+                                  ..onTap = () => _openNotificationName(
+                                    type: type,
+                                    extraData: extraData,
+                                    senderId: senderId,
+                                    displayName: fromName,
+                                    useShopIdentity: useShopIdentity,
+                                  ),
+                              ),
+                              TextSpan(text: ' '),
+                            ],
                             TextSpan(
-                              text: fromName,
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            TextSpan(text: ' '),
-                            TextSpan(
-                              text: _getNotificationActionText(type, body),
+                              text: actionText,
                               style: TextStyle(
                                 color: Theme.of(
                                   context,
@@ -397,6 +479,28 @@ class _NotificationsPageState extends State<NotificationsPage> {
                     ),
                   ],
                 ),
+                if (isNew)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Text(
+                        'New',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
                 if (type == 'like')
                   Padding(
                     padding: EdgeInsets.only(top: 4.0),
@@ -558,7 +662,68 @@ class _NotificationsPageState extends State<NotificationsPage> {
   }
 
   /// Maps internal notification types to specific action strings
-  String _getNotificationActionText(String type, String? defaultBody) {
+  String _notificationSenderName({
+    required String type,
+    required Map<String, dynamic>? extraData,
+    required String currentUserId,
+    required String? title,
+    required String? body,
+  }) {
+    final defaultName = (extraData?['fromName'] ?? 'Someone').toString();
+    final shopName = (extraData?['shopName'] ?? '').toString();
+    final sellerId = (extraData?['sellerId'] ?? '').toString();
+
+    if (type == 'order_update') {
+      if (shopName.isNotEmpty && sellerId != currentUserId) return shopName;
+      final titleName = (title ?? '').trim();
+      if (titleName.isNotEmpty &&
+          titleName != 'Order update' &&
+          titleName != 'New order') {
+        return titleName;
+      }
+      final bodyName = _nameFromNotificationBody(body);
+      if (bodyName.isNotEmpty) return bodyName;
+      if (defaultName == 'Someone' && body?.trim().isNotEmpty == true) {
+        return '';
+      }
+    }
+
+    if (type == 'shop_message' &&
+        shopName.isNotEmpty &&
+        _usesShopIdentity(
+          type: type,
+          extraData: extraData,
+          currentUserId: currentUserId,
+        )) {
+      return shopName;
+    }
+    return defaultName;
+  }
+
+  bool _usesShopIdentity({
+    required String type,
+    required Map<String, dynamic>? extraData,
+    required String currentUserId,
+  }) {
+    final shopName = (extraData?['shopName'] ?? '').toString();
+    final sellerId = (extraData?['sellerId'] ?? '').toString();
+    final fromId = (extraData?['fromId'] ?? '').toString();
+
+    if (shopName.isEmpty) return false;
+    if (type == 'order_update') return sellerId != currentUserId;
+    if (type == 'shop_message') {
+      return sellerId.isNotEmpty &&
+          sellerId != currentUserId &&
+          (fromId.isEmpty || fromId == sellerId);
+    }
+    return false;
+  }
+
+  String _getNotificationActionText(
+    String type,
+    String? defaultBody, {
+    String actorName = '',
+  }) {
     switch (type) {
       case 'like':
         return 'liked your Daily Dress Up.';
@@ -566,6 +731,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
         return 'commented on your Daily Dress Up.';
       case 'shop_message':
         return 'sent you a shop message.';
+      case 'order_update':
+        return _stripActorName(defaultBody, actorName) ?? 'updated your order.';
       case 'follow_request':
         return 'wants to follow you.';
       case 'follow_accepted':
@@ -577,6 +744,67 @@ class _NotificationsPageState extends State<NotificationsPage> {
       default:
         return defaultBody ?? '';
     }
+  }
+
+  String _nameFromNotificationBody(String? body) {
+    final text = body?.trim() ?? '';
+    if (text.isEmpty) return '';
+
+    for (final marker in [' updated your order', ' placed order']) {
+      final index = text.toLowerCase().indexOf(marker);
+      if (index > 0) return text.substring(0, index).trim();
+    }
+    return '';
+  }
+
+  String? _stripActorName(String? body, String actorName) {
+    final text = body?.trim();
+    if (text == null || text.isEmpty) return null;
+    final actor = actorName.trim();
+    if (actor.isNotEmpty &&
+        text.toLowerCase().startsWith(actor.toLowerCase())) {
+      return text.substring(actor.length).trim();
+    }
+    return text;
+  }
+
+  void _openNotificationName({
+    required String type,
+    required Map<String, dynamic>? extraData,
+    required String? senderId,
+    required String displayName,
+    required bool useShopIdentity,
+  }) {
+    if (useShopIdentity) {
+      final sellerId = (extraData?['sellerId'] ?? '').toString();
+      final shopName = (extraData?['shopName'] ?? displayName)
+          .toString()
+          .trim();
+      if (sellerId.isEmpty) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute<void>(
+          builder: (_) => ShopProductsPage(
+            sellerId: sellerId,
+            shopName: shopName.isEmpty ? 'Boutique' : shopName,
+          ),
+        ),
+      );
+      return;
+    }
+
+    final userId =
+        (senderId ??
+                extraData?['fromId'] ??
+                extraData?['userId'] ??
+                extraData?['customerId'] ??
+                '')
+            .toString();
+    if (userId.isEmpty) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute<void>(builder: (_) => ProfilePage(userId: userId)),
+    );
   }
 
   /// Formats the Firestore timestamp into a relative string (e.g., 4h ago, 13d ago)
@@ -597,7 +825,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
     Map<String, dynamic>? extraData,
   ) async {
     if (extraData == null) return;
-    if (type == 'shop_message') {
+    if (type == 'shop_message' || type == 'order_update') {
       final chatId = (extraData['chatId'] ?? '').toString();
       if (chatId.isEmpty) return;
       final chat = await FirebaseFirestore.instance

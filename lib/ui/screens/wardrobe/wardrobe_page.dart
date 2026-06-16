@@ -8,6 +8,7 @@ import '../../../core/app_routes.dart';
 import '../../../data/services/product_service.dart';
 import '../../../data/services/friend_service.dart';
 import '../../../data/services/notification_service.dart';
+import '../../widgets/cart_badge_button.dart';
 import '../shop/product_detail_page.dart';
 import '../main/notifications_page.dart';
 
@@ -120,6 +121,13 @@ class _WardrobePageState extends State<WardrobePage> {
     VoidCallback onTap, {
     bool hasNotification = false,
   }) {
+    if (icon == Icons.shopping_bag_outlined) {
+      return CartBadgeButton(
+        onPressed: onTap,
+        color: Theme.of(context).colorScheme.onSurface,
+      );
+    }
+
     return Stack(
       children: [
         IconButton(

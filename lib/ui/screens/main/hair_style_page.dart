@@ -9,6 +9,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/app_routes.dart';
 import '../../../data/services/notification_service.dart';
 import '../../../data/services/hairstyle_service.dart';
+import '../../widgets/cart_badge_button.dart';
 import 'notifications_page.dart';
 
 const _hairNavy = Color(0xFF17008A);
@@ -968,14 +969,9 @@ class _HairHeader extends StatelessWidget {
                 ),
               ),
             ),
-            IconButton(
-              tooltip: 'Cart',
+            CartBadgeButton(
               onPressed: () => Navigator.pushNamed(context, AppRoutes.cart),
-              icon: Icon(
-                Icons.shopping_bag_outlined,
-                color: colors.onSurface,
-                size: 28,
-              ),
+              color: colors.onSurface,
             ),
             const SizedBox(width: 4),
             Container(
@@ -1035,24 +1031,9 @@ class _HairHeader extends StatelessWidget {
                   ),
                 ),
                 if (!backOnly)
-                  Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      IconButton(
-                        tooltip: 'Cart',
-                        onPressed: () =>
-                            Navigator.pushNamed(context, AppRoutes.cart),
-                        icon: const Icon(Icons.shopping_bag_outlined),
-                      ),
-                      const Positioned(
-                        right: 8,
-                        top: 7,
-                        child: CircleAvatar(
-                          radius: 4,
-                          backgroundColor: Colors.red,
-                        ),
-                      ),
-                    ],
+                  CartBadgeButton(
+                    onPressed: () =>
+                        Navigator.pushNamed(context, AppRoutes.cart),
                   ),
               ],
             ),
