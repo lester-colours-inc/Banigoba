@@ -8,7 +8,9 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/app_routes.dart';
+import '../../../data/models/post.dart';
 import '../../../data/services/notification_service.dart';
+import '../../../data/services/friend_service.dart';
 import '../../../data/services/hairstyle_service.dart';
 import '../../widgets/cart_badge_button.dart';
 import 'main_screen.dart';
@@ -90,9 +92,7 @@ const _hairstylePreferenceOptions = [
   'Corporate',
   'Formal',
   'Glamour',
-  'Streetwear',
   'Afro-Chic',
-  'Vintage',
   'Edgy',
   'Sporty',
   'Bohemian',
@@ -501,6 +501,31 @@ class _HairStylePageState extends State<HairStylePage> {
           selectedOptions: _selectedStylePreferences,
           saving: _isSavingPreferences,
           onToggle: _toggleStylePreference,
+        ),
+        const SizedBox(height: 14),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => const AllSavedHairStylesPage(),
+              ),
+            ),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: _hairNavy,
+              side: const BorderSide(color: _hairNavy),
+              padding: const EdgeInsets.symmetric(vertical: 13),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(7),
+              ),
+            ),
+            icon: const Icon(Icons.history_rounded),
+            label: const Text(
+              'Styling History',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ),
         ),
       ],
     );
@@ -990,6 +1015,7 @@ class _HairStyleSelectionPageState extends State<HairStyleSelectionPage> {
     return _HairFlowScaffold(
       title: 'Choose Your Style',
       backOnly: true,
+      leadingCancel: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1075,7 +1101,7 @@ class _HairStyleSelectionPageState extends State<HairStyleSelectionPage> {
                   const SizedBox(height: 28),
                   Center(
                     child: SizedBox(
-                      width: 210,
+                      width: 220,
                       child: _HairButton(
                         label: 'Start My Makeover',
                         icon: Icons.keyboard_double_arrow_right_rounded,
@@ -1315,6 +1341,7 @@ class _HairResultPageState extends State<_HairResultPage> {
   Widget build(BuildContext context) {
     return _HairFlowScaffold(
       title: 'Your Styled Look',
+      backOnly: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1344,15 +1371,6 @@ class _HairResultPageState extends State<_HairResultPage> {
           const SizedBox(height: 12),
           Row(
             children: [
-              Expanded(
-                child: _HairButton(
-                  label: 'Compare Idols',
-                  icon: Icons.compare_arrows_rounded,
-                  color: _hairNavy,
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ),
-              const SizedBox(width: 8),
               Expanded(
                 child: _HairButton(
                   label: _isSaved
@@ -1443,32 +1461,29 @@ class HairJourneyPage extends StatelessWidget {
                   );
                 }
 
-                final recent = looks.take(3).toList();
-                final older = looks.skip(3).take(3).toList();
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Recently',
+                      'Saved Hairstyles',
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(height: 10),
-                    _SavedLookRow(looks: recent),
-                    if (older.isNotEmpty) ...[
-                      const SizedBox(height: 22),
-                      const Text(
-                        'Some time ago',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
+                    const SizedBox(height: 12),
+                    ...looks
+                        .take(6)
+                        .map(
+                          (look) => Padding(
+                            padding: const EdgeInsets.only(bottom: 16),
+                            child: _SavedHairStyleCard(
+                              ownerId: user.uid,
+                              lookId: look.id,
+                              data: look.data(),
+                            ),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 10),
-                      _SavedLookRow(looks: older),
-                    ],
                     const SizedBox(height: 24),
                     Center(
                       child: SizedBox(
@@ -1496,8 +1511,17 @@ class HairJourneyPage extends StatelessWidget {
   }
 }
 
-class AllSavedHairStylesPage extends StatelessWidget {
+class AllSavedHairStylesPage extends StatefulWidget {
   const AllSavedHairStylesPage({super.key});
+
+  @override
+  State<AllSavedHairStylesPage> createState() => _AllSavedHairStylesPageState();
+}
+
+class _AllSavedHairStylesPageState extends State<AllSavedHairStylesPage> {
+  final _hairstyleService = HairstyleService();
+  final _friendService = FriendService();
+  int _selectedTabIndex = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -1507,71 +1531,196 @@ class AllSavedHairStylesPage extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _HairTabs(selectedIndex: 0, onSelected: null),
+          _HairTabs(
+            selectedIndex: _selectedTabIndex,
+            onSelected: (index) => setState(() => _selectedTabIndex = index),
+          ),
           const SizedBox(height: 24),
           if (user == null)
             const _EmptyHairFeed(title: 'Sign in to see saved hairstyles')
+          else if (_selectedTabIndex == 0)
+            _buildMineLooks(user.uid)
+          else if (_selectedTabIndex == 1)
+            _buildFriendLooks()
           else
-            StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-              stream: HairstyleService().watchSavedLooks(user.uid),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(
-                    child: CircularProgressIndicator(color: _hairNavy),
-                  );
-                }
-                if (snapshot.hasError) {
-                  return const _EmptyHairFeed(
-                    title: 'Saved hairstyles could not be loaded',
-                  );
-                }
-
-                final looks = snapshot.data?.docs ?? [];
-                if (looks.isEmpty) {
-                  return const _EmptyHairFeed(
-                    title: 'Your saved hairstyles will appear here',
-                  );
-                }
-
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${looks.length} saved ${looks.length == 1 ? 'style' : 'styles'}',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            crossAxisSpacing: 14,
-                            mainAxisSpacing: 16,
-                            childAspectRatio: 0.72,
-                          ),
-                      itemCount: looks.length,
-                      itemBuilder: (context, index) =>
-                          _SavedHairStyleCard(data: looks[index].data()),
-                    ),
-                  ],
-                );
-              },
-            ),
+            _buildCommunityLooks(),
         ],
       ),
     );
   }
+
+  Widget _buildMineLooks(String userId) {
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: _hairstyleService.watchSavedLooks(userId),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: CircularProgressIndicator(color: _hairNavy),
+          );
+        }
+        if (snapshot.hasError) {
+          return const _EmptyHairFeed(
+            title: 'Saved hairstyles could not be loaded',
+          );
+        }
+
+        final looks = (snapshot.data?.docs ?? [])
+            .map(
+              (doc) => _HairLookFeedItem(
+                id: doc.id,
+                ownerId: userId,
+                data: doc.data(),
+              ),
+            )
+            .toList();
+        return _buildLookList(
+          looks,
+          emptyMessage: 'Your saved hairstyles will appear here',
+        );
+      },
+    );
+  }
+
+  Widget _buildFriendLooks() {
+    return StreamBuilder<List<String>>(
+      stream: _friendService.getMutualFriendsIds(),
+      builder: (context, friendSnapshot) {
+        if (friendSnapshot.hasError) {
+          return const _EmptyHairFeed(
+            title: 'Friend hairstyles could not be loaded',
+          );
+        }
+        if (!friendSnapshot.hasData) {
+          return const Center(
+            child: CircularProgressIndicator(color: _hairNavy),
+          );
+        }
+        final friendIds = friendSnapshot.data!.toSet();
+        return _buildPublicLooks(
+          filter: (item) => friendIds.contains(item.ownerId),
+          emptyMessage: 'No public hairstyles from your friends yet.',
+        );
+      },
+    );
+  }
+
+  Widget _buildCommunityLooks() {
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
+    return _buildPublicLooks(
+      filter: (item) => item.ownerId != currentUserId,
+      emptyMessage: 'No public community hairstyles yet.',
+    );
+  }
+
+  Widget _buildPublicLooks({
+    required bool Function(_HairLookFeedItem item) filter,
+    required String emptyMessage,
+  }) {
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance
+          .collectionGroup('hairStyles')
+          .orderBy('createdAt', descending: true)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: CircularProgressIndicator(color: _hairNavy),
+          );
+        }
+        if (snapshot.hasError) {
+          return const _EmptyHairFeed(title: 'Hairstyles could not be loaded');
+        }
+
+        final looks = (snapshot.data?.docs ?? [])
+            .map((doc) {
+              final data = doc.data();
+              final ownerId = (data['authorId'] ?? data['authorID'] ?? '')
+                  .toString();
+              return _HairLookFeedItem(
+                id: doc.id,
+                ownerId: ownerId,
+                data: data,
+              );
+            })
+            .where((item) {
+              final isPublic =
+                  item.data['isPublic'] == true ||
+                  item.data['visibility'] == 'public';
+              return isPublic && item.ownerId.isNotEmpty && filter(item);
+            })
+            .toList();
+        return _buildLookList(looks, emptyMessage: emptyMessage);
+      },
+    );
+  }
+
+  Widget _buildLookList(
+    List<_HairLookFeedItem> looks, {
+    required String emptyMessage,
+  }) {
+    if (looks.isEmpty) return _EmptyHairFeed(title: emptyMessage);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '${looks.length} saved ${looks.length == 1 ? 'style' : 'styles'}',
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 16),
+        ListView.separated(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          separatorBuilder: (_, _) => const SizedBox(height: 16),
+          itemCount: looks.length,
+          itemBuilder: (context, index) {
+            final look = looks[index];
+            return _SavedHairStyleCard(
+              ownerId: look.ownerId,
+              lookId: look.id,
+              data: look.data,
+            );
+          },
+        ),
+      ],
+    );
+  }
 }
 
-class _SavedHairStyleCard extends StatelessWidget {
-  const _SavedHairStyleCard({required this.data});
+class _HairLookFeedItem {
+  const _HairLookFeedItem({
+    required this.id,
+    required this.ownerId,
+    required this.data,
+  });
 
+  final String id;
+  final String ownerId;
   final Map<String, dynamic> data;
+}
+
+class _SavedHairStyleCard extends StatefulWidget {
+  const _SavedHairStyleCard({
+    required this.ownerId,
+    required this.lookId,
+    required this.data,
+  });
+
+  final String ownerId;
+  final String lookId;
+  final Map<String, dynamic> data;
+
+  @override
+  State<_SavedHairStyleCard> createState() => _SavedHairStyleCardState();
+}
+
+class _SavedHairStyleCardState extends State<_SavedHairStyleCard> {
+  final _service = HairstyleService();
+  bool _busy = false;
+
+  Map<String, dynamic> get data => widget.data;
 
   @override
   Widget build(BuildContext context) {
@@ -1580,58 +1729,663 @@ class _SavedHairStyleCard extends StatelessWidget {
     final resultUrl = (data['resultImageUrl'] ?? '').toString();
     final isMock =
         data['previewType'] == 'mock_collage' || data['isPreview'] == true;
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final isOwner = currentUserId == widget.ownerId;
+    final isPublic = data['isPublic'] == true || data['visibility'] == 'public';
+    final likes = _stringList(data['likedBy'] ?? data['likes']);
+    final isLiked = likes.contains(currentUserId);
+    final likeCount = _asInt(data['likeCount'], fallback: likes.length);
+    final commentCount = _asInt(data['commentCount']);
 
-    return Container(
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: colors.outlineVariant),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: SizedBox(
-              width: double.infinity,
-              child: isMock
-                  ? _HairMockCollage(
-                      sourceImageUrl: (data['sourceImageUrl'] ?? '').toString(),
-                      styleName: styleName,
-                      styleImageUrl: (data['styleReferenceImageUrl'] ?? '')
-                          .toString(),
-                      compact: true,
-                    )
-                  : Image.network(
-                      resultUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => ColoredBox(
-                        color: colors.surfaceContainerHighest,
-                        child: const Icon(Icons.broken_image_outlined),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            color: colors.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: colors.outlineVariant),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AspectRatio(
+                aspectRatio: 1.08,
+                child: isMock
+                    ? _HairMockCollage(
+                        sourceImageUrl: (data['sourceImageUrl'] ?? '')
+                            .toString(),
+                        styleName: styleName,
+                        styleImageUrl: (data['styleReferenceImageUrl'] ?? '')
+                            .toString(),
+                        compact: true,
+                      )
+                    : Image.network(
+                        resultUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => ColoredBox(
+                          color: colors.surfaceContainerHighest,
+                          child: const Icon(Icons.broken_image_outlined),
+                        ),
+                      ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 12, 14, 4),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        styleName,
+                        softWrap: true,
+                        style: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                     ),
+                    if (isPublic)
+                      const Icon(
+                        Icons.public_rounded,
+                        size: 18,
+                        color: _hairNavy,
+                      )
+                    else
+                      Icon(
+                        Icons.lock_outline,
+                        size: 18,
+                        color: colors.onSurfaceVariant,
+                      ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+                child: Text(
+                  isMock ? 'Mock collage' : 'Generated look',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: colors.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: _HairSocialCommand(
+                icon: Icons.face_retouching_natural,
+                label: 'Try On',
+                backgroundColor: _hairNavy,
+                foregroundColor: Colors.white,
+                onTap: _busy ? null : _tryOn,
+              ),
+            ),
+            const SizedBox(width: 8),
+            if (isPublic)
+              Expanded(
+                child: _HairSocialCommand(
+                  icon: Icons.chat_bubble_outline,
+                  label: 'Comment',
+                  backgroundColor: _hairOrange,
+                  foregroundColor: Colors.white,
+                  onTap: () => showHairCommentsSheet(
+                    context,
+                    ownerId: widget.ownerId,
+                    lookId: widget.lookId,
+                  ),
+                ),
+              ),
+            if (isPublic) const SizedBox(width: 8),
+            if (isOwner)
+              Expanded(
+                child: _HairSocialCommand(
+                  icon: isPublic ? Icons.lock_outline : Icons.public_rounded,
+                  label: isPublic ? 'Private' : 'Publish',
+                  backgroundColor: colors.surface,
+                  foregroundColor: colors.onSurface,
+                  onTap: _busy
+                      ? null
+                      : () => isPublic ? _makePrivate() : _publish(),
+                ),
+              ),
+            if (isOwner) const SizedBox(width: 8),
+            if (isOwner)
+              Expanded(
+                child: _HairSocialCommand(
+                  icon: Icons.delete_outline,
+                  label: 'Delete',
+                  backgroundColor: colors.error,
+                  foregroundColor: colors.onError,
+                  onTap: _busy ? null : _delete,
+                ),
+              ),
+          ],
+        ),
+        if (isPublic) ...[
+          const SizedBox(height: 8),
+          Container(
+            height: 42,
+            decoration: BoxDecoration(
+              color: colors.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _HairSocialReaction(
+                    icon: isLiked ? Icons.favorite : Icons.favorite_border,
+                    label: '$likeCount likes',
+                    color: Colors.red,
+                    onTap: currentUserId.isEmpty || _busy
+                        ? null
+                        : () => _toggleLike(currentUserId, likes),
+                  ),
+                ),
+                Container(width: 1, height: 22, color: colors.outlineVariant),
+                Expanded(
+                  child: _HairSocialReaction(
+                    icon: Icons.chat_bubble_outline,
+                    label: '$commentCount comments',
+                    color: _hairNavy,
+                    onTap: () => showHairCommentsSheet(
+                      context,
+                      ownerId: widget.ownerId,
+                      lookId: widget.lookId,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(8, 8, 8, 2),
+        ],
+      ],
+    );
+  }
+
+  Future<void> _tryOn() async {
+    final sourceUrl = (data['sourceImageUrl'] ?? '').toString();
+    if (sourceUrl.isEmpty) {
+      _showSnack('No source photo found for this hairstyle.');
+      return;
+    }
+
+    setState(() => _busy = true);
+    try {
+      final bytes = await _service.downloadSelfie(sourceUrl);
+      if (!mounted) return;
+      await Navigator.push(
+        context,
+        MaterialPageRoute<void>(
+          builder: (_) => _HairResultPage(
+            sourceBytes: bytes,
+            sourceImageUrl: sourceUrl,
+            style: _HairStyleOption(
+              name: (data['styleName'] ?? 'Hairstyle').toString(),
+              prompt: (data['prompt'] ?? '').toString(),
+              imageUrl: (data['styleReferenceImageUrl'] ?? '').toString(),
+            ),
+          ),
+        ),
+      );
+    } catch (error) {
+      _showSnack('Unable to try on hairstyle: $error');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _publish() async {
+    await _runAction(
+      () => _service.makeSavedLookPublic(
+        userId: widget.ownerId,
+        lookId: widget.lookId,
+      ),
+      'Hairstyle published.',
+      'Unable to publish hairstyle',
+    );
+  }
+
+  Future<void> _makePrivate() async {
+    await _runAction(
+      () => _service.makeSavedLookPrivate(
+        userId: widget.ownerId,
+        lookId: widget.lookId,
+      ),
+      'Hairstyle made private.',
+      'Unable to make hairstyle private',
+    );
+  }
+
+  Future<void> _delete() async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete this hairstyle?'),
+        content: const Text(
+          'This deletes the saved hairstyle and its likes and comments. This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton.icon(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            icon: const Icon(Icons.delete_outline),
+            label: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (shouldDelete != true) return;
+
+    await _runAction(
+      () => _service.deleteSavedLook(
+        userId: widget.ownerId,
+        lookId: widget.lookId,
+      ),
+      'Hairstyle deleted.',
+      'Unable to delete hairstyle',
+    );
+  }
+
+  Future<void> _toggleLike(String userId, List<String> likes) async {
+    await _runAction(
+      () => _service.toggleSavedLookLike(
+        ownerId: widget.ownerId,
+        lookId: widget.lookId,
+        userId: userId,
+        currentLikes: likes,
+      ),
+      '',
+      'Unable to update like',
+      showSuccess: false,
+    );
+  }
+
+  Future<void> _runAction(
+    Future<void> Function() action,
+    String success,
+    String failure, {
+    bool showSuccess = true,
+  }) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await action();
+      if (showSuccess && mounted) _showSnack(success);
+    } catch (error) {
+      if (mounted) _showSnack('$failure: $error');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  void _showSnack(String message) {
+    if (!mounted || message.isEmpty) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  List<String> _stringList(dynamic value) {
+    if (value is! Iterable) return const [];
+    return value
+        .map((item) => item.toString())
+        .where((item) => item.isNotEmpty)
+        .toList();
+  }
+
+  int _asInt(dynamic value, {int fallback = 0}) {
+    return value is num ? value.toInt() : fallback;
+  }
+}
+
+class _HairSocialCommand extends StatelessWidget {
+  const _HairSocialCommand({
+    required this.icon,
+    required this.label,
+    required this.backgroundColor,
+    required this.foregroundColor,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color backgroundColor;
+  final Color foregroundColor;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        height: 44,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        decoration: BoxDecoration(
+          color: onTap == null
+              ? backgroundColor.withValues(alpha: 0.55)
+              : backgroundColor,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: Theme.of(context).colorScheme.outlineVariant,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 17, color: foregroundColor),
+            const SizedBox(width: 5),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: foregroundColor,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HairSocialReaction extends StatelessWidget {
+  const _HairSocialReaction({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(width: 6),
+          Flexible(
             child: Text(
-              styleName,
-              maxLines: 2,
+              label,
+              maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-            child: Text(
-              isMock ? 'Mock collage' : 'Generated look',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 9, color: colors.onSurfaceVariant),
-            ),
-          ),
         ],
       ),
+    );
+  }
+}
+
+Future<void> showHairCommentsSheet(
+  BuildContext context, {
+  required String ownerId,
+  required String lookId,
+}) {
+  return showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    backgroundColor: Theme.of(context).colorScheme.surface,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    ),
+    builder: (_) => _HairCommentsSheet(ownerId: ownerId, lookId: lookId),
+  );
+}
+
+class _HairCommentsSheet extends StatefulWidget {
+  const _HairCommentsSheet({required this.ownerId, required this.lookId});
+
+  final String ownerId;
+  final String lookId;
+
+  @override
+  State<_HairCommentsSheet> createState() => _HairCommentsSheetState();
+}
+
+class _HairCommentsSheetState extends State<_HairCommentsSheet> {
+  final _controller = TextEditingController();
+  final _service = HairstyleService();
+  bool _isSending = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _sendComment() async {
+    final text = _controller.text.trim();
+    final user = FirebaseAuth.instance.currentUser;
+    if (text.isEmpty || user == null || _isSending) return;
+
+    setState(() => _isSending = true);
+    try {
+      final userSnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+      final userData = userSnapshot.data() ?? const <String, dynamic>{};
+      final username = (userData['displayName'] ?? user.displayName ?? 'User')
+          .toString();
+      final profileImageUrl =
+          (userData['profileImageURL'] ??
+                  userData['profileImageUrl'] ??
+                  user.photoURL ??
+                  '')
+              .toString();
+
+      await _service.addSavedLookComment(
+        ownerId: widget.ownerId,
+        lookId: widget.lookId,
+        userId: user.uid,
+        text: text,
+        username: username,
+        profileImageURL: profileImageUrl,
+      );
+      _controller.clear();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Unable to add comment: $error')));
+    } finally {
+      if (mounted) setState(() => _isSending = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final user = FirebaseAuth.instance.currentUser;
+    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: keyboardInset),
+      child: SizedBox(
+        height: MediaQuery.sizeOf(context).height * 0.72,
+        child: Column(
+          children: [
+            const SizedBox(height: 10),
+            Container(
+              width: 42,
+              height: 4,
+              decoration: BoxDecoration(
+                color: colors.outlineVariant,
+                borderRadius: BorderRadius.circular(99),
+              ),
+            ),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Comments',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: StreamBuilder<List<PostComment>>(
+                stream: _service.watchSavedLookComments(
+                  ownerId: widget.ownerId,
+                  lookId: widget.lookId,
+                ),
+                builder: (context, snapshot) {
+                  if (snapshot.hasError) {
+                    return const Center(
+                      child: Text('Comments could not be loaded.'),
+                    );
+                  }
+                  if (!snapshot.hasData) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+
+                  final comments = snapshot.data!;
+                  if (comments.isEmpty) {
+                    return const Center(
+                      child: Text(
+                        'No comments yet. Start the conversation.',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    );
+                  }
+
+                  return ListView.separated(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: comments.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 14),
+                    itemBuilder: (context, index) {
+                      final comment = comments[index];
+                      return _HairCommentTile(comment: comment);
+                    },
+                  );
+                },
+              ),
+            ),
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 12, 12),
+              child: user == null
+                  ? const Text('Sign in to add a comment.')
+                  : Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _controller,
+                            textCapitalization: TextCapitalization.sentences,
+                            minLines: 1,
+                            maxLines: 4,
+                            decoration: InputDecoration(
+                              hintText: 'Add a comment...',
+                              filled: true,
+                              fillColor: colors.surfaceContainerLow,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(22),
+                                borderSide: BorderSide.none,
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 11,
+                              ),
+                            ),
+                            onSubmitted: (_) => _sendComment(),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton.filled(
+                          onPressed: _isSending ? null : _sendComment,
+                          icon: _isSending
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.send_rounded),
+                        ),
+                      ],
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HairCommentTile extends StatelessWidget {
+  const _HairCommentTile({required this.comment});
+
+  final PostComment comment;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        CircleAvatar(
+          radius: 18,
+          backgroundImage: comment.profileImageURL.isEmpty
+              ? null
+              : NetworkImage(comment.profileImageURL),
+          child: comment.profileImageURL.isEmpty
+              ? Text(
+                  comment.username.isEmpty
+                      ? '?'
+                      : comment.username.substring(0, 1).toUpperCase(),
+                )
+              : null,
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: colors.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  comment.username,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 4),
+                Text(comment.text),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1641,11 +2395,13 @@ class _HairFlowScaffold extends StatelessWidget {
     required this.title,
     required this.child,
     this.backOnly = false,
+    this.leadingCancel = false,
   });
 
   final String title;
   final Widget child;
   final bool backOnly;
+  final bool leadingCancel;
 
   @override
   Widget build(BuildContext context) {
@@ -1660,6 +2416,7 @@ class _HairFlowScaffold extends StatelessWidget {
                   Navigator.popUntil(context, (route) => route.isFirst),
               onBack: () => Navigator.pop(context),
               backOnly: backOnly,
+              leadingCancel: leadingCancel,
             ),
             Expanded(
               child: SingleChildScrollView(
@@ -1681,6 +2438,7 @@ class _HairHeader extends StatelessWidget {
     required this.onMenu,
     required this.onBack,
     this.backOnly = false,
+    this.leadingCancel = false,
     this.fashionStyleLayout = false,
   });
 
@@ -1688,6 +2446,7 @@ class _HairHeader extends StatelessWidget {
   final VoidCallback onMenu;
   final VoidCallback onBack;
   final bool backOnly;
+  final bool leadingCancel;
   final bool fashionStyleLayout;
 
   @override
@@ -1717,23 +2476,7 @@ class _HairHeader extends StatelessWidget {
               onPressed: () => Navigator.pushNamed(context, AppRoutes.cart),
               color: colors.onSurface,
             ),
-            const SizedBox(width: 4),
-            Container(
-              margin: const EdgeInsets.symmetric(vertical: 8),
-              decoration: BoxDecoration(
-                color: colors.surfaceContainerHighest,
-                shape: BoxShape.circle,
-              ),
-              child: IconButton(
-                tooltip: 'Back',
-                onPressed: onBack,
-                icon: Icon(
-                  Icons.arrow_back_ios_new,
-                  size: 16,
-                  color: colors.onSurface,
-                ),
-              ),
-            ),
+            const SizedBox(width: 20),
           ],
         ),
       );
@@ -1745,23 +2488,31 @@ class _HairHeader extends StatelessWidget {
         children: [
           Row(
             children: [
-              if (!backOnly)
+              if (leadingCancel)
+                TextButton.icon(
+                  onPressed: onBack,
+                  icon: const Icon(Icons.close_rounded),
+                  label: const Text('Cancel'),
+                  style: TextButton.styleFrom(foregroundColor: _hairNavy),
+                )
+              else if (!backOnly)
                 IconButton(
                   tooltip: 'Menu',
                   onPressed: onMenu,
                   icon: const Icon(Icons.menu_rounded),
                 ),
               const Spacer(),
-              IconButton.filledTonal(
-                tooltip: 'Back',
-                onPressed: onBack,
-                style: IconButton.styleFrom(
-                  backgroundColor: Theme.of(
-                    context,
-                  ).colorScheme.surfaceContainerHighest,
+              if (!leadingCancel)
+                IconButton.filledTonal(
+                  tooltip: 'Back',
+                  onPressed: onBack,
+                  style: IconButton.styleFrom(
+                    backgroundColor: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
+                  ),
+                  icon: const Icon(Icons.chevron_left_rounded),
                 ),
-                icon: const Icon(Icons.chevron_left_rounded),
-              ),
             ],
           ),
           Padding(
@@ -2115,58 +2866,6 @@ class _HairCatalogMessage extends StatelessWidget {
   }
 }
 
-class _SavedLookRow extends StatelessWidget {
-  const _SavedLookRow({required this.looks});
-
-  final List<QueryDocumentSnapshot<Map<String, dynamic>>> looks;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: List.generate(3, (index) {
-        if (index >= looks.length) {
-          return const Expanded(child: SizedBox());
-        }
-        final data = looks[index].data();
-        final url = (data['resultImageUrl'] ?? '').toString();
-        final isMock =
-            data['previewType'] == 'mock_collage' || data['isPreview'] == true;
-        return Expanded(
-          child: Padding(
-            padding: EdgeInsets.only(right: index < 2 ? 10 : 0),
-            child: AspectRatio(
-              aspectRatio: 0.92,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(7),
-                child: isMock
-                    ? _HairMockCollage(
-                        sourceImageUrl: (data['sourceImageUrl'] ?? '')
-                            .toString(),
-                        styleName: (data['styleName'] ?? 'Hairstyle')
-                            .toString(),
-                        styleImageUrl: (data['styleReferenceImageUrl'] ?? '')
-                            .toString(),
-                        compact: true,
-                      )
-                    : Image.network(
-                        url,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => ColoredBox(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.surfaceContainerHighest,
-                          child: const Icon(Icons.broken_image_outlined),
-                        ),
-                      ),
-              ),
-            ),
-          ),
-        );
-      }),
-    );
-  }
-}
-
 class _HairMockCollage extends StatelessWidget {
   const _HairMockCollage({
     required this.sourceImageUrl,
@@ -2191,15 +2890,16 @@ class _HairMockCollage extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            flex: 3,
             child: ClipRRect(
               borderRadius: BorderRadius.circular(compact ? 5 : 12),
-              child: _sourceImage(colors),
+              child: ColoredBox(
+                color: colors.surface,
+                child: _sourceImage(colors),
+              ),
             ),
           ),
           SizedBox(width: compact ? 4 : 10),
           Expanded(
-            flex: 2,
             child: Container(
               padding: EdgeInsets.all(compact ? 3 : 8),
               decoration: BoxDecoration(
@@ -2210,15 +2910,21 @@ class _HairMockCollage extends StatelessWidget {
               child: Column(
                 children: [
                   Expanded(
-                    child: Image.network(
-                      styleImageUrl,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => Icon(
-                        Icons.face_retouching_natural,
-                        color: colors.outline,
-                      ),
-                    ),
+                    child: styleImageUrl.trim().isEmpty
+                        ? Icon(
+                            Icons.face_retouching_natural,
+                            color: colors.outline,
+                          )
+                        : Image.network(
+                            styleImageUrl,
+                            width: double.infinity,
+                            height: double.infinity,
+                            fit: BoxFit.contain,
+                            errorBuilder: (_, _, _) => Icon(
+                              Icons.face_retouching_natural,
+                              color: colors.outline,
+                            ),
+                          ),
                   ),
                   if (!compact) ...[
                     const SizedBox(height: 6),
@@ -2248,7 +2954,7 @@ class _HairMockCollage extends StatelessWidget {
         bytes,
         width: double.infinity,
         height: double.infinity,
-        fit: BoxFit.cover,
+        fit: BoxFit.contain,
       );
     }
     if (sourceImageUrl.isEmpty) {
@@ -2261,7 +2967,7 @@ class _HairMockCollage extends StatelessWidget {
       sourceImageUrl,
       width: double.infinity,
       height: double.infinity,
-      fit: BoxFit.cover,
+      fit: BoxFit.contain,
       errorBuilder: (_, _, _) => ColoredBox(
         color: colors.surface,
         child: Icon(Icons.person_outline, color: colors.outline),

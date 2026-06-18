@@ -6,6 +6,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
+import '../models/post.dart';
 import 'photo_edit_api.dart';
 
 class HairstyleService {
@@ -135,6 +136,13 @@ class HairstyleService {
           'styleReferenceImageUrl': styleReferenceImageUrl,
           'isPreview': generation.isPreview,
           'previewType': generation.isPreview ? 'mock_collage' : 'generated',
+          'authorId': userId,
+          'isPublic': false,
+          'visibility': 'private',
+          'likeCount': 0,
+          'commentCount': 0,
+          'likedBy': [],
+          'likes': [],
           'createdAt': FieldValue.serverTimestamp(),
         });
   }
@@ -146,6 +154,123 @@ class HairstyleService {
         .collection('hairStyles')
         .orderBy('createdAt', descending: true)
         .snapshots();
+  }
+
+  Future<void> makeSavedLookPublic({
+    required String userId,
+    required String lookId,
+  }) async {
+    await _savedLookRef(userId, lookId).update({
+      'isPublic': true,
+      'visibility': 'public',
+      'publishedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> makeSavedLookPrivate({
+    required String userId,
+    required String lookId,
+  }) async {
+    await _savedLookRef(userId, lookId).update({
+      'isPublic': false,
+      'visibility': 'private',
+      'privatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> deleteSavedLook({
+    required String userId,
+    required String lookId,
+  }) async {
+    final lookRef = _savedLookRef(userId, lookId);
+    final comments = await lookRef.collection('comments').get();
+    final batch = _firestore.batch();
+    for (final comment in comments.docs) {
+      batch.delete(comment.reference);
+    }
+    batch.delete(lookRef);
+    await batch.commit();
+  }
+
+  Future<void> toggleSavedLookLike({
+    required String ownerId,
+    required String lookId,
+    required String userId,
+    required List<String> currentLikes,
+  }) async {
+    if (userId.isEmpty) return;
+    final lookRef = _savedLookRef(ownerId, lookId);
+    final likeRef = lookRef.collection('likes').doc(userId);
+
+    if (currentLikes.contains(userId)) {
+      await lookRef.update({
+        'likedBy': FieldValue.arrayRemove([userId]),
+        'likes': FieldValue.arrayRemove([userId]),
+        'likeCount': FieldValue.increment(-1),
+      });
+      await likeRef.delete();
+      return;
+    }
+
+    await lookRef.update({
+      'likedBy': FieldValue.arrayUnion([userId]),
+      'likes': FieldValue.arrayUnion([userId]),
+      'likeCount': FieldValue.increment(1),
+    });
+    await likeRef.set({
+      'userId': userId,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> addSavedLookComment({
+    required String ownerId,
+    required String lookId,
+    required String userId,
+    required String text,
+    required String username,
+    required String profileImageURL,
+  }) async {
+    if (userId.isEmpty || text.trim().isEmpty) return;
+    final lookRef = _savedLookRef(ownerId, lookId);
+    final commentRef = lookRef.collection('comments').doc();
+
+    await _firestore.runTransaction((transaction) async {
+      transaction.set(commentRef, {
+        'authorId': userId,
+        'createdAt': FieldValue.serverTimestamp(),
+        'profileImageURL': profileImageURL,
+        'text': text.trim(),
+        'username': username,
+      });
+      transaction.update(lookRef, {'commentCount': FieldValue.increment(1)});
+    });
+  }
+
+  Stream<List<PostComment>> watchSavedLookComments({
+    required String ownerId,
+    required String lookId,
+  }) {
+    return _savedLookRef(ownerId, lookId)
+        .collection('comments')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => PostComment.fromFirestore(doc))
+              .toList(),
+        );
+  }
+
+  DocumentReference<Map<String, dynamic>> _savedLookRef(
+    String userId,
+    String lookId,
+  ) {
+    return _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('hairStyles')
+        .doc(lookId);
   }
 
   Future<String> uploadCatalogHairstyle({

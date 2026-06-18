@@ -77,22 +77,6 @@ class _NotificationsPageState extends State<NotificationsPage> {
             Icons.shopping_bag_outlined,
             () => Navigator.pushNamed(context, AppRoutes.cart),
           ),
-          SizedBox(width: 10),
-          Container(
-            margin: EdgeInsets.symmetric(vertical: 8),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest,
-              shape: BoxShape.circle,
-            ),
-            child: IconButton(
-              icon: Icon(
-                Icons.arrow_back_ios_new,
-                size: 16,
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
-              onPressed: () => Navigator.of(context).maybePop(),
-            ),
-          ),
           SizedBox(width: 20),
         ],
       ),

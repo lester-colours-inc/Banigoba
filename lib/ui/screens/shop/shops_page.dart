@@ -10,7 +10,9 @@ import 'product_detail_page.dart';
 import 'shop_chat_page.dart';
 
 class ShopsPage extends StatefulWidget {
-  const ShopsPage({super.key});
+  const ShopsPage({super.key, this.initialTab = 0});
+
+  final int initialTab;
 
   @override
   State<ShopsPage> createState() => _ShopsPageState();
@@ -19,8 +21,14 @@ class ShopsPage extends StatefulWidget {
 class _ShopsPageState extends State<ShopsPage> {
   static const _primary = Color(0xFF0D0140);
   final _productService = ProductService();
-  int _tab = 0;
+  late int _tab;
   String _query = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _tab = widget.initialTab.clamp(0, 1);
+  }
 
   @override
   Widget build(BuildContext context) {

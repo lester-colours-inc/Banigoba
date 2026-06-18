@@ -4,7 +4,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../data/services/weather_service.dart';
 import '../../../data/services/notification_service.dart';
-import '../../../data/services/product_service.dart';
 import '../../../data/models/weather.dart';
 import 'package:geolocator/geolocator.dart';
 import '../../../core/app_routes.dart';
@@ -27,7 +26,6 @@ class _HomePageState extends State<HomePage> {
   static Color primaryColor = Color(0xFF0D0140);
 
   final WeatherService _weatherService = WeatherService();
-  final ProductService _productService = ProductService();
   Weather? _currentWeather;
   bool _isLoadingWeather = true;
   String? _errorMessage;
@@ -246,24 +244,7 @@ class _HomePageState extends State<HomePage> {
             ),
           ],
         ),
-        actions: [
-          Container(
-            margin: EdgeInsets.symmetric(vertical: 8),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest,
-              shape: BoxShape.circle,
-            ),
-            child: IconButton(
-              icon: Icon(
-                Icons.arrow_back_ios_new,
-                size: 16,
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
-              onPressed: () => Navigator.of(context).maybePop(),
-            ),
-          ),
-          SizedBox(width: 20),
-        ],
+        actions: [SizedBox(width: 20)],
       ),
       body: SingleChildScrollView(
         padding: EdgeInsets.symmetric(horizontal: 20.0),
@@ -313,7 +294,12 @@ class _HomePageState extends State<HomePage> {
                     icon: Icons.shopping_cart_outlined,
                     color: Colors.orange,
                     onTap: () {
-                      Navigator.pushNamed(context, AppRoutes.search);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                          builder: (_) => const ShoppingIntelligencePage(),
+                        ),
+                      );
                     },
                   ),
                 ],
@@ -718,7 +704,6 @@ class _HomePageState extends State<HomePage> {
       return SizedBox.shrink();
     }
 
-    final userId = FirebaseAuth.instance.currentUser?.uid;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -766,132 +751,398 @@ class _HomePageState extends State<HomePage> {
             ],
           ),
         ),
-        SizedBox(height: 18),
-        Text(
-          'Recommended for today',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
-        SizedBox(height: 12),
-        StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-          stream: userId == null
-              ? null
-              : FirebaseFirestore.instance
-                    .collection('users')
-                    .doc(userId)
-                    .snapshots(),
-          builder: (context, userSnapshot) {
-            final stylePreference = userSnapshot.data
-                ?.data()?['stylePreference']
-                ?.toString();
-            return StreamBuilder<
-              List<QueryDocumentSnapshot<Map<String, dynamic>>>
-            >(
-              stream: _productService.getRecommendedProductDocs(
-                weatherTags: weather.weatherTags,
-                stylePreference: stylePreference,
-              ),
-              builder: (context, productSnapshot) {
-                if (productSnapshot.connectionState ==
-                    ConnectionState.waiting) {
-                  return Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(16),
-                      child: CircularProgressIndicator(color: primaryColor),
-                    ),
-                  );
-                }
-
-                if (productSnapshot.hasError) {
-                  return Text(
-                    'Unable to load recommendations right now.',
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  );
-                }
-
-                final products = productSnapshot.data ?? [];
-                if (products.isEmpty) {
-                  return Text(
-                    'No matching items yet. Try another style or check back later.',
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  );
-                }
-
-                return SizedBox(
-                  height: 190,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: products.length,
-                    separatorBuilder: (_, _) => SizedBox(width: 12),
-                    itemBuilder: (context, index) {
-                      final product = products[index].data();
-                      final imageUrl =
-                          (product['imageUrl'] ?? product['imageURL'] ?? '')
-                              .toString();
-                      final name = (product['name'] ?? 'Fashion item')
-                          .toString();
-                      return GestureDetector(
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                ProductDetailPage(productData: product),
-                          ),
-                        ),
-                        child: SizedBox(
-                          width: 135,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(16),
-                                child: Container(
-                                  width: 135,
-                                  height: 145,
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.surfaceContainerHighest,
-                                  child: imageUrl.isEmpty
-                                      ? Icon(
-                                          Icons.checkroom_outlined,
-                                          color: Colors.grey,
-                                          size: 38,
-                                        )
-                                      : Image.network(
-                                          imageUrl,
-                                          fit: BoxFit.cover,
-                                          errorBuilder: (_, _, _) => Icon(
-                                            Icons.broken_image_outlined,
-                                            color: Colors.grey,
-                                          ),
-                                        ),
-                                ),
-                              ),
-                              SizedBox(height: 7),
-                              Text(
-                                name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                );
-              },
-            );
-          },
-        ),
       ],
     );
   }
+}
+
+class ShoppingIntelligencePage extends StatefulWidget {
+  const ShoppingIntelligencePage({super.key});
+
+  @override
+  State<ShoppingIntelligencePage> createState() =>
+      _ShoppingIntelligencePageState();
+}
+
+class _ShoppingIntelligencePageState extends State<ShoppingIntelligencePage> {
+  @override
+  Widget build(BuildContext context) {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    final colors = Theme.of(context).colorScheme;
+    return Scaffold(
+      backgroundColor: colors.surface,
+      appBar: AppBar(
+        backgroundColor: colors.surface,
+        elevation: 0,
+        title: const Text(
+          'Shopping Intelligence',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+      ),
+      body: FutureBuilder<List<_SmartRecommendation>>(
+        future: _loadShoppingIntelligence(userId),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return const Center(
+              child: Text('Unable to load recommendations right now.'),
+            );
+          }
+
+          final recommendations = snapshot.data ?? [];
+          if (recommendations.isEmpty) {
+            return const Center(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: Text(
+                  'Add purchases, wardrobe items, or style preferences for smarter item and hair suggestions.',
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            );
+          }
+
+          return GridView.builder(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 14,
+              mainAxisSpacing: 16,
+              childAspectRatio: 0.66,
+            ),
+            itemCount: recommendations.length,
+            itemBuilder: (context, index) {
+              return _SmartRecommendationTile(
+                recommendation: recommendations[index],
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  Future<List<_SmartRecommendation>> _loadShoppingIntelligence(
+    String? userId,
+  ) async {
+    final userSnapshot = userId == null
+        ? null
+        : await FirebaseFirestore.instance
+              .collection('users')
+              .doc(userId)
+              .get();
+    final userData = userSnapshot?.data() ?? const <String, dynamic>{};
+    final stylePreference = (userData['stylePreference'] ?? '').toString();
+    final hairstylePreferences = _stringList(userData['hairstylePreference']);
+
+    final reasonsByToken = <String, Set<String>>{};
+    void addSignal(String token, String reason) {
+      final normalized = _normalizeToken(token);
+      if (normalized.isEmpty || normalized == 'other') return;
+      reasonsByToken.putIfAbsent(normalized, () => <String>{}).add(reason);
+    }
+
+    addSignal(stylePreference, 'your $stylePreference style preference');
+    for (final preference in hairstylePreferences) {
+      addSignal(preference, 'your $preference hairstyle preference');
+    }
+
+    if (userId != null) {
+      final wardrobeSnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('wardrobe')
+          .limit(40)
+          .get();
+      for (final doc in wardrobeSnapshot.docs) {
+        for (final token in _styleTokens(doc.data())) {
+          addSignal(token, 'similar tags in your wardrobe');
+        }
+      }
+
+      final orderSnapshot = await FirebaseFirestore.instance
+          .collection('orders')
+          .where('customerId', isEqualTo: userId)
+          .limit(20)
+          .get();
+      for (final doc in orderSnapshot.docs) {
+        final items = doc.data()['items'];
+        if (items is! Iterable) continue;
+        for (final item in items.whereType<Map>()) {
+          final itemData = Map<String, dynamic>.from(item);
+          for (final token in _styleTokens(itemData)) {
+            addSignal(token, 'your past purchases');
+          }
+        }
+      }
+    }
+
+    final productSnapshot = await FirebaseFirestore.instance
+        .collection('products')
+        .limit(120)
+        .get();
+    final hairstyleSnapshot = await FirebaseFirestore.instance
+        .collection('hairstyles')
+        .limit(120)
+        .get();
+
+    final recommendations = <_SmartRecommendation>[
+      ...productSnapshot.docs
+          .map(
+            (doc) => _scoreRecommendation(
+              type: _SmartRecommendationType.product,
+              data: {...doc.data(), 'id': doc.id},
+              reasonsByToken: reasonsByToken,
+            ),
+          )
+          .whereType<_SmartRecommendation>(),
+      ...hairstyleSnapshot.docs
+          .map(
+            (doc) => _scoreRecommendation(
+              type: _SmartRecommendationType.hairstyle,
+              data: {...doc.data(), 'id': doc.id},
+              reasonsByToken: reasonsByToken,
+            ),
+          )
+          .whereType<_SmartRecommendation>(),
+    ];
+
+    recommendations.sort((a, b) => b.score.compareTo(a.score));
+    return recommendations.take(40).toList();
+  }
+
+  _SmartRecommendation? _scoreRecommendation({
+    required _SmartRecommendationType type,
+    required Map<String, dynamic> data,
+    required Map<String, Set<String>> reasonsByToken,
+  }) {
+    final tokens = _styleTokens(data).map(_normalizeToken).toSet();
+    final reasons = <String>{};
+    var score = 0;
+
+    for (final token in tokens) {
+      final tokenReasons = reasonsByToken[token];
+      if (tokenReasons == null) continue;
+      score += tokenReasons.length;
+      reasons.addAll(tokenReasons);
+    }
+    if (score == 0) return null;
+
+    return _SmartRecommendation(
+      type: type,
+      data: data,
+      name: _recommendationName(type, data),
+      imageUrl: _recommendationImageUrl(data),
+      reason: 'Based on ${reasons.take(2).join(' and ')}.',
+      score: score,
+    );
+  }
+
+  List<String> _styleTokens(Map<String, dynamic> data) {
+    final tokens = <String>[];
+    void add(dynamic value) {
+      if (value == null) return;
+      if (value is Iterable) {
+        for (final item in value) {
+          add(item);
+        }
+        return;
+      }
+      final text = value.toString().trim();
+      if (text.isEmpty) return;
+      tokens.add(text);
+      tokens.addAll(
+        text
+            .split(RegExp(r'[^A-Za-z0-9]+'))
+            .where((token) => token.trim().length > 2),
+      );
+    }
+
+    for (final key in [
+      'name',
+      'category',
+      'subcategory',
+      'styleTag',
+      'style',
+      'weatherTags',
+      'functionalTags',
+      'colours',
+      'colour',
+      'gender',
+      'hairType',
+      'texture',
+      'styleType',
+      'cutTypeGroup',
+      'cutType',
+      'occasion',
+      'maintenanceLevel',
+      'length',
+    ]) {
+      add(data[key]);
+    }
+    return tokens;
+  }
+
+  List<String> _stringList(dynamic value) {
+    if (value is String) return [value];
+    if (value is! Iterable) return const [];
+    return value
+        .map((item) => item.toString())
+        .where((item) => item.trim().isNotEmpty)
+        .toList();
+  }
+
+  String _normalizeToken(String value) {
+    return value.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), ' ').trim();
+  }
+
+  String _recommendationName(
+    _SmartRecommendationType type,
+    Map<String, dynamic> data,
+  ) {
+    if (type == _SmartRecommendationType.hairstyle) {
+      return (data['name'] ??
+              data['cutType'] ??
+              data['styleType'] ??
+              'Hairstyle')
+          .toString();
+    }
+    return (data['name'] ?? 'Fashion item').toString();
+  }
+
+  String _recommendationImageUrl(Map<String, dynamic> data) {
+    return (data['imageUrl'] ??
+            data['imageURL'] ??
+            data['rawImageUrl'] ??
+            data['resultImageUrl'] ??
+            '')
+        .toString();
+  }
+}
+
+class _SmartRecommendationTile extends StatelessWidget {
+  const _SmartRecommendationTile({required this.recommendation});
+
+  final _SmartRecommendation recommendation;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return InkWell(
+      onTap: recommendation.type == _SmartRecommendationType.product
+          ? () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) =>
+                    ProductDetailPage(productData: recommendation.data),
+              ),
+            )
+          : null,
+      borderRadius: BorderRadius.circular(10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    width: double.infinity,
+                    height: double.infinity,
+                    color: colors.surfaceContainerHighest,
+                    child: recommendation.imageUrl.isEmpty
+                        ? Icon(
+                            recommendation.type ==
+                                    _SmartRecommendationType.hairstyle
+                                ? Icons.face_retouching_natural
+                                : Icons.checkroom_outlined,
+                            color: Colors.grey,
+                            size: 38,
+                          )
+                        : Image.network(
+                            recommendation.imageUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => Icon(
+                              Icons.broken_image_outlined,
+                              color: Colors.grey,
+                            ),
+                          ),
+                  ),
+                ),
+                Positioned(
+                  left: 8,
+                  top: 8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color:
+                          recommendation.type ==
+                              _SmartRecommendationType.hairstyle
+                          ? const Color(0xFF0D0140)
+                          : Colors.orange,
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                    child: Text(
+                      recommendation.type == _SmartRecommendationType.hairstyle
+                          ? 'Hair'
+                          : 'Item',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            recommendation.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            recommendation.reason,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: colors.onSurfaceVariant,
+              fontSize: 11,
+              height: 1.18,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+enum _SmartRecommendationType { product, hairstyle }
+
+class _SmartRecommendation {
+  const _SmartRecommendation({
+    required this.type,
+    required this.data,
+    required this.name,
+    required this.imageUrl,
+    required this.reason,
+    required this.score,
+  });
+
+  final _SmartRecommendationType type;
+  final Map<String, dynamic> data;
+  final String name;
+  final String imageUrl;
+  final String reason;
+  final int score;
 }

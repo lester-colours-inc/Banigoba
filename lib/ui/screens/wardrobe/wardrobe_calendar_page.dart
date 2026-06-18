@@ -141,6 +141,12 @@ class _WardrobeCalendarPageState extends State<WardrobeCalendarPage> {
       appBar: AppBar(
         backgroundColor: colors.surface,
         elevation: 0,
+        automaticallyImplyLeading: false,
+        leading: IconButton(
+          tooltip: 'Back',
+          onPressed: () => Navigator.of(context).pop(),
+          icon: Icon(Icons.chevron_left_rounded, color: colors.onSurface),
+        ),
         title: Text(
           widget.eventName ??
               (widget.planningMode ? 'Week Planner' : 'Quick Wear'),
@@ -156,21 +162,7 @@ class _WardrobeCalendarPageState extends State<WardrobeCalendarPage> {
             onPressed: _openFullCalendar,
             icon: Icon(Icons.calendar_month, color: _primaryColor),
           ),
-          Container(
-            margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-            decoration: BoxDecoration(
-              color: colors.surfaceContainerHighest,
-              shape: BoxShape.circle,
-            ),
-            child: IconButton(
-              icon: Icon(
-                Icons.arrow_back_ios_new,
-                size: 16,
-                color: colors.onSurface,
-              ),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-          ),
+          const SizedBox(width: 8),
         ],
       ),
       body: user == null

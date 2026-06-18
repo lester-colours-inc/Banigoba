@@ -7,7 +7,6 @@ import '../../../core/app_routes.dart';
 import '../../../data/models/weather.dart';
 import '../../../data/services/upcoming_event_service.dart';
 import '../../../data/services/weather_service.dart';
-import '../../widgets/cart_badge_button.dart';
 import '../../widgets/try_on_product_picker.dart';
 import '../wardrobe/wardrobe_calendar_page.dart';
 import 'avatar_try_on_page.dart';
@@ -178,42 +177,15 @@ class _StyleSelectionPageState extends State<StyleSelectionPage> {
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.surface,
         elevation: 0,
+        automaticallyImplyLeading: false,
         leading: IconButton(
+          tooltip: 'Back',
+          onPressed: () => Navigator.of(context).pop(),
           icon: Icon(
-            Icons.menu,
+            Icons.chevron_left_rounded,
             color: Theme.of(context).colorScheme.onSurface,
-          ),
-          onPressed: () => Scaffold.of(context).openDrawer(),
-        ),
-        title: Text(
-          'My Daily Dress Up',
-          style: TextStyle(
-            color: Theme.of(context).colorScheme.onSurface,
-            fontWeight: FontWeight.bold,
-            fontSize: 22,
           ),
         ),
-        actions: [
-          CartBadgeButton(
-            onPressed: () => Navigator.pushNamed(context, AppRoutes.cart),
-            color: Theme.of(context).colorScheme.onSurface,
-          ),
-          Container(
-            margin: EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest,
-              shape: BoxShape.circle,
-            ),
-            child: IconButton(
-              icon: Icon(
-                Icons.arrow_back_ios_new,
-                size: 16,
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-          ),
-        ],
       ),
       body: SingleChildScrollView(
         padding: EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),

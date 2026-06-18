@@ -911,24 +911,7 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
             ),
           ],
         ),
-        actions: [
-          Container(
-            margin: EdgeInsets.symmetric(vertical: 8),
-            decoration: BoxDecoration(
-              color: colors.surfaceContainerHighest,
-              shape: BoxShape.circle,
-            ),
-            child: IconButton(
-              icon: Icon(
-                Icons.arrow_back_ios_new,
-                size: 16,
-                color: colors.onSurface,
-              ),
-              onPressed: () => Navigator.of(context).maybePop(),
-            ),
-          ),
-          SizedBox(width: 20),
-        ],
+        actions: [SizedBox(width: 20)],
       ),
       body: SingleChildScrollView(
         padding: EdgeInsets.symmetric(horizontal: 20.0),

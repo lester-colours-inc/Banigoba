@@ -50,24 +50,7 @@ class _SearchPageState extends State<SearchPage> {
             ),
           ],
         ),
-        actions: [
-          Container(
-            margin: const EdgeInsets.symmetric(vertical: 8),
-            decoration: BoxDecoration(
-              color: colors.surfaceContainerHighest,
-              shape: BoxShape.circle,
-            ),
-            child: IconButton(
-              icon: Icon(
-                Icons.arrow_back_ios_new,
-                size: 16,
-                color: colors.onSurface,
-              ),
-              onPressed: () => Navigator.of(context).maybePop(),
-            ),
-          ),
-          const SizedBox(width: 20),
-        ],
+        actions: const [SizedBox(width: 20)],
       ),
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 25),

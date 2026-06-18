@@ -5,8 +5,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import '../../../core/app_routes.dart';
-import '../../widgets/cart_badge_button.dart';
 import '../makeover/style_selection_page.dart';
 
 class MeasurementPage extends StatefulWidget {
@@ -94,42 +92,15 @@ class _MeasurementPageState extends State<MeasurementPage> {
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.surface,
         elevation: 0,
+        automaticallyImplyLeading: false,
         leading: IconButton(
-          tooltip: 'Menu',
+          tooltip: 'Back',
+          onPressed: () => Navigator.pop(context),
           icon: Icon(
-            Icons.menu,
+            Icons.chevron_left_rounded,
             color: Theme.of(context).colorScheme.onSurface,
-          ),
-          onPressed: () {},
-        ),
-        title: Text(
-          'My Fashion Style',
-          style: TextStyle(
-            color: Theme.of(context).colorScheme.onSurface,
-            fontWeight: FontWeight.w700,
-            fontSize: 20,
           ),
         ),
-        actions: [
-          CartBadgeButton(
-            onPressed: () => Navigator.pushNamed(context, AppRoutes.cart),
-            color: Theme.of(context).colorScheme.onSurface,
-          ),
-          IconButton.filledTonal(
-            tooltip: 'Back',
-            onPressed: () => Navigator.pop(context),
-            style: IconButton.styleFrom(
-              backgroundColor: Theme.of(
-                context,
-              ).colorScheme.surfaceContainerHighest,
-            ),
-            icon: Icon(
-              Icons.chevron_left_rounded,
-              color: Theme.of(context).colorScheme.onSurface,
-            ),
-          ),
-          SizedBox(width: 10),
-        ],
       ),
       body: SingleChildScrollView(
         padding: EdgeInsets.fromLTRB(22, 12, 22, 28),
