@@ -147,6 +147,70 @@ class HairstyleService {
         .orderBy('createdAt', descending: true)
         .snapshots();
   }
+
+  Future<String> uploadCatalogHairstyle({
+    required String userId,
+    required Uint8List imageBytes,
+    required String filename,
+    required String length,
+    required String gender,
+    required String hairType,
+    required String styleType,
+    required String cutTypeGroup,
+    required String cutType,
+    required String occasion,
+    required String colour,
+    required String maintenanceLevel,
+    String? name,
+  }) async {
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final safeName = _safeStorageName(
+      filename.trim().isEmpty ? cutType : filename,
+    );
+    final storageRef = _storage
+        .ref()
+        .child('hairstyles')
+        .child('${timestamp}_$safeName.jpg');
+
+    await storageRef.putData(
+      imageBytes,
+      SettableMetadata(
+        contentType: 'image/jpeg',
+        customMetadata: {'uploadedBy': userId, 'catalogType': 'hairstyle'},
+      ),
+    );
+    final imageUrl = await storageRef.getDownloadURL();
+
+    final doc = await _firestore.collection('hairstyles').add({
+      'name': name?.trim().isNotEmpty == true ? name!.trim() : cutType,
+      'imageUrl': imageUrl,
+      'storagePath': storageRef.fullPath,
+      'length': length,
+      'gender': gender,
+      'hairType': hairType,
+      'styleType': styleType,
+      'cutTypeGroup': cutTypeGroup,
+      'cutType': cutType,
+      'occasion': occasion,
+      'colour': colour,
+      'maintenanceLevel': maintenanceLevel,
+      'createdBy': userId,
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+
+    return doc.id;
+  }
+
+  String _safeStorageName(String value) {
+    final cleaned = value
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
+        .replaceAll(RegExp(r'_+'), '_')
+        .replaceAll(RegExp(r'^_|_$'), '');
+    return cleaned.isEmpty ? 'hairstyle' : cleaned;
+  }
 }
 
 class HairstyleGeneration {

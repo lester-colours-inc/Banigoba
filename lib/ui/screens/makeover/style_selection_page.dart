@@ -1,9 +1,11 @@
 // Lets users choose styling options and adds optional weather context to the makeover.
 import 'dart:typed_data';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import '../../../core/app_routes.dart';
 import '../../../data/models/weather.dart';
+import '../../../data/services/upcoming_event_service.dart';
 import '../../../data/services/weather_service.dart';
 import '../../widgets/cart_badge_button.dart';
 import '../../widgets/try_on_product_picker.dart';
@@ -37,13 +39,38 @@ class StyleSelectionPage extends StatefulWidget {
 
 class _StyleSelectionPageState extends State<StyleSelectionPage> {
   final WeatherService _weatherService = WeatherService();
+  final UpcomingEventService _upcomingEventService = UpcomingEventService();
   Weather? _currentWeather;
+  UpcomingEvent? _upcomingEvent;
   bool _isLoadingWeather = true;
+  bool _isLoadingEvent = true;
 
   @override
   void initState() {
     super.initState();
     _fetchWeather();
+    _loadUpcomingEvent();
+  }
+
+  Future<void> _loadUpcomingEvent() async {
+    final userId = FirebaseAuth.instance.currentUser?.uid ?? '';
+    if (userId.isEmpty) {
+      if (!mounted) return;
+      setState(() => _isLoadingEvent = false);
+      return;
+    }
+
+    try {
+      final event = await _upcomingEventService.getClosestEvent(userId);
+      if (!mounted) return;
+      setState(() {
+        _upcomingEvent = event;
+        _isLoadingEvent = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isLoadingEvent = false);
+    }
   }
 
   Future<void> _fetchWeather() async {
@@ -304,41 +331,46 @@ class _StyleSelectionPageState extends State<StyleSelectionPage> {
     final weatherLabel = _isLoadingWeather
         ? 'Loading weather...'
         : _currentWeather != null
-        ? '${_currentWeather!.condition} · ${_currentWeather!.temperatureC.round()}°C'
+        ? '${_currentWeather!.condition} • ${_currentWeather!.temperatureC.round()}°C • ${_currentWeather!.locationName}'
         : 'Weather unavailable';
+    final eventLabel = _isLoadingEvent
+        ? 'Loading event...'
+        : _upcomingEvent?.shortLabel ?? widget.eventName ?? 'No upcoming event';
 
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        _infoChip(Icons.cloud_outlined, weatherLabel),
-        _infoChip(Icons.calendar_today_outlined, '11 AM Meeting'),
-        _infoChip(Icons.location_on_outlined, 'Ankara & Gold Accents'),
+        Expanded(flex: 3, child: _infoChip(Icons.cloud_outlined, weatherLabel)),
+        SizedBox(width: 10),
+        Expanded(
+          flex: 2,
+          child: _infoChip(Icons.calendar_today_outlined, eventLabel),
+        ),
       ],
     );
   }
 
   Widget _infoChip(IconData icon, String label) {
-    return Expanded(
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(18),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: StyleSelectionPage.primaryColor, size: 18),
-            SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                label,
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                overflow: TextOverflow.ellipsis,
-              ),
+    return Container(
+      constraints: BoxConstraints(minHeight: 52),
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: StyleSelectionPage.primaryColor, size: 18),
+          SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 2,
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+              overflow: TextOverflow.ellipsis,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

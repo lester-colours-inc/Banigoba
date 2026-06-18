@@ -1,0 +1,26 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Product images available to signed-in users.
+    // Sellers can only upload into their own boutique/user folder:
+    // productImages/{sellerUid}/filename.jpg
+    match /productImages/{boutiqueId}/{allPaths=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+                   && request.auth.uid == boutiqueId;
+    }
+
+    // Temporary hairstyle catalog uploader.
+    match /hairstyles/{allPaths=**} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Users can only access their own images
+    match /userImages/{userId}/{allPaths=**} {
+      allow read, write: if request.auth != null
+                         && request.auth.uid == userId;
+    }
+  }
+}

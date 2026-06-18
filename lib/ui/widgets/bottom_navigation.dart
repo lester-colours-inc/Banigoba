@@ -86,29 +86,17 @@ class CustomBottomNavigation extends StatelessWidget {
                 if (unreadCount == 0) return const SizedBox.shrink();
 
                 return Positioned(
-                  right: 0,
-                  top: 0,
+                  right: 5,
+                  top: 5,
                   child: Container(
-                    constraints: const BoxConstraints(
-                      minWidth: 20,
-                      minHeight: 20,
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    width: 11,
+                    height: 11,
                     decoration: BoxDecoration(
                       color: Colors.red,
-                      borderRadius: BorderRadius.circular(10),
+                      shape: BoxShape.circle,
                       border: Border.all(
                         color: Theme.of(context).colorScheme.surface,
                         width: 2,
-                      ),
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      unreadCount > 99 ? '99+' : '$unreadCount',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 8,
-                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),

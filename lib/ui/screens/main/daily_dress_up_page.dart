@@ -9,6 +9,7 @@ import '../../../data/services/notification_service.dart';
 import '../../../data/services/post_service.dart';
 import '../../../data/services/friend_service.dart';
 import '../../../data/services/product_service.dart';
+import '../../../data/services/upcoming_event_service.dart';
 import '../../../data/models/weather.dart';
 import 'package:geolocator/geolocator.dart';
 import '../../../core/app_routes.dart';
@@ -33,6 +34,7 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
   final PostService _postService = PostService();
   final FriendService _friendService = FriendService();
   final ProductService _productService = ProductService();
+  final UpcomingEventService _upcomingEventService = UpcomingEventService();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final Map<String, Future<_PostAuthor>> _authorProfiles = {};
   Weather? _currentWeather;
@@ -258,9 +260,9 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
                                     },
                                   ),
                                   _buildTryOnCategory(
-                                    label: 'Tops',
-                                    value: 'tops',
-                                    icon: Icons.checkroom_outlined,
+                                    label: 'Accessories',
+                                    value: 'accessories',
+                                    icon: Icons.watch_outlined,
                                     selectedValue: selectedGroup,
                                     onTap: (value) {
                                       setSheetState(
@@ -291,9 +293,31 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
                                     },
                                   ),
                                   _buildTryOnCategory(
-                                    label: 'Accessories',
-                                    value: 'accessories',
-                                    icon: Icons.watch_outlined,
+                                    label: 'Outerwear',
+                                    value: 'outerwear',
+                                    icon: Icons.layers_outlined,
+                                    selectedValue: selectedGroup,
+                                    onTap: (value) {
+                                      setSheetState(
+                                        () => selectedGroup = value,
+                                      );
+                                    },
+                                  ),
+                                  _buildTryOnCategory(
+                                    label: 'Tops',
+                                    value: 'tops',
+                                    icon: Icons.checkroom_outlined,
+                                    selectedValue: selectedGroup,
+                                    onTap: (value) {
+                                      setSheetState(
+                                        () => selectedGroup = value,
+                                      );
+                                    },
+                                  ),
+                                  _buildTryOnCategory(
+                                    label: 'Other',
+                                    value: 'other',
+                                    icon: Icons.more_horiz,
                                     selectedValue: selectedGroup,
                                     onTap: (value) {
                                       setSheetState(
@@ -399,11 +423,14 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
                                       final imageUrl = _productImageUrl(data);
                                       final name = (data['name'] ?? 'Clothing')
                                           .toString();
-                                      final group = _tryOnGroup(data);
+                                      final selectionKey = _tryOnSelectionKey(
+                                        data,
+                                      );
                                       final selected =
-                                          selectedProducts[group] != null &&
+                                          selectedProducts[selectionKey] !=
+                                              null &&
                                           _productImageUrl(
-                                                selectedProducts[group]!,
+                                                selectedProducts[selectionKey]!,
                                               ) ==
                                               imageUrl;
 
@@ -417,21 +444,15 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
                                           onTap: () {
                                             setSheetState(() {
                                               if (selected) {
-                                                selectedProducts.remove(group);
+                                                selectedProducts.remove(
+                                                  selectionKey,
+                                                );
                                                 return;
                                               }
-                                              if (group == 'dresses') {
-                                                selectedProducts.remove('tops');
-                                                selectedProducts.remove(
-                                                  'bottoms',
-                                                );
-                                              } else if (group == 'tops' ||
-                                                  group == 'bottoms') {
-                                                selectedProducts.remove(
-                                                  'dresses',
-                                                );
-                                              }
-                                              selectedProducts[group] = data;
+                                              _addTryOnProductToSelection(
+                                                selectedProducts,
+                                                data,
+                                              );
                                             });
                                           },
                                           child: Container(
@@ -646,6 +667,9 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
         return;
       }
 
+      await _postService.notifyPostTryOn(post);
+      if (!mounted) return;
+
       await Navigator.pushNamed(
         context,
         AppRoutes.avatarTryOn,
@@ -745,6 +769,14 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
         value.contains('one-piece')) {
       return 'dresses';
     }
+    if (value.contains('outerwear') ||
+        value.contains('jacket') ||
+        value.contains('blazer') ||
+        value.contains('coat') ||
+        value.contains('hoodie') ||
+        value.contains('cardigan')) {
+      return 'outerwear';
+    }
     if (value.contains('bottom') ||
         value.contains('trouser') ||
         value.contains('pants') ||
@@ -755,22 +787,82 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
         value.contains('jogger')) {
       return 'bottoms';
     }
-    return 'tops';
+    if (value.contains('top') ||
+        value.contains('shirt') ||
+        value.contains('tee') ||
+        value.contains('tank') ||
+        value.contains('blouse') ||
+        value.contains('polo') ||
+        value.contains('sweatshirt')) {
+      return 'tops';
+    }
+    return 'other';
   }
 
   String _tryOnGroupLabel(String group) {
     switch (group) {
+      case 'accessories':
+        return 'Accessories';
       case 'bottoms':
         return 'Bottoms';
       case 'dresses':
         return 'Dresses';
-      case 'accessories':
-        return 'Accessories';
+      case 'outerwear':
+        return 'Outerwear';
+      case 'other':
+        return 'Other';
       case 'all':
         return 'Products';
       default:
         return 'Tops';
     }
+  }
+
+  String _tryOnSelectionKey(Map<String, dynamic> product) {
+    final group = _tryOnGroup(product);
+    if (group != 'accessories') return group;
+
+    final imageUrl = _productImageUrl(product);
+    final id =
+        (product['id'] ??
+                product['productId'] ??
+                product['originalProductId'] ??
+                (imageUrl.isNotEmpty ? imageUrl : null) ??
+                product['name'] ??
+                product.hashCode)
+            .toString();
+    return '$group:$id';
+  }
+
+  void _addTryOnProductToSelection(
+    Map<String, Map<String, dynamic>> selectedProducts,
+    Map<String, dynamic> product,
+  ) {
+    final group = _tryOnGroup(product);
+    if (group == 'accessories') {
+      selectedProducts[_tryOnSelectionKey(product)] = product;
+      return;
+    }
+
+    if (group == 'dresses') {
+      _removeTryOnGroups(selectedProducts, const {'tops', 'bottoms', 'other'});
+      selectedProducts[group] = product;
+      return;
+    }
+
+    if (group == 'tops' || group == 'bottoms' || group == 'other') {
+      _removeTryOnGroups(selectedProducts, const {'dresses'});
+    }
+    selectedProducts[group] = product;
+  }
+
+  void _removeTryOnGroups(
+    Map<String, Map<String, dynamic>> selectedProducts,
+    Set<String> groups,
+  ) {
+    selectedProducts.removeWhere(
+      (_, product) => groups.contains(_tryOnGroup(product)),
+    );
   }
 
   String _productImageUrl(Map<String, dynamic> product) {
@@ -946,9 +1038,8 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
         for (var index = 0; index < posts.length; index++) ...[
           useMineLayout
               ? _buildMinePostItem(posts[index], index)
-              : _buildDressUpItem(posts[index]),
-          if (index != posts.length - 1)
-            SizedBox(height: useMineLayout ? 16 : 30),
+              : _buildDressUpItem(posts[index], index),
+          if (index != posts.length - 1) SizedBox(height: 16),
         ],
       ],
     );
@@ -971,22 +1062,29 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
         final author =
             authorSnapshot.data ?? _PostAuthor.fallback(post.authorId);
         final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
+        final isOwner = currentUserId == post.authorId;
         final isLiked = post.likes.contains(currentUserId);
         final imageUrl = post.imageURL.isNotEmpty
             ? post.imageURL
             : author.fullBodyImageUrl;
-        final title = post.caption.trim().isEmpty
+        final username = isOwner ? 'You' : author.displayName;
+        final caption = post.caption.trim().isEmpty
             ? 'Daily Outfit'
             : post.caption.trim();
-        final subtitle = author.stylePreference.isEmpty
+        final styleLabel = author.stylePreference.isEmpty
             ? 'Styled for your day'
             : '${_titleCase(author.stylePreference)} style';
+        final cardHeight = caption.length > 95
+            ? 310.0
+            : caption.length > 55
+            ? 270.0
+            : 220.0;
 
         return Column(
           children: [
             Container(
               width: double.infinity,
-              height: 220,
+              height: cardHeight,
               clipBehavior: Clip.antiAlias,
               decoration: BoxDecoration(
                 color: cardColors[index % cardColors.length],
@@ -1004,33 +1102,54 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
                               child: Padding(
                                 padding: EdgeInsets.fromLTRB(
                                   20,
-                                  58,
+                                  50,
                                   imageWidth > 160 ? 6 : 12,
                                   20,
                                 ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Text(
-                                      title,
-                                      maxLines: 3,
-                                      overflow: TextOverflow.ellipsis,
+                                      username,
+                                      softWrap: true,
                                       style: TextStyle(
                                         color: primaryColor,
-                                        fontSize: 21,
+                                        fontSize: _responsiveCardFontSize(
+                                          username,
+                                          base: 22,
+                                          compact: 18,
+                                        ),
                                         fontWeight: FontWeight.w800,
                                       ),
                                     ),
-                                    SizedBox(height: 5),
+                                    SizedBox(height: 8),
                                     Text(
-                                      subtitle,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
+                                      caption,
+                                      softWrap: true,
                                       style: TextStyle(
                                         color: Theme.of(
                                           context,
                                         ).colorScheme.onSurface,
-                                        fontSize: 14,
+                                        fontSize: _responsiveCardFontSize(
+                                          caption,
+                                          base: 17,
+                                          compact: 13,
+                                        ),
+                                        fontWeight: FontWeight.w700,
+                                        height: 1.18,
+                                      ),
+                                    ),
+                                    SizedBox(height: 8),
+                                    Text(
+                                      styleLabel,
+                                      softWrap: true,
+                                      style: TextStyle(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onSurfaceVariant,
+                                        fontSize: 13,
+                                        height: 1.2,
                                       ),
                                     ),
                                   ],
@@ -1100,8 +1219,22 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
                     ),
                   ),
                   SizedBox(width: 8),
+                  if (isOwner) ...[
+                    Expanded(
+                      child: _buildMineCommand(
+                        icon: Icons.lock_outline,
+                        label: 'Private',
+                        backgroundColor: Theme.of(context).colorScheme.surface,
+                        foregroundColor: Theme.of(
+                          context,
+                        ).colorScheme.onSurface,
+                        onTap: () => _privatePost(post),
+                      ),
+                    ),
+                    SizedBox(width: 8),
+                  ],
                 ],
-                if (!post.isPublic)
+                if (isOwner && !post.isPublic)
                   Expanded(
                     child: _buildMineCommand(
                       icon: Icons.share_outlined,
@@ -1109,6 +1242,17 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
                       backgroundColor: Theme.of(context).colorScheme.surface,
                       foregroundColor: Theme.of(context).colorScheme.onSurface,
                       onTap: () => _sharePost(post),
+                    ),
+                  ),
+                if (isOwner && !post.isPublic) SizedBox(width: 8),
+                if (isOwner)
+                  Expanded(
+                    child: _buildMineCommand(
+                      icon: Icons.delete_outline,
+                      label: 'Delete',
+                      backgroundColor: Theme.of(context).colorScheme.error,
+                      foregroundColor: Theme.of(context).colorScheme.onError,
+                      onTap: () => _deletePost(post),
                     ),
                   ),
               ],
@@ -1195,6 +1339,80 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Unable to share post: $error')));
+    }
+  }
+
+  Future<void> _privatePost(Post post) async {
+    final shouldPrivate = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Make this post private?'),
+        content: const Text(
+          'This look will be removed from friends and community feeds. Likes and comments stay saved if you share it again later.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton.icon(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            icon: const Icon(Icons.lock_outline),
+            label: const Text('Make Private'),
+          ),
+        ],
+      ),
+    );
+    if (shouldPrivate != true) return;
+
+    try {
+      await _postService.makePostPrivate(post.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Post is now private.')));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Unable to make post private: $error')),
+      );
+    }
+  }
+
+  Future<void> _deletePost(Post post) async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete this Daily Dress Up?'),
+        content: const Text(
+          'This removes the look from My Daily Dress Up and deletes its likes and comments. This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton.icon(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            icon: const Icon(Icons.delete_outline),
+            label: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (shouldDelete != true) return;
+
+    try {
+      await _postService.deletePost(post.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Daily Dress Up deleted.')));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Unable to delete Daily Dress Up: $error')),
+      );
     }
   }
 
@@ -1304,6 +1522,16 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
         ),
       ),
     );
+  }
+
+  double _responsiveCardFontSize(
+    String text, {
+    required double base,
+    required double compact,
+  }) {
+    if (text.length > 110) return compact;
+    if (text.length > 70) return (base + compact) / 2;
+    return base;
   }
 
   Widget _buildMineReaction({
@@ -1469,9 +1697,10 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
 
   /// Header showing current weather and next calendar event
   Widget _buildStatusHeader() {
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
     if (_isLoadingWeather) {
       return Container(
-        height: 50,
+        constraints: BoxConstraints(minHeight: 58),
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: Color(0xFFC5CAE9),
@@ -1490,214 +1719,77 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
         ? "${_currentWeather!.temperatureC.round()}°C"
         : "";
 
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-      decoration: BoxDecoration(
-        color: Color(0xFFC5CAE9),
-        borderRadius: BorderRadius.circular(15),
+    return StreamBuilder<UpcomingEvent?>(
+      stream: _upcomingEventService.watchClosestEvent(currentUserId),
+      builder: (context, eventSnapshot) {
+        final eventLabel =
+            eventSnapshot.data?.shortLabel ?? 'No upcoming event';
+
+        return Container(
+          width: double.infinity,
+          padding: EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+          decoration: BoxDecoration(
+            color: Color(0xFFC5CAE9),
+            borderRadius: BorderRadius.circular(15),
+          ),
+          child: Wrap(
+            spacing: 14,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              _statusChip(
+                icon: Icons.cloud_outlined,
+                label: _currentWeather != null
+                    ? "$conditionText • $tempText • ${_currentWeather!.locationName}"
+                    : conditionText,
+                flex: 2,
+              ),
+              _statusChip(
+                icon: Icons.calendar_today_outlined,
+                label: eventLabel,
+                flex: 1,
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _statusChip({
+    required IconData icon,
+    required String label,
+    required int flex,
+  }) {
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        minWidth: flex == 2 ? 210 : 150,
+        maxWidth: flex == 2 ? 420 : 260,
       ),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.cloud_outlined, color: Colors.white, size: 20),
+          Icon(icon, color: Colors.white, size: 20),
           SizedBox(width: 8),
-          Expanded(
+          Flexible(
             child: Text(
-              _currentWeather != null
-                  ? "$conditionText | $tempText"
-                  : conditionText,
+              label,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: Colors.white,
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w600,
               ),
-              overflow: TextOverflow.ellipsis,
             ),
-          ),
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: 10),
-            child: Text(
-              "|",
-              style: TextStyle(color: Colors.white54, fontSize: 20),
-            ),
-          ),
-          Icon(Icons.calendar_today_outlined, color: Colors.white, size: 18),
-          SizedBox(width: 8),
-          Text(
-            "11 AM Meeting",
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
           ),
         ],
       ),
     );
   }
 
-  /// Builds a live Firestore post and resolves its author profile.
-  Widget _buildDressUpItem(Post post) {
-    return FutureBuilder<_PostAuthor>(
-      future: _authorProfiles.putIfAbsent(
-        post.authorId,
-        () => _loadPostAuthor(post.authorId),
-      ),
-      builder: (context, authorSnapshot) {
-        final author =
-            authorSnapshot.data ?? _PostAuthor.fallback(post.authorId);
-        final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
-        final isLiked = post.likes.contains(currentUserId);
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                _buildAuthorAvatar(author),
-                SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        author.displayName,
-                        style: TextStyle(
-                          color: primaryColor,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                      Text(
-                        post.caption.isEmpty ? 'Daily dress-up' : post.caption,
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Text(
-                  _formatPostTime(post.createdAt),
-                  style: TextStyle(color: Colors.grey, fontSize: 12),
-                ),
-              ],
-            ),
-            SizedBox(height: 15),
-            _buildPostContent(post),
-            SizedBox(height: 15),
-            Wrap(
-              spacing: 20,
-              runSpacing: 12,
-              children: [
-                _buildAction(
-                  isLiked ? Icons.favorite : Icons.favorite_border,
-                  '${post.likeCount}',
-                  color: isLiked ? Colors.red : null,
-                  onTap: currentUserId.isEmpty
-                      ? null
-                      : () => _postService.toggleLike(post.id, post.likes),
-                ),
-                _buildAction(
-                  Icons.chat_bubble_outline,
-                  '${post.commentCount}',
-                  onTap: () => showPostCommentsSheet(context, post),
-                ),
-                _buildAction(
-                  Icons.shortcut_outlined,
-                  'Try On',
-                  onTap: () => _tryOnPost(post),
-                ),
-              ],
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildAuthorAvatar(_PostAuthor author) {
-    final imageUrl = author.profileImageUrl;
-    return Container(
-      padding: EdgeInsets.all(2),
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.orange, width: 2),
-      ),
-      child: CircleAvatar(
-        radius: 20,
-        backgroundColor: primaryColor,
-        backgroundImage: imageUrl.isNotEmpty ? NetworkImage(imageUrl) : null,
-        child: imageUrl.isEmpty
-            ? Text(
-                author.initial,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              )
-            : null,
-      ),
-    );
-  }
-
-  Widget _buildPostContent(Post post) {
-    final products = _collageProducts(post);
-    if (products.isNotEmpty) {
-      return _buildPostCollage(post, products);
-    }
-
-    if (post.imageURL.isEmpty) {
-      return Container(
-        width: double.infinity,
-        constraints: BoxConstraints(minHeight: 150),
-        padding: EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          post.caption.isEmpty ? 'Daily dress-up post' : post.caption,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: primaryColor,
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      );
-    }
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
-      child: SizedBox(
-        height: 280,
-        width: double.infinity,
-        child: Image.network(
-          post.imageURL,
-          fit: BoxFit.cover,
-          webHtmlElementStrategy: kIsWeb
-              ? WebHtmlElementStrategy.prefer
-              : WebHtmlElementStrategy.never,
-          loadingBuilder: (context, child, progress) {
-            if (progress == null) return child;
-            return Container(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest,
-              alignment: Alignment.center,
-              child: CircularProgressIndicator(),
-            );
-          },
-          errorBuilder: (context, error, stackTrace) {
-            debugPrint('Unable to display post ${post.id} image: $error');
-            return Container(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest,
-              alignment: Alignment.center,
-              child: Icon(
-                Icons.broken_image_outlined,
-                size: 48,
-                color: Colors.grey,
-              ),
-            );
-          },
-        ),
-      ),
-    );
+  /// Friends and community posts use the same visual card as My Daily Dress Up.
+  Widget _buildDressUpItem(Post post, int index) {
+    return _buildMinePostItem(post, index);
   }
 
   List<Map<String, dynamic>> _collageProducts(Post post) {
@@ -1705,64 +1797,6 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
         .where((product) => _productImageUrl(product).isNotEmpty)
         .take(3)
         .toList();
-  }
-
-  Widget _buildPostCollage(Post post, List<Map<String, dynamic>> products) {
-    final colors = Theme.of(context).colorScheme;
-    return Container(
-      height: 310,
-      padding: EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: colors.outlineVariant),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 3,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(14),
-              child: Container(
-                color: colors.surface,
-                child: post.imageURL.isEmpty
-                    ? Icon(
-                        Icons.person_outline,
-                        size: 72,
-                        color: colors.outline,
-                      )
-                    : Image.network(
-                        post.imageURL,
-                        width: double.infinity,
-                        height: double.infinity,
-                        fit: BoxFit.contain,
-                        webHtmlElementStrategy: kIsWeb
-                            ? WebHtmlElementStrategy.prefer
-                            : WebHtmlElementStrategy.never,
-                        errorBuilder: (context, error, stackTrace) => Icon(
-                          Icons.broken_image_outlined,
-                          size: 52,
-                          color: colors.outline,
-                        ),
-                      ),
-              ),
-            ),
-          ),
-          SizedBox(width: 10),
-          Expanded(
-            flex: 2,
-            child: Column(
-              children: [
-                for (var index = 0; index < products.length; index++) ...[
-                  Expanded(child: _buildCollageProduct(products[index])),
-                  if (index != products.length - 1) SizedBox(height: 8),
-                ],
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   Widget _buildCollageProduct(Map<String, dynamic> product) {
@@ -1794,12 +1828,6 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
 
       return _PostAuthor(
         displayName: (data['displayName'] ?? data['name'] ?? 'User').toString(),
-        profileImageUrl:
-            (data['profileImageURL'] ??
-                    data['profileImageUrl'] ??
-                    data['photoURL'] ??
-                    '')
-                .toString(),
         fullBodyImageUrl: (data['latestFullBodyImageUrl'] ?? '').toString(),
         stylePreference: (data['stylePreference'] ?? data['style'] ?? '')
             .toString(),
@@ -1832,37 +1860,15 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
         )
         .join(' ');
   }
-
-  /// Small action button with icon and text below a post
-  Widget _buildAction(
-    IconData icon,
-    String label, {
-    Color? color,
-    VoidCallback? onTap,
-  }) {
-    final actionColor = color ?? Theme.of(context).colorScheme.onSurfaceVariant;
-    return GestureDetector(
-      onTap: onTap,
-      child: Row(
-        children: [
-          Icon(icon, color: actionColor, size: 20),
-          SizedBox(width: 5),
-          Text(label, style: TextStyle(color: actionColor, fontSize: 13)),
-        ],
-      ),
-    );
-  }
 }
 
 class _PostAuthor {
   final String displayName;
-  final String profileImageUrl;
   final String fullBodyImageUrl;
   final String stylePreference;
 
   _PostAuthor({
     required this.displayName,
-    required this.profileImageUrl,
     required this.fullBodyImageUrl,
     required this.stylePreference,
   });
@@ -1873,15 +1879,9 @@ class _PostAuthor {
         : authorId.toUpperCase();
     return _PostAuthor(
       displayName: suffix.isEmpty ? 'User' : 'User $suffix',
-      profileImageUrl: '',
       fullBodyImageUrl: '',
       stylePreference: '',
     );
-  }
-
-  String get initial {
-    final trimmedName = displayName.trim();
-    return trimmedName.isEmpty ? 'U' : trimmedName[0].toUpperCase();
   }
 }
 

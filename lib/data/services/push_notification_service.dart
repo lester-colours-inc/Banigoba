@@ -37,6 +37,7 @@ class PushNotificationService with WidgetsBindingObserver {
   GlobalKey<NavigatorState>? _navigatorKey;
   GlobalKey<ScaffoldMessengerState>? _scaffoldMessengerKey;
   bool _isRegisteringToken = false;
+  bool _pendingNotificationOpen = false;
 
   bool get _supportsPush =>
       !kIsWeb &&
@@ -95,6 +96,7 @@ class PushNotificationService with WidgetsBindingObserver {
     }
 
     await _registerToken();
+    _openPendingNotificationIfNeeded();
   }
 
   @override
@@ -179,13 +181,27 @@ class PushNotificationService with WidgetsBindingObserver {
   }
 
   void _openNotifications(RemoteMessage message) {
-    if (_auth.currentUser == null) return;
+    if (_auth.currentUser == null || _navigatorKey?.currentState == null) {
+      _pendingNotificationOpen = true;
+      return;
+    }
 
-    _navigatorKey?.currentState?.push(
-      MaterialPageRoute<void>(
-        builder: (_) => const MainScreen(initialIndex: 4),
-      ),
-    );
+    _pendingNotificationOpen = false;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      MainScreen.selectTab(4);
+      _navigatorKey?.currentState?.popUntil((route) => route.isFirst);
+    });
+  }
+
+  void _openPendingNotificationIfNeeded() {
+    if (!_pendingNotificationOpen || _auth.currentUser == null) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_pendingNotificationOpen || _auth.currentUser == null) return;
+      _pendingNotificationOpen = false;
+      MainScreen.selectTab(4);
+      _navigatorKey?.currentState?.popUntil((route) => route.isFirst);
+    });
   }
 
   void _showForegroundMessage(RemoteMessage message) {

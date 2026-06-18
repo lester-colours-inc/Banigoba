@@ -15,8 +15,9 @@ class NotificationService {
     required String type, // 'follow_request', 'follow_accepted', 'new_post'
     Map<String, dynamic>? extraData,
   }) async {
-    if (receiverId == currentUserId && type != 'new_post')
+    if (receiverId == currentUserId && type != 'new_post') {
       return; // Don't notify self unless it's a post logic helper
+    }
 
     await _db
         .collection('users')
@@ -58,6 +59,7 @@ class NotificationService {
         'new_post',
         'like',
         'comment',
+        'try_on',
       ];
     } else if (category == 'shops') {
       allowedTypes = [
@@ -142,7 +144,7 @@ class NotificationService {
 
     // Fetch current user's name from Firestore
     final userDoc = await _db.collection('users').doc(currentUserId).get();
-    final userData = userDoc.data() as Map<String, dynamic>?;
+    final userData = userDoc.data();
     final userName =
         userData?['displayName'] ??
         _auth.currentUser?.email?.split('@')[0] ??

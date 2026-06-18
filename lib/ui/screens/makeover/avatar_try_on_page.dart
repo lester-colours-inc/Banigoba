@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../../data/services/outfit_service.dart';
 import '../../../data/services/photo_edit_api.dart';
 import 'ai_upload_page.dart';
+import '../main/main_screen.dart';
 
 class AvatarTryOnPage extends StatefulWidget {
   final String? garmentImageUrl;
@@ -208,7 +209,14 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
   List<Map<String, dynamic>> _orderedProducts(
     List<Map<String, dynamic>> products,
   ) {
-    const order = {'dresses': 0, 'tops': 1, 'bottoms': 2, 'accessories': 3};
+    const order = {
+      'dresses': 0,
+      'tops': 1,
+      'bottoms': 2,
+      'outerwear': 3,
+      'accessories': 4,
+      'other': 5,
+    };
     final sorted = [...products];
     sorted.sort(
       (a, b) => (order[_productGroup(a)] ?? 4).compareTo(
@@ -226,6 +234,14 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
         value.contains('one-piece')) {
       return 'dresses';
     }
+    if (value.contains('outerwear') ||
+        value.contains('jacket') ||
+        value.contains('blazer') ||
+        value.contains('coat') ||
+        value.contains('hoodie') ||
+        value.contains('cardigan')) {
+      return 'outerwear';
+    }
     if (value.contains('bottom') ||
         value.contains('pants') ||
         value.contains('trouser') ||
@@ -241,7 +257,16 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
         value.contains('jewel')) {
       return 'accessories';
     }
-    return 'tops';
+    if (value.contains('top') ||
+        value.contains('shirt') ||
+        value.contains('tee') ||
+        value.contains('tank') ||
+        value.contains('blouse') ||
+        value.contains('polo') ||
+        value.contains('sweatshirt')) {
+      return 'tops';
+    }
+    return 'other';
   }
 
   String _productImageUrl(Map<String, dynamic> product) {
@@ -265,10 +290,16 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
     final avatarUrl = _avatarImageUrl;
     if (user == null || avatarUrl == null || !_showMockCollage) return;
     final resultUrl = _resultImageUrl ?? avatarUrl;
+    final plannedDate = _plannedDate;
+
+    final caption = plannedDate == null
+        ? await _promptForCaption()
+        : 'Planned Look';
+    if (caption == null) return;
+    if (!mounted) return;
 
     setState(() => _isSavingOutfit = true);
     try {
-      final plannedDate = _plannedDate;
       if (plannedDate == null) {
         await _outfitService.saveOutfitToDailyDressUp(
           userId: user.uid,
@@ -276,6 +307,7 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
           resultImageUrl: resultUrl,
           products: _selectedProducts,
           previewType: _resultImageUrl == null ? 'mock_collage' : 'generated',
+          caption: caption,
         );
       } else {
         await _outfitService.saveOutfitForDate(
@@ -302,6 +334,9 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
           ),
         ),
       );
+      if (plannedDate == null) {
+        _returnToHome();
+      }
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -310,6 +345,50 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
     } finally {
       if (mounted) setState(() => _isSavingOutfit = false);
     }
+  }
+
+  Future<String?> _promptForCaption() async {
+    final controller = TextEditingController();
+    final caption = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Caption your look'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          minLines: 2,
+          maxLines: 4,
+          maxLength: 160,
+          textCapitalization: TextCapitalization.sentences,
+          decoration: const InputDecoration(
+            hintText: 'What should this Daily Dress Up say?',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final text = controller.text.trim();
+              Navigator.pop(
+                dialogContext,
+                text.isEmpty ? 'My completed try-on look' : text,
+              );
+            },
+            child: const Text('Save Look'),
+          ),
+        ],
+      ),
+    );
+    return caption;
+  }
+
+  void _returnToHome() {
+    MainScreen.selectTab(0);
+    Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
   void _previewMockLook() {
@@ -337,7 +416,10 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
     if (category.contains('top') ||
         category.contains('shirt') ||
         category.contains('jacket') ||
-        category.contains('outerwear')) {
+        category.contains('outerwear') ||
+        category.contains('blazer') ||
+        category.contains('coat') ||
+        category.contains('hoodie')) {
       return 'tops';
     }
     return 'auto';

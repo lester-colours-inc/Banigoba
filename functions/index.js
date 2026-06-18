@@ -35,6 +35,19 @@ exports.sendPushNotification = onDocumentCreated(
       typeof notification.type === 'string'
         ? notification.type
         : 'general';
+    const extraData =
+      notification.extraData && typeof notification.extraData === 'object'
+        ? notification.extraData
+        : {};
+    const pushData = {
+      type,
+      notificationId: event.params.notificationId,
+    };
+    Object.entries(extraData).forEach(([key, value]) => {
+      if (value === null || value === undefined) return;
+      pushData[key] =
+        typeof value === 'string' ? value : JSON.stringify(value);
+    });
 
     const tokenDocs = tokenSnapshot.docs.filter((doc) => {
       const token = doc.get('token');
@@ -46,16 +59,24 @@ exports.sendPushNotification = onDocumentCreated(
       const response = await admin.messaging().sendEachForMulticast({
         tokens: batch.map((doc) => doc.get('token')),
         notification: { title, body },
-        data: {
-          type,
-          notificationId: event.params.notificationId,
-        },
+        data: pushData,
         android: {
           priority: 'high',
+          notification: {
+            title,
+            body,
+            sound: 'default',
+            clickAction: 'FLUTTER_NOTIFICATION_CLICK',
+          },
         },
         apns: {
+          headers: {
+            'apns-priority': '10',
+            'apns-push-type': 'alert',
+          },
           payload: {
             aps: {
+              alert: { title, body },
               sound: 'default',
             },
           },

@@ -114,6 +114,117 @@ class ShopChatInboxPage extends StatelessWidget {
   }
 }
 
+class _ProductReferenceMessage extends StatelessWidget {
+  const _ProductReferenceMessage({required this.data, required this.mine});
+
+  final Map<String, dynamic> data;
+  final bool mine;
+
+  @override
+  Widget build(BuildContext context) {
+    final imageUrl = (data['productImageUrl'] ?? '').toString();
+    final productName = (data['productName'] ?? 'This product').toString();
+    final price = (data['productPrice'] as num?)?.toDouble();
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Align(
+      alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.sizeOf(context).width * 0.82,
+        ),
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: mine
+              ? const Color(0xFF0D0140)
+              : colorScheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: imageUrl.isEmpty
+                  ? _ProductReferenceImageFallback(mine: mine)
+                  : Image.network(
+                      imageUrl,
+                      width: 58,
+                      height: 58,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) =>
+                          _ProductReferenceImageFallback(mine: mine),
+                    ),
+            ),
+            const SizedBox(width: 10),
+            Flexible(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Asked about',
+                    style: TextStyle(
+                      color: mine
+                          ? Colors.white70
+                          : colorScheme.onSurfaceVariant,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    productName,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: mine ? Colors.white : colorScheme.onSurface,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  if (price != null && price > 0) ...[
+                    const SizedBox(height: 3),
+                    Text(
+                      '\$${price.toStringAsFixed(2)}',
+                      style: TextStyle(
+                        color: mine
+                            ? Colors.white70
+                            : colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ProductReferenceImageFallback extends StatelessWidget {
+  const _ProductReferenceImageFallback({required this.mine});
+
+  final bool mine;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      width: 58,
+      height: 58,
+      color: colorScheme.surfaceContainerHighest,
+      child: Icon(
+        Icons.checkroom_outlined,
+        color: mine ? Colors.white70 : colorScheme.onSurface,
+      ),
+    );
+  }
+}
+
 class ShopChatPage extends StatefulWidget {
   const ShopChatPage({
     super.key,
@@ -184,7 +295,12 @@ class _ShopChatPageState extends State<ShopChatPage> {
                   itemBuilder: (context, index) {
                     final data = messages[index].data();
                     final isSystem = data['senderType'] == 'system';
+                    final isProductReference =
+                        data['senderType'] == 'product_reference';
                     final mine = data['senderId'] == currentUserId;
+                    if (isProductReference) {
+                      return _ProductReferenceMessage(data: data, mine: mine);
+                    }
                     if (isSystem) {
                       return Center(
                         child: Container(

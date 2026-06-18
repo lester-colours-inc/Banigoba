@@ -245,10 +245,33 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Center(
-                child: Text(
-                  isEditing ? "Edit Product" : "Add Boutique Product",
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              Row(
+                children: [
+                  IconButton(
+                    tooltip: 'Close',
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.arrow_back),
+                  ),
+                  Expanded(
+                    child: Text(
+                      isEditing ? "Edit Product" : "Add Boutique Product",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 48),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close),
+                  label: const Text('Cancel'),
                 ),
               ),
               const SizedBox(height: 20),
@@ -513,22 +536,37 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                           const Center(child: CircularProgressIndicator()),
                     );
                     try {
+                      debugPrint(
+                        '[ProductUpload] Submit started: '
+                        'isEditing=$isEditing, userId=$_currentUserId, '
+                        'hasSelectedImage=${selectedImage != null}, docId=$docId',
+                      );
                       String imageUrl = existingImageUrl;
                       String rawImageUrl = existingRawImageUrl;
 
                       if (selectedImage != null) {
-                        // 1. Process image with background remover API using product name as filename
-                        final urls = await _productService.removeBackground(
-                          selectedImage!,
-                          customFilename: nameController.text,
+                        debugPrint(
+                          '[ProductUpload] Uploading selected image: '
+                          '${selectedImage!.path}',
                         );
-                        imageUrl = urls['processed_url'] ?? '';
-                        rawImageUrl = urls['raw_url'] ?? '';
+                        final uploadedImageUrl = await _productService
+                            .uploadCatalogProductImage(
+                              userId: _currentUserId,
+                              image: selectedImage!,
+                              customFilename: nameController.text,
+                            );
+                        imageUrl = uploadedImageUrl;
+                        rawImageUrl = uploadedImageUrl;
+                        debugPrint(
+                          '[ProductUpload] Image upload returned URL: '
+                          '${imageUrl.split('?').first}',
+                        );
 
-                        if (imageUrl.isEmpty)
+                        if (imageUrl.isEmpty) {
                           throw Exception(
-                            'API returned empty processed image URL',
+                            'Firebase Storage returned an empty image URL',
                           );
+                        }
                       }
 
                       final productUpdateData = {
@@ -553,6 +591,7 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                           'updatedAt': FieldValue.serverTimestamp(),
                       };
 
+                      debugPrint('[ProductUpload] Loading seller profile.');
                       final sellerSnapshot = await FirebaseFirestore.instance
                           .collection('users')
                           .doc(_currentUserId)
@@ -567,6 +606,11 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                                   sellerData['displayName'] ??
                                   'Boutique')
                               .toString();
+                      debugPrint(
+                        '[ProductUpload] Saving product document: '
+                        'isEditing=$isEditing, shopName=${productUpdateData['shopName']}, '
+                        'imageUrl=${imageUrl.split('?').first}',
+                      );
 
                       if (isEditing) {
                         await _productService.updateCatalogProduct(
@@ -576,6 +620,7 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                       } else {
                         await _productService.addProduct(productUpdateData);
                       }
+                      debugPrint('[ProductUpload] Product document saved.');
 
                       if (context.mounted) {
                         Navigator.pop(context); // Close loading
@@ -590,7 +635,9 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                           ),
                         );
                       }
-                    } catch (e) {
+                    } catch (e, stackTrace) {
+                      debugPrint('[ProductUpload] Product save failed: $e');
+                      debugPrintStack(stackTrace: stackTrace);
                       if (context.mounted) {
                         Navigator.pop(context);
                         ScaffoldMessenger.of(context).showSnackBar(

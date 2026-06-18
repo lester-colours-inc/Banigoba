@@ -403,6 +403,8 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                                   shopName: shopName,
                                   productId: productId?.toString(),
                                   productName: name.toString(),
+                                  productImageUrl: imageUrl.toString(),
+                                  productPrice: price > 0 ? price : null,
                                 ),
                           icon: const Icon(Icons.chat_bubble_outline),
                           label: const Text('Ask Boutique About This Product'),
@@ -424,6 +426,8 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     required String shopName,
     required String? productId,
     required String productName,
+    String? productImageUrl,
+    double? productPrice,
   }) async {
     final chatId = await ShopChatService().ensureConversation(
       sellerId: sellerId,
@@ -431,7 +435,18 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
       shopName: shopName,
       productId: productId,
       productName: productName,
+      productImageUrl: productImageUrl,
+      productPrice: productPrice,
     );
+    if (productId?.isNotEmpty == true) {
+      await ShopChatService().addProductReference(
+        chatId: chatId,
+        productId: productId!,
+        productName: productName,
+        productImageUrl: productImageUrl,
+        productPrice: productPrice,
+      );
+    }
     if (!mounted) return;
     Navigator.push(
       context,

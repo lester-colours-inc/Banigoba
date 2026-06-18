@@ -39,6 +39,8 @@ class ShopChatService {
     required String shopName,
     String? productId,
     String? productName,
+    String? productImageUrl,
+    double? productPrice,
   }) async {
     final chatId = conversationId(sellerId: sellerId, customerId: customerId);
     final customer = await _db.collection('users').doc(customerId).get();
@@ -65,10 +67,63 @@ class ShopChatService {
       'customerImageUrl': customerImage,
       if (productId?.isNotEmpty == true) 'productId': productId,
       if (productName?.isNotEmpty == true) 'productName': productName,
+      if (productImageUrl?.isNotEmpty == true)
+        'productImageUrl': productImageUrl,
+      if (productPrice != null) 'productPrice': productPrice,
       'updatedAt': FieldValue.serverTimestamp(),
       'createdAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
     return chatId;
+  }
+
+  Future<void> addProductReference({
+    required String chatId,
+    required String productId,
+    required String productName,
+    String? productImageUrl,
+    double? productPrice,
+  }) async {
+    if (productId.trim().isEmpty && productName.trim().isEmpty) return;
+
+    final senderId = _auth.currentUser?.uid ?? '';
+    if (senderId.isEmpty) return;
+
+    final chatRef = _db.collection('shop_chats').doc(chatId);
+    final chat = await chatRef.get();
+    final data = chat.data();
+    if (data == null ||
+        !(List<String>.from(data['participantIds'] ?? []).contains(senderId))) {
+      throw Exception('You do not have access to this conversation.');
+    }
+
+    final sellerId = (data['sellerId'] ?? '').toString();
+    final messageRef = chatRef.collection('messages').doc();
+    final title = productName.trim().isEmpty ? 'this product' : productName;
+    final batch = _db.batch();
+    batch.set(messageRef, {
+      'senderId': senderId,
+      'senderType': 'product_reference',
+      'text': 'Asked about $title',
+      'productId': productId.trim(),
+      'productName': title,
+      if (productImageUrl?.isNotEmpty == true)
+        'productImageUrl': productImageUrl,
+      if (productPrice != null) 'productPrice': productPrice,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+    batch.set(chatRef, {
+      'productId': productId.trim(),
+      'productName': title,
+      if (productImageUrl?.isNotEmpty == true)
+        'productImageUrl': productImageUrl,
+      if (productPrice != null) 'productPrice': productPrice,
+      'lastMessage': 'Asked about $title',
+      'lastMessageAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+      senderId == sellerId ? 'unreadByCustomer' : 'unreadBySeller':
+          FieldValue.increment(1),
+    }, SetOptions(merge: true));
+    await batch.commit();
   }
 
   Future<void> sendMessage({

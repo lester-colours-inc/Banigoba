@@ -195,10 +195,8 @@ class ProfilePage extends StatelessWidget {
   }
 
   void _openMainTab(BuildContext context, int index) {
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute<void>(builder: (_) => MainScreen(initialIndex: index)),
-      (route) => false,
-    );
+    MainScreen.selectTab(index);
+    Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
   Widget _buildPublicDailyDressUps(
@@ -570,6 +568,9 @@ class ProfilePage extends StatelessWidget {
           selectedProducts.isEmpty) {
         return;
       }
+
+      await PostService().notifyPostTryOn(post);
+      if (!context.mounted) return;
 
       await Navigator.pushNamed(
         context,

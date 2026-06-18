@@ -729,6 +729,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
         return 'liked your Daily Dress Up.';
       case 'comment':
         return 'commented on your Daily Dress Up.';
+      case 'try_on':
+        return 'tried on your Daily Dress Up.';
       case 'shop_message':
         return 'sent you a shop message.';
       case 'order_update':

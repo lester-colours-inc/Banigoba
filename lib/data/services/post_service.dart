@@ -59,6 +59,62 @@ class PostService {
     });
   }
 
+  Future<void> makePostPrivate(String postId) async {
+    if (_currentUserId.isEmpty) return;
+    final ref = _db.collection('posts').doc(postId);
+    final snapshot = await ref.get();
+    if (!snapshot.exists ||
+        (snapshot.data()?['authorId'] ?? snapshot.data()?['authorID']) !=
+            _currentUserId) {
+      throw Exception('You can only private your own post.');
+    }
+    await ref.update({
+      'isPublic': false,
+      'visibility': 'private',
+      'privatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> deletePost(String postId) async {
+    if (_currentUserId.isEmpty) return;
+    final postRef = _db.collection('posts').doc(postId);
+    final snapshot = await postRef.get();
+    final data = snapshot.data();
+    if (!snapshot.exists ||
+        (data?['authorId'] ?? data?['authorID']) != _currentUserId) {
+      throw Exception('You can only delete your own post.');
+    }
+
+    final comments = await postRef.collection('comments').get();
+    final likes = await postRef.collection('likes').get();
+    final outfitId = (data?['outfitId'] ?? '').toString();
+    final outfitRef = outfitId.isEmpty
+        ? null
+        : _db
+              .collection('users')
+              .doc(_currentUserId)
+              .collection('outfits')
+              .doc(outfitId);
+    final outfitSnapshot = outfitRef == null ? null : await outfitRef.get();
+
+    final batch = _db.batch();
+    for (final comment in comments.docs) {
+      batch.delete(comment.reference);
+    }
+    for (final like in likes.docs) {
+      batch.delete(like.reference);
+    }
+    if (outfitRef != null && outfitSnapshot?.exists == true) {
+      batch.update(outfitRef, {
+        'dailyDressUpPostId': FieldValue.delete(),
+        'deletedDailyDressUpPostId': postId,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    }
+    batch.delete(postRef);
+    await batch.commit();
+  }
+
   /// Resolves the garments used by a Daily Dress Up post.
   Future<List<Map<String, dynamic>>> getPostOutfitProducts(Post post) async {
     if (post.products.isNotEmpty) return post.products;
@@ -196,6 +252,17 @@ class PostService {
     );
   }
 
+  Future<void> notifyPostTryOn(Post post) async {
+    if (_currentUserId.isEmpty || post.authorId == _currentUserId) return;
+
+    await _notifyPostAuthor(
+      postData: {'authorId': post.authorId},
+      postId: post.id,
+      type: 'try_on',
+      body: 'tried on your Daily Dress Up.',
+    );
+  }
+
   Future<void> _notifyPostAuthor({
     required Map<String, dynamic>? postData,
     required String postId,
@@ -218,7 +285,12 @@ class PostService {
 
       await NotificationService().addNotification(
         receiverId: authorId,
-        title: type == 'like' ? 'New Like' : 'New Comment',
+        title: switch (type) {
+          'like' => 'New Like',
+          'comment' => 'New Comment',
+          'try_on' => 'Look Tried On',
+          _ => 'Daily Dress Up',
+        },
         body: '$senderName $body',
         type: type,
         extraData: {

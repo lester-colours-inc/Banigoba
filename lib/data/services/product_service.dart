@@ -8,7 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
-/// Service handling all product-related operations (Firestore, Storage, Supabase)
+/// Service handling all product-related operations with Firestore and Storage.
 class ProductService {
   final _db = FirebaseFirestore.instance;
   final _storage = FirebaseStorage.instance;
@@ -341,6 +341,66 @@ class ProductService {
         .child('${DateTime.now().millisecondsSinceEpoch}.jpg');
     await ref.putFile(image);
     return await ref.getDownloadURL();
+  }
+
+  /// Upload a seller catalog product image directly to Firebase Storage.
+  Future<String> uploadCatalogProductImage({
+    required String userId,
+    required File image,
+    String? customFilename,
+  }) async {
+    if (userId.isEmpty) {
+      throw Exception('You must be signed in to upload product images');
+    }
+
+    final uploadId = DateTime.now().millisecondsSinceEpoch.toString();
+    final safeName = _safeStorageName(customFilename);
+    final ref = _storage
+        .ref()
+        .child('productImages')
+        .child(userId)
+        .child('${uploadId}_$safeName.jpg');
+
+    debugPrint(
+      '[ProductUpload] Starting catalog image upload: '
+      'userId=$userId, path=${ref.fullPath}, file=${image.path}',
+    );
+
+    try {
+      final bytes = await image.readAsBytes();
+      debugPrint('[ProductUpload] Read image bytes: ${bytes.length}');
+
+      final snapshot = await ref.putData(
+        bytes,
+        SettableMetadata(
+          contentType: 'image/jpeg',
+          customMetadata: {'imageType': 'catalog'},
+        ),
+      );
+      debugPrint(
+        '[ProductUpload] Storage upload complete: '
+        'state=${snapshot.state}, bytesTransferred=${snapshot.bytesTransferred}, '
+        'totalBytes=${snapshot.totalBytes}',
+      );
+
+      final downloadUrl = await ref.getDownloadURL();
+      debugPrint(
+        '[ProductUpload] Download URL created: '
+        '${downloadUrl.split('?').first}',
+      );
+      return downloadUrl;
+    } on FirebaseException catch (error, stackTrace) {
+      debugPrint(
+        '[ProductUpload] Firebase Storage upload failed: '
+        'code=${error.code}, message=${error.message}, path=${ref.fullPath}',
+      );
+      debugPrintStack(stackTrace: stackTrace);
+      rethrow;
+    } catch (error, stackTrace) {
+      debugPrint('[ProductUpload] Catalog image upload failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      rethrow;
+    }
   }
 
   /// Upload a user's own product to Firestore and their personal wardrobe

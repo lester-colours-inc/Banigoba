@@ -245,6 +245,7 @@ class OutfitService {
     required String resultImageUrl,
     required List<Map<String, dynamic>> products,
     required String previewType,
+    String caption = 'My completed try-on look',
   }) async {
     final outfitRef = _db
         .collection('users')
@@ -275,7 +276,9 @@ class OutfitService {
     batch.set(postRef, {
       'authorID': userId,
       'authorId': userId,
-      'caption': 'My completed try-on look',
+      'caption': caption.trim().isEmpty
+          ? 'My completed try-on look'
+          : caption.trim(),
       'commentCount': 0,
       'createdAt': FieldValue.serverTimestamp(),
       'imageURL': resultImageUrl,

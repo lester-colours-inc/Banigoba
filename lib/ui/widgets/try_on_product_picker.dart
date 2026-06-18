@@ -34,7 +34,7 @@ Future<List<Map<String, dynamic>>?> showTryOnProductPicker(
       var category = 'all';
       final selected = <String, Map<String, dynamic>>{};
       for (final product in initialProducts) {
-        selected[_productGroup(product)] = product;
+        _addProductToSelection(selected, product);
       }
 
       return StatefulBuilder(
@@ -115,10 +115,12 @@ Future<List<Map<String, dynamic>>?> showTryOnProductPicker(
                       children: [
                         for (final option in const [
                           ('all', 'All', Icons.grid_view_rounded),
-                          ('tops', 'Tops', Icons.checkroom_outlined),
+                          ('accessories', 'Accessories', Icons.watch_outlined),
                           ('bottoms', 'Bottoms', Icons.dry_cleaning_outlined),
                           ('dresses', 'Dresses', Icons.woman_2_outlined),
-                          ('accessories', 'Accessories', Icons.watch_outlined),
+                          ('outerwear', 'Outerwear', Icons.layers_outlined),
+                          ('tops', 'Tops', Icons.checkroom_outlined),
+                          ('other', 'Other', Icons.more_horiz),
                         ])
                           Padding(
                             padding: const EdgeInsets.only(right: 8),
@@ -188,25 +190,18 @@ Future<List<Map<String, dynamic>>?> showTryOnProductPicker(
                           itemCount: products.length,
                           itemBuilder: (context, index) {
                             final product = products[index];
-                            final group = _productGroup(product);
+                            final selectionKey = _selectionKey(product);
                             final imageUrl = _imageUrl(product);
                             final isSelected =
-                                selected[group] != null &&
-                                _imageUrl(selected[group]!) == imageUrl;
+                                selected[selectionKey] != null &&
+                                _imageUrl(selected[selectionKey]!) == imageUrl;
                             return InkWell(
                               onTap: () {
                                 setModalState(() {
                                   if (isSelected) {
-                                    selected.remove(group);
+                                    selected.remove(selectionKey);
                                   } else {
-                                    if (group == 'dresses') {
-                                      selected.remove('tops');
-                                      selected.remove('bottoms');
-                                    } else if (group == 'tops' ||
-                                        group == 'bottoms') {
-                                      selected.remove('dresses');
-                                    }
-                                    selected[group] = product;
+                                    _addProductToSelection(selected, product);
                                   }
                                 });
                               },
@@ -309,10 +304,27 @@ Future<List<Map<String, dynamic>>?> showTryOnProductPicker(
 String _productGroup(Map<String, dynamic> product) {
   final value = '${product['category'] ?? ''} ${product['subcategory'] ?? ''}'
       .toLowerCase();
+  if (value.contains('accessor') ||
+      value.contains('bag') ||
+      value.contains('hat') ||
+      value.contains('cap') ||
+      value.contains('glass') ||
+      value.contains('watch') ||
+      value.contains('jewel')) {
+    return 'accessories';
+  }
   if (value.contains('dress') ||
       value.contains('jumpsuit') ||
       value.contains('one-piece')) {
     return 'dresses';
+  }
+  if (value.contains('outerwear') ||
+      value.contains('jacket') ||
+      value.contains('blazer') ||
+      value.contains('coat') ||
+      value.contains('hoodie') ||
+      value.contains('cardigan')) {
+    return 'outerwear';
   }
   if (value.contains('bottom') ||
       value.contains('pants') ||
@@ -322,14 +334,61 @@ String _productGroup(Map<String, dynamic> product) {
       value.contains('skirt')) {
     return 'bottoms';
   }
-  if (value.contains('accessor') ||
-      value.contains('bag') ||
-      value.contains('hat') ||
-      value.contains('watch') ||
-      value.contains('jewel')) {
-    return 'accessories';
+  if (value.contains('top') ||
+      value.contains('shirt') ||
+      value.contains('tee') ||
+      value.contains('tank') ||
+      value.contains('blouse') ||
+      value.contains('polo') ||
+      value.contains('sweatshirt')) {
+    return 'tops';
   }
-  return 'tops';
+  return 'other';
+}
+
+String _selectionKey(Map<String, dynamic> product) {
+  final group = _productGroup(product);
+  if (group != 'accessories') return group;
+
+  final imageUrl = _imageUrl(product);
+  final id =
+      (product['id'] ??
+              product['productId'] ??
+              product['originalProductId'] ??
+              (imageUrl.isNotEmpty ? imageUrl : null) ??
+              product['name'] ??
+              product.hashCode)
+          .toString();
+  return '$group:$id';
+}
+
+void _addProductToSelection(
+  Map<String, Map<String, dynamic>> selected,
+  Map<String, dynamic> product,
+) {
+  final group = _productGroup(product);
+  if (group == 'accessories') {
+    selected[_selectionKey(product)] = product;
+    return;
+  }
+
+  if (group == 'dresses') {
+    _removeSelectedGroups(selected, const {'tops', 'bottoms', 'other'});
+    selected[group] = product;
+    return;
+  }
+
+  if (group == 'tops' || group == 'bottoms' || group == 'other') {
+    _removeSelectedGroups(selected, const {'dresses'});
+  }
+  selected[group] = product;
+}
+
+void _removeSelectedGroups(
+  Map<String, Map<String, dynamic>> selected,
+  Set<String> groups,
+) {
+  selected.removeWhere((_, product) => groups.contains(_productGroup(product)));
 }
 
 String _imageUrl(Map<String, dynamic> product) {
