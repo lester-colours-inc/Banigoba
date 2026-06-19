@@ -13,6 +13,8 @@ import '../ui/screens/onboarding/onboarding_screen.dart';
 import '../ui/screens/permissions/permissions_request_screen.dart';
 import '../ui/screens/shop/seller_dashboard_page.dart';
 import '../ui/screens/shop/shops_page.dart';
+import '../ui/screens/agents/agents_page.dart';
+import '../ui/screens/designers/fashion_designers_page.dart';
 import '../ui/screens/wardrobe/plan_ahead_page.dart';
 import '../ui/screens/wardrobe/measurement_page.dart';
 import '../ui/screens/settings/settings_page.dart';
@@ -240,6 +242,8 @@ class AppRoutes {
   static const String measurement = '/measurement';
   static const String settings = '/settings';
   static const String shops = '/shops';
+  static const String fashionDesigners = '/fashion-designers';
+  static const String agents = '/agents';
 
   static Map<String, WidgetBuilder> routes = {
     root: (context) => const AuthGate(),
@@ -253,6 +257,8 @@ class AppRoutes {
     measurement: (context) => const MeasurementPage(),
     settings: (context) => const SettingsPage(),
     shops: (context) => const ShopsPage(),
+    fashionDesigners: (context) => const FashionDesignersPage(),
+    agents: (context) => const AgentsPage(),
   };
 }
 

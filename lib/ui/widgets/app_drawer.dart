@@ -4,6 +4,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../../core/theme_provider.dart';
 import '../../core/app_routes.dart';
+import '../screens/agents/agents_page.dart';
+import '../screens/designers/fashion_designers_page.dart';
 import '../screens/shop/shop_chat_page.dart';
 
 class AppDrawer extends StatelessWidget {
@@ -85,11 +87,29 @@ class AppDrawer extends StatelessWidget {
                   context,
                   Icons.description_outlined,
                   'Fashion Designers',
+                  onTap: () {
+                    final navigator = Navigator.of(context);
+                    navigator.pop();
+                    navigator.push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const FashionDesignersPage(),
+                      ),
+                    );
+                  },
                 ),
                 _buildDrawerItem(
                   context,
                   Icons.calendar_today_outlined,
                   'Agents',
+                  onTap: () {
+                    final navigator = Navigator.of(context);
+                    navigator.pop();
+                    navigator.push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const AgentsPage(),
+                      ),
+                    );
+                  },
                 ),
                 _buildDrawerItem(
                   context,
