@@ -88,7 +88,7 @@ class _StyleSelectionPageState extends State<StyleSelectionPage> {
     try {
       final Position position = await _determinePosition();
       final String latLong = "${position.latitude},${position.longitude}";
-      final weather = await _weatherService.fetchWeather(latLong);
+      final weather = await _weatherService.fetchOptionalWeather(latLong);
       if (!mounted) return;
       setState(() {
         _currentWeather = weather;

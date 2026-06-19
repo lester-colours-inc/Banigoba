@@ -166,7 +166,7 @@ class _HomePageState extends State<HomePage> {
 
       final Position position = await _determinePosition();
       final String latLong = "${position.latitude},${position.longitude}";
-      final weather = await _weatherService.fetchWeather(latLong);
+      final weather = await _weatherService.fetchOptionalWeather(latLong);
       if (mounted) {
         setState(() {
           _currentWeather = weather;

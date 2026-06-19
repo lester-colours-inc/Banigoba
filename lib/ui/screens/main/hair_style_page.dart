@@ -9,8 +9,8 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../core/app_routes.dart';
 import '../../../data/models/post.dart';
-import '../../../data/services/notification_service.dart';
 import '../../../data/services/friend_service.dart';
+import '../../../data/services/notification_service.dart';
 import '../../../data/services/hairstyle_service.dart';
 import '../../widgets/cart_badge_button.dart';
 import 'main_screen.dart';
@@ -1528,6 +1528,7 @@ class _AllSavedHairStylesPageState extends State<AllSavedHairStylesPage> {
     final user = FirebaseAuth.instance.currentUser;
     return _HairFlowScaffold(
       title: 'All Saved Styles',
+      backOnly: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
