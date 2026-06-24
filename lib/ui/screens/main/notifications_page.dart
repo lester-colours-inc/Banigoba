@@ -40,12 +40,18 @@ class _NotificationsPageState extends State<NotificationsPage> {
         .collection('users')
         .doc(userId)
         .collection('notifications')
-        .where('isRead', isEqualTo: false)
         .get();
     if (!mounted) return;
 
     setState(() {
-      _newNotificationIds.addAll(unread.docs.map((doc) => doc.id));
+      _newNotificationIds.addAll(
+        unread.docs
+            .where((doc) {
+              final data = doc.data();
+              return data['isRead'] != true;
+            })
+            .map((doc) => doc.id),
+      );
     });
     await notificationService.markAllAsRead();
   }
@@ -272,7 +278,11 @@ class _NotificationsPageState extends State<NotificationsPage> {
           }
           if (_selectedTabIndex == 3) {
             // Designers
-            return ['designer_update', 'designer_collection'].contains(type);
+            return [
+              'designer_update',
+              'designer_collection',
+              'designer_message',
+            ].contains(type);
           }
           return false;
         }).toList();
@@ -811,7 +821,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
     Map<String, dynamic>? extraData,
   ) async {
     if (extraData == null) return;
-    if (type == 'shop_message' || type == 'order_update') {
+    if (type == 'shop_message' ||
+        type == 'designer_message' ||
+        type == 'order_update') {
       final chatId = (extraData['chatId'] ?? '').toString();
       if (chatId.isEmpty) return;
       final chat = await FirebaseFirestore.instance
@@ -822,8 +834,11 @@ class _NotificationsPageState extends State<NotificationsPage> {
       final data = chat.data() ?? const <String, dynamic>{};
       final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
       final asSeller = data['sellerId'] == currentUserId;
+      final conversationType = (data['conversationType'] ?? 'shop').toString();
       final title = asSeller
           ? (data['customerName'] ?? 'Customer').toString()
+          : conversationType == 'designer'
+          ? (data['designerName'] ?? 'Designer').toString()
           : (data['shopName'] ?? 'Boutique').toString();
       Navigator.push(
         context,

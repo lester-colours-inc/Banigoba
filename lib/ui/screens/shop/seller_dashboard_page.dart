@@ -221,7 +221,7 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
                       child: Icon(Icons.chat_bubble_outline),
                     ),
                     title: const Text(
-                      'Customer Messages',
+                      'Messages',
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
                     subtitle: const Text(

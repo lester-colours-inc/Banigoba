@@ -69,7 +69,11 @@ class NotificationService {
         'shop_message',
       ];
     } else if (category == 'designers') {
-      allowedTypes = ['designer_update', 'designer_collection'];
+      allowedTypes = [
+        'designer_update',
+        'designer_collection',
+        'designer_message',
+      ];
     }
 
     // Return the stream, and the UI will filter the documents if needed
@@ -93,9 +97,13 @@ class NotificationService {
         .collection('users')
         .doc(currentUserId)
         .collection('notifications')
-        .where('isRead', isEqualTo: false)
         .snapshots()
-        .map((snap) => snap.docs.length);
+        .map((snap) {
+          return snap.docs.where((doc) {
+            final data = doc.data();
+            return data['isRead'] != true;
+          }).length;
+        });
   }
 
   Future<void> markAsRead(String notificationId) async {
@@ -112,12 +120,14 @@ class NotificationService {
         .collection('users')
         .doc(currentUserId)
         .collection('notifications')
-        .where('isRead', isEqualTo: false)
         .get();
 
     final batch = _db.batch();
     for (var doc in unread.docs) {
-      batch.update(doc.reference, {'isRead': true});
+      final data = doc.data();
+      if (data['isRead'] != true) {
+        batch.update(doc.reference, {'isRead': true});
+      }
     }
     await batch.commit();
   }

@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../../data/services/shop_chat_service.dart';
+import '../designers/fashion_designers_page.dart';
 import 'shop_products_page.dart';
 
 class ShopChatInboxPage extends StatelessWidget {
@@ -15,9 +16,7 @@ class ShopChatInboxPage extends StatelessWidget {
     final user = FirebaseAuth.instance.currentUser;
     final service = ShopChatService();
     return Scaffold(
-      appBar: AppBar(
-        title: Text(sellerOnly ? 'Customer Messages' : 'Shop Messages'),
-      ),
+      appBar: AppBar(title: const Text('Messages')),
       body: user == null
           ? const Center(child: Text('Sign in to view messages.'))
           : StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
@@ -54,14 +53,19 @@ class ShopChatInboxPage extends StatelessWidget {
                     final doc = chats[index];
                     final data = doc.data();
                     final isSeller = data['sellerId'] == user.uid;
+                    final conversationType =
+                        (data['conversationType'] ?? 'shop').toString();
                     final title = isSeller
                         ? (data['customerName'] ?? 'Customer').toString()
+                        : conversationType == 'designer'
+                        ? (data['designerName'] ?? 'Designer').toString()
                         : (data['shopName'] ?? 'Boutique').toString();
                     final unread =
                         (data[isSeller ? 'unreadBySeller' : 'unreadByCustomer']
                                 as num?)
                             ?.toInt() ??
                         0;
+                    final lastMessageWhen = _formatConversationTimestamp(data);
                     return ListTile(
                       leading: CircleAvatar(
                         backgroundColor: const Color(0xFF0D0140),
@@ -70,31 +74,17 @@ class ShopChatInboxPage extends StatelessWidget {
                           title.isEmpty ? 'C' : title[0].toUpperCase(),
                         ),
                       ),
-                      title: Text(
-                        title,
-                        style: TextStyle(
-                          fontWeight: unread > 0
-                              ? FontWeight.bold
-                              : FontWeight.w500,
-                        ),
-                      ),
+                      title: _ConversationTitle(title, bold: unread > 0),
                       subtitle: Text(
                         (data['lastMessage'] ?? 'Start a conversation')
                             .toString(),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      trailing: unread > 0
-                          ? CircleAvatar(
-                              radius: 11,
-                              backgroundColor: Colors.red,
-                              foregroundColor: Colors.white,
-                              child: Text(
-                                unread > 99 ? '99+' : '$unread',
-                                style: const TextStyle(fontSize: 8),
-                              ),
-                            )
-                          : null,
+                      trailing: _ConversationTrailing(
+                        timestamp: lastMessageWhen,
+                        unread: unread,
+                      ),
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute<void>(
@@ -114,11 +104,33 @@ class ShopChatInboxPage extends StatelessWidget {
   }
 }
 
+class _ConversationTitle extends StatelessWidget {
+  const _ConversationTitle(this.title, {required this.bold});
+
+  final String title;
+  final bool bold;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      title,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(fontWeight: bold ? FontWeight.bold : FontWeight.w500),
+    );
+  }
+}
+
 class _ProductReferenceMessage extends StatelessWidget {
-  const _ProductReferenceMessage({required this.data, required this.mine});
+  const _ProductReferenceMessage({
+    required this.data,
+    required this.mine,
+    required this.timestamp,
+  });
 
   final Map<String, dynamic> data;
   final bool mine;
+  final String timestamp;
 
   @override
   Widget build(BuildContext context) {
@@ -139,66 +151,426 @@ class _ProductReferenceMessage extends StatelessWidget {
           color: mine
               ? const Color(0xFF0D0140)
               : colorScheme.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: _messageBubbleRadius(mine),
         ),
-        child: Row(
+        child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: mine
+              ? CrossAxisAlignment.end
+              : CrossAxisAlignment.start,
           children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: imageUrl.isEmpty
-                  ? _ProductReferenceImageFallback(mine: mine)
-                  : Image.network(
-                      imageUrl,
-                      width: 58,
-                      height: 58,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) =>
-                          _ProductReferenceImageFallback(mine: mine),
-                    ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: imageUrl.isEmpty
+                      ? _ProductReferenceImageFallback(mine: mine)
+                      : Image.network(
+                          imageUrl,
+                          width: 58,
+                          height: 58,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) =>
+                              _ProductReferenceImageFallback(mine: mine),
+                        ),
+                ),
+                const SizedBox(width: 10),
+                Flexible(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Asked about',
+                        style: TextStyle(
+                          color: mine
+                              ? Colors.white70
+                              : colorScheme.onSurfaceVariant,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        productName,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: mine ? Colors.white : colorScheme.onSurface,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      if (price != null && price > 0) ...[
+                        const SizedBox(height: 3),
+                        Text(
+                          '\$${price.toStringAsFixed(2)}',
+                          style: TextStyle(
+                            color: mine
+                                ? Colors.white70
+                                : colorScheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: 10),
-            Flexible(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Asked about',
+            _MessageTimestamp(timestamp: timestamp, mine: mine, system: false),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DesignRequestReferenceMessage extends StatelessWidget {
+  const _DesignRequestReferenceMessage({
+    required this.data,
+    required this.mine,
+    required this.timestamp,
+  });
+
+  final Map<String, dynamic> data;
+  final bool mine;
+  final String timestamp;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final occasion = (data['occasion'] ?? 'Custom design').toString();
+    final budget = (data['budget'] ?? '').toString();
+    final deadline = (data['deadline'] ?? '').toString();
+    final status = (data['status'] ?? '').toString();
+
+    return Align(
+      alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.sizeOf(context).width * 0.82,
+        ),
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: mine
+              ? const Color(0xFF0D0140)
+              : colorScheme.surfaceContainerLow,
+          borderRadius: _messageBubbleRadius(mine),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: mine
+              ? CrossAxisAlignment.end
+              : CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.assignment_outlined,
+                  color: mine ? Colors.white70 : const Color(0xFF0D0140),
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    'Design request',
                     style: TextStyle(
                       color: mine
                           ? Colors.white70
                           : colorScheme.onSurfaceVariant,
                       fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    productName,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: mine ? Colors.white : colorScheme.onSurface,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  if (price != null && price > 0) ...[
-                    const SizedBox(height: 3),
-                    Text(
-                      '\$${price.toStringAsFixed(2)}',
-                      style: TextStyle(
-                        color: mine
-                            ? Colors.white70
-                            : colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w600,
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              occasion,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: mine ? Colors.white : colorScheme.onSurface,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            if (budget.isNotEmpty || deadline.isNotEmpty || status.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: [
+                    if (budget.isNotEmpty)
+                      _RequestReferenceMeta(
+                        label: 'Budget',
+                        value: budget,
+                        mine: mine,
                       ),
-                    ),
+                    if (deadline.isNotEmpty)
+                      _RequestReferenceMeta(
+                        label: 'Deadline',
+                        value: deadline,
+                        mine: mine,
+                      ),
+                    if (status.isNotEmpty)
+                      _RequestReferenceMeta(
+                        label: 'Status',
+                        value: status,
+                        mine: mine,
+                      ),
                   ],
-                ],
+                ),
+              ),
+            _MessageTimestamp(timestamp: timestamp, mine: mine, system: false),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RequestReferenceMeta extends StatelessWidget {
+  const _RequestReferenceMeta({
+    required this.label,
+    required this.value,
+    required this.mine,
+  });
+
+  final String label;
+  final String value;
+  final bool mine;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Text(
+      '$label: $value',
+      style: TextStyle(
+        color: mine ? Colors.white70 : colorScheme.onSurfaceVariant,
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+      ),
+    );
+  }
+}
+
+class _MessageTimestamp extends StatelessWidget {
+  const _MessageTimestamp({
+    required this.timestamp,
+    required this.mine,
+    this.system = false,
+  });
+
+  final String timestamp;
+  final bool mine;
+  final bool system;
+
+  @override
+  Widget build(BuildContext context) {
+    if (timestamp.isEmpty) return const SizedBox.shrink();
+
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(top: 5),
+      child: Text(
+        timestamp,
+        style: TextStyle(
+          color: system
+              ? colorScheme.onSurfaceVariant
+              : mine
+              ? Colors.white70
+              : colorScheme.onSurfaceVariant,
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+}
+
+class _ConversationTrailing extends StatelessWidget {
+  const _ConversationTrailing({required this.timestamp, required this.unread});
+
+  final String timestamp;
+  final int unread;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return SizedBox(
+      width: 58,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          if (timestamp.isNotEmpty)
+            Text(
+              timestamp,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: unread > 0
+                    ? const Color(0xFF0D0140)
+                    : colorScheme.onSurfaceVariant,
+                fontSize: 12,
+                fontWeight: unread > 0 ? FontWeight.w700 : FontWeight.w600,
+              ),
+            ),
+          if (unread > 0) ...[
+            const SizedBox(height: 6),
+            CircleAvatar(
+              radius: 11,
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              child: Text(
+                unread > 99 ? '99+' : '$unread',
+                style: const TextStyle(fontSize: 8),
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+String _formatConversationTimestamp(Map<String, dynamic> data) {
+  final dateTime = _conversationDateTime(data);
+  if (dateTime == null) return '';
+
+  final local = dateTime.toLocal();
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final messageDay = DateTime(local.year, local.month, local.day);
+  final diff = today.difference(messageDay).inDays;
+  if (diff == 0) {
+    final hour = local.hour.toString().padLeft(2, '0');
+    final minute = local.minute.toString().padLeft(2, '0');
+    return '$hour:$minute';
+  }
+  if (diff == 1) return 'Yesterday';
+
+  return '${local.day}/${local.month}/${local.year.toString().substring(2)}';
+}
+
+DateTime? _conversationDateTime(Map<String, dynamic> data) {
+  final value = data['lastMessageAt'] ?? data['updatedAt'] ?? data['createdAt'];
+  return value is Timestamp
+      ? value.toDate()
+      : value is DateTime
+      ? value
+      : null;
+}
+
+void _openDesignerDetail(BuildContext context, String designerId) {
+  if (designerId.isEmpty) return;
+  Navigator.push(
+    context,
+    MaterialPageRoute<void>(
+      builder: (_) => DesignerDetailPage(designerId: designerId),
+    ),
+  );
+}
+
+String _formatMessageTimestamp(Map<String, dynamic> data) {
+  final dateTime = _messageDateTime(data);
+  if (dateTime == null) return '';
+
+  final local = dateTime.toLocal();
+  final hour = local.hour.toString().padLeft(2, '0');
+  final minute = local.minute.toString().padLeft(2, '0');
+  return '$hour:$minute';
+}
+
+DateTime? _messageDateTime(Map<String, dynamic> data) {
+  final value = data['createdAt'];
+  return value is Timestamp
+      ? value.toDate()
+      : value is DateTime
+      ? value
+      : null;
+}
+
+String _formatMessageDateLabel(Map<String, dynamic> data) {
+  final dateTime = _messageDateTime(data);
+  if (dateTime == null) return '';
+
+  final local = dateTime.toLocal();
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final messageDay = DateTime(local.year, local.month, local.day);
+  final diff = today.difference(messageDay).inDays;
+  if (diff == 0) return 'Today';
+  if (diff == 1) return 'Yesterday';
+
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+  return '${local.day} ${months[local.month - 1]} ${local.year}';
+}
+
+bool _isSameMessageDay(
+  Map<String, dynamic> first,
+  Map<String, dynamic> second,
+) {
+  final firstDate = _messageDateTime(first)?.toLocal();
+  final secondDate = _messageDateTime(second)?.toLocal();
+  if (firstDate == null || secondDate == null) return false;
+  return firstDate.year == secondDate.year &&
+      firstDate.month == secondDate.month &&
+      firstDate.day == secondDate.day;
+}
+
+BorderRadius _messageBubbleRadius(bool mine) {
+  return BorderRadius.only(
+    topLeft: const Radius.circular(18),
+    topRight: const Radius.circular(18),
+    bottomLeft: Radius.circular(mine ? 18 : 5),
+    bottomRight: Radius.circular(mine ? 5 : 18),
+  );
+}
+
+class _MessageDateSeparator extends StatelessWidget {
+  const _MessageDateSeparator(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    if (label.isEmpty) return const SizedBox.shrink();
+
+    final colorScheme = Theme.of(context).colorScheme;
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12, top: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: colorScheme.onSurfaceVariant,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ),
     );
@@ -297,12 +669,31 @@ class _ShopChatPageState extends State<ShopChatPage> {
                     final isSystem = data['senderType'] == 'system';
                     final isProductReference =
                         data['senderType'] == 'product_reference';
+                    final isDesignRequestReference =
+                        data['senderType'] == 'design_request_reference';
                     final mine = data['senderId'] == currentUserId;
+                    final timestamp = _formatMessageTimestamp(data);
+                    final nextOlderData = index + 1 < messages.length
+                        ? messages[index + 1].data()
+                        : null;
+                    final showDateSeparator =
+                        nextOlderData == null ||
+                        !_isSameMessageDay(data, nextOlderData);
+                    late final Widget message;
                     if (isProductReference) {
-                      return _ProductReferenceMessage(data: data, mine: mine);
-                    }
-                    if (isSystem) {
-                      return Center(
+                      message = _ProductReferenceMessage(
+                        data: data,
+                        mine: mine,
+                        timestamp: timestamp,
+                      );
+                    } else if (isDesignRequestReference) {
+                      message = _DesignRequestReferenceMessage(
+                        data: data,
+                        mine: mine,
+                        timestamp: timestamp,
+                      );
+                    } else if (isSystem) {
+                      message = Center(
                         child: Container(
                           constraints: BoxConstraints(
                             maxWidth: MediaQuery.sizeOf(context).width * 0.82,
@@ -318,45 +709,79 @@ class _ShopChatPageState extends State<ShopChatPage> {
                             ).colorScheme.surfaceContainerHighest,
                             borderRadius: BorderRadius.circular(16),
                           ),
-                          child: Text(
-                            (data['text'] ?? '').toString(),
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSurfaceVariant,
-                              fontWeight: FontWeight.w600,
-                            ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                (data['text'] ?? '').toString(),
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              _MessageTimestamp(
+                                timestamp: timestamp,
+                                mine: false,
+                                system: true,
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    } else {
+                      message = Align(
+                        alignment: mine
+                            ? Alignment.centerRight
+                            : Alignment.centerLeft,
+                        child: Container(
+                          constraints: BoxConstraints(
+                            maxWidth: MediaQuery.sizeOf(context).width * 0.76,
+                          ),
+                          margin: const EdgeInsets.only(bottom: 10),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 10,
+                          ),
+                          decoration: BoxDecoration(
+                            color: mine
+                                ? const Color(0xFF0D0140)
+                                : Theme.of(
+                                    context,
+                                  ).colorScheme.surfaceContainerLow,
+                            borderRadius: _messageBubbleRadius(mine),
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: mine
+                                ? CrossAxisAlignment.end
+                                : CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                (data['text'] ?? '').toString(),
+                                style: TextStyle(
+                                  color: mine ? Colors.white : null,
+                                ),
+                              ),
+                              _MessageTimestamp(
+                                timestamp: timestamp,
+                                mine: mine,
+                              ),
+                            ],
                           ),
                         ),
                       );
                     }
-                    return Align(
-                      alignment: mine
-                          ? Alignment.centerRight
-                          : Alignment.centerLeft,
-                      child: Container(
-                        constraints: BoxConstraints(
-                          maxWidth: MediaQuery.sizeOf(context).width * 0.76,
-                        ),
-                        margin: const EdgeInsets.only(bottom: 10),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 10,
-                        ),
-                        decoration: BoxDecoration(
-                          color: mine
-                              ? const Color(0xFF0D0140)
-                              : Theme.of(
-                                  context,
-                                ).colorScheme.surfaceContainerLow,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Text(
-                          (data['text'] ?? '').toString(),
-                          style: TextStyle(color: mine ? Colors.white : null),
-                        ),
-                      ),
+
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (showDateSeparator)
+                          _MessageDateSeparator(_formatMessageDateLabel(data)),
+                        message,
+                      ],
                     );
                   },
                 );
@@ -412,6 +837,32 @@ class _ShopChatPageState extends State<ShopChatPage> {
           .snapshots(),
       builder: (context, snapshot) {
         final data = snapshot.data?.data();
+        final conversationType = (data?['conversationType'] ?? 'shop')
+            .toString();
+        if (conversationType == 'designer') {
+          final designerId = (data?['designerId'] ?? data?['sellerId'] ?? '')
+              .toString();
+          final designerName = (data?['designerName'] ?? widget.title)
+              .toString();
+          return InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: widget.asSeller || designerId.isEmpty
+                ? null
+                : () => _openDesignerDetail(context, designerId),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  child: Text(designerName, overflow: TextOverflow.ellipsis),
+                ),
+                if (!widget.asSeller && designerId.isNotEmpty) ...[
+                  const SizedBox(width: 6),
+                  const Icon(Icons.design_services_outlined, size: 18),
+                ],
+              ],
+            ),
+          );
+        }
         final sellerId = (data?['sellerId'] ?? '').toString();
         final shopName = (data?['shopName'] ?? widget.title).toString();
 

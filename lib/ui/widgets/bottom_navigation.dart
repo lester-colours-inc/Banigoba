@@ -61,6 +61,7 @@ class CustomBottomNavigation extends StatelessWidget {
       onTap: () => onTap(index),
       behavior: HitTestBehavior.opaque,
       child: Stack(
+        clipBehavior: Clip.none,
         alignment: Alignment.center,
         children: [
           Container(
@@ -86,17 +87,30 @@ class CustomBottomNavigation extends StatelessWidget {
                 if (unreadCount == 0) return const SizedBox.shrink();
 
                 return Positioned(
-                  right: 5,
-                  top: 5,
+                  right: -2,
+                  top: 0,
                   child: Container(
-                    width: 11,
-                    height: 11,
+                    constraints: const BoxConstraints(
+                      minWidth: 20,
+                      minHeight: 20,
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 5),
                     decoration: BoxDecoration(
                       color: Colors.red,
-                      shape: BoxShape.circle,
+                      borderRadius: BorderRadius.circular(10),
                       border: Border.all(
                         color: Theme.of(context).colorScheme.surface,
                         width: 2,
+                      ),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      unreadCount > 99 ? '99+' : '$unreadCount',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        height: 1,
                       ),
                     ),
                   ),

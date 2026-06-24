@@ -16,7 +16,7 @@ import '../ui/screens/shop/shops_page.dart';
 import '../ui/screens/agents/agents_page.dart';
 import '../ui/screens/designers/fashion_designers_page.dart';
 import '../ui/screens/wardrobe/plan_ahead_page.dart';
-import '../ui/screens/wardrobe/measurement_page.dart';
+import '../ui/screens/admin/curators_workspace_page.dart';
 import '../ui/screens/settings/settings_page.dart';
 import '../data/services/permissions_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -254,7 +254,7 @@ class AppRoutes {
     profile: (context) => const ProfilePage(),
     avatarTryOn: (context) => const AvatarTryOnPage(),
     planAhead: (context) => const PlanAheadPage(),
-    measurement: (context) => const MeasurementPage(),
+    measurement: (context) => const CuratorsWorkspacePage(),
     settings: (context) => const SettingsPage(),
     shops: (context) => const ShopsPage(),
     fashionDesigners: (context) => const FashionDesignersPage(),

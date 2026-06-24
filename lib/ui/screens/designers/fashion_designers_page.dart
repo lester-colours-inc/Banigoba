@@ -2,6 +2,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../../data/services/shop_chat_service.dart';
+import '../shop/shop_chat_page.dart';
+
 class FashionDesignersPage extends StatefulWidget {
   const FashionDesignersPage({super.key});
 
@@ -202,7 +205,6 @@ class _FashionDesignersPageState extends State<FashionDesignersPage> {
       stream: FirebaseFirestore.instance
           .collection('design_requests')
           .where('customerId', isEqualTo: user.uid)
-          .orderBy('createdAt', descending: true)
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
@@ -214,7 +216,8 @@ class _FashionDesignersPageState extends State<FashionDesignersPage> {
         if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
-        final requests = snapshot.data!.docs;
+        final requests = snapshot.data!.docs.toList()
+          ..sort(_compareRequestsNewestFirst);
         if (requests.isEmpty) {
           return const _DesignerEmptyState(
             icon: Icons.assignment_outlined,
@@ -227,8 +230,20 @@ class _FashionDesignersPageState extends State<FashionDesignersPage> {
           itemCount: requests.length,
           separatorBuilder: (_, _) => const SizedBox(height: 12),
           itemBuilder: (context, index) {
-            final data = requests[index].data();
-            return _RequestCard(data: data);
+            final doc = requests[index];
+            final data = doc.data();
+            return _RequestCard(
+              data: data,
+              onMessage: () => _openDesignerConversation(
+                designerId: (data['designerId'] ?? '').toString(),
+                designerName: (data['designerName'] ?? 'Designer').toString(),
+                customerId: user.uid,
+                customerName: (data['customerName'] ?? 'Customer').toString(),
+                asDesigner: false,
+                requestId: doc.id,
+                requestData: data,
+              ),
+            );
           },
         );
       },
@@ -249,10 +264,37 @@ class _FashionDesignersPageState extends State<FashionDesignersPage> {
       children: [
         _buildDesignerProfilePanel(user.uid),
         const SizedBox(height: 18),
+        _buildDesignerMessagesButton(),
+        const SizedBox(height: 18),
         const _SectionTitle('Incoming Requests'),
         const SizedBox(height: 12),
         _buildIncomingDesignerRequests(user.uid),
       ],
+    );
+  }
+
+  Widget _buildDesignerMessagesButton() {
+    return Card(
+      child: ListTile(
+        contentPadding: const EdgeInsets.all(16),
+        leading: const CircleAvatar(
+          backgroundColor: _DesignerColors.primary,
+          foregroundColor: Colors.white,
+          child: Icon(Icons.chat_bubble_outline),
+        ),
+        title: const Text(
+          'Messages',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: const Text('Reply to customers about their custom designs.'),
+        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute<void>(
+            builder: (_) => const ShopChatInboxPage(sellerOnly: true),
+          ),
+        ),
+      ),
     );
   }
 
@@ -346,7 +388,6 @@ class _FashionDesignersPageState extends State<FashionDesignersPage> {
       stream: FirebaseFirestore.instance
           .collection('design_requests')
           .where('designerId', isEqualTo: designerId)
-          .orderBy('createdAt', descending: true)
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
@@ -358,7 +399,8 @@ class _FashionDesignersPageState extends State<FashionDesignersPage> {
         if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
-        final requests = snapshot.data!.docs;
+        final requests = snapshot.data!.docs.toList()
+          ..sort(_compareRequestsNewestFirst);
         if (requests.isEmpty) {
           return const _DesignerEmptyState(
             icon: Icons.inbox_outlined,
@@ -376,6 +418,16 @@ class _FashionDesignersPageState extends State<FashionDesignersPage> {
             return _RequestCard(
               data: doc.data(),
               designerView: true,
+              onMessage: () => _openDesignerConversation(
+                designerId: designerId,
+                designerName: 'Designer',
+                customerId: (doc.data()['customerId'] ?? '').toString(),
+                customerName: (doc.data()['customerName'] ?? 'Customer')
+                    .toString(),
+                asDesigner: true,
+                requestId: doc.id,
+                requestData: doc.data(),
+              ),
               onStatusSelected: (status) =>
                   _updateRequestStatus(doc.id, status),
             );
@@ -393,6 +445,99 @@ class _FashionDesignersPageState extends State<FashionDesignersPage> {
           'status': status,
           'updatedAt': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
+  }
+
+  int _compareRequestsNewestFirst(
+    QueryDocumentSnapshot<Map<String, dynamic>> a,
+    QueryDocumentSnapshot<Map<String, dynamic>> b,
+  ) {
+    return _requestCreatedAt(b.data()).compareTo(_requestCreatedAt(a.data()));
+  }
+
+  DateTime _requestCreatedAt(Map<String, dynamic> data) {
+    final value = data['createdAt'];
+    if (value is Timestamp) return value.toDate();
+    if (value is DateTime) return value;
+    return DateTime.fromMillisecondsSinceEpoch(0);
+  }
+
+  Future<void> _openDesignerConversation({
+    required String designerId,
+    required String designerName,
+    required String customerId,
+    required String customerName,
+    required bool asDesigner,
+    required String requestId,
+    required Map<String, dynamic> requestData,
+  }) async {
+    if (designerId.isEmpty || customerId.isEmpty) return;
+    final chatId = await ShopChatService().ensureDesignerConversation(
+      designerId: designerId,
+      customerId: customerId,
+      designerName: designerName,
+    );
+    await ShopChatService().addDesignRequestReference(
+      chatId: chatId,
+      requestId: requestId,
+      occasion: (requestData['occasion'] ?? 'Custom design').toString(),
+      budget: (requestData['budget'] ?? '').toString(),
+      deadline: (requestData['deadline'] ?? '').toString(),
+      status: (requestData['status'] ?? '').toString(),
+    );
+    if (!mounted) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => ShopChatPage(
+          chatId: chatId,
+          title: asDesigner ? customerName : designerName,
+          asSeller: asDesigner,
+        ),
+      ),
+    );
+  }
+}
+
+class DesignerDetailPage extends StatelessWidget {
+  const DesignerDetailPage({super.key, required this.designerId});
+
+  final String designerId;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .doc(designerId)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return const Scaffold(
+            body: _DesignerEmptyState(
+              icon: Icons.warning_amber_rounded,
+              title: 'Designer profile could not be loaded.',
+            ),
+          );
+        }
+        if (!snapshot.hasData) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+        if (!snapshot.data!.exists) {
+          return const Scaffold(
+            body: _DesignerEmptyState(
+              icon: Icons.design_services_outlined,
+              title: 'Designer profile not found.',
+            ),
+          );
+        }
+
+        return _DesignerDetailPage(
+          designer: _DesignerSummary.fromDoc(snapshot.data!),
+        );
+      },
+    );
   }
 }
 
@@ -423,6 +568,15 @@ class _DesignerDetailPage extends StatelessWidget {
             label: const Text('Request Custom Design'),
             style: FilledButton.styleFrom(
               backgroundColor: _DesignerColors.primary,
+              minimumSize: const Size(double.infinity, 48),
+            ),
+          ),
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            onPressed: () => _openDesignerConversation(context),
+            icon: const Icon(Icons.chat_bubble_outline),
+            label: const Text('Message Designer'),
+            style: OutlinedButton.styleFrom(
               minimumSize: const Size(double.infinity, 48),
             ),
           ),
@@ -474,6 +628,29 @@ class _DesignerDetailPage extends StatelessWidget {
             ),
           ],
         ],
+      ),
+    );
+  }
+
+  Future<void> _openDesignerConversation(BuildContext context) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sign in to message this designer.')),
+      );
+      return;
+    }
+    final chatId = await ShopChatService().ensureDesignerConversation(
+      designerId: designer.id,
+      customerId: user.uid,
+      designerName: designer.name,
+    );
+    if (!context.mounted) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            ShopChatPage(chatId: chatId, title: designer.name, asSeller: false),
       ),
     );
   }
@@ -983,11 +1160,13 @@ class _RequestCard extends StatelessWidget {
   const _RequestCard({
     required this.data,
     this.designerView = false,
+    this.onMessage,
     this.onStatusSelected,
   });
 
   final Map<String, dynamic> data;
   final bool designerView;
+  final VoidCallback? onMessage;
   final ValueChanged<String>? onStatusSelected;
 
   @override
@@ -1036,6 +1215,16 @@ class _RequestCard extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
             ],
+            if (onMessage != null || designerView && onStatusSelected != null)
+              const SizedBox(height: 12),
+            if (onMessage != null)
+              OutlinedButton.icon(
+                onPressed: onMessage,
+                icon: const Icon(Icons.chat_bubble_outline),
+                label: Text(
+                  designerView ? 'Message Customer' : 'Message Designer',
+                ),
+              ),
             if (designerView && onStatusSelected != null) ...[
               const SizedBox(height: 12),
               Wrap(

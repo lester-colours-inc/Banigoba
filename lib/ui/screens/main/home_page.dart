@@ -9,6 +9,7 @@ import 'package:geolocator/geolocator.dart';
 import '../../../core/app_routes.dart';
 import '../../widgets/cart_badge_button.dart';
 import '../../widgets/safe_product_image.dart';
+import '../events/events_page.dart';
 import '../makeover/ai_upload_page.dart';
 import '../shop/product_detail_page.dart';
 
@@ -255,60 +256,59 @@ class _HomePageState extends State<HomePage> {
             SizedBox(height: 10),
             _buildTabs(),
             SizedBox(height: 25),
-            // AI Makeover Card
-            _buildAiMakeoverCard(),
-            SizedBox(height: 25),
-            // Main Content Area (Light Background)
-            Container(
-              padding: EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(30),
+            if (_selectedTabIndex == 2)
+              const EventsSection(embedded: true, listHeight: 520)
+            else ...[
+              _buildAiMakeoverCard(),
+              SizedBox(height: 25),
+              Container(
+                padding: EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                child: Column(
+                  children: [
+                    _buildStyleByOccasion(),
+                    SizedBox(height: 25),
+                    _buildFeatureCard(
+                      title: "Idol Style Match",
+                      subtitle: "Discover your global style icon twin",
+                      icon: Icons.star,
+                      color: primaryColor,
+                      onTap: () {},
+                    ),
+                    SizedBox(height: 15),
+                    _buildFeatureCard(
+                      title: "Plan Ahead",
+                      subtitle: "Week planner, trip packer & event series",
+                      icon: Icons.calendar_today,
+                      color: Colors.pinkAccent,
+                      onTap: () {
+                        Navigator.pushNamed(context, AppRoutes.planAhead);
+                      },
+                    ),
+                    SizedBox(height: 15),
+                    _buildFeatureCard(
+                      title: "Shopping Intelligence",
+                      subtitle: "Smart insights for your wardrobe",
+                      icon: Icons.shopping_cart_outlined,
+                      color: Colors.orange,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute<void>(
+                            builder: (_) => const ShoppingIntelligencePage(),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
               ),
-              child: Column(
-                children: [
-                  // Style By Occasion
-                  _buildStyleByOccasion(),
-                  SizedBox(height: 25),
-                  // Feature shortcuts
-                  _buildFeatureCard(
-                    title: "Idol Style Match",
-                    subtitle: "Discover your global style icon twin",
-                    icon: Icons.star,
-                    color: primaryColor,
-                    onTap: () {},
-                  ),
-                  SizedBox(height: 15),
-                  _buildFeatureCard(
-                    title: "Plan Ahead",
-                    subtitle: "Week planner, trip packer & event series",
-                    icon: Icons.calendar_today,
-                    color: Colors.pinkAccent,
-                    onTap: () {
-                      Navigator.pushNamed(context, AppRoutes.planAhead);
-                    },
-                  ),
-                  SizedBox(height: 15),
-                  _buildFeatureCard(
-                    title: "Shopping Intelligence",
-                    subtitle: "Smart insights for your wardrobe",
-                    icon: Icons.shopping_cart_outlined,
-                    color: Colors.orange,
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute<void>(
-                          builder: (_) => const ShoppingIntelligencePage(),
-                        ),
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(height: 25),
-            // Weather Recommendation Section (Moved outside main container)
-            _buildWeatherRecommendation(),
+              SizedBox(height: 25),
+              _buildWeatherRecommendation(),
+            ],
             SizedBox(height: 30),
           ],
         ),

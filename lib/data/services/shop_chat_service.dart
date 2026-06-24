@@ -15,6 +15,13 @@ class ShopChatService {
     return '${sellerId}_$customerId';
   }
 
+  String designerConversationId({
+    required String designerId,
+    required String customerId,
+  }) {
+    return 'designer_${designerId}_$customerId';
+  }
+
   Stream<QuerySnapshot<Map<String, dynamic>>> watchConversations(
     String userId,
   ) {
@@ -58,10 +65,11 @@ class ShopChatService {
                 '')
             .toString();
 
-    await _db.collection('shop_chats').doc(chatId).set({
+    final chatData = <String, dynamic>{
       'sellerId': sellerId,
       'customerId': customerId,
       'participantIds': [sellerId, customerId],
+      'conversationType': 'shop',
       'shopName': shopName,
       'customerName': customerName,
       'customerImageUrl': customerImage,
@@ -69,7 +77,54 @@ class ShopChatService {
       if (productName?.isNotEmpty == true) 'productName': productName,
       if (productImageUrl?.isNotEmpty == true)
         'productImageUrl': productImageUrl,
-      if (productPrice != null) 'productPrice': productPrice,
+      'updatedAt': FieldValue.serverTimestamp(),
+      'createdAt': FieldValue.serverTimestamp(),
+    };
+    if (productPrice != null) {
+      chatData['productPrice'] = productPrice;
+    }
+
+    await _db
+        .collection('shop_chats')
+        .doc(chatId)
+        .set(chatData, SetOptions(merge: true));
+    return chatId;
+  }
+
+  Future<String> ensureDesignerConversation({
+    required String designerId,
+    required String customerId,
+    required String designerName,
+  }) async {
+    final chatId = designerConversationId(
+      designerId: designerId,
+      customerId: customerId,
+    );
+    final customer = await _db.collection('users').doc(customerId).get();
+    final customerData = customer.data() ?? const <String, dynamic>{};
+    final customerName =
+        (customerData['displayName'] ??
+                _auth.currentUser?.displayName ??
+                _auth.currentUser?.email?.split('@').first ??
+                'Customer')
+            .toString();
+    final customerImage =
+        (customerData['profileImageURL'] ??
+                customerData['profileImageUrl'] ??
+                _auth.currentUser?.photoURL ??
+                '')
+            .toString();
+
+    await _db.collection('shop_chats').doc(chatId).set({
+      'sellerId': designerId,
+      'designerId': designerId,
+      'customerId': customerId,
+      'participantIds': [designerId, customerId],
+      'conversationType': 'designer',
+      'designerName': designerName,
+      'shopName': designerName,
+      'customerName': customerName,
+      'customerImageUrl': customerImage,
       'updatedAt': FieldValue.serverTimestamp(),
       'createdAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
@@ -100,7 +155,7 @@ class ShopChatService {
     final messageRef = chatRef.collection('messages').doc();
     final title = productName.trim().isEmpty ? 'this product' : productName;
     final batch = _db.batch();
-    batch.set(messageRef, {
+    final messageData = <String, dynamic>{
       'senderId': senderId,
       'senderType': 'product_reference',
       'text': 'Asked about $title',
@@ -108,15 +163,71 @@ class ShopChatService {
       'productName': title,
       if (productImageUrl?.isNotEmpty == true)
         'productImageUrl': productImageUrl,
-      if (productPrice != null) 'productPrice': productPrice,
       'createdAt': FieldValue.serverTimestamp(),
-    });
-    batch.set(chatRef, {
+    };
+    if (productPrice != null) {
+      messageData['productPrice'] = productPrice;
+    }
+
+    final chatUpdate = <String, dynamic>{
       'productId': productId.trim(),
       'productName': title,
       if (productImageUrl?.isNotEmpty == true)
         'productImageUrl': productImageUrl,
-      if (productPrice != null) 'productPrice': productPrice,
+      'lastMessage': 'Asked about $title',
+      'lastMessageAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+      senderId == sellerId ? 'unreadByCustomer' : 'unreadBySeller':
+          FieldValue.increment(1),
+    };
+    if (productPrice != null) {
+      chatUpdate['productPrice'] = productPrice;
+    }
+
+    batch.set(messageRef, messageData);
+    batch.set(chatRef, chatUpdate, SetOptions(merge: true));
+    await batch.commit();
+  }
+
+  Future<void> addDesignRequestReference({
+    required String chatId,
+    required String requestId,
+    required String occasion,
+    String? budget,
+    String? deadline,
+    String? status,
+  }) async {
+    if (requestId.trim().isEmpty) return;
+
+    final senderId = _auth.currentUser?.uid ?? '';
+    if (senderId.isEmpty) return;
+
+    final chatRef = _db.collection('shop_chats').doc(chatId);
+    final chat = await chatRef.get();
+    final data = chat.data();
+    if (data == null ||
+        !(List<String>.from(data['participantIds'] ?? []).contains(senderId))) {
+      throw Exception('You do not have access to this conversation.');
+    }
+
+    final sellerId = (data['sellerId'] ?? '').toString();
+    final title = occasion.trim().isEmpty ? 'Custom design' : occasion.trim();
+    final batch = _db.batch();
+    final messageRef = chatRef.collection('messages').doc();
+    batch.set(messageRef, {
+      'senderId': senderId,
+      'senderType': 'design_request_reference',
+      'text': 'Asked about $title',
+      'requestId': requestId.trim(),
+      'occasion': title,
+      if (budget?.trim().isNotEmpty == true) 'budget': budget!.trim(),
+      if (deadline?.trim().isNotEmpty == true) 'deadline': deadline!.trim(),
+      if (status?.trim().isNotEmpty == true) 'status': status!.trim(),
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+    batch.set(chatRef, {
+      'requestId': requestId.trim(),
+      'requestOccasion': title,
       'lastMessage': 'Asked about $title',
       'lastMessageAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
@@ -143,7 +254,9 @@ class ShopChatService {
 
     final sellerId = (data['sellerId'] ?? '').toString();
     final customerId = (data['customerId'] ?? '').toString();
+    final conversationType = (data['conversationType'] ?? 'shop').toString();
     final shopName = (data['shopName'] ?? 'Boutique').toString();
+    final designerName = (data['designerName'] ?? shopName).toString();
     final receiverId = senderId == sellerId ? customerId : sellerId;
     final messageRef = chatRef.collection('messages').doc();
     final batch = _db.batch();
@@ -169,14 +282,21 @@ class ShopChatService {
             .toString();
     await _notifications.addNotification(
       receiverId: receiverId,
-      title: 'New Shop Message',
+      title: 'New Message',
       body: '$senderName sent you a message.',
-      type: 'shop_message',
+      type: conversationType == 'designer'
+          ? 'designer_message'
+          : 'shop_message',
       extraData: {
         'fromId': senderId,
-        'fromName': senderId == sellerId ? shopName : senderName,
+        'fromName': senderId == sellerId
+            ? (conversationType == 'designer' ? designerName : shopName)
+            : senderName,
+        'conversationType': conversationType,
         'shopName': shopName,
+        'designerName': designerName,
         'sellerId': sellerId,
+        if (conversationType == 'designer') 'designerId': sellerId,
         'customerId': customerId,
         'chatId': chatId,
       },

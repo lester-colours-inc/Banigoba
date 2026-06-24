@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../../core/theme_provider.dart';
 import '../../core/app_routes.dart';
+import '../screens/admin/curators_workspace_page.dart';
 import '../screens/agents/agents_page.dart';
 import '../screens/designers/fashion_designers_page.dart';
 import '../screens/shop/shop_chat_page.dart';
@@ -116,7 +117,13 @@ class AppDrawer extends StatelessWidget {
                   Icons.bar_chart,
                   'Curators Workspace',
                   onTap: () {
-                    Navigator.pushNamed(context, AppRoutes.measurement);
+                    final navigator = Navigator.of(context);
+                    navigator.pop();
+                    navigator.push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const CuratorsWorkspacePage(),
+                      ),
+                    );
                   },
                 ),
 
@@ -134,7 +141,7 @@ class AppDrawer extends StatelessWidget {
                 _buildDrawerItem(
                   context,
                   Icons.chat_bubble_outline,
-                  'Shop Messages',
+                  'Messages',
                   onTap: () {
                     final navigator = Navigator.of(context);
                     navigator.pop();

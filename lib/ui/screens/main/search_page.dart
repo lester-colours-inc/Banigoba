@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/app_routes.dart';
 import '../../widgets/cart_badge_button.dart';
+import '../events/events_page.dart';
 import '../social/profile_page.dart';
 
 class SearchPage extends StatefulWidget {
@@ -65,13 +66,9 @@ class _SearchPageState extends State<SearchPage> {
             Expanded(
               child: _selectedTabIndex == 0
                   ? _buildPeopleSearch()
-                  : Center(
-                      child: Text(
-                        _selectedTabIndex == 1
-                            ? 'Events Coming Soon'
-                            : 'Trending News Coming Soon',
-                      ),
-                    ),
+                  : _selectedTabIndex == 1
+                  ? const EventsSection(embedded: true)
+                  : const Center(child: Text('Trending News Coming Soon')),
             ),
           ],
         ),
