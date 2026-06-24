@@ -74,11 +74,44 @@ class OutfitService {
     await ref.set({
       'name': name.trim(),
       'outfitIds': outfitIds,
-      'items': itemNames,
+      'items': itemNames
+          .map((item) => {'name': item.trim(), 'packed': false})
+          .where((item) => (item['name'] as String).isNotEmpty)
+          .toList(),
       'checkedItems': <String>[],
       'createdAt': FieldValue.serverTimestamp(),
     });
     return ref.id;
+  }
+
+  Future<void> updatePackingItemPacked({
+    required String userId,
+    required String packingListId,
+    required List<Map<String, dynamic>> items,
+  }) async {
+    final checkedItems = items
+        .where((item) => item['packed'] == true)
+        .map((item) => (item['name'] ?? '').toString())
+        .where((name) => name.isNotEmpty)
+        .toList();
+    await _db
+        .collection('users')
+        .doc(userId)
+        .collection('packingLists')
+        .doc(packingListId)
+        .update({
+          'items': items
+              .map(
+                (item) => {
+                  'name': (item['name'] ?? '').toString(),
+                  'packed': item['packed'] == true,
+                },
+              )
+              .where((item) => (item['name'] as String).isNotEmpty)
+              .toList(),
+          'checkedItems': checkedItems,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
   }
 
   Future<void> reuseOutfitOnDate({
@@ -126,6 +159,18 @@ class OutfitService {
             .collection('days')
             .doc(dateKey),
         data,
+      );
+      batch.set(
+        _db
+            .collection('users')
+            .doc(userId)
+            .collection('eventPlans')
+            .doc(eventId),
+        {
+          'plannedOutfitIds': FieldValue.arrayUnion([outfitId]),
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
       );
     }
     await batch.commit();
@@ -190,14 +235,13 @@ class OutfitService {
       'reusedAt': FieldValue.serverTimestamp(),
     });
     if (eventId != null) {
+      final eventRef = _db
+          .collection('users')
+          .doc(userId)
+          .collection('eventPlans')
+          .doc(eventId);
       batch.set(
-        _db
-            .collection('users')
-            .doc(userId)
-            .collection('eventPlans')
-            .doc(eventId)
-            .collection('days')
-            .doc(dateKey),
+        eventRef.collection('days').doc(dateKey),
         {
           'outfitId': outfitRef.id,
           'wearDate': Timestamp.fromDate(normalizedDate),
@@ -206,6 +250,10 @@ class OutfitService {
           'products': productSnapshots,
         },
       );
+      batch.set(eventRef, {
+        'plannedOutfitIds': FieldValue.arrayUnion([outfitRef.id]),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
     }
 
     await batch.commit();

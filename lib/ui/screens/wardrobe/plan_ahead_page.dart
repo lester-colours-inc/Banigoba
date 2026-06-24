@@ -294,7 +294,11 @@ class _PlanAheadPageState extends State<PlanAheadPage> {
   }
 
   Future<void> _showPackingList(_UpcomingPlan plan) async {
-    final checked = <String>{};
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    final items = plan.packingItems
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
     await showDialog<void>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
@@ -305,16 +309,21 @@ class _PlanAheadPageState extends State<PlanAheadPage> {
             child: ListView(
               shrinkWrap: true,
               children: [
-                for (final item in plan.items)
+                for (var index = 0; index < items.length; index++)
                   CheckboxListTile(
-                    value: checked.contains(item),
-                    title: Text(item),
+                    value: items[index]['packed'] == true,
+                    title: Text((items[index]['name'] ?? '').toString()),
                     contentPadding: EdgeInsets.zero,
-                    onChanged: (_) => setDialogState(() {
-                      checked.contains(item)
-                          ? checked.remove(item)
-                          : checked.add(item);
-                    }),
+                    onChanged: (value) async {
+                      setDialogState(() {
+                        items[index]['packed'] = value == true;
+                      });
+                      await _outfitService.updatePackingItemPacked(
+                        userId: user.uid,
+                        packingListId: plan.id,
+                        items: items,
+                      );
+                    },
                   ),
               ],
             ),
@@ -440,7 +449,7 @@ class _UpcomingPlan {
     required this.createdAt,
     this.startDate,
     this.endDate,
-    this.items = const [],
+    this.packingItems = const [],
   });
 
   factory _UpcomingPlan.event(String id, Map<String, dynamic> data) {
@@ -458,22 +467,40 @@ class _UpcomingPlan {
       startDate: startDate,
       endDate: endDate,
       createdAt: _timestamp(data['createdAt']),
-      items: const [],
+      packingItems: const [],
     );
   }
 
   factory _UpcomingPlan.packing(String id, Map<String, dynamic> data) {
     final items = data['items'];
-    final itemNames = items is Iterable
-        ? items.map((item) => item.toString()).toList()
-        : <String>[];
+    final checkedItems = data['checkedItems'] is Iterable
+        ? (data['checkedItems'] as Iterable)
+              .map((item) => item.toString())
+              .toSet()
+        : <String>{};
+    final packingItems = items is Iterable
+        ? items
+              .map((item) {
+                if (item is Map) {
+                  final name = (item['name'] ?? '').toString();
+                  return {'name': name, 'packed': item['packed'] == true};
+                }
+                final name = item.toString();
+                return {'name': name, 'packed': checkedItems.contains(name)};
+              })
+              .where((item) => (item['name'] as String).isNotEmpty)
+              .toList()
+        : <Map<String, dynamic>>[];
+    final packedCount = packingItems
+        .where((item) => item['packed'] == true)
+        .length;
     return _UpcomingPlan(
       id: id,
       name: (data['name'] ?? 'Packing List').toString(),
-      subtitle: '${itemNames.length} packing items',
+      subtitle: '$packedCount/${packingItems.length} packed',
       isEvent: false,
       createdAt: _timestamp(data['createdAt']),
-      items: itemNames,
+      packingItems: packingItems,
     );
   }
 
@@ -484,7 +511,7 @@ class _UpcomingPlan {
   final DateTime createdAt;
   final DateTime? startDate;
   final DateTime? endDate;
-  final List<String> items;
+  final List<Map<String, dynamic>> packingItems;
 
   static DateTime _timestamp(dynamic value) =>
       value is Timestamp ? value.toDate() : DateTime(1970);

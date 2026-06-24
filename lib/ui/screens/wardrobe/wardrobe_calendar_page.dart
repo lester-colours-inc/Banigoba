@@ -1,9 +1,12 @@
 // Lets users repeat saved outfits and schedule them against calendar dates.
+import 'dart:math' as math;
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../../data/services/outfit_service.dart';
+import '../../widgets/safe_product_image.dart';
 import '../makeover/ai_upload_page.dart';
 
 class WardrobeCalendarPage extends StatefulWidget {
@@ -69,16 +72,43 @@ class _WardrobeCalendarPageState extends State<WardrobeCalendarPage> {
     return List.generate(7, (index) => sunday.add(Duration(days: index)));
   }
 
-  Future<void> _openFullCalendar() async {
-    final picked = await showDatePicker(
+  Future<void> _openFullCalendar(
+    Map<String, Map<String, dynamic>> history,
+  ) async {
+    final picked = await showDialog<DateTime>(
       context: context,
-      initialDate: _selectedDate,
-      firstDate: widget.eventStart ?? DateTime(2020),
-      lastDate: widget.eventEnd ?? DateTime(DateTime.now().year + 5, 12, 31),
-      helpText: 'Choose a date to wear an outfit',
+      builder: (context) => _FullCalendarDialog(
+        initialDate: _selectedDate,
+        firstDate: _dateOnly(widget.eventStart ?? DateTime(2020)),
+        lastDate: _dateOnly(
+          widget.eventEnd ?? DateTime(DateTime.now().year + 5, 12, 31),
+        ),
+        historyKeys: history.keys.toSet(),
+        dateKey: _dateKey,
+        dateOnly: _dateOnly,
+        months: _months,
+        weekdays: _weekdays,
+        primaryColor: _primaryColor,
+      ),
     );
     if (picked == null || !mounted) return;
     setState(() => _selectedDate = _dateOnly(picked));
+  }
+
+  Future<void> _openFullCalendarForUser(String userId) async {
+    try {
+      final snapshot = await _outfitService.watchWearHistory(userId).first;
+      final history = <String, Map<String, dynamic>>{
+        for (final doc in snapshot.docs) doc.id: doc.data(),
+      };
+      if (!mounted) return;
+      await _openFullCalendar(history);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Unable to open calendar: $error')),
+      );
+    }
   }
 
   Future<void> _reuseOutfit(_SavedOutfit outfit) async {
@@ -159,7 +189,9 @@ class _WardrobeCalendarPageState extends State<WardrobeCalendarPage> {
         actions: [
           IconButton(
             tooltip: 'Open full calendar',
-            onPressed: _openFullCalendar,
+            onPressed: user == null
+                ? null
+                : () => _openFullCalendarForUser(user.uid),
             icon: Icon(Icons.calendar_month, color: _primaryColor),
           ),
           const SizedBox(width: 8),
@@ -234,7 +266,7 @@ class _WardrobeCalendarPageState extends State<WardrobeCalendarPage> {
                 ),
               ),
               TextButton.icon(
-                onPressed: _openFullCalendar,
+                onPressed: () => _openFullCalendar(history),
                 icon: const Icon(Icons.calendar_month),
                 label: const Text('Full calendar'),
               ),
@@ -268,8 +300,8 @@ class _WardrobeCalendarPageState extends State<WardrobeCalendarPage> {
     DateTime date,
     String weekday, {
     required bool isToday,
-    required bool hasOutfit,
     required bool isEventDay,
+    required bool hasOutfit,
   }) {
     final selected = date == _selectedDate;
     final colors = Theme.of(context).colorScheme;
@@ -340,7 +372,6 @@ class _WardrobeCalendarPageState extends State<WardrobeCalendarPage> {
   ) {
     final colors = Theme.of(context).colorScheme;
     final worn = history[_dateKey(_selectedDate)];
-    final imageUrl = worn == null ? '' : _outfitImageUrl(worn);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
@@ -362,14 +393,9 @@ class _WardrobeCalendarPageState extends State<WardrobeCalendarPage> {
                 color: colors.surface,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: imageUrl.isEmpty
+              child: worn == null
                   ? Icon(Icons.checkroom_outlined, color: colors.outline)
-                  : Image.network(
-                      imageUrl,
-                      fit: BoxFit.contain,
-                      errorBuilder: (_, _, _) =>
-                          Icon(Icons.checkroom_outlined, color: colors.outline),
-                    ),
+                  : _OutfitPlannerVisual(data: worn, compact: true),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -474,20 +500,7 @@ class _WardrobeCalendarPageState extends State<WardrobeCalendarPage> {
             child: Container(
               width: double.infinity,
               color: colors.surface,
-              child: outfit.imageUrl.isEmpty
-                  ? Icon(
-                      Icons.checkroom_outlined,
-                      size: 56,
-                      color: colors.outline,
-                    )
-                  : Image.network(
-                      outfit.imageUrl,
-                      fit: BoxFit.contain,
-                      errorBuilder: (_, _, _) => Icon(
-                        Icons.broken_image_outlined,
-                        color: colors.outline,
-                      ),
-                    ),
+              child: _OutfitPlannerVisual(data: outfit.data),
             ),
           ),
           Padding(
@@ -550,11 +563,421 @@ class _WardrobeCalendarPageState extends State<WardrobeCalendarPage> {
     final date = _dateOnly(value);
     return !date.isBefore(_dateOnly(start)) && !date.isAfter(_dateOnly(end));
   }
+}
 
-  String _outfitImageUrl(Map<String, dynamic> data) {
+class _FullCalendarDialog extends StatefulWidget {
+  const _FullCalendarDialog({
+    required this.initialDate,
+    required this.firstDate,
+    required this.lastDate,
+    required this.historyKeys,
+    required this.dateKey,
+    required this.dateOnly,
+    required this.months,
+    required this.weekdays,
+    required this.primaryColor,
+  });
+
+  final DateTime initialDate;
+  final DateTime firstDate;
+  final DateTime lastDate;
+  final Set<String> historyKeys;
+  final String Function(DateTime value) dateKey;
+  final DateTime Function(DateTime value) dateOnly;
+  final List<String> months;
+  final List<String> weekdays;
+  final Color primaryColor;
+
+  @override
+  State<_FullCalendarDialog> createState() => _FullCalendarDialogState();
+}
+
+class _FullCalendarDialogState extends State<_FullCalendarDialog> {
+  late DateTime _visibleMonth;
+
+  @override
+  void initState() {
+    super.initState();
+    _visibleMonth = DateTime(
+      widget.initialDate.year,
+      widget.initialDate.month,
+    );
+  }
+
+  bool get _canGoPrevious {
+    final previous = DateTime(_visibleMonth.year, _visibleMonth.month - 1);
+    final previousLastDay = DateTime(previous.year, previous.month + 1, 0);
+    return !previousLastDay.isBefore(widget.firstDate);
+  }
+
+  bool get _canGoNext {
+    final next = DateTime(_visibleMonth.year, _visibleMonth.month + 1);
+    return !next.isAfter(widget.lastDate);
+  }
+
+  void _changeMonth(int delta) {
+    setState(() {
+      _visibleMonth = DateTime(
+        _visibleMonth.year,
+        _visibleMonth.month + delta,
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final firstOfMonth = DateTime(_visibleMonth.year, _visibleMonth.month);
+    final leadingEmptyDays = firstOfMonth.weekday % 7;
+    final daysInMonth = DateTime(
+      _visibleMonth.year,
+      _visibleMonth.month + 1,
+      0,
+    ).day;
+    final today = widget.dateOnly(DateTime.now());
+
+    return AlertDialog(
+      titlePadding: const EdgeInsets.fromLTRB(18, 14, 10, 0),
+      contentPadding: const EdgeInsets.fromLTRB(18, 10, 18, 8),
+      actionsPadding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+      title: Row(
+        children: [
+          Expanded(
+            child: Text(
+              '${widget.months[_visibleMonth.month - 1]} ${_visibleMonth.year}',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Previous month',
+            onPressed: _canGoPrevious ? () => _changeMonth(-1) : null,
+            icon: const Icon(Icons.chevron_left_rounded),
+          ),
+          IconButton(
+            tooltip: 'Next month',
+            onPressed: _canGoNext ? () => _changeMonth(1) : null,
+            icon: const Icon(Icons.chevron_right_rounded),
+          ),
+        ],
+      ),
+      content: SizedBox(
+        width: 360,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                for (final weekday in widget.weekdays)
+                  Expanded(
+                    child: Center(
+                      child: Text(
+                        weekday,
+                        style: TextStyle(
+                          color: colors.onSurfaceVariant,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: 42,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 7,
+                mainAxisSpacing: 5,
+                crossAxisSpacing: 5,
+              ),
+              itemBuilder: (context, index) {
+                final day = index - leadingEmptyDays + 1;
+                if (day < 1 || day > daysInMonth) {
+                  return const SizedBox.shrink();
+                }
+                final normalized = widget.dateOnly(
+                  DateTime(_visibleMonth.year, _visibleMonth.month, day),
+                );
+                final disabled =
+                    normalized.isBefore(widget.firstDate) ||
+                    normalized.isAfter(widget.lastDate);
+                final selected =
+                    normalized == widget.dateOnly(widget.initialDate);
+                final isToday = normalized == today;
+                final hasOutfit = widget.historyKeys.contains(
+                  widget.dateKey(normalized),
+                );
+                return _CalendarDialogDay(
+                  date: normalized,
+                  disabled: disabled,
+                  selected: selected,
+                  isToday: isToday,
+                  hasOutfit: hasOutfit,
+                  primaryColor: widget.primaryColor,
+                  onTap: disabled
+                      ? null
+                      : () => Navigator.of(context).pop(normalized),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+      ],
+    );
+  }
+}
+
+class _CalendarDialogDay extends StatelessWidget {
+  const _CalendarDialogDay({
+    required this.date,
+    required this.disabled,
+    required this.selected,
+    required this.isToday,
+    required this.hasOutfit,
+    required this.primaryColor,
+    required this.onTap,
+  });
+
+  final DateTime date;
+  final bool disabled;
+  final bool selected;
+  final bool isToday;
+  final bool hasOutfit;
+  final Color primaryColor;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final textColor = disabled
+        ? colors.onSurface.withValues(alpha: 0.32)
+        : selected
+        ? Colors.white
+        : colors.onSurface;
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: selected ? primaryColor : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: selected
+                ? primaryColor
+                : isToday && !disabled
+                ? Colors.orange
+                : colors.outlineVariant,
+            width: isToday || selected ? 2 : 1,
+          ),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              '${date.day}',
+              style: TextStyle(color: textColor, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 4),
+            Container(
+              width: 5,
+              height: 5,
+              decoration: BoxDecoration(
+                color: hasOutfit && !disabled
+                    ? (selected ? Colors.orangeAccent : primaryColor)
+                    : Colors.transparent,
+                shape: BoxShape.circle,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _OutfitPlannerVisual extends StatelessWidget {
+  const _OutfitPlannerVisual({required this.data, this.compact = false});
+
+  final Map<String, dynamic> data;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final imageUrl = _outfitImageUrl(data);
+    final products = _products(data);
+    if (products.isEmpty) {
+      return _mainImage(colors, imageUrl);
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bottomCount = _bottomCount(products.length);
+        final tileSize = _tileSize(
+          itemCount: products.length,
+          bottomCount: bottomCount,
+          width: constraints.maxWidth,
+          height: constraints.maxHeight,
+        );
+        final gap = compact ? 3.0 : 6.0;
+        final bottomProducts = products.take(bottomCount).toList();
+        final sideProducts = products.skip(bottomCount).toList();
+        final bottomGap = _evenGap(
+          extent: constraints.maxWidth,
+          itemCount: bottomProducts.length,
+          tileSize: tileSize,
+          fallback: gap,
+        );
+        final sideAvailableHeight = constraints.maxHeight - tileSize - gap;
+        final sideGap = _evenGap(
+          extent: sideAvailableHeight,
+          itemCount: sideProducts.length,
+          tileSize: tileSize,
+          fallback: gap,
+        );
+
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            _mainImage(colors, imageUrl),
+            for (var index = 0; index < sideProducts.length; index++)
+              Positioned(
+                right: gap,
+                top: sideGap + index * (tileSize + sideGap),
+                width: tileSize,
+                height: tileSize,
+                child: _productTile(context, sideProducts[index], compact),
+              ),
+            for (var index = 0; index < bottomProducts.length; index++)
+              Positioned(
+                left: bottomGap + index * (tileSize + bottomGap),
+                bottom: gap,
+                width: tileSize,
+                height: tileSize,
+                child: _productTile(context, bottomProducts[index], compact),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _mainImage(ColorScheme colors, String imageUrl) {
+    if (imageUrl.isEmpty) {
+      return Icon(Icons.checkroom_outlined, size: 56, color: colors.outline);
+    }
+    return SafeProductImage(
+      imageUrl: imageUrl,
+      width: double.infinity,
+      height: double.infinity,
+      fit: BoxFit.contain,
+      iconSize: compact ? 24 : 56,
+    );
+  }
+
+  Widget _productTile(
+    BuildContext context,
+    Map<String, dynamic> product,
+    bool compact,
+  ) {
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+      padding: EdgeInsets.all(compact ? 2 : 5),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(compact ? 6 : 10),
+        border: Border.all(color: colors.outlineVariant),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(compact ? 4 : 8),
+        child: SafeProductImage(
+          imageUrl: _productImageUrl(product),
+          width: double.infinity,
+          height: double.infinity,
+          fit: BoxFit.contain,
+          iconSize: compact ? 18 : 30,
+        ),
+      ),
+    );
+  }
+
+  static String _outfitImageUrl(Map<String, dynamic> data) {
     final result = (data['imageUrl'] ?? '').toString().trim();
     if (result.isNotEmpty) return result;
     return (data['avatarImageUrl'] ?? '').toString().trim();
+  }
+
+  static List<Map<String, dynamic>> _products(Map<String, dynamic> data) {
+    final products = data['products'];
+    if (products is! Iterable) return const [];
+    return products
+        .whereType<Map>()
+        .map((product) => Map<String, dynamic>.from(product))
+        .where((product) => _productImageUrl(product).isNotEmpty)
+        .toList();
+  }
+
+  static String _productImageUrl(Map<String, dynamic> product) {
+    const fields = [
+      'rawImageUrl',
+      'imageUrl',
+      'imageURL',
+      'processedImageUrl',
+      'processed_url',
+      'raw_url',
+    ];
+    for (final field in fields) {
+      final value = product[field];
+      if (value is String && value.trim().isNotEmpty) return value.trim();
+    }
+    return '';
+  }
+
+  static int _bottomCount(int itemCount) {
+    if (itemCount <= 3) return itemCount;
+    if (itemCount == 4) return 3;
+    return math.min(3, itemCount);
+  }
+
+  double _tileSize({
+    required int itemCount,
+    required int bottomCount,
+    required double width,
+    required double height,
+  }) {
+    final maxTile = compact ? 38.0 : 96.0;
+    final minTile = compact ? 18.0 : 42.0;
+    final gap = compact ? 3.0 : 6.0;
+    final sideCount = itemCount - bottomCount;
+    final bottomFit = bottomCount == 0
+        ? maxTile
+        : (width - gap * (bottomCount + 1)) / bottomCount;
+    final sideFit = sideCount == 0
+        ? maxTile
+        : (height - bottomFit - gap * (sideCount + 2)) / sideCount;
+    final fit = math.min(maxTile, math.min(bottomFit, sideFit));
+    return fit.clamp(minTile, maxTile).toDouble();
+  }
+
+  static double _evenGap({
+    required double extent,
+    required int itemCount,
+    required double tileSize,
+    required double fallback,
+  }) {
+    if (itemCount <= 0) return fallback;
+    final available = extent - itemCount * tileSize;
+    if (available <= fallback * (itemCount + 1)) return fallback;
+    return available / (itemCount + 1);
   }
 }
 
@@ -565,12 +988,6 @@ class _SavedOutfit {
   const _SavedOutfit(this.id, this.data);
 
   String get name => (data['name'] ?? 'Completed Look').toString();
-
-  String get imageUrl {
-    final result = (data['imageUrl'] ?? '').toString().trim();
-    if (result.isNotEmpty) return result;
-    return (data['avatarImageUrl'] ?? '').toString().trim();
-  }
 
   DateTime get createdAt {
     final value = data['createdAt'];

@@ -6,6 +6,7 @@ import '../../../core/app_routes.dart';
 import '../../../data/services/product_service.dart';
 import '../../../data/services/shop_chat_service.dart';
 import '../../widgets/cart_badge_button.dart';
+import '../../widgets/safe_product_image.dart';
 import 'product_detail_page.dart';
 import 'shop_chat_page.dart';
 
@@ -396,13 +397,12 @@ class _ProductShopCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              child: imageUrl.isEmpty
-                  ? const Center(child: Icon(Icons.checkroom, size: 50))
-                  : Image.network(
-                      imageUrl,
-                      width: double.infinity,
-                      fit: BoxFit.contain,
-                    ),
+              child: SafeProductImage(
+                imageUrl: imageUrl,
+                width: double.infinity,
+                fit: BoxFit.contain,
+                iconSize: 50,
+              ),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(10, 8, 10, 2),

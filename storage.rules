@@ -12,15 +12,17 @@ service firebase.storage {
                    && request.auth.uid == boutiqueId;
     }
 
-    // Temporary hairstyle catalog uploader.
-    match /hairstyles/{allPaths=**} {
-      allow read, write: if request.auth != null;
-    }
-
     // Users can only access their own images
     match /userImages/{userId}/{allPaths=**} {
       allow read, write: if request.auth != null
                          && request.auth.uid == userId;
+    }
+
+    // Hairstyles collection
+    match /hairstyles/{allPaths=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+                   && request.auth.uid == "sgNHzgIhfjTRYMs7ulCY1C74mOE2";
     }
   }
 }

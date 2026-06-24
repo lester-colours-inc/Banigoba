@@ -1,4 +1,6 @@
 // Shows daily outfit inspiration using local weather and wardrobe actions.
+import 'dart:math' as math;
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
@@ -15,6 +17,7 @@ import 'package:geolocator/geolocator.dart';
 import '../../../core/app_routes.dart';
 import '../../widgets/post_comments_sheet.dart';
 import '../../widgets/cart_badge_button.dart';
+import '../../widgets/safe_product_image.dart';
 import '../../widgets/try_on_product_picker.dart';
 import '../wardrobe/wardrobe_calendar_page.dart';
 
@@ -485,21 +488,18 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
                                                         child: Container(
                                                           color: colors
                                                               .surfaceContainerLow,
-                                                          child: Image.network(
-                                                            imageUrl,
-                                                            fit: BoxFit.contain,
-                                                            errorBuilder:
-                                                                (
-                                                                  context,
-                                                                  error,
-                                                                  stackTrace,
-                                                                ) => Icon(
-                                                                  Icons
-                                                                      .broken_image_outlined,
-                                                                  color: Colors
-                                                                      .grey,
-                                                                ),
-                                                          ),
+                                                          child:
+                                                              SafeProductImage(
+                                                                imageUrl:
+                                                                    imageUrl,
+                                                                width: double
+                                                                    .infinity,
+                                                                height: double
+                                                                    .infinity,
+                                                                fit: BoxFit
+                                                                    .contain,
+                                                                iconSize: 42,
+                                                              ),
                                                         ),
                                                       ),
                                                       if (selected)
@@ -606,10 +606,6 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
         AppRoutes.avatarTryOn,
         arguments: {
           'products': products,
-          'garmentImageUrl': _productImageUrl(products.first),
-          'garmentName': products
-              .map((product) => (product['name'] ?? 'Clothing').toString())
-              .join(' + '),
           'category':
               (products.first['category'] ?? _tryOnGroup(products.first))
                   .toString(),
@@ -675,10 +671,6 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
         AppRoutes.avatarTryOn,
         arguments: {
           'products': selectedProducts,
-          'garmentImageUrl': _productImageUrl(selectedProducts.first),
-          'garmentName': selectedProducts
-              .map((product) => (product['name'] ?? 'Clothing').toString())
-              .join(' + '),
           'category':
               (selectedProducts.first['category'] ??
                       _tryOnGroup(selectedProducts.first))
@@ -1438,33 +1430,102 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
 
     return Padding(
       padding: EdgeInsets.all(8),
-      child: Column(
-        children: [
-          Expanded(
-            flex: 3,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: Container(
-                width: double.infinity,
-                color: Theme.of(context).colorScheme.surfaceContainerLow,
-                child: _buildMinePostImage(imageUrl),
-              ),
-            ),
-          ),
-          SizedBox(height: 6),
-          Expanded(
-            child: Row(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final bottomCount = _collageBottomCount(products.length);
+            final tileSize = _collageProductTileSize(
+              itemCount: products.length,
+              bottomCount: bottomCount,
+              width: constraints.maxWidth,
+              height: constraints.maxHeight,
+            );
+            final gap = tileSize <= 42 ? 4.0 : 6.0;
+            final bottomProducts = products.take(bottomCount).toList();
+            final sideProducts = products.skip(bottomCount).toList();
+            final bottomGap = _collageEvenGap(
+              extent: constraints.maxWidth,
+              itemCount: bottomProducts.length,
+              tileSize: tileSize,
+              fallback: gap,
+            );
+            final sideAvailableHeight = constraints.maxHeight - tileSize - gap;
+            final sideGap = _collageEvenGap(
+              extent: sideAvailableHeight,
+              itemCount: sideProducts.length,
+              tileSize: tileSize,
+              fallback: gap,
+            );
+
+            return Stack(
+              fit: StackFit.expand,
               children: [
-                for (var index = 0; index < products.length; index++) ...[
-                  if (index > 0) SizedBox(width: 5),
-                  Expanded(child: _buildCollageProduct(products[index])),
-                ],
+                Container(
+                  color: Theme.of(context).colorScheme.surfaceContainerLow,
+                  child: _buildMinePostImage(imageUrl),
+                ),
+                for (var index = 0; index < sideProducts.length; index++)
+                  Positioned(
+                    right: gap,
+                    top: sideGap + index * (tileSize + sideGap),
+                    width: tileSize,
+                    height: tileSize,
+                    child: _buildCollageProduct(sideProducts[index]),
+                  ),
+                for (var index = 0; index < bottomProducts.length; index++)
+                  Positioned(
+                    left: bottomGap + index * (tileSize + bottomGap),
+                    bottom: gap,
+                    width: tileSize,
+                    height: tileSize,
+                    child: _buildCollageProduct(bottomProducts[index]),
+                  ),
               ],
-            ),
-          ),
-        ],
+            );
+          },
+        ),
       ),
     );
+  }
+
+  int _collageBottomCount(int itemCount) {
+    if (itemCount <= 3) return itemCount;
+    if (itemCount == 4) return 3;
+    return math.min(3, itemCount);
+  }
+
+  double _collageProductTileSize({
+    required int itemCount,
+    required int bottomCount,
+    required double width,
+    required double height,
+  }) {
+    const maxTile = 136.0;
+    const minTile = 58.0;
+    const gap = 6.0;
+
+    final sideCount = itemCount - bottomCount;
+    final bottomFit = bottomCount == 0
+        ? maxTile
+        : (width - gap * (bottomCount + 1)) / bottomCount;
+    final sideFit = sideCount == 0
+        ? maxTile
+        : (height - bottomFit - gap * (sideCount + 2)) / sideCount;
+    final fit = math.min(maxTile, math.min(bottomFit, sideFit));
+    return fit.clamp(minTile, maxTile).toDouble();
+  }
+
+  double _collageEvenGap({
+    required double extent,
+    required int itemCount,
+    required double tileSize,
+    required double fallback,
+  }) {
+    if (itemCount <= 0) return fallback;
+    final available = extent - itemCount * tileSize;
+    if (available <= fallback * (itemCount + 1)) return fallback;
+    return available / (itemCount + 1);
   }
 
   Widget _buildMineCommand({
@@ -1778,7 +1839,6 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
   List<Map<String, dynamic>> _collageProducts(Post post) {
     return post.products
         .where((product) => _productImageUrl(product).isNotEmpty)
-        .take(3)
         .toList();
   }
 
@@ -1792,11 +1852,15 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: colors.outlineVariant),
       ),
-      child: Image.network(
-        _productImageUrl(product),
-        fit: BoxFit.contain,
-        errorBuilder: (context, error, stackTrace) =>
-            Icon(Icons.checkroom_outlined, color: colors.outline),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: SafeProductImage(
+          imageUrl: _productImageUrl(product),
+          width: double.infinity,
+          height: double.infinity,
+          fit: BoxFit.contain,
+          iconSize: 34,
+        ),
       ),
     );
   }

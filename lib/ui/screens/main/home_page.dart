@@ -8,6 +8,7 @@ import '../../../data/models/weather.dart';
 import 'package:geolocator/geolocator.dart';
 import '../../../core/app_routes.dart';
 import '../../widgets/cart_badge_button.dart';
+import '../../widgets/safe_product_image.dart';
 import '../makeover/ai_upload_page.dart';
 import '../shop/product_detail_page.dart';
 
@@ -1062,9 +1063,20 @@ class _SmartRecommendationTile extends StatelessWidget {
                             color: Colors.grey,
                             size: 38,
                           )
+                        : recommendation.type ==
+                              _SmartRecommendationType.product
+                        ? SafeProductImage(
+                            imageUrl: recommendation.imageUrl,
+                            width: double.infinity,
+                            height: double.infinity,
+                            fit: BoxFit.contain,
+                            iconSize: 38,
+                          )
                         : Image.network(
                             recommendation.imageUrl,
-                            fit: BoxFit.cover,
+                            width: double.infinity,
+                            height: double.infinity,
+                            fit: BoxFit.contain,
                             errorBuilder: (_, _, _) => Icon(
                               Icons.broken_image_outlined,
                               color: Colors.grey,

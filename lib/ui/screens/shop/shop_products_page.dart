@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import '../../widgets/safe_product_image.dart';
 import 'product_detail_page.dart';
 
 class ShopProductsPage extends StatelessWidget {
@@ -90,13 +91,12 @@ class _ShopProductTile extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              child: imageUrl.isEmpty
-                  ? const Center(child: Icon(Icons.checkroom, size: 50))
-                  : Image.network(
-                      imageUrl,
-                      width: double.infinity,
-                      fit: BoxFit.contain,
-                    ),
+              child: SafeProductImage(
+                imageUrl: imageUrl,
+                width: double.infinity,
+                fit: BoxFit.contain,
+                iconSize: 50,
+              ),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(10, 8, 10, 2),

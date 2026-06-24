@@ -3,7 +3,6 @@ import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../models/post.dart';
@@ -66,7 +65,7 @@ class HairstyleService {
 
   Future<HairstyleGeneration> generate({
     required String userId,
-    required Uint8List sourceBytes,
+    Uint8List? sourceBytes,
     required String styleName,
     required String prompt,
     String? sourceImageUrl,
@@ -78,7 +77,12 @@ class HairstyleService {
         .child('hairStyles');
     final sourceUrl =
         sourceImageUrl ??
-        await saveLatestSelfie(userId: userId, imageBytes: sourceBytes);
+        await saveLatestSelfie(
+          userId: userId,
+          imageBytes:
+              sourceBytes ??
+              (throw Exception('Choose or upload a hairstyle selfie first.')),
+        );
 
     if (!isAiConfigured) {
       return HairstyleGeneration(

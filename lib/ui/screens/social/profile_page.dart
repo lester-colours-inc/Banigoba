@@ -577,10 +577,6 @@ class ProfilePage extends StatelessWidget {
         AppRoutes.avatarTryOn,
         arguments: {
           'products': selectedProducts,
-          'garmentImageUrl': _productImageUrl(selectedProducts.first),
-          'garmentName': selectedProducts
-              .map((product) => (product['name'] ?? 'Clothing').toString())
-              .join(' + '),
           'category': (selectedProducts.first['category'] ?? '').toString(),
           'sourcePostId': post.id,
           'sourceOutfitId': post.outfitId,

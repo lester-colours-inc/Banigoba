@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../../data/services/cart_service.dart';
 import '../../../data/services/order_service.dart';
+import '../../widgets/safe_product_image.dart';
 
 class CartPage extends StatelessWidget {
   const CartPage({super.key});
@@ -63,12 +64,11 @@ class CartPage extends StatelessWidget {
                                 contentPadding: EdgeInsets.zero,
                                 leading: SizedBox(
                                   width: 58,
-                                  child: imageUrl.isEmpty
-                                      ? const Icon(Icons.checkroom)
-                                      : Image.network(
-                                          imageUrl,
-                                          fit: BoxFit.contain,
-                                        ),
+                                  child: SafeProductImage(
+                                    imageUrl: imageUrl,
+                                    fit: BoxFit.contain,
+                                    iconSize: 28,
+                                  ),
                                 ),
                                 title: Text(
                                   (data['name'] ?? 'Product').toString(),

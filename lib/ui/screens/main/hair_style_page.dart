@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -353,7 +354,9 @@ class _HairStylePageState extends State<HairStylePage> {
 
     setState(() => _isPicking = true);
     try {
-      final bytes = await _hairstyleService.downloadSelfie(imageUrl);
+      final bytes = kIsWeb
+          ? null
+          : await _hairstyleService.downloadSelfie(imageUrl);
       if (!mounted) return;
       await Navigator.push(
         context,
@@ -547,6 +550,9 @@ class _HairStylePageState extends State<HairStylePage> {
           Image.network(
             imageUrl,
             fit: BoxFit.cover,
+            webHtmlElementStrategy: kIsWeb
+                ? WebHtmlElementStrategy.prefer
+                : WebHtmlElementStrategy.never,
             errorBuilder: (_, _, _) => _buildUploadPlaceholder(),
           ),
           Positioned(
@@ -908,11 +914,11 @@ class _UploadDropdown extends StatelessWidget {
 class HairAnalysisPage extends StatefulWidget {
   const HairAnalysisPage({
     super.key,
-    required this.sourceBytes,
     required this.sourceImageUrl,
+    this.sourceBytes,
   });
 
-  final Uint8List sourceBytes;
+  final Uint8List? sourceBytes;
   final String sourceImageUrl;
 
   @override
@@ -941,7 +947,11 @@ class _HairAnalysisPageState extends State<HairAnalysisPage> {
             borderRadius: BorderRadius.circular(4),
             child: AspectRatio(
               aspectRatio: 1.25,
-              child: Image.memory(widget.sourceBytes, fit: BoxFit.cover),
+              child: _HairSourceImage(
+                sourceBytes: widget.sourceBytes,
+                sourceImageUrl: widget.sourceImageUrl,
+                fit: BoxFit.cover,
+              ),
             ),
           ),
           const SizedBox(height: 22),
@@ -988,11 +998,11 @@ class _HairAnalysisPageState extends State<HairAnalysisPage> {
 class HairStyleSelectionPage extends StatefulWidget {
   const HairStyleSelectionPage({
     super.key,
-    required this.sourceBytes,
     required this.sourceImageUrl,
+    this.sourceBytes,
   });
 
-  final Uint8List sourceBytes;
+  final Uint8List? sourceBytes;
   final String sourceImageUrl;
 
   @override
@@ -1239,12 +1249,12 @@ class _HairStyleSelectionPageState extends State<HairStyleSelectionPage> {
 
 class _HairResultPage extends StatefulWidget {
   const _HairResultPage({
-    required this.sourceBytes,
     required this.sourceImageUrl,
     required this.style,
+    this.sourceBytes,
   });
 
-  final Uint8List sourceBytes;
+  final Uint8List? sourceBytes;
   final String sourceImageUrl;
   final _HairStyleOption style;
 
@@ -1426,8 +1436,14 @@ class _HairResultPageState extends State<_HairResultPage> {
     return Image.network(
       generation.resultImageUrl,
       fit: BoxFit.cover,
-      errorBuilder: (_, _, _) =>
-          Image.memory(widget.sourceBytes, fit: BoxFit.cover),
+      webHtmlElementStrategy: kIsWeb
+          ? WebHtmlElementStrategy.prefer
+          : WebHtmlElementStrategy.never,
+      errorBuilder: (_, _, _) => _HairSourceImage(
+        sourceBytes: widget.sourceBytes,
+        sourceImageUrl: widget.sourceImageUrl,
+        fit: BoxFit.cover,
+      ),
     );
   }
 }
@@ -1752,7 +1768,7 @@ class _SavedHairStyleCardState extends State<_SavedHairStyleCard> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               AspectRatio(
-                aspectRatio: 1.08,
+                aspectRatio: isMock ? 0.9 : 1.08,
                 child: isMock
                     ? _HairMockCollage(
                         sourceImageUrl: (data['sourceImageUrl'] ?? '')
@@ -1765,6 +1781,9 @@ class _SavedHairStyleCardState extends State<_SavedHairStyleCard> {
                     : Image.network(
                         resultUrl,
                         fit: BoxFit.cover,
+                        webHtmlElementStrategy: kIsWeb
+                            ? WebHtmlElementStrategy.prefer
+                            : WebHtmlElementStrategy.never,
                         errorBuilder: (_, _, _) => ColoredBox(
                           color: colors.surfaceContainerHighest,
                           child: const Icon(Icons.broken_image_outlined),
@@ -1918,7 +1937,7 @@ class _SavedHairStyleCardState extends State<_SavedHairStyleCard> {
 
     setState(() => _busy = true);
     try {
-      final bytes = await _service.downloadSelfie(sourceUrl);
+      final bytes = kIsWeb ? null : await _service.downloadSelfie(sourceUrl);
       if (!mounted) return;
       await Navigator.push(
         context,
@@ -2699,70 +2718,66 @@ class _StyleRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        crossAxisSpacing: 10,
-        mainAxisSpacing: 14,
-        childAspectRatio: 0.76,
-      ),
-      itemCount: options.length,
-      itemBuilder: (context, index) {
-        final option = options[index];
-        final selected = selectedIndex == index;
-        return GestureDetector(
-          onTap: () => onSelected(index),
-          child: Column(
-            children: [
-              Expanded(
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: selected ? _hairNavy : Colors.transparent,
-                      width: 3,
+    return SizedBox(
+      height: 190,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: options.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 12),
+        itemBuilder: (context, index) {
+          final option = options[index];
+          final selected = selectedIndex == index;
+          return SizedBox(
+            width: 140,
+            child: GestureDetector(
+              onTap: () => onSelected(index),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: selected ? _hairNavy : Colors.transparent,
+                          width: 3,
+                        ),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(5),
+                        child: _HairStyleThumbnail(imageUrl: option.imageUrl),
+                      ),
                     ),
                   ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(5),
-                    child: option.imageUrl.trim().isEmpty
-                        ? ColoredBox(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.surfaceContainerHighest,
-                            child: const Icon(Icons.face_retouching_natural),
-                          )
-                        : Image.network(
-                            option.imageUrl,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => ColoredBox(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.surfaceContainerHighest,
-                              child: const Icon(Icons.face_retouching_natural),
-                            ),
-                          ),
+                  const SizedBox(height: 8),
+                  Text(
+                    option.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                    ),
                   ),
-                ),
+                ],
               ),
-              const SizedBox(height: 8),
-              Text(
-                option.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        );
-      },
+            ),
+          );
+        },
+      ),
     );
+  }
+}
+
+class _HairStyleThumbnail extends StatelessWidget {
+  const _HairStyleThumbnail({required this.imageUrl});
+
+  final String imageUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    return _HairCatalogImage(imageUrl: imageUrl);
   }
 }
 
@@ -2895,7 +2910,11 @@ class _HairMockCollage extends StatelessWidget {
               borderRadius: BorderRadius.circular(compact ? 5 : 12),
               child: ColoredBox(
                 color: colors.surface,
-                child: _sourceImage(colors),
+                child: _HairSourceImage(
+                  sourceImageUrl: sourceImageUrl,
+                  sourceBytes: sourceBytes,
+                  fit: BoxFit.cover,
+                ),
               ),
             ),
           ),
@@ -2911,21 +2930,10 @@ class _HairMockCollage extends StatelessWidget {
               child: Column(
                 children: [
                   Expanded(
-                    child: styleImageUrl.trim().isEmpty
-                        ? Icon(
-                            Icons.face_retouching_natural,
-                            color: colors.outline,
-                          )
-                        : Image.network(
-                            styleImageUrl,
-                            width: double.infinity,
-                            height: double.infinity,
-                            fit: BoxFit.contain,
-                            errorBuilder: (_, _, _) => Icon(
-                              Icons.face_retouching_natural,
-                              color: colors.outline,
-                            ),
-                          ),
+                    child: _HairCatalogImage(
+                      imageUrl: styleImageUrl,
+                      fit: BoxFit.cover,
+                    ),
                   ),
                   if (!compact) ...[
                     const SizedBox(height: 6),
@@ -2947,32 +2955,99 @@ class _HairMockCollage extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _sourceImage(ColorScheme colors) {
+class _HairCatalogImage extends StatelessWidget {
+  const _HairCatalogImage({
+    required this.imageUrl,
+    this.fit = BoxFit.cover,
+  });
+
+  final String imageUrl;
+  final BoxFit fit;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final cleanUrl = imageUrl.replaceAll(RegExp(r'\s+'), '');
+    if (cleanUrl.isEmpty) {
+      return _fallback(colors);
+    }
+
+    return Image.network(
+      cleanUrl,
+      width: double.infinity,
+      height: double.infinity,
+      fit: fit,
+      webHtmlElementStrategy: kIsWeb
+          ? WebHtmlElementStrategy.prefer
+          : WebHtmlElementStrategy.never,
+      errorBuilder: (_, _, _) {
+        debugPrint(
+          '[HairStyle] Catalog image failed to load: '
+          '${cleanUrl.split('?').first}',
+        );
+        return _fallback(colors);
+      },
+    );
+  }
+
+  Widget _fallback(ColorScheme colors) {
+    return ColoredBox(
+      color: colors.surfaceContainerHighest,
+      child: Icon(Icons.face_retouching_natural, color: colors.outline),
+    );
+  }
+}
+
+class _HairSourceImage extends StatelessWidget {
+  const _HairSourceImage({
+    required this.sourceImageUrl,
+    this.sourceBytes,
+    this.fit = BoxFit.cover,
+  });
+
+  final String sourceImageUrl;
+  final Uint8List? sourceBytes;
+  final BoxFit fit;
+
+  @override
+  Widget build(BuildContext context) {
     final bytes = sourceBytes;
-    if (bytes != null) {
+    if (bytes != null && bytes.isNotEmpty) {
       return Image.memory(
         bytes,
         width: double.infinity,
         height: double.infinity,
-        fit: BoxFit.contain,
+        fit: fit,
       );
     }
-    if (sourceImageUrl.isEmpty) {
-      return ColoredBox(
-        color: colors.surface,
-        child: Icon(Icons.person_outline, color: colors.outline),
+
+    if (sourceImageUrl.trim().isEmpty) {
+      return const ColoredBox(
+        color: Colors.black12,
+        child: Icon(Icons.person_outline),
       );
     }
+
     return Image.network(
       sourceImageUrl,
       width: double.infinity,
       height: double.infinity,
-      fit: BoxFit.contain,
-      errorBuilder: (_, _, _) => ColoredBox(
-        color: colors.surface,
-        child: Icon(Icons.person_outline, color: colors.outline),
-      ),
+      fit: fit,
+      webHtmlElementStrategy: kIsWeb
+          ? WebHtmlElementStrategy.prefer
+          : WebHtmlElementStrategy.never,
+      errorBuilder: (context, error, stackTrace) {
+        debugPrint(
+          '[HairStyle] Source image failed to load: '
+          '${sourceImageUrl.split('?').first}',
+        );
+        return const ColoredBox(
+          color: Colors.black12,
+          child: Icon(Icons.person_outline),
+        );
+      },
     );
   }
 }

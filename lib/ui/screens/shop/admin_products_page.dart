@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../data/services/product_service.dart';
+import '../../widgets/safe_product_image.dart';
 
 /// Product and inventory manager for the current seller.
 class AdminProductsPage extends StatefulWidget {
@@ -57,19 +58,13 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
               return ListTile(
                 leading: ClipRRect(
                   borderRadius: BorderRadius.circular(8),
-                  child: rawImageUrl.isNotEmpty
-                      ? Image.network(
-                          rawImageUrl,
-                          width: 50,
-                          height: 50,
-                          fit: BoxFit.cover,
-                        )
-                      : Container(
-                          width: 50,
-                          height: 50,
-                          color: Theme.of(context).colorScheme.outlineVariant,
-                          child: const Icon(Icons.image),
-                        ),
+                  child: SafeProductImage(
+                    imageUrl: rawImageUrl,
+                    width: 50,
+                    height: 50,
+                    fit: BoxFit.cover,
+                    iconSize: 26,
+                  ),
                 ),
                 title: Text(name),
                 subtitle: Text(
@@ -301,8 +296,10 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                       : (existingImageUrl.isNotEmpty
                             ? ClipRRect(
                                 borderRadius: BorderRadius.circular(15),
-                                child: Image.network(
-                                  existingImageUrl,
+                                child: SafeProductImage(
+                                  imageUrl: existingImageUrl,
+                                  width: double.infinity,
+                                  height: 120,
                                   fit: BoxFit.cover,
                                 ),
                               )

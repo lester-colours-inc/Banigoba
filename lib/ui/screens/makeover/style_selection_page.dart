@@ -142,10 +142,6 @@ class _StyleSelectionPageState extends State<StyleSelectionPage> {
         settings: RouteSettings(
           arguments: {
             'products': products,
-            'garmentImageUrl': _productImageUrl(products.first),
-            'garmentName': products
-                .map((product) => (product['name'] ?? 'Clothing').toString())
-                .join(' + '),
             'category': (products.first['category'] ?? 'auto').toString(),
             if (widget.plannedDate != null)
               'plannedDate': widget.plannedDate!.toIso8601String(),

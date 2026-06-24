@@ -6,6 +6,7 @@ import '../../../core/app_routes.dart';
 import '../../../data/services/cart_service.dart';
 import '../../../data/services/product_service.dart';
 import '../../../data/services/shop_chat_service.dart';
+import '../../widgets/safe_product_image.dart';
 import '../makeover/avatar_try_on_page.dart';
 import 'shop_chat_page.dart';
 
@@ -144,20 +145,12 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
             // Product Image
             AspectRatio(
               aspectRatio: 1,
-              child: rawImageUrl.isNotEmpty
-                  ? Image.network(
-                      rawImageUrl,
-                      fit: BoxFit.contain,
-                      width: double.infinity,
-                    )
-                  : Container(
-                      color: Theme.of(context).colorScheme.outlineVariant,
-                      child: const Icon(
-                        Icons.image,
-                        size: 100,
-                        color: Colors.grey,
-                      ),
-                    ),
+              child: SafeProductImage(
+                imageUrl: rawImageUrl,
+                fit: BoxFit.contain,
+                width: double.infinity,
+                iconSize: 100,
+              ),
             ),
             Padding(
               padding: const EdgeInsets.all(20.0),

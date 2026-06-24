@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../data/services/product_service.dart';
+import 'safe_product_image.dart';
 
 Future<List<Map<String, dynamic>>?> showTryOnProductPicker(
   BuildContext context, {
@@ -221,30 +222,35 @@ Future<List<Map<String, dynamic>>?> showTryOnProductPicker(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Expanded(
-                                      child: Stack(
-                                        fit: StackFit.expand,
-                                        children: [
-                                          Image.network(
-                                            imageUrl,
-                                            fit: BoxFit.contain,
-                                            errorBuilder: (_, _, _) =>
-                                                const Icon(
-                                                  Icons.broken_image_outlined,
-                                                ),
-                                          ),
-                                          if (isSelected)
-                                            const Positioned(
-                                              top: 8,
-                                              right: 8,
-                                              child: CircleAvatar(
-                                                radius: 14,
-                                                child: Icon(
-                                                  Icons.check,
-                                                  size: 17,
+                                      child: ClipRRect(
+                                        borderRadius:
+                                            const BorderRadius.vertical(
+                                              top: Radius.circular(15),
+                                            ),
+                                        child: Stack(
+                                          fit: StackFit.expand,
+                                          children: [
+                                            SafeProductImage(
+                                              imageUrl: imageUrl,
+                                              width: double.infinity,
+                                              height: double.infinity,
+                                              fit: BoxFit.contain,
+                                              iconSize: 38,
+                                            ),
+                                            if (isSelected)
+                                              const Positioned(
+                                                top: 8,
+                                                right: 8,
+                                                child: CircleAvatar(
+                                                  radius: 14,
+                                                  child: Icon(
+                                                    Icons.check,
+                                                    size: 17,
+                                                  ),
                                                 ),
                                               ),
-                                            ),
-                                        ],
+                                          ],
+                                        ),
                                       ),
                                     ),
                                     Padding(

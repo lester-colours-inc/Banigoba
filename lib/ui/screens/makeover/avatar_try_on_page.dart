@@ -1,10 +1,13 @@
 // Generates a clothing try-on using the signed-in user's saved avatar.
+import 'dart:math' as math;
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../../data/services/outfit_service.dart';
 import '../../../data/services/photo_edit_api.dart';
+import '../../widgets/safe_product_image.dart';
 import 'ai_upload_page.dart';
 import '../main/main_screen.dart';
 
@@ -41,16 +44,17 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
   List<Map<String, dynamic>> get _selectedProducts {
     final arguments = ModalRoute.of(context)?.settings.arguments;
     if (arguments is Map && arguments['products'] is Iterable) {
-      return (arguments['products'] as Iterable)
+      final products = (arguments['products'] as Iterable)
           .whereType<Map>()
           .map((product) => Map<String, dynamic>.from(product))
           .toList();
+      if (products.isNotEmpty) return products;
     }
     final garmentUrl = _garmentImageUrl;
     if (garmentUrl == null) return [];
     return [
       {
-        'name': _garmentName,
+        'name': _legacyGarmentName,
         'imageUrl': garmentUrl,
         'category': _garmentCategory ?? 'auto',
       },
@@ -71,6 +75,19 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
   }
 
   String get _garmentName {
+    final products = _selectedProducts;
+    if (products.length > 1) {
+      return products
+          .map((product) => (product['name'] ?? 'Clothing').toString())
+          .join(' + ');
+    }
+    if (products.length == 1) {
+      return (products.first['name'] ?? 'Selected clothing').toString();
+    }
+    return _legacyGarmentName;
+  }
+
+  String get _legacyGarmentName {
     if (widget.garmentName?.isNotEmpty == true) return widget.garmentName!;
     final arguments = ModalRoute.of(context)?.settings.arguments;
     if (arguments is Map) {
@@ -447,6 +464,7 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
   Widget build(BuildContext context) {
     final garmentUrl = _garmentImageUrl;
     final products = _selectedProducts;
+    final isMultiProductLook = products.length > 1;
     final colors = Theme.of(context).colorScheme;
 
     return Scaffold(
@@ -493,11 +511,12 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
                             child: Column(
                               children: [
                                 Expanded(
-                                  child: Image.network(
-                                    _productImageUrl(product),
+                                  child: SafeProductImage(
+                                    imageUrl: _productImageUrl(product),
+                                    width: double.infinity,
+                                    height: double.infinity,
                                     fit: BoxFit.contain,
-                                    errorBuilder: (_, _, _) =>
-                                        Icon(Icons.broken_image_outlined),
+                                    iconSize: 28,
                                   ),
                                 ),
                                 Text(
@@ -523,14 +542,16 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
                           emptyText: 'Create an avatar first',
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _imageCard(
-                          title: 'Clothing',
-                          imageUrl: garmentUrl,
-                          emptyText: 'Choose clothing to try on',
+                      if (!isMultiProductLook) ...[
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _imageCard(
+                            title: 'Clothing',
+                            imageUrl: garmentUrl,
+                            emptyText: 'Choose clothing to try on',
+                          ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                   if (_avatarImageUrl == null) ...[
@@ -728,66 +749,131 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
         borderRadius: BorderRadius.circular(22),
         border: Border.all(color: colors.outlineVariant),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(
-            flex: 3,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: Image.network(
-                _resultImageUrl ?? _avatarImageUrl!,
-                fit: BoxFit.contain,
-                errorBuilder: (_, _, _) =>
-                    const Center(child: Icon(Icons.person_outline, size: 64)),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            flex: 2,
-            child: Column(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final displayProducts = products
+                .where((product) => _productImageUrl(product).isNotEmpty)
+                .toList();
+            final bottomCount = _collageBottomCount(displayProducts.length);
+            final tileSize = _collageProductTileSize(
+              itemCount: displayProducts.length,
+              bottomCount: bottomCount,
+              width: constraints.maxWidth,
+              height: constraints.maxHeight,
+            );
+            final gap = tileSize <= 48 ? 5.0 : 8.0;
+            final bottomProducts = displayProducts.take(bottomCount).toList();
+            final sideProducts = displayProducts.skip(bottomCount).toList();
+            final bottomGap = _collageEvenGap(
+              extent: constraints.maxWidth,
+              itemCount: bottomProducts.length,
+              tileSize: tileSize,
+              fallback: gap,
+            );
+            final sideAvailableHeight = constraints.maxHeight - tileSize - gap;
+            final sideGap = _collageEvenGap(
+              extent: sideAvailableHeight,
+              itemCount: sideProducts.length,
+              tileSize: tileSize,
+              fallback: gap,
+            );
+
+            return Stack(
+              fit: StackFit.expand,
               children: [
-                for (final product in products)
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: colors.surface,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: colors.outlineVariant),
-                        ),
-                        child: Column(
-                          children: [
-                            Expanded(
-                              child: Image.network(
-                                _productImageUrl(product),
-                                fit: BoxFit.contain,
-                                errorBuilder: (_, _, _) =>
-                                    const Icon(Icons.broken_image_outlined),
-                              ),
-                            ),
-                            Text(
-                              (product['name'] ?? 'Clothing').toString(),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                Container(
+                  color: colors.surface,
+                  child: Image.network(
+                    _resultImageUrl ?? _avatarImageUrl!,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, _, _) => const Center(
+                      child: Icon(Icons.person_outline, size: 64),
                     ),
                   ),
+                ),
+                for (var index = 0; index < sideProducts.length; index++)
+                  Positioned(
+                    right: gap,
+                    top: sideGap + index * (tileSize + sideGap),
+                    width: tileSize,
+                    height: tileSize,
+                    child: _buildCollageProduct(sideProducts[index]),
+                  ),
+                for (var index = 0; index < bottomProducts.length; index++)
+                  Positioned(
+                    left: bottomGap + index * (tileSize + bottomGap),
+                    bottom: gap,
+                    width: tileSize,
+                    height: tileSize,
+                    child: _buildCollageProduct(bottomProducts[index]),
+                  ),
               ],
-            ),
-          ),
-        ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  int _collageBottomCount(int itemCount) {
+    if (itemCount <= 3) return itemCount;
+    if (itemCount == 4) return 3;
+    return math.min(3, itemCount);
+  }
+
+  double _collageProductTileSize({
+    required int itemCount,
+    required int bottomCount,
+    required double width,
+    required double height,
+  }) {
+    const maxTile = 136.0;
+    const minTile = 58.0;
+    const gap = 8.0;
+
+    final sideCount = itemCount - bottomCount;
+    final bottomFit = bottomCount == 0
+        ? maxTile
+        : (width - gap * (bottomCount + 1)) / bottomCount;
+    final sideFit = sideCount == 0
+        ? maxTile
+        : (height - bottomFit - gap * (sideCount + 2)) / sideCount;
+    final fit = math.min(maxTile, math.min(bottomFit, sideFit));
+    return fit.clamp(minTile, maxTile).toDouble();
+  }
+
+  double _collageEvenGap({
+    required double extent,
+    required int itemCount,
+    required double tileSize,
+    required double fallback,
+  }) {
+    if (itemCount <= 0) return fallback;
+    final available = extent - itemCount * tileSize;
+    if (available <= fallback * (itemCount + 1)) return fallback;
+    return available / (itemCount + 1);
+  }
+
+  Widget _buildCollageProduct(Map<String, dynamic> product) {
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colors.outlineVariant),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(9),
+        child: SafeProductImage(
+          imageUrl: _productImageUrl(product),
+          width: double.infinity,
+          height: double.infinity,
+          fit: BoxFit.contain,
+          iconSize: 34,
+        ),
       ),
     );
   }
