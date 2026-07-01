@@ -1,3 +1,8 @@
+// Customer boutique marketplace.
+//
+// This page lets shoppers browse verified boutiques and products. It filters
+// seller profiles by shop.verified so only admin-approved boutiques are visible
+// in the public marketplace.
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -112,7 +117,7 @@ class _ShopsPageState extends State<ShopsPage> {
 
                 return _tab == 0
                     ? _buildBoutiques(products)
-                    : _buildProducts(products);
+                    : _buildVerifiedProducts(products);
               },
             ),
           ),
@@ -152,19 +157,33 @@ class _ShopsPageState extends State<ShopsPage> {
       );
     }
 
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 30),
-      itemCount: grouped.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 14),
-      itemBuilder: (context, index) {
-        final entry = grouped.entries.elementAt(index);
-        return FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-          future: FirebaseFirestore.instance
-              .collection('users')
-              .doc(entry.key)
-              .get(),
-          builder: (context, snapshot) {
-            final user = snapshot.data?.data() ?? const <String, dynamic>{};
+    return FutureBuilder<Map<String, Map<String, dynamic>>>(
+      future: _loadSellerProfiles(grouped.keys),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final sellers = snapshot.data ?? const <String, Map<String, dynamic>>{};
+        final verifiedEntries = grouped.entries.where((entry) {
+          final user = sellers[entry.key] ?? const <String, dynamic>{};
+          final shop = Map<String, dynamic>.from(
+            user['shop'] as Map? ?? const {},
+          );
+          return shop['verified'] == true;
+        }).toList();
+
+        if (verifiedEntries.isEmpty) {
+          return const Center(child: Text('No verified boutiques yet.'));
+        }
+
+        return ListView.separated(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 30),
+          itemCount: verifiedEntries.length,
+          separatorBuilder: (_, _) => const SizedBox(height: 14),
+          itemBuilder: (context, index) {
+            final entry = verifiedEntries[index];
+            final user = sellers[entry.key] ?? const <String, dynamic>{};
             final shop = Map<String, dynamic>.from(
               user['shop'] as Map? ?? const {},
             );
@@ -253,6 +272,23 @@ class _ShopsPageState extends State<ShopsPage> {
     );
   }
 
+  Future<Map<String, Map<String, dynamic>>> _loadSellerProfiles(
+    Iterable<String> sellerIds,
+  ) async {
+    // Products store uploader IDs, so profile verification has to be checked
+    // against the seller user documents before rendering public listings.
+    final entries = await Future.wait(
+      sellerIds.map((sellerId) async {
+        final doc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(sellerId)
+            .get();
+        return MapEntry(sellerId, doc.data() ?? const <String, dynamic>{});
+      }),
+    );
+    return Map<String, Map<String, dynamic>>.fromEntries(entries);
+  }
+
   Widget _buildProducts(List<Map<String, dynamic>> products) {
     if (products.isEmpty) {
       return const Center(child: Text('No products available.'));
@@ -270,6 +306,37 @@ class _ShopsPageState extends State<ShopsPage> {
         product: products[index],
         onTap: () => _openProduct(products[index]),
       ),
+    );
+  }
+
+  Widget _buildVerifiedProducts(List<Map<String, dynamic>> products) {
+    final sellerIds = products
+        .map((product) => (product['uploaderId'] ?? '').toString())
+        .where((sellerId) => sellerId.isNotEmpty)
+        .toSet();
+    if (sellerIds.isEmpty) {
+      return const Center(child: Text('No products available.'));
+    }
+
+    return FutureBuilder<Map<String, Map<String, dynamic>>>(
+      future: _loadSellerProfiles(sellerIds),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final sellers = snapshot.data ?? const <String, Map<String, dynamic>>{};
+        final verifiedProducts = products.where((product) {
+          final sellerId = (product['uploaderId'] ?? '').toString();
+          final user = sellers[sellerId] ?? const <String, dynamic>{};
+          final shop = Map<String, dynamic>.from(
+            user['shop'] as Map? ?? const {},
+          );
+          return shop['verified'] == true;
+        }).toList();
+
+        return _buildProducts(verifiedProducts);
+      },
     );
   }
 

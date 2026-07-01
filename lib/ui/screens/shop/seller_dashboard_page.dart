@@ -1,3 +1,8 @@
+// Seller home for boutique owners.
+//
+// Boutique owners use this screen to maintain storefront details, manage their
+// products, review orders, and open customer conversations. Storefront edits
+// intentionally preserve admin verification fields.
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -61,6 +66,23 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
     }
     setState(() => _saving = true);
     try {
+      final userRef = FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid);
+      // Keep verification metadata intact by updating only the editable
+      // storefront fields inside the nested shop map.
+      await userRef.update({
+        'isSeller': true,
+        'shop.name': _shopName.text.trim(),
+        'shop.description': _description.text.trim(),
+        'shop.contact': _contact.text.trim(),
+        'shop.updatedAt': FieldValue.serverTimestamp(),
+      });
+      _message('Boutique details saved.');
+    } on FirebaseException catch (error) {
+      if (error.code != 'not-found') rethrow;
+      // Very old accounts may not have a user document yet; create the nested
+      // shop map in that one case.
       await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
         'isSeller': true,
         'shop': {

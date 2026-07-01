@@ -1,4 +1,8 @@
-// Shows product information and supports owner/admin editing, deletion, and try-on actions.
+// Customer-facing product detail screen.
+//
+// This page shows boutique product metadata, lets customers choose a size,
+// adds products to wardrobe/cart, and starts the product-context boutique chat.
+// Owners can also edit or delete their own products from here.
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -6,6 +10,7 @@ import '../../../core/app_routes.dart';
 import '../../../data/services/cart_service.dart';
 import '../../../data/services/product_service.dart';
 import '../../../data/services/shop_chat_service.dart';
+import '../../../data/utils/size_inventory.dart';
 import '../../widgets/safe_product_image.dart';
 import '../makeover/avatar_try_on_page.dart';
 import 'shop_chat_page.dart';
@@ -29,6 +34,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
   late Map<String, dynamic> _currentProductData;
   final ProductService _productService = ProductService();
   final CartService _cartService = CartService();
+  String? _selectedSize;
 
   @override
   void initState() {
@@ -61,10 +67,11 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     final dynamic rawColours =
         _currentProductData['colours'] ?? _currentProductData['colour'];
     List<dynamic> coloursList = [];
-    if (rawColours is List)
+    if (rawColours is List) {
       coloursList = rawColours;
-    else if (rawColours != null && rawColours.toString().isNotEmpty)
+    } else if (rawColours != null && rawColours.toString().isNotEmpty) {
       coloursList = [rawColours];
+    }
 
     final String colourDisplay = coloursList.isNotEmpty
         ? coloursList
@@ -79,7 +86,19 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     final gender = _currentProductData['gender'] ?? 'N/A';
     final visibility = _currentProductData['visibility'] ?? 'private';
     final price = (_currentProductData['price'] as num?)?.toDouble() ?? 0;
-    final stock = (_currentProductData['stock'] as num?)?.toInt() ?? 0;
+    final sizeInventory = parseSizeInventory(_currentProductData);
+    // Only sizes with available stock are selectable. The display hides exact
+    // inventory counts, but the values still gate add-to-cart.
+    final availableSizes = sizeInventory.entries
+        .where((entry) => entry.value > 0)
+        .toList();
+    final hasSizes = sizeInventory.isNotEmpty;
+    final stock = hasSizes
+        ? sizeInventory.values.fold<int>(
+            0,
+            (total, quantity) => total + quantity,
+          )
+        : (_currentProductData['stock'] as num?)?.toInt() ?? 0;
     final shopName = (_currentProductData['shopName'] ?? '').toString();
 
     // Identify the product ID and uploader
@@ -165,8 +184,9 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                           .doc(uploaderId)
                           .snapshots(),
                       builder: (context, snapshot) {
-                        if (!snapshot.hasData || !snapshot.data!.exists)
+                        if (!snapshot.hasData || !snapshot.data!.exists) {
                           return const SizedBox.shrink();
+                        }
                         final userData =
                             snapshot.data!.data() as Map<String, dynamic>;
                         final bool isAdmin =
@@ -198,6 +218,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                         );
                       },
                     ),
+
                   // Product Name and Details
                   Text(
                     name,
@@ -220,6 +241,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                       "Availability",
                       stock > 0 ? '$stock in stock' : 'Out of stock',
                     ),
+                  if (hasSizes) _buildSizeSelector(availableSizes),
                   _buildDetailRow("Category", category),
                   _buildDetailRow("Subcategory", subcategory),
                   _buildDetailRow("Style", styleTag),
@@ -365,9 +387,12 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                               : stock <= 0 &&
                                     _currentProductData.containsKey('stock')
                               ? null
+                              : hasSizes && _selectedSize == null
+                              ? null
                               : () => _addToCartWithShopGuard(
                                   userId: currentUserId,
                                   productId: productId.toString(),
+                                  selectedSize: _selectedSize,
                                 ),
                           icon: const Icon(Icons.add_shopping_cart),
                           label: const Text('Add to Cart'),
@@ -453,12 +478,14 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
   Future<void> _addToCartWithShopGuard({
     required String userId,
     required String productId,
+    String? selectedSize,
   }) async {
     try {
       await _cartService.addToCart(
         userId: userId,
         productId: productId,
         productData: _currentProductData,
+        selectedSize: selectedSize,
       );
       if (!mounted) return;
       _showAddedToCartMessage();
@@ -490,6 +517,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
         userId: userId,
         productId: productId,
         productData: _currentProductData,
+        selectedSize: selectedSize,
       );
       if (!mounted) return;
       _showAddedToCartMessage();
@@ -509,6 +537,49 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
           label: 'View Cart',
           onPressed: () => Navigator.pushNamed(context, AppRoutes.cart),
         ),
+      ),
+    );
+  }
+
+  Widget _buildSizeSelector(List<MapEntry<String, int>> availableSizes) {
+    // The customer only sees size labels; quantities stay hidden but still
+    // drive stock checks when adding to cart and placing an order.
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            "Size:",
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+          const SizedBox(height: 8),
+          if (availableSizes.isEmpty)
+            Text(
+              'No sizes available',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            )
+          else
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: availableSizes.map((entry) {
+                final selected = _selectedSize == entry.key;
+                return ChoiceChip(
+                  label: Text(entry.key),
+                  selected: selected,
+                  onSelected: (_) => setState(() => _selectedSize = entry.key),
+                  selectedColor: const Color(0xFF0D0140).withValues(alpha: 0.2),
+                  labelStyle: TextStyle(
+                    color: selected ? const Color(0xFF0D0140) : null,
+                    fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                  ),
+                );
+              }).toList(),
+            ),
+        ],
       ),
     );
   }
@@ -552,7 +623,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
   void _confirmDelete(String id, String name, bool isCatalog) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text("Delete Item?"),
         content: Text(
           "Are you sure you want to delete '$name'? This cannot be undone.",
@@ -571,13 +642,12 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
               } else {
                 await _productService.deleteUserProduct(currentUserId, id);
               }
-              if (mounted) {
-                Navigator.pop(context); // Close dialog
-                Navigator.pop(context); // Go back from detail page
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(const SnackBar(content: Text("Item deleted")));
-              }
+              if (!mounted || !dialogContext.mounted) return;
+              Navigator.pop(dialogContext); // Close dialog
+              Navigator.pop(context); // Go back from detail page
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text("Item deleted")));
             },
             child: const Text("Delete", style: TextStyle(color: Colors.red)),
           ),
@@ -668,7 +738,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                 ),
                 const SizedBox(height: 15),
                 DropdownButtonFormField<String>(
-                  value: styleTag,
+                  initialValue: styleTag,
                   decoration: const InputDecoration(
                     labelText: "Style",
                     border: OutlineInputBorder(),
@@ -686,7 +756,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                 const SizedBox(height: 15),
                 if (!isCatalog)
                   DropdownButtonFormField<String>(
-                    value: visibility,
+                    initialValue: visibility,
                     decoration: const InputDecoration(
                       labelText: "Visibility",
                       border: OutlineInputBorder(),
@@ -714,10 +784,11 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                           label: Text(color),
                           selected: selectedColours.contains(color),
                           onSelected: (selected) => setModalState(() {
-                            if (selected)
+                            if (selected) {
                               selectedColours.add(color);
-                            else
+                            } else {
                               selectedColours.remove(color);
+                            }
                           }),
                         ),
                       )
@@ -736,10 +807,11 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                           label: Text(tag),
                           selected: selectedWeatherTags.contains(tag),
                           onSelected: (selected) => setModalState(() {
-                            if (selected)
+                            if (selected) {
                               selectedWeatherTags.add(tag);
-                            else
+                            } else {
                               selectedWeatherTags.remove(tag);
+                            }
                           }),
                         ),
                       )
@@ -758,10 +830,11 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                           label: Text(tag),
                           selected: selectedFunctionalTags.contains(tag),
                           onSelected: (selected) => setModalState(() {
-                            if (selected)
+                            if (selected) {
                               selectedFunctionalTags.add(tag);
-                            else
+                            } else {
                               selectedFunctionalTags.remove(tag);
+                            }
                           }),
                         ),
                       )
@@ -799,12 +872,11 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                         _currentProductData.addAll(updated);
                       });
 
-                      if (mounted) {
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text("Item updated")),
-                        );
-                      }
+                      if (!mounted) return;
+                      Navigator.pop(this.context);
+                      ScaffoldMessenger.of(this.context).showSnackBar(
+                        const SnackBar(content: Text("Item updated")),
+                      );
                     },
                     child: const Text(
                       "Save Changes",

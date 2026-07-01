@@ -1,4 +1,10 @@
-// Displays and manages the signed-in user's shopping cart.
+// Cart screen for boutique purchases.
+//
+// Responsibilities:
+// - show the signed-in user's Firestore cart in real time,
+// - display the selected size for sized boutique products,
+// - let the user change quantities or remove lines,
+// - collect the final collection details before creating an order.
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -31,6 +37,9 @@ class CartPage extends StatelessWidget {
                 return FutureBuilder<Map<String, Map<String, dynamic>>>(
                   future: _loadLiveProducts(items),
                   builder: (context, productSnapshot) {
+                    // Cart documents keep a snapshot of product data, but the
+                    // live product is loaded too so price display can recover
+                    // if older cart rows are missing current fields.
                     final liveProducts =
                         productSnapshot.data ??
                         const <String, Map<String, dynamic>>{};
@@ -60,6 +69,8 @@ class CartPage extends StatelessWidget {
                                           '')
                                       .toString();
                               final price = _priceFor(data, liveProduct);
+                              final selectedSize = (data['selectedSize'] ?? '')
+                                  .toString();
                               return ListTile(
                                 contentPadding: EdgeInsets.zero,
                                 leading: SizedBox(
@@ -73,12 +84,18 @@ class CartPage extends StatelessWidget {
                                 title: Text(
                                   (data['name'] ?? 'Product').toString(),
                                 ),
-                                subtitle: Text('\$${price.toStringAsFixed(2)}'),
+                                subtitle: Text(
+                                  selectedSize.isEmpty
+                                      ? '\$${price.toStringAsFixed(2)}'
+                                      : 'Size $selectedSize • \$${price.toStringAsFixed(2)}',
+                                ),
                                 trailing: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     IconButton(
-                                      onPressed: () => cart.setQuantity(
+                                      onPressed: () => _setCartQuantity(
+                                        context: context,
+                                        cart: cart,
                                         userId: user.uid,
                                         productId: doc.id,
                                         quantity: quantity - 1,
@@ -89,7 +106,9 @@ class CartPage extends StatelessWidget {
                                     ),
                                     Text('$quantity'),
                                     IconButton(
-                                      onPressed: () => cart.setQuantity(
+                                      onPressed: () => _setCartQuantity(
+                                        context: context,
+                                        cart: cart,
                                         userId: user.uid,
                                         productId: doc.id,
                                         quantity: quantity + 1,
@@ -171,6 +190,27 @@ class CartPage extends StatelessWidget {
     if (value is num) return value.toDouble();
     if (value is String) return double.tryParse(value.trim()) ?? 0;
     return 0;
+  }
+
+  Future<void> _setCartQuantity({
+    required BuildContext context,
+    required CartService cart,
+    required String userId,
+    required String productId,
+    required int quantity,
+  }) async {
+    try {
+      await cart.setQuantity(
+        userId: userId,
+        productId: productId,
+        quantity: quantity,
+      );
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Unable to update cart: $error')));
+    }
   }
 
   void _showCollectionCheckout(

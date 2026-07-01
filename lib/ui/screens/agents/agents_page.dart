@@ -115,6 +115,7 @@ class _AgentsPageState extends State<AgentsPage> {
       stream: FirebaseFirestore.instance
           .collection('users')
           .where('agentProfile.active', isEqualTo: true)
+          .where('agentProfile.verified', isEqualTo: true)
           .where('agentProfile.type', isEqualTo: _selectedAgentType)
           .snapshots(),
       builder: (context, snapshot) {

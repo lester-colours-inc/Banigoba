@@ -12,6 +12,7 @@ import '../../widgets/safe_product_image.dart';
 import '../events/events_page.dart';
 import '../makeover/ai_upload_page.dart';
 import '../shop/product_detail_page.dart';
+import 'hair_style_page.dart';
 
 /// The main landing page after login, providing quick access to features
 /// Primary landing screen for users, featuring AI makeover options,
@@ -838,16 +839,29 @@ class _ShoppingIntelligencePageState extends State<ShoppingIntelligencePage> {
     final stylePreference = (userData['stylePreference'] ?? '').toString();
     final hairstylePreferences = _stringList(userData['hairstylePreference']);
 
-    final reasonsByToken = <String, Set<String>>{};
-    void addSignal(String token, String reason) {
+    final productReasonsByToken = <String, Set<String>>{};
+    final hairReasonsByToken = <String, Set<String>>{};
+    void addSignal(
+      Map<String, Set<String>> reasonsByToken,
+      String token,
+      String reason,
+    ) {
       final normalized = _normalizeToken(token);
       if (normalized.isEmpty || normalized == 'other') return;
       reasonsByToken.putIfAbsent(normalized, () => <String>{}).add(reason);
     }
 
-    addSignal(stylePreference, 'your $stylePreference style preference');
+    addSignal(
+      productReasonsByToken,
+      stylePreference,
+      'your $stylePreference style preference',
+    );
     for (final preference in hairstylePreferences) {
-      addSignal(preference, 'your $preference hairstyle preference');
+      addSignal(
+        hairReasonsByToken,
+        preference,
+        'your $preference hairstyle preference',
+      );
     }
 
     if (userId != null) {
@@ -859,7 +873,11 @@ class _ShoppingIntelligencePageState extends State<ShoppingIntelligencePage> {
           .get();
       for (final doc in wardrobeSnapshot.docs) {
         for (final token in _styleTokens(doc.data())) {
-          addSignal(token, 'similar tags in your wardrobe');
+          addSignal(
+            productReasonsByToken,
+            token,
+            'similar tags in your wardrobe',
+          );
         }
       }
 
@@ -874,7 +892,7 @@ class _ShoppingIntelligencePageState extends State<ShoppingIntelligencePage> {
         for (final item in items.whereType<Map>()) {
           final itemData = Map<String, dynamic>.from(item);
           for (final token in _styleTokens(itemData)) {
-            addSignal(token, 'your past purchases');
+            addSignal(productReasonsByToken, token, 'your past purchases');
           }
         }
       }
@@ -895,7 +913,7 @@ class _ShoppingIntelligencePageState extends State<ShoppingIntelligencePage> {
             (doc) => _scoreRecommendation(
               type: _SmartRecommendationType.product,
               data: {...doc.data(), 'id': doc.id},
-              reasonsByToken: reasonsByToken,
+              reasonsByToken: productReasonsByToken,
             ),
           )
           .whereType<_SmartRecommendation>(),
@@ -904,7 +922,7 @@ class _ShoppingIntelligencePageState extends State<ShoppingIntelligencePage> {
             (doc) => _scoreRecommendation(
               type: _SmartRecommendationType.hairstyle,
               data: {...doc.data(), 'id': doc.id},
-              reasonsByToken: reasonsByToken,
+              reasonsByToken: hairReasonsByToken,
             ),
           )
           .whereType<_SmartRecommendation>(),
@@ -975,9 +993,11 @@ class _ShoppingIntelligencePageState extends State<ShoppingIntelligencePage> {
       'hairType',
       'texture',
       'styleType',
+      'styleTypes',
       'cutTypeGroup',
       'cutType',
       'occasion',
+      'occasions',
       'maintenanceLevel',
       'length',
     ]) {
@@ -1040,7 +1060,15 @@ class _SmartRecommendationTile extends StatelessWidget {
                     ProductDetailPage(productData: recommendation.data),
               ),
             )
-          : null,
+          : () => Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => RecommendedHairTryOnPage(
+                  styleName: recommendation.name,
+                  styleImageUrl: recommendation.imageUrl,
+                ),
+              ),
+            ),
       borderRadius: BorderRadius.circular(10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

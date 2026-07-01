@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../../data/services/notification_service.dart';
 import '../../../data/services/shop_chat_service.dart';
 import '../shop/shop_chat_page.dart';
 
@@ -124,6 +125,7 @@ class _FashionDesignersPageState extends State<FashionDesignersPage> {
       stream: FirebaseFirestore.instance
           .collection('users')
           .where('designerProfile.active', isEqualTo: true)
+          .where('designerProfile.verified', isEqualTo: true)
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
@@ -429,7 +431,7 @@ class _FashionDesignersPageState extends State<FashionDesignersPage> {
                 requestData: doc.data(),
               ),
               onStatusSelected: (status) =>
-                  _updateRequestStatus(doc.id, status),
+                  _updateRequestStatus(doc.id, status, doc.data()),
             );
           },
         );
@@ -437,14 +439,58 @@ class _FashionDesignersPageState extends State<FashionDesignersPage> {
     );
   }
 
-  Future<void> _updateRequestStatus(String requestId, String status) async {
-    await FirebaseFirestore.instance
+  Future<void> _updateRequestStatus(
+    String requestId,
+    String status,
+    Map<String, dynamic> requestData,
+  ) async {
+    final requestRef = FirebaseFirestore.instance
         .collection('design_requests')
-        .doc(requestId)
-        .set({
-          'status': status,
-          'updatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
+        .doc(requestId);
+    final currentStatus = (requestData['status'] ?? 'pending').toString();
+
+    await requestRef.set({
+      'status': status,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    if (currentStatus == status) return;
+
+    final customerId = (requestData['customerId'] ?? '').toString();
+    if (customerId.isEmpty) return;
+
+    final designerId = (requestData['designerId'] ?? '').toString();
+    final designerName = (requestData['designerName'] ?? 'Designer').toString();
+    final occasion = (requestData['occasion'] ?? 'custom design').toString();
+    final statusLabel = _requestStatusLabel(status).toLowerCase();
+
+    await NotificationService().addNotification(
+      receiverId: customerId,
+      title: 'Design request $statusLabel',
+      body: '$designerName $statusLabel your $occasion request.',
+      type: 'designer_request_status',
+      extraData: {
+        'designerId': designerId,
+        'designerName': designerName,
+        'requestId': requestId,
+        'requestStatus': status,
+        'requestOccasion': occasion,
+        'fromName': designerName,
+      },
+    );
+  }
+
+  String _requestStatusLabel(String status) {
+    switch (status) {
+      case 'accepted':
+        return 'Accepted';
+      case 'declined':
+        return 'Declined';
+      case 'completed':
+        return 'Completed';
+      default:
+        return 'Updated';
+    }
   }
 
   int _compareRequestsNewestFirst(

@@ -1,4 +1,8 @@
-// Lets sellers manage products listed by their shop or boutique.
+// Seller inventory manager for boutiques.
+//
+// This screen creates and edits catalog products in Firestore, uploads product
+// images, and stores optional per-size inventory. When size inventory exists,
+// the total stock field is still saved for legacy screens and quick summaries.
 import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -20,6 +24,29 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
   final ImagePicker _picker = ImagePicker();
   final String _currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
   static const Color primaryColor = Color(0xFF0D0140);
+  // Preset sizes speed up entry while still allowing custom labels in the
+  // editable size rows below.
+  static const List<String> _suggestedSizes = [
+    'XXS',
+    'XS',
+    'S',
+    'M',
+    'L',
+    'XL',
+    'XXL',
+    'XXXL',
+    'UK 4',
+    'UK 6',
+    'UK 8',
+    'UK 10',
+    'UK 12',
+    'UK 14',
+    'UK 16',
+    'UK 18',
+    'UK 20',
+    'UK 22',
+    'UK 24',
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -54,6 +81,14 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
               final name = data['name'] ?? 'No Name';
               final imageUrl = data['imageUrl'] ?? data['imageURL'] ?? '';
               final rawImageUrl = data['rawImageUrl'] ?? imageUrl;
+              final sizeInventory = _sizeInventoryFor(data);
+              // For sized items, total stock is derived from the size buckets.
+              final stock = sizeInventory.isNotEmpty
+                  ? sizeInventory.values.fold<int>(
+                      0,
+                      (total, quantity) => total + quantity,
+                    )
+                  : (data['stock'] as num?)?.toInt() ?? 0;
 
               return ListTile(
                 leading: ClipRRect(
@@ -70,7 +105,8 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                 subtitle: Text(
                   "${data['category'] ?? 'No Category'} • "
                   "\$${((data['price'] as num?)?.toDouble() ?? 0).toStringAsFixed(2)} • "
-                  "${(data['stock'] as num?)?.toInt() ?? 0} in stock",
+                  "$stock in stock"
+                  "${sizeInventory.isEmpty ? '' : ' • ${sizeInventory.length} sizes'}",
                 ),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -102,7 +138,7 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
   void _confirmDelete(String id, String name) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text("Delete Product?"),
         content: Text(
           "Are you sure you want to remove '$name' from your boutique? This cannot be undone.",
@@ -115,9 +151,9 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
           TextButton(
             onPressed: () async {
               await _productService.deleteProduct(id);
-              if (mounted) {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
+              if (dialogContext.mounted) {
+                Navigator.pop(dialogContext);
+                ScaffoldMessenger.of(dialogContext).showSnackBar(
                   const SnackBar(content: Text("Product removed")),
                 );
               }
@@ -168,6 +204,9 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
     );
     List<String> selectedFunctionalTags = List<String>.from(
       existingData?['functionalTags'] ?? [],
+    );
+    final List<_SizeInventoryEntry> sizeEntries = _sizeEntriesFor(
+      existingData ?? const <String, dynamic>{},
     );
     String gender = existingData?['gender'] ?? 'unisex';
     File? selectedImage;
@@ -361,6 +400,99 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
               const SizedBox(height: 15),
               Row(
                 children: [
+                  const Expanded(
+                    child: Text(
+                      "Size Inventory",
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: () {
+                      setModalState(() {
+                        final usedSizes = sizeEntries
+                            .map(
+                              (entry) => entry.sizeController.text
+                                  .trim()
+                                  .toUpperCase(),
+                            )
+                            .toSet();
+                        final nextSize = _suggestedSizes.firstWhere(
+                          (size) => !usedSizes.contains(size),
+                          orElse: () => '',
+                        );
+                        sizeEntries.add(
+                          _SizeInventoryEntry(
+                            size: nextSize,
+                            quantity: nextSize.isEmpty ? 0 : 1,
+                          ),
+                        );
+                      });
+                    },
+                    icon: const Icon(Icons.add),
+                    label: const Text('Add Size'),
+                  ),
+                ],
+              ),
+              if (sizeEntries.isEmpty)
+                Text(
+                  'Use XXS-XXXL or UK numeric sizes. Leave empty for one-size items.',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                )
+              else
+                Column(
+                  children: [
+                    for (int index = 0; index < sizeEntries.length; index++)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              flex: 2,
+                              child: TextField(
+                                controller: sizeEntries[index].sizeController,
+                                textCapitalization:
+                                    TextCapitalization.characters,
+                                decoration: const InputDecoration(
+                                  labelText: "Size",
+                                  border: OutlineInputBorder(),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              flex: 3,
+                              child: TextField(
+                                controller:
+                                    sizeEntries[index].quantityController,
+                                keyboardType: TextInputType.number,
+                                decoration: const InputDecoration(
+                                  labelText: "Quantity",
+                                  border: OutlineInputBorder(),
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              tooltip: 'Remove size',
+                              onPressed: () {
+                                setModalState(() {
+                                  sizeEntries.removeAt(index);
+                                });
+                              },
+                              icon: const Icon(Icons.delete_outline),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              const SizedBox(height: 15),
+              Row(
+                children: [
                   Expanded(
                     child: _buildSimpleDropdown(
                       "Category",
@@ -409,10 +541,11 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                     selected: isSelected,
                     onSelected: (bool selected) {
                       setModalState(() {
-                        if (selected)
+                        if (selected) {
                           selectedColours.add(color);
-                        else
+                        } else {
                           selectedColours.remove(color);
+                        }
                       });
                     },
                     selectedColor: primaryColor.withValues(alpha: 0.2),
@@ -449,10 +582,11 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                     selected: isSelected,
                     onSelected: (bool selected) {
                       setModalState(() {
-                        if (selected)
+                        if (selected) {
                           selectedWeatherTags.add(tag);
-                        else
+                        } else {
                           selectedWeatherTags.remove(tag);
+                        }
                       });
                     },
                     selectedColor: primaryColor.withValues(alpha: 0.2),
@@ -482,10 +616,11 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                     selected: isSelected,
                     onSelected: (bool selected) {
                       setModalState(() {
-                        if (selected)
+                        if (selected) {
                           selectedFunctionalTags.add(tag);
-                        else
+                        } else {
                           selectedFunctionalTags.remove(tag);
+                        }
                       });
                     },
                     selectedColor: primaryColor.withValues(alpha: 0.2),
@@ -512,15 +647,39 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                     ),
                   ),
                   onPressed: () async {
+                    final sizeInventory = _sizeInventoryFromEntries(
+                      sizeEntries,
+                    );
+                    // Duplicate or malformed size rows would make checkout
+                    // stock checks unreliable, so validate before saving.
+                    final hasInvalidSizes =
+                        sizeEntries.any(
+                          (entry) =>
+                              entry.sizeController.text.trim().isEmpty ||
+                              int.tryParse(
+                                    entry.quantityController.text.trim(),
+                                  ) ==
+                                  null ||
+                              int.parse(entry.quantityController.text.trim()) <
+                                  0,
+                        ) ||
+                        sizeInventory.length != sizeEntries.length;
+                    final stock = sizeInventory.isNotEmpty
+                        ? sizeInventory.values.fold<int>(
+                            0,
+                            (total, quantity) => total + quantity,
+                          )
+                        : int.tryParse(stockController.text) ?? -1;
                     if ((selectedImage == null && !isEditing) ||
                         nameController.text.isEmpty ||
                         double.tryParse(priceController.text) == null ||
-                        int.tryParse(stockController.text) == null ||
+                        stock < 0 ||
+                        hasInvalidSizes ||
                         selectedColours.isEmpty) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text(
-                            "Add an image, name, valid price, stock, and colour.",
+                            "Add an image, name, valid price, inventory, and colour.",
                           ),
                         ),
                       );
@@ -570,7 +729,7 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                         'uploaderId': _currentUserId,
                         'name': nameController.text,
                         'price': double.parse(priceController.text),
-                        'stock': int.parse(stockController.text),
+                        'stock': stock,
                         'imageUrl': imageUrl,
                         'rawImageUrl': rawImageUrl,
                         'category': category,
@@ -582,6 +741,10 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                         'gender': gender,
                         'weatherTags': selectedWeatherTags,
                         'functionalTags': selectedFunctionalTags,
+                        if (sizeInventory.isNotEmpty)
+                          'sizeInventory': sizeInventory,
+                        if (sizeInventory.isEmpty && isEditing)
+                          'sizeInventory': FieldValue.delete(),
                         if (!isEditing)
                           'createdAt': FieldValue.serverTimestamp(),
                         if (isEditing)
@@ -677,7 +840,7 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
         ),
         const SizedBox(height: 4),
         DropdownButtonFormField<String>(
-          value: value,
+          initialValue: value,
           items: items
               .map(
                 (e) => DropdownMenuItem(
@@ -724,4 +887,49 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
     }
     return null;
   }
+
+  List<_SizeInventoryEntry> _sizeEntriesFor(Map<String, dynamic> data) {
+    final inventory = _sizeInventoryFor(data);
+    return inventory.entries
+        .map(
+          (entry) =>
+              _SizeInventoryEntry(size: entry.key, quantity: entry.value),
+        )
+        .toList();
+  }
+
+  Map<String, int> _sizeInventoryFor(Map<String, dynamic> data) {
+    final raw = data['sizeInventory'];
+    if (raw is! Map) return <String, int>{};
+    final inventory = <String, int>{};
+    raw.forEach((key, value) {
+      final size = key.toString().trim().toUpperCase();
+      final quantity = value is num
+          ? value.toInt()
+          : int.tryParse(value.toString().trim()) ?? 0;
+      if (size.isNotEmpty) inventory[size] = quantity;
+    });
+    return inventory;
+  }
+
+  Map<String, int> _sizeInventoryFromEntries(
+    List<_SizeInventoryEntry> entries,
+  ) {
+    final inventory = <String, int>{};
+    for (final entry in entries) {
+      final size = entry.sizeController.text.trim().toUpperCase();
+      final quantity = int.tryParse(entry.quantityController.text.trim()) ?? -1;
+      if (size.isNotEmpty && quantity >= 0) inventory[size] = quantity;
+    }
+    return inventory;
+  }
+}
+
+class _SizeInventoryEntry {
+  _SizeInventoryEntry({required String size, required int quantity})
+    : sizeController = TextEditingController(text: size),
+      quantityController = TextEditingController(text: quantity.toString());
+
+  final TextEditingController sizeController;
+  final TextEditingController quantityController;
 }

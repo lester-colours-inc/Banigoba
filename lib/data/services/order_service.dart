@@ -1,8 +1,14 @@
+// Order workflow for boutique checkout.
+//
+// Converts the current user's cart into an order document, decrements product
+// stock, opens/updates the boutique chat, and notifies the seller. Checkout is
+// intentionally collection-based with a single "pay upon collection" method.
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import 'notification_service.dart';
 import 'shop_chat_service.dart';
+import '../utils/size_inventory.dart';
 
 class OrderService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -75,6 +81,8 @@ class OrderService {
             'productId': productId,
             'name': (mergedData['name'] ?? 'Product').toString(),
             'quantity': quantity,
+            if ((data['selectedSize'] ?? '').toString().trim().isNotEmpty)
+              'selectedSize': data['selectedSize'].toString().trim(),
             'price': price,
             'lineTotal': price * quantity,
             'imageUrl':
@@ -117,6 +125,30 @@ class OrderService {
           continue;
         }
         final quantity = _intValue(record.orderItem['quantity'], fallback: 1);
+        final selectedSize = normalizeSizeLabel(
+          record.orderItem['selectedSize'],
+        );
+        final sizeInventory = parseSizeInventory(productData);
+        // Sized products reduce only the selected size bucket; total stock is
+        // recalculated so older screens that read stock still stay accurate.
+        if (selectedSize.isNotEmpty && sizeInventory.isNotEmpty) {
+          final currentSizeStock = sizeInventory[selectedSize] ?? 0;
+          if (currentSizeStock < quantity) {
+            throw Exception(
+              '${record.orderItem['name']} only has $currentSizeStock left in size $selectedSize.',
+            );
+          }
+          sizeInventory[selectedSize] = currentSizeStock - quantity;
+          transaction.update(productRef, {
+            'sizeInventory': sizeInventory,
+            'stock': sizeInventory.values.fold<int>(
+              0,
+              (total, sizeStock) => total + sizeStock,
+            ),
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+          continue;
+        }
         final currentStock = _intValue(productData['stock']);
         if (currentStock < quantity) {
           throw Exception(

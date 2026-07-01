@@ -8,6 +8,7 @@ import '../../../data/services/notification_service.dart';
 import '../../widgets/cart_badge_button.dart';
 import '../shop/shop_chat_page.dart';
 import '../../../data/services/friend_service.dart';
+import '../designers/fashion_designers_page.dart';
 import '../social/profile_page.dart';
 import '../shop/shop_products_page.dart';
 
@@ -29,10 +30,10 @@ class _NotificationsPageState extends State<NotificationsPage> {
   @override
   void initState() {
     super.initState();
-    _captureNewNotificationsAndClearBell();
+    _captureUnreadNotifications();
   }
 
-  Future<void> _captureNewNotificationsAndClearBell() async {
+  Future<void> _captureUnreadNotifications() async {
     final userId = FirebaseAuth.instance.currentUser?.uid ?? '';
     if (userId.isEmpty) return;
 
@@ -53,7 +54,11 @@ class _NotificationsPageState extends State<NotificationsPage> {
             .map((doc) => doc.id),
       );
     });
-    await notificationService.markAllAsRead();
+  }
+
+  void _markNotificationOpened(String id) {
+    notificationService.markAsRead(id);
+    setState(() => _newNotificationIds.remove(id));
   }
 
   @override
@@ -274,6 +279,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
               'order_update',
               'shop_promo',
               'shop_new_item',
+              'shop_message',
+              'shop_approval',
             ].contains(type);
           }
           if (_selectedTabIndex == 3) {
@@ -282,6 +289,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
               'designer_update',
               'designer_collection',
               'designer_message',
+              'designer_request_status',
             ].contains(type);
           }
           return false;
@@ -398,8 +406,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
     return GestureDetector(
       onTap: () {
-        notificationService.markAsRead(id);
-        setState(() => _newNotificationIds.remove(id));
+        _markNotificationOpened(id);
         _handleNotificationTap(context, type, extraData);
       },
       child: Row(
@@ -441,13 +448,16 @@ class _NotificationsPageState extends State<NotificationsPage> {
                                 text: fromName,
                                 style: TextStyle(fontWeight: FontWeight.bold),
                                 recognizer: TapGestureRecognizer()
-                                  ..onTap = () => _openNotificationName(
-                                    type: type,
-                                    extraData: extraData,
-                                    senderId: senderId,
-                                    displayName: fromName,
-                                    useShopIdentity: useShopIdentity,
-                                  ),
+                                  ..onTap = () {
+                                    _markNotificationOpened(id);
+                                    _openNotificationName(
+                                      type: type,
+                                      extraData: extraData,
+                                      senderId: senderId,
+                                      displayName: fromName,
+                                      useShopIdentity: useShopIdentity,
+                                    );
+                                  },
                               ),
                               TextSpan(text: ' '),
                             ],
@@ -727,6 +737,12 @@ class _NotificationsPageState extends State<NotificationsPage> {
         return 'tried on your Daily Dress Up.';
       case 'shop_message':
         return 'sent you a shop message.';
+      case 'shop_approval':
+        return _stripActorName(defaultBody, actorName) ??
+            'approved your boutique.';
+      case 'designer_request_status':
+        return _stripActorName(defaultBody, actorName) ??
+            'updated your design request.';
       case 'order_update':
         return _stripActorName(defaultBody, actorName) ?? 'updated your order.';
       case 'follow_request':
@@ -771,6 +787,18 @@ class _NotificationsPageState extends State<NotificationsPage> {
     required String displayName,
     required bool useShopIdentity,
   }) {
+    if (type == 'designer_request_status' || type == 'designer_message') {
+      final designerId = (extraData?['designerId'] ?? '').toString();
+      if (designerId.isEmpty) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute<void>(
+          builder: (_) => DesignerDetailPage(designerId: designerId),
+        ),
+      );
+      return;
+    }
+
     if (useShopIdentity) {
       final sellerId = (extraData?['sellerId'] ?? '').toString();
       final shopName = (extraData?['shopName'] ?? displayName)
@@ -845,6 +873,19 @@ class _NotificationsPageState extends State<NotificationsPage> {
         MaterialPageRoute<void>(
           builder: (_) =>
               ShopChatPage(chatId: chatId, title: title, asSeller: asSeller),
+        ),
+      );
+      return;
+    }
+    if (type == 'shop_approval') {
+      final sellerId = (extraData['sellerId'] ?? '').toString();
+      final shopName = (extraData['shopName'] ?? 'Boutique').toString();
+      if (sellerId.isEmpty) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute<void>(
+          builder: (_) =>
+              ShopProductsPage(sellerId: sellerId, shopName: shopName),
         ),
       );
       return;

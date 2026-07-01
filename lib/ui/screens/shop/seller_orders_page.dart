@@ -148,10 +148,11 @@ class _OrderCardState extends State<_OrderCard> {
             ...items.map((item) {
               final quantity = (item['quantity'] as num?)?.toInt() ?? 1;
               final price = (item['price'] as num?)?.toDouble() ?? 0;
+              final selectedSize = (item['selectedSize'] ?? '').toString();
               return Padding(
                 padding: const EdgeInsets.only(bottom: 4),
                 child: Text(
-                  '$quantity x ${(item['name'] ?? 'Product')} - \$${price.toStringAsFixed(2)}',
+                  '$quantity x ${(item['name'] ?? 'Product')}${selectedSize.isEmpty ? '' : ' • Size $selectedSize'} - \$${price.toStringAsFixed(2)}',
                 ),
               );
             }),

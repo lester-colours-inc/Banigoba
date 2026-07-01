@@ -16,6 +16,7 @@ import '../ui/screens/shop/shops_page.dart';
 import '../ui/screens/agents/agents_page.dart';
 import '../ui/screens/designers/fashion_designers_page.dart';
 import '../ui/screens/wardrobe/plan_ahead_page.dart';
+import '../ui/screens/wardrobe/measurement_page.dart';
 import '../ui/screens/admin/curators_workspace_page.dart';
 import '../ui/screens/settings/settings_page.dart';
 import '../data/services/permissions_service.dart';
@@ -209,7 +210,13 @@ class _AuthGateState extends State<AuthGate> {
                       body: Center(child: CircularProgressIndicator()),
                     );
                   }
-                  return userSnapshot.data?.data()?['sellerMode'] == true
+                  final userData =
+                      userSnapshot.data?.data() ?? const <String, dynamic>{};
+                  final isAdmin =
+                      userData['isAdmin'] == true ||
+                      userData['role'] == 'admin';
+                  if (isAdmin) return const CuratorsWorkspacePage();
+                  return userData['sellerMode'] == true
                       ? const SellerDashboardPage()
                       : const MainScreen();
                 },
@@ -240,6 +247,7 @@ class AppRoutes {
   static const String avatarTryOn = '/avatar-try-on';
   static const String planAhead = '/plan-ahead';
   static const String measurement = '/measurement';
+  static const String curatorsWorkspace = '/admin/curators-workspace';
   static const String settings = '/settings';
   static const String shops = '/shops';
   static const String fashionDesigners = '/fashion-designers';
@@ -254,7 +262,8 @@ class AppRoutes {
     profile: (context) => const ProfilePage(),
     avatarTryOn: (context) => const AvatarTryOnPage(),
     planAhead: (context) => const PlanAheadPage(),
-    measurement: (context) => const CuratorsWorkspacePage(),
+    measurement: (context) => const MeasurementPage(),
+    curatorsWorkspace: (context) => const CuratorsWorkspacePage(),
     settings: (context) => const SettingsPage(),
     shops: (context) => const ShopsPage(),
     fashionDesigners: (context) => const FashionDesignersPage(),

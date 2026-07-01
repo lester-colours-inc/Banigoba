@@ -1,4 +1,8 @@
-// Creates and reads user-facing notifications stored in Cloud Firestore.
+// User notification data access.
+//
+// Notifications are stored under users/{uid}/notifications and grouped by type
+// in the UI tabs. extraData carries routing IDs such as sellerId, chatId, or
+// designerId so tapping a notification can open the right screen.
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -67,12 +71,14 @@ class NotificationService {
         'shop_promo',
         'shop_new_item',
         'shop_message',
+        'shop_approval',
       ];
     } else if (category == 'designers') {
       allowedTypes = [
         'designer_update',
         'designer_collection',
         'designer_message',
+        'designer_request_status',
       ];
     }
 

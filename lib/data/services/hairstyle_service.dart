@@ -284,10 +284,10 @@ class HairstyleService {
     required String length,
     required String gender,
     required String hairType,
-    required String styleType,
+    required List<String> styleTypes,
     required String cutTypeGroup,
     required String cutType,
-    required String occasion,
+    required List<String> occasions,
     required String colour,
     required String maintenanceLevel,
     String? name,
@@ -317,10 +317,12 @@ class HairstyleService {
       'length': length,
       'gender': gender,
       'hairType': hairType,
-      'styleType': styleType,
+      'styleType': styleTypes.isEmpty ? '' : styleTypes.first,
+      'styleTypes': styleTypes,
       'cutTypeGroup': cutTypeGroup,
       'cutType': cutType,
-      'occasion': occasion,
+      'occasion': occasions.isEmpty ? '' : occasions.first,
+      'occasions': occasions,
       'colour': colour,
       'maintenanceLevel': maintenanceLevel,
       'createdBy': userId,
@@ -329,6 +331,64 @@ class HairstyleService {
     });
 
     return doc.id;
+  }
+
+  Future<void> updateCatalogHairstyle({
+    required String docId,
+    required String userId,
+    Uint8List? imageBytes,
+    String? filename,
+    required String length,
+    required String gender,
+    required String hairType,
+    required List<String> styleTypes,
+    required String cutTypeGroup,
+    required String cutType,
+    required List<String> occasions,
+    required String colour,
+    required String maintenanceLevel,
+    String? name,
+  }) async {
+    final docRef = _firestore.collection('hairstyles').doc(docId);
+    final updates = <String, dynamic>{
+      'name': name?.trim().isNotEmpty == true ? name!.trim() : cutType,
+      'length': length,
+      'gender': gender,
+      'hairType': hairType,
+      'styleType': styleTypes.isEmpty ? '' : styleTypes.first,
+      'styleTypes': styleTypes,
+      'cutTypeGroup': cutTypeGroup,
+      'cutType': cutType,
+      'occasion': occasions.isEmpty ? '' : occasions.first,
+      'occasions': occasions,
+      'colour': colour,
+      'maintenanceLevel': maintenanceLevel,
+      'updatedBy': userId,
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+
+    if (imageBytes != null) {
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final safeName = _safeStorageName(
+        filename?.trim().isNotEmpty == true ? filename! : cutType,
+      );
+      final storageRef = _storage
+          .ref()
+          .child('hairstyles')
+          .child('${timestamp}_$safeName.jpg');
+
+      await storageRef.putData(
+        imageBytes,
+        SettableMetadata(
+          contentType: 'image/jpeg',
+          customMetadata: {'uploadedBy': userId, 'catalogType': 'hairstyle'},
+        ),
+      );
+      updates['imageUrl'] = await storageRef.getDownloadURL();
+      updates['storagePath'] = storageRef.fullPath;
+    }
+
+    await docRef.set(updates, SetOptions(merge: true));
   }
 
   String _safeStorageName(String value) {

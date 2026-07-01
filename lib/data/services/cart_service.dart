@@ -1,4 +1,10 @@
+// Firestore data access for the user's boutique cart.
+//
+// Cart rows live under users/{uid}/cart. The service enforces one boutique per
+// cart, carries selected sizes into cart rows, and keeps cart totals reactive.
 import 'package:cloud_firestore/cloud_firestore.dart';
+
+import '../utils/size_inventory.dart';
 
 class CartService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -24,13 +30,29 @@ class CartService {
     required String userId,
     required String productId,
     required Map<String, dynamic> productData,
+    String? selectedSize,
   }) async {
     final cartProductData = await _withLiveProductData(productId, productData);
+    final normalizedSize = normalizeSizeLabel(selectedSize);
+    final sizeInventory = parseSizeInventory(cartProductData);
+    // Products with size inventory must carry the chosen size into the cart so
+    // checkout can decrement the correct size bucket later.
+    if (sizeInventory.isNotEmpty) {
+      if (normalizedSize.isEmpty) {
+        throw Exception('Choose a size before adding this item.');
+      }
+      final sizeStock = sizeInventory[normalizedSize] ?? 0;
+      if (sizeStock <= 0) {
+        throw Exception('Size $normalizedSize is out of stock.');
+      }
+      cartProductData['stock'] = sizeStock;
+    }
     final existing = await _cart(userId).get();
     final newShopId = _shopIdFor(cartProductData);
     final newShopName = _shopNameFor(cartProductData);
+    final cartItemId = cartItemIdForSize(productId, normalizedSize);
     for (final doc in existing.docs) {
-      if (doc.id == productId) continue;
+      if (doc.id == cartItemId) continue;
       final itemShopId = _shopIdFor(doc.data());
       if (itemShopId.isNotEmpty &&
           newShopId.isNotEmpty &&
@@ -42,9 +64,17 @@ class CartService {
       }
     }
 
-    final ref = _cart(userId).doc(productId);
+    final ref = _cart(userId).doc(cartItemId);
     final snapshot = await ref.get();
     if (snapshot.exists) {
+      final currentQuantity =
+          (snapshot.data()?['quantity'] as num?)?.toInt() ?? 1;
+      if (sizeInventory.isNotEmpty &&
+          currentQuantity + 1 > (sizeInventory[normalizedSize] ?? 0)) {
+        throw Exception(
+          'Only ${sizeInventory[normalizedSize]} left in size $normalizedSize.',
+        );
+      }
       await ref.update({
         'quantity': FieldValue.increment(1),
         ..._cartPriceAndStockFields(cartProductData),
@@ -58,6 +88,7 @@ class CartService {
       'productId': productId,
       'shopId': newShopId,
       'shopName': newShopName,
+      if (normalizedSize.isNotEmpty) 'selectedSize': normalizedSize,
       'quantity': 1,
       'addedAt': FieldValue.serverTimestamp(),
     });
@@ -71,6 +102,17 @@ class CartService {
     if (quantity <= 0) {
       await removeFromCart(userId: userId, productId: productId);
       return;
+    }
+    final snapshot = await _cart(userId).doc(productId).get();
+    final data = snapshot.data();
+    final selectedSize = (data?['selectedSize'] ?? '').toString();
+    final sizeInventory = parseSizeInventory(data ?? const <String, dynamic>{});
+    if (selectedSize.isNotEmpty &&
+        sizeInventory.isNotEmpty &&
+        quantity > (sizeInventory[selectedSize] ?? 0)) {
+      throw Exception(
+        'Only ${sizeInventory[selectedSize]} left in size $selectedSize.',
+      );
     }
     await _cart(userId).doc(productId).update({
       'quantity': quantity,
@@ -118,6 +160,11 @@ class CartService {
       ...fallback,
       ...liveData,
       'price': _moneyValue(liveData['price'] ?? fallback['price']),
+      if (liveData.containsKey('sizeInventory') ||
+          fallback.containsKey('sizeInventory'))
+        'sizeInventory': parseSizeInventory(
+          liveData.containsKey('sizeInventory') ? liveData : fallback,
+        ),
       if (liveData.containsKey('stock') || fallback.containsKey('stock'))
         'stock': _intValue(liveData['stock'] ?? fallback['stock']),
     };

@@ -4,7 +4,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../../core/theme_provider.dart';
 import '../../core/app_routes.dart';
-import '../screens/admin/curators_workspace_page.dart';
 import '../screens/agents/agents_page.dart';
 import '../screens/designers/fashion_designers_page.dart';
 import '../screens/shop/shop_chat_page.dart';
@@ -112,21 +111,6 @@ class AppDrawer extends StatelessWidget {
                     );
                   },
                 ),
-                _buildDrawerItem(
-                  context,
-                  Icons.bar_chart,
-                  'Curators Workspace',
-                  onTap: () {
-                    final navigator = Navigator.of(context);
-                    navigator.pop();
-                    navigator.push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const CuratorsWorkspacePage(),
-                      ),
-                    );
-                  },
-                ),
-
                 const Padding(
                   padding: EdgeInsets.fromLTRB(25, 20, 25, 10),
                   child: Text(

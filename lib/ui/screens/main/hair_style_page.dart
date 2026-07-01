@@ -1,6 +1,4 @@
 // Provides the complete AI hairstyle flow from photo upload to saved looks.
-import 'dart:typed_data';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -20,6 +18,7 @@ import 'notifications_page.dart';
 const _hairNavy = Color(0xFF17008A);
 const _hairOrange = Color(0xFFFFB51B);
 const _hairTextureStorageFolder = 'hairstyles/textures';
+const _allFilterValue = 'All';
 
 const _styleOptions = [
   _HairStyleOption(
@@ -193,6 +192,17 @@ const _hairCatalogMaintenanceLevels = [
   'High Maintenance',
   'Other',
 ];
+
+List<String> _stringListFromDynamic(Object? value) {
+  if (value is Iterable) {
+    return value
+        .map((item) => item.toString().trim())
+        .where((item) => item.isNotEmpty)
+        .toList();
+  }
+  final text = value?.toString().trim() ?? '';
+  return text.isEmpty ? const [] : [text];
+}
 
 class HairStylePage extends StatefulWidget {
   const HairStylePage({super.key});
@@ -444,33 +454,6 @@ class _HairStylePageState extends State<HairStylePage> {
             ),
           ],
         ),
-        const SizedBox(height: 10),
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton.icon(
-            onPressed: _isPicking
-                ? null
-                : () => Navigator.push(
-                    context,
-                    MaterialPageRoute<void>(
-                      builder: (_) => const TemporaryHairstyleUploadPage(),
-                    ),
-                  ),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: _hairNavy,
-              side: const BorderSide(color: _hairNavy),
-              padding: const EdgeInsets.symmetric(vertical: 13),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(7),
-              ),
-            ),
-            icon: const Icon(Icons.cloud_upload_outlined),
-            label: const Text(
-              'Temporary Hairstyle Upload',
-              style: TextStyle(fontWeight: FontWeight.w700),
-            ),
-          ),
-        ),
         if (_latestSelfieUrl != null) ...[
           const SizedBox(height: 10),
           SizedBox(
@@ -603,7 +586,16 @@ class _HairStylePageState extends State<HairStylePage> {
 }
 
 class TemporaryHairstyleUploadPage extends StatefulWidget {
-  const TemporaryHairstyleUploadPage({super.key});
+  const TemporaryHairstyleUploadPage({
+    super.key,
+    this.docId,
+    this.initialData,
+    this.curatorMode = false,
+  });
+
+  final String? docId;
+  final Map<String, dynamic>? initialData;
+  final bool curatorMode;
 
   @override
   State<TemporaryHairstyleUploadPage> createState() =>
@@ -622,12 +614,51 @@ class _TemporaryHairstyleUploadPageState
   String _length = _hairCatalogLengths.first;
   String _gender = _hairCatalogGenders.first;
   String _hairType = _hairCatalogTypes.first;
-  String _styleType = _hairCatalogStyleTypes.first;
+  Set<String> _styleTypes = {_hairCatalogStyleTypes.first};
   String _cutTypeGroup = _hairCatalogCutTypes.keys.first;
   String _cutType = _hairCatalogCutTypes.values.first.first;
-  String _occasion = _hairCatalogOccasions.first;
+  Set<String> _occasions = {_hairCatalogOccasions.first};
   String _colour = _hairCatalogColours.first;
   String _maintenanceLevel = _hairCatalogMaintenanceLevels.first;
+  String _existingImageUrl = '';
+
+  bool get _isEditing => widget.docId?.isNotEmpty == true;
+
+  @override
+  void initState() {
+    super.initState();
+    final data = widget.initialData;
+    if (data == null) return;
+
+    _nameController.text = (data['name'] ?? '').toString();
+    _existingImageUrl = (data['imageUrl'] ?? '').toString();
+    _length = _optionOrDefault(data['length'], _hairCatalogLengths);
+    _gender = _optionOrDefault(data['gender'], _hairCatalogGenders);
+    _hairType = _optionOrDefault(data['hairType'], _hairCatalogTypes);
+    _styleTypes = _selectedOptions(
+      values: data['styleTypes'],
+      fallback: data['styleType'],
+      options: _hairCatalogStyleTypes,
+    );
+    _cutTypeGroup = _optionOrDefault(
+      data['cutTypeGroup'],
+      _hairCatalogCutTypes.keys.toList(),
+    );
+    _cutType = _optionOrDefault(
+      data['cutType'],
+      _hairCatalogCutTypes[_cutTypeGroup] ?? _hairCatalogCutTypes.values.first,
+    );
+    _occasions = _selectedOptions(
+      values: data['occasions'],
+      fallback: data['occasion'],
+      options: _hairCatalogOccasions,
+    );
+    _colour = _optionOrDefault(data['colour'], _hairCatalogColours);
+    _maintenanceLevel = _optionOrDefault(
+      data['maintenanceLevel'],
+      _hairCatalogMaintenanceLevels,
+    );
+  }
 
   @override
   void dispose() {
@@ -653,11 +684,18 @@ class _TemporaryHairstyleUploadPageState
 
   Future<void> _save() async {
     if (_saving) return;
-    final image = _image;
     final bytes = _previewBytes;
-    if (image == null || bytes == null) {
+    if (!_isEditing && (_image == null || bytes == null)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Choose a hairstyle image first.')),
+      );
+      return;
+    }
+    if (_styleTypes.isEmpty || _occasions.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Choose at least one style and one occasion.'),
+        ),
       );
       return;
     }
@@ -672,30 +710,60 @@ class _TemporaryHairstyleUploadPageState
 
     setState(() => _saving = true);
     try {
-      final docId = await _service.uploadCatalogHairstyle(
-        userId: user.uid,
-        imageBytes: bytes,
-        filename: image.name,
-        length: _length,
-        gender: _gender,
-        hairType: _hairType,
-        styleType: _styleType,
-        cutTypeGroup: _cutTypeGroup,
-        cutType: _cutType,
-        occasion: _occasion,
-        colour: _colour,
-        maintenanceLevel: _maintenanceLevel,
-        name: _nameController.text,
-      );
+      final styleTypes = _orderedSelection(_styleTypes, _hairCatalogStyleTypes);
+      final occasions = _orderedSelection(_occasions, _hairCatalogOccasions);
+      final docId = widget.docId;
+      if (_isEditing && docId != null) {
+        await _service.updateCatalogHairstyle(
+          docId: docId,
+          userId: user.uid,
+          imageBytes: bytes,
+          filename: _image?.name,
+          length: _length,
+          gender: _gender,
+          hairType: _hairType,
+          styleTypes: styleTypes,
+          cutTypeGroup: _cutTypeGroup,
+          cutType: _cutType,
+          occasions: occasions,
+          colour: _colour,
+          maintenanceLevel: _maintenanceLevel,
+          name: _nameController.text,
+        );
+      } else {
+        await _service.uploadCatalogHairstyle(
+          userId: user.uid,
+          imageBytes: bytes!,
+          filename: _image!.name,
+          length: _length,
+          gender: _gender,
+          hairType: _hairType,
+          styleTypes: styleTypes,
+          cutTypeGroup: _cutTypeGroup,
+          cutType: _cutType,
+          occasions: occasions,
+          colour: _colour,
+          maintenanceLevel: _maintenanceLevel,
+          name: _nameController.text,
+        );
+      }
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Hairstyle uploaded. ID: $docId')));
-      setState(() {
-        _image = null;
-        _previewBytes = null;
-        _nameController.clear();
-      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _isEditing ? 'Hairstyle updated.' : 'Hairstyle uploaded.',
+          ),
+        ),
+      );
+      if (_isEditing) {
+        Navigator.pop(context);
+      } else {
+        setState(() {
+          _image = null;
+          _previewBytes = null;
+          _nameController.clear();
+        });
+      }
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -709,7 +777,7 @@ class _TemporaryHairstyleUploadPageState
   @override
   Widget build(BuildContext context) {
     return _HairFlowScaffold(
-      title: 'Upload Hairstyle',
+      title: _isEditing ? 'Edit Hairstyle' : 'Upload Hairstyle',
       backOnly: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -726,31 +794,7 @@ class _TemporaryHairstyleUploadPageState
                   color: Theme.of(context).colorScheme.outlineVariant,
                 ),
               ),
-              child: _previewBytes == null
-                  ? Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.add_photo_alternate_outlined,
-                          size: 58,
-                          color: Theme.of(context).colorScheme.outline,
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          'Choose Hairstyle Image',
-                          style: TextStyle(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    )
-                  : ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image.memory(_previewBytes!, fit: BoxFit.cover),
-                    ),
+              child: _buildImagePreview(),
             ),
           ),
           const SizedBox(height: 16),
@@ -778,11 +822,11 @@ class _TemporaryHairstyleUploadPageState
             options: _hairCatalogTypes,
             onChanged: (value) => setState(() => _hairType = value),
           ),
-          _UploadDropdown(
+          _UploadMultiSelect(
             label: 'Style Type',
-            value: _styleType,
+            selected: _styleTypes,
             options: _hairCatalogStyleTypes,
-            onChanged: (value) => setState(() => _styleType = value),
+            onChanged: (values) => setState(() => _styleTypes = values),
           ),
           _UploadDropdown(
             label: 'Cut Type Group',
@@ -802,11 +846,11 @@ class _TemporaryHairstyleUploadPageState
             options: _hairCatalogCutTypes[_cutTypeGroup]!,
             onChanged: (value) => setState(() => _cutType = value),
           ),
-          _UploadDropdown(
+          _UploadMultiSelect(
             label: 'Occasion',
-            value: _occasion,
+            selected: _occasions,
             options: _hairCatalogOccasions,
-            onChanged: (value) => setState(() => _occasion = value),
+            onChanged: (values) => setState(() => _occasions = values),
           ),
           _UploadDropdown(
             label: 'Colour',
@@ -844,8 +888,10 @@ class _TemporaryHairstyleUploadPageState
               const SizedBox(width: 10),
               Expanded(
                 child: _HairButton(
-                  label: 'Save',
-                  icon: Icons.cloud_upload_outlined,
+                  label: _isEditing ? 'Update' : 'Save',
+                  icon: _isEditing
+                      ? Icons.save_outlined
+                      : Icons.cloud_upload_outlined,
                   color: _hairOrange,
                   loading: _saving,
                   onPressed: _save,
@@ -853,9 +899,94 @@ class _TemporaryHairstyleUploadPageState
               ),
             ],
           ),
+          if (!_isEditing) ...[
+            const SizedBox(height: 28),
+            _UploadedHairstylesSection(
+              curatorMode: widget.curatorMode,
+              onEdit: _openEditor,
+            ),
+          ],
         ],
       ),
     );
+  }
+
+  Widget _buildImagePreview() {
+    if (_previewBytes != null) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.memory(_previewBytes!, fit: BoxFit.cover),
+      );
+    }
+    if (_existingImageUrl.isNotEmpty) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.network(
+          _existingImageUrl,
+          fit: BoxFit.cover,
+          errorBuilder: (_, _, _) => _buildImagePlaceholder(),
+        ),
+      );
+    }
+    return _buildImagePlaceholder();
+  }
+
+  Widget _buildImagePlaceholder() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(
+          Icons.add_photo_alternate_outlined,
+          size: 58,
+          color: Theme.of(context).colorScheme.outline,
+        ),
+        const SizedBox(height: 10),
+        Text(
+          _isEditing ? 'Tap to replace image' : 'Choose Hairstyle Image',
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _openEditor(String docId, Map<String, dynamic> data) {
+    Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => TemporaryHairstyleUploadPage(
+          docId: docId,
+          initialData: data,
+          curatorMode: widget.curatorMode,
+        ),
+      ),
+    );
+  }
+
+  String _optionOrDefault(Object? value, Iterable<String> options) {
+    final text = value?.toString() ?? '';
+    return options.contains(text) ? text : options.first;
+  }
+
+  Set<String> _selectedOptions({
+    required Object? values,
+    required Object? fallback,
+    required List<String> options,
+  }) {
+    final selected = _stringListFromDynamic(
+      values,
+    ).where(options.contains).toSet();
+    if (selected.isNotEmpty) return selected;
+
+    final fallbackText = fallback?.toString() ?? '';
+    if (options.contains(fallbackText)) return {fallbackText};
+    return {options.first};
+  }
+
+  List<String> _orderedSelection(Set<String> selected, List<String> options) {
+    return options.where(selected.contains).toList();
   }
 
   InputDecoration _fieldDecoration(String label) {
@@ -906,6 +1037,588 @@ class _UploadDropdown extends StatelessWidget {
         onChanged: (value) {
           if (value != null) onChanged(value);
         },
+      ),
+    );
+  }
+}
+
+class _HairCatalogFilters extends StatelessWidget {
+  const _HairCatalogFilters({
+    required this.gender,
+    required this.occasion,
+    required this.maintenance,
+    required this.onGenderChanged,
+    required this.onOccasionChanged,
+    required this.onMaintenanceChanged,
+    required this.onClear,
+  });
+
+  final String gender;
+  final String occasion;
+  final String maintenance;
+  final ValueChanged<String> onGenderChanged;
+  final ValueChanged<String> onOccasionChanged;
+  final ValueChanged<String> onMaintenanceChanged;
+  final VoidCallback onClear;
+
+  bool get _hasFilters {
+    return [
+      gender,
+      occasion,
+      maintenance,
+    ].any((value) => value != _allFilterValue);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        IconButton.filledTonal(
+          onPressed: () => _openFilters(context),
+          icon: const Icon(Icons.tune_rounded, size: 20),
+          tooltip: 'Filter hairstyles',
+          style: IconButton.styleFrom(
+            backgroundColor: colors.surfaceContainerLow,
+            foregroundColor: _hairNavy,
+            minimumSize: const Size(36, 36),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+        ),
+        if (_hasFilters)
+          Positioned(
+            right: 2,
+            top: 2,
+            child: Container(
+              width: 8,
+              height: 8,
+              decoration: const BoxDecoration(
+                color: Colors.red,
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  void _openFilters(BuildContext context) {
+    var selectedGender = gender;
+    var selectedOccasion = occasion;
+    var selectedMaintenance = maintenance;
+
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Filter Hairstyles',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 14),
+                  _HairFilterDropdown(
+                    width: double.infinity,
+                    label: 'Gender',
+                    value: selectedGender,
+                    options: _filterOptions(_hairCatalogGenders),
+                    onChanged: (value) =>
+                        setSheetState(() => selectedGender = value),
+                  ),
+                  const SizedBox(height: 10),
+                  _HairFilterDropdown(
+                    width: double.infinity,
+                    label: 'Occasion',
+                    value: selectedOccasion,
+                    options: _filterOptions(_hairCatalogOccasions),
+                    onChanged: (value) =>
+                        setSheetState(() => selectedOccasion = value),
+                  ),
+                  const SizedBox(height: 10),
+                  _HairFilterDropdown(
+                    width: double.infinity,
+                    label: 'Maintenance',
+                    value: selectedMaintenance,
+                    options: _filterOptions(_hairCatalogMaintenanceLevels),
+                    onChanged: (value) =>
+                        setSheetState(() => selectedMaintenance = value),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () {
+                            onClear();
+                            Navigator.pop(context);
+                          },
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: _hairNavy,
+                            side: const BorderSide(color: _hairNavy),
+                          ),
+                          child: const Text('Clear'),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: () {
+                            onGenderChanged(selectedGender);
+                            onOccasionChanged(selectedOccasion);
+                            onMaintenanceChanged(selectedMaintenance);
+                            Navigator.pop(context);
+                          },
+                          style: FilledButton.styleFrom(
+                            backgroundColor: _hairNavy,
+                          ),
+                          child: const Text('Apply'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  List<String> _filterOptions(Iterable<String> options) {
+    return [_allFilterValue, ...options];
+  }
+}
+
+class _HairFilterDropdown extends StatelessWidget {
+  const _HairFilterDropdown({
+    required this.width,
+    required this.label,
+    required this.value,
+    required this.options,
+    required this.onChanged,
+  });
+
+  final double width;
+  final String label;
+  final String value;
+  final List<String> options;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: width,
+      child: DropdownButtonFormField<String>(
+        initialValue: value,
+        isExpanded: true,
+        decoration: InputDecoration(
+          labelText: label,
+          isDense: true,
+          filled: true,
+          fillColor: Theme.of(context).colorScheme.surface,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 10,
+            vertical: 10,
+          ),
+        ),
+        items: options
+            .map(
+              (option) => DropdownMenuItem<String>(
+                value: option,
+                child: Text(option, overflow: TextOverflow.ellipsis),
+              ),
+            )
+            .toList(),
+        onChanged: (value) {
+          if (value != null) onChanged(value);
+        },
+      ),
+    );
+  }
+}
+
+class _UploadMultiSelect extends StatelessWidget {
+  const _UploadMultiSelect({
+    required this.label,
+    required this.selected,
+    required this.options,
+    required this.onChanged,
+  });
+
+  final String label;
+  final Set<String> selected;
+  final List<String> options;
+  final ValueChanged<Set<String>> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: InputDecorator(
+        decoration: InputDecoration(
+          labelText: label,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          contentPadding: const EdgeInsets.fromLTRB(12, 14, 12, 10),
+        ),
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: options.map((option) {
+            final isSelected = selected.contains(option);
+            return FilterChip(
+              label: Text(option),
+              selected: isSelected,
+              selectedColor: _hairNavy.withValues(alpha: 0.14),
+              checkmarkColor: _hairNavy,
+              labelStyle: TextStyle(
+                color: isSelected ? _hairNavy : colors.onSurface,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+              ),
+              onSelected: (value) {
+                final next = {...selected};
+                if (value) {
+                  next.add(option);
+                } else if (next.length > 1) {
+                  next.remove(option);
+                }
+                onChanged(next);
+              },
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+}
+
+class _UploadedHairstylesSection extends StatelessWidget {
+  const _UploadedHairstylesSection({
+    required this.curatorMode,
+    required this.onEdit,
+  });
+
+  final bool curatorMode;
+  final void Function(String docId, Map<String, dynamic> data) onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    final userId = FirebaseAuth.instance.currentUser?.uid ?? '';
+    if (userId.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          curatorMode ? 'Uploaded Hairstyles' : 'Your Uploaded Hairstyles',
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 10),
+        StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+          stream: curatorMode
+              ? FirebaseFirestore.instance.collection('hairstyles').snapshots()
+              : FirebaseFirestore.instance
+                    .collection('hairstyles')
+                    .where('createdBy', isEqualTo: userId)
+                    .snapshots(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 18),
+                child: Center(
+                  child: CircularProgressIndicator(color: _hairNavy),
+                ),
+              );
+            }
+            if (snapshot.hasError) {
+              return _HairCatalogMessage(
+                message: 'Uploaded hairstyles could not be loaded.',
+                detail: snapshot.error.toString(),
+              );
+            }
+
+            final docs = snapshot.data?.docs.toList() ?? [];
+            docs.sort((a, b) {
+              final aTime = a.data()['createdAt'];
+              final bTime = b.data()['createdAt'];
+              final aDate = aTime is Timestamp
+                  ? aTime.toDate()
+                  : DateTime.fromMillisecondsSinceEpoch(0);
+              final bDate = bTime is Timestamp
+                  ? bTime.toDate()
+                  : DateTime.fromMillisecondsSinceEpoch(0);
+              return bDate.compareTo(aDate);
+            });
+
+            if (docs.isEmpty) {
+              return _HairCatalogMessage(
+                message: curatorMode
+                    ? 'Uploaded hairstyles will appear here.'
+                    : 'Your uploaded hairstyles will appear here.',
+              );
+            }
+
+            return Column(
+              children: docs.map((doc) {
+                return _UploadedHairstyleTile(
+                  data: doc.data(),
+                  onEdit: () => onEdit(doc.id, doc.data()),
+                );
+              }).toList(),
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _UploadedHairstyleTile extends StatelessWidget {
+  const _UploadedHairstyleTile({required this.data, required this.onEdit});
+
+  final Map<String, dynamic> data;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    final imageUrl = (data['imageUrl'] ?? '').toString();
+    final name = (data['name'] ?? data['cutType'] ?? 'Hairstyle').toString();
+    final details =
+        [
+              data['hairType'],
+              _stringListFromDynamic(data['styleTypes']).isEmpty
+                  ? data['styleType']
+                  : _stringListFromDynamic(data['styleTypes']).join(', '),
+              _stringListFromDynamic(data['occasions']).isEmpty
+                  ? data['occasion']
+                  : _stringListFromDynamic(data['occasions']).join(', '),
+            ]
+            .map((value) => value?.toString().trim() ?? '')
+            .where((value) {
+              return value.isNotEmpty && value != 'Other';
+            })
+            .join(' • ');
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      child: ListTile(
+        contentPadding: const EdgeInsets.all(10),
+        leading: ClipRRect(
+          borderRadius: BorderRadius.circular(7),
+          child: SizedBox(
+            width: 58,
+            height: 58,
+            child: imageUrl.isEmpty
+                ? Container(
+                    color: Theme.of(context).colorScheme.surfaceContainerLow,
+                    child: const Icon(Icons.content_cut_outlined),
+                  )
+                : Image.network(imageUrl, fit: BoxFit.cover),
+          ),
+        ),
+        title: Text(name, style: const TextStyle(fontWeight: FontWeight.w800)),
+        subtitle: details.isEmpty
+            ? null
+            : Text(details, maxLines: 2, overflow: TextOverflow.ellipsis),
+        trailing: TextButton.icon(
+          onPressed: onEdit,
+          icon: const Icon(Icons.edit_outlined, size: 18),
+          label: const Text('Edit'),
+          style: TextButton.styleFrom(foregroundColor: _hairNavy),
+        ),
+      ),
+    );
+  }
+}
+
+class RecommendedHairTryOnPage extends StatefulWidget {
+  const RecommendedHairTryOnPage({
+    super.key,
+    required this.styleName,
+    required this.styleImageUrl,
+  });
+
+  final String styleName;
+  final String styleImageUrl;
+
+  @override
+  State<RecommendedHairTryOnPage> createState() =>
+      _RecommendedHairTryOnPageState();
+}
+
+class _RecommendedHairTryOnPageState extends State<RecommendedHairTryOnPage> {
+  final _picker = ImagePicker();
+  final _service = HairstyleService();
+  bool _loadingLatest = true;
+  bool _picking = false;
+  String? _error;
+
+  _HairStyleOption get _style {
+    return _HairStyleOption(
+      name: widget.styleName,
+      imageUrl: widget.styleImageUrl,
+      prompt:
+          'Give the person the ${widget.styleName} hairstyle with realistic texture and salon-quality detail, preserving their face, pose, skin tone, and background.',
+    );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _startFromLatestSelfie();
+  }
+
+  Future<void> _startFromLatestSelfie() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      setState(() {
+        _loadingLatest = false;
+        _error = 'Sign in to try on this hairstyle.';
+      });
+      return;
+    }
+
+    try {
+      final sourceImageUrl = await _service.getLatestSelfieUrl(user.uid);
+      if (!mounted) return;
+      if (sourceImageUrl?.isNotEmpty == true) {
+        _openResult(sourceImageUrl: sourceImageUrl!);
+        return;
+      }
+    } catch (_) {
+      // Fall through to the upload prompt.
+    }
+
+    if (mounted) setState(() => _loadingLatest = false);
+  }
+
+  Future<void> _pickPhoto(ImageSource source) async {
+    if (_picking) return;
+    setState(() {
+      _picking = true;
+      _error = null;
+    });
+
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        throw Exception('Sign in to try on this hairstyle.');
+      }
+      final image = await _picker.pickImage(
+        source: source,
+        imageQuality: 90,
+        maxWidth: 1600,
+      );
+      if (image == null) return;
+
+      final bytes = await image.readAsBytes();
+      final sourceImageUrl = await _service.saveLatestSelfie(
+        userId: user.uid,
+        imageBytes: bytes,
+      );
+      if (!mounted) return;
+      _openResult(sourceBytes: bytes, sourceImageUrl: sourceImageUrl);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _error = error.toString());
+    } finally {
+      if (mounted) setState(() => _picking = false);
+    }
+  }
+
+  void _openResult({Uint8List? sourceBytes, required String sourceImageUrl}) {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => _HairResultPage(
+          sourceBytes: sourceBytes,
+          sourceImageUrl: sourceImageUrl,
+          style: _style,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loadingLatest) {
+      return const _HairFlowScaffold(
+        title: 'Try On Hairstyle',
+        backOnly: true,
+        child: Center(child: CircularProgressIndicator(color: _hairNavy)),
+      );
+    }
+
+    return _HairFlowScaffold(
+      title: 'Try On Hairstyle',
+      backOnly: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Continue with this hairstyle',
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: AspectRatio(
+              aspectRatio: 1,
+              child: _HairCatalogImage(
+                imageUrl: widget.styleImageUrl,
+                fit: BoxFit.contain,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            widget.styleName,
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Upload or take a hair photo to try this hairstyle on yourself.',
+            style: TextStyle(color: Theme.of(context).colorScheme.outline),
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 10),
+            Text(_error!, style: const TextStyle(color: Colors.red)),
+          ],
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              Expanded(
+                child: _HairButton(
+                  label: 'Upload Photo',
+                  icon: Icons.photo_outlined,
+                  color: _hairNavy,
+                  loading: _picking,
+                  onPressed: () => _pickPhoto(ImageSource.gallery),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _HairButton(
+                  label: 'Take a Photo',
+                  icon: Icons.add_rounded,
+                  color: _hairOrange,
+                  loading: _picking,
+                  onPressed: () => _pickPhoto(ImageSource.camera),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -1012,6 +1725,9 @@ class HairStyleSelectionPage extends StatefulWidget {
 class _HairStyleSelectionPageState extends State<HairStyleSelectionPage> {
   int _selectedTexture = 0;
   int _selectedHairstyle = 0;
+  String _genderFilter = _allFilterValue;
+  String _occasionFilter = _allFilterValue;
+  String _maintenanceFilter = _allFilterValue;
   late final Future<List<_HairStyleOption>> _textureOptionsFuture;
 
   @override
@@ -1046,9 +1762,27 @@ class _HairStyleSelectionPageState extends State<HairStyleSelectionPage> {
             },
           ),
           const SizedBox(height: 16),
-          const Text(
-            'Select Your Hairstyle',
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Select Your Hairstyle',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                ),
+              ),
+              _HairCatalogFilters(
+                gender: _genderFilter,
+                occasion: _occasionFilter,
+                maintenance: _maintenanceFilter,
+                onGenderChanged: (value) =>
+                    _setFilter(() => _genderFilter = value),
+                onOccasionChanged: (value) =>
+                    _setFilter(() => _occasionFilter = value),
+                onMaintenanceChanged: (value) =>
+                    _setFilter(() => _maintenanceFilter = value),
+                onClear: _clearFilters,
+              ),
+            ],
           ),
           const SizedBox(height: 12),
           StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
@@ -1074,17 +1808,23 @@ class _HairStyleSelectionPageState extends State<HairStyleSelectionPage> {
 
               final selectedTextureName = _styleOptions[_selectedTexture].name;
               final docs = (snapshot.data?.docs ?? []).where((doc) {
-                return _matchesSelectedTexture(doc.data(), selectedTextureName);
+                final data = doc.data();
+                return _matchesSelectedTexture(data, selectedTextureName) &&
+                    _matchesFilters(data);
               }).toList();
               final catalogStyles = docs
                   .map((doc) => _catalogStyleFromDoc(doc.data()))
                   .whereType<_HairStyleOption>()
                   .toList();
               if (catalogStyles.isEmpty) {
+                final filtersActive = _filtersActive;
                 return _HairCatalogMessage(
-                  message: 'No $selectedTextureName hairstyles uploaded yet.',
-                  detail:
-                      'Use Temporary Hairstyle Upload to add matching styles to the catalog.',
+                  message: filtersActive
+                      ? 'No hairstyles match these filters.'
+                      : 'No $selectedTextureName hairstyles uploaded yet.',
+                  detail: filtersActive
+                      ? 'Clear filters or try a different texture.'
+                      : 'Curators can add matching styles from Curators Workspace.',
                 );
               }
 
@@ -1142,6 +1882,30 @@ class _HairStyleSelectionPageState extends State<HairStyleSelectionPage> {
     );
   }
 
+  void _setFilter(VoidCallback update) {
+    setState(() {
+      update();
+      _selectedHairstyle = 0;
+    });
+  }
+
+  bool get _filtersActive {
+    return [
+      _genderFilter,
+      _occasionFilter,
+      _maintenanceFilter,
+    ].any((value) => value != _allFilterValue);
+  }
+
+  void _clearFilters() {
+    setState(() {
+      _genderFilter = _allFilterValue;
+      _occasionFilter = _allFilterValue;
+      _maintenanceFilter = _allFilterValue;
+      _selectedHairstyle = 0;
+    });
+  }
+
   Future<List<_HairStyleOption>> _loadTextureOptionsFromStorage() async {
     final textureRefs = await _textureRefs();
     return Future.wait(
@@ -1189,6 +1953,7 @@ class _HairStyleSelectionPageState extends State<HairStyleSelectionPage> {
       data['hairType'],
       data['texture'],
       data['styleType'],
+      ..._stringListFromDynamic(data['styleTypes']),
       data['cutTypeGroup'],
       data['cutType'],
     ].map((value) => value?.toString().toLowerCase() ?? '').join(' ');
@@ -1206,6 +1971,32 @@ class _HairStyleSelectionPageState extends State<HairStyleSelectionPage> {
     }
   }
 
+  bool _matchesFilters(Map<String, dynamic> data) {
+    return _matchesFilterValue(data['gender'], _genderFilter) &&
+        _matchesFilterValue(data['maintenanceLevel'], _maintenanceFilter) &&
+        _matchesMultiFilterValue(
+          values: data['occasions'],
+          fallback: data['occasion'],
+          selected: _occasionFilter,
+        );
+  }
+
+  bool _matchesFilterValue(Object? value, String selected) {
+    if (selected == _allFilterValue) return true;
+    return (value?.toString().trim() ?? '') == selected;
+  }
+
+  bool _matchesMultiFilterValue({
+    required Object? values,
+    required Object? fallback,
+    required String selected,
+  }) {
+    if (selected == _allFilterValue) return true;
+    final list = _stringListFromDynamic(values);
+    if (list.isNotEmpty) return list.contains(selected);
+    return (fallback?.toString().trim() ?? '') == selected;
+  }
+
   _HairStyleOption? _catalogStyleFromDoc(Map<String, dynamic> data) {
     final imageUrl = (data['imageUrl'] ?? '').toString().trim();
     if (imageUrl.isEmpty) return null;
@@ -1221,8 +2012,10 @@ class _HairStyleSelectionPageState extends State<HairStyleSelectionPage> {
           data['length'],
           data['hairType'],
           data['styleType'],
+          _stringListFromDynamic(data['styleTypes']).join(', '),
           data['cutType'],
           data['occasion'],
+          _stringListFromDynamic(data['occasions']).join(', '),
           data['colour'],
           data['maintenanceLevel'],
         ].map((value) => value?.toString().trim() ?? '').where((value) {
@@ -2958,10 +3751,7 @@ class _HairMockCollage extends StatelessWidget {
 }
 
 class _HairCatalogImage extends StatelessWidget {
-  const _HairCatalogImage({
-    required this.imageUrl,
-    this.fit = BoxFit.cover,
-  });
+  const _HairCatalogImage({required this.imageUrl, this.fit = BoxFit.cover});
 
   final String imageUrl;
   final BoxFit fit;

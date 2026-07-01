@@ -1501,8 +1501,13 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
     required double width,
     required double height,
   }) {
-    const maxTile = 136.0;
-    const minTile = 58.0;
+    final shortestSide = math.min(width, height);
+    final maxTile = shortestSide < 360
+        ? 72.0
+        : shortestSide < 520
+        ? 84.0
+        : 104.0;
+    const minTile = 44.0;
     const gap = 6.0;
 
     final sideCount = itemCount - bottomCount;
