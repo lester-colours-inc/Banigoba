@@ -1,13 +1,13 @@
 // Registers a new account and creates its initial Firestore user profile.
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../../data/services/auth_service.dart';
-import '../../../data/services/permissions_service.dart';
 
 class EmailSignUpScreen extends StatefulWidget {
-  const EmailSignUpScreen({super.key});
+  EmailSignUpScreen({super.key, AuthService? authService})
+    : authService = authService ?? AuthService();
+
+  final AuthService authService;
 
   @override
   State<EmailSignUpScreen> createState() => _EmailSignUpScreenState();
@@ -19,9 +19,6 @@ class _EmailSignUpScreenState extends State<EmailSignUpScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  final _auth = FirebaseAuth.instance;
-  final _db = FirebaseFirestore.instance;
-  final _authService = AuthService();
   bool _isLoading = false;
   bool _termsAccepted = false;
   bool _obscurePassword = true;
@@ -43,6 +40,14 @@ class _EmailSignUpScreenState extends State<EmailSignUpScreen> {
       _showMessage('Complete all account details');
       return;
     }
+    if (!_isValidEmail(_emailController.text.trim())) {
+      _showMessage('Enter a valid email address');
+      return;
+    }
+    if (_passwordController.text.length < 6) {
+      _showMessage('Password must be at least 6 characters');
+      return;
+    }
     if (!_termsAccepted) {
       _showMessage('Please accept terms & policy');
       return;
@@ -54,25 +59,11 @@ class _EmailSignUpScreenState extends State<EmailSignUpScreen> {
 
     setState(() => _isLoading = true);
     try {
-      final userCredential = await _auth.createUserWithEmailAndPassword(
+      await widget.authService.registerWithEmail(
+        name: _nameController.text.trim(),
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
-
-      final user = userCredential.user;
-      if (user != null) {
-        await user.updateDisplayName(_nameController.text.trim());
-        await _db.collection('users').doc(user.uid).set({
-          'uid': user.uid,
-          'displayName': _nameController.text.trim(),
-          'email': _emailController.text.trim(),
-          'stylePreference': 'casual',
-          'role': 'user',
-          'permissionStatus': PermissionsService.emptyPermissionsSummary,
-          'permissionsGranted': false,
-          'createdAt': FieldValue.serverTimestamp(),
-        });
-      }
 
       if (mounted) Navigator.of(context).popUntil((route) => route.isFirst);
     } catch (error) {
@@ -86,11 +77,11 @@ class _EmailSignUpScreenState extends State<EmailSignUpScreen> {
     setState(() => _isLoading = true);
     try {
       if (provider == 'Google') {
-        await _authService.signInWithGoogle();
+        await widget.authService.signInWithGoogle();
       } else if (provider == 'Facebook') {
-        await _authService.signInWithFacebook();
+        await widget.authService.signInWithFacebook();
       } else {
-        await _authService.signInWithApple();
+        await widget.authService.signInWithApple();
       }
       if (mounted) Navigator.of(context).popUntil((route) => route.isFirst);
     } catch (error) {
@@ -104,6 +95,10 @@ class _EmailSignUpScreenState extends State<EmailSignUpScreen> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  bool _isValidEmail(String email) {
+    return RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email);
   }
 
   @override
@@ -261,8 +256,9 @@ class _EmailSignUpScreenState extends State<EmailSignUpScreen> {
                     onPressed: _handleSocialSignIn,
                   ),
                   const SizedBox(height: 28),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       const Text(
                         'Have an account? ',
@@ -377,18 +373,21 @@ class _SignUpSocialButtons extends StatelessWidget {
       children: [
         _SignUpSocialButton(
           label: 'G',
+          tooltip: 'Google',
           color: const Color(0xFF4285F4),
           onPressed: enabled ? () => onPressed('Google') : null,
         ),
         const SizedBox(width: 14),
         _SignUpSocialButton(
           icon: Icons.facebook,
+          tooltip: 'Facebook',
           color: const Color(0xFF1877F2),
           onPressed: enabled ? () => onPressed('Facebook') : null,
         ),
         const SizedBox(width: 14),
         _SignUpSocialButton(
           icon: Icons.apple,
+          tooltip: 'Apple',
           color: Theme.of(context).colorScheme.onSurface,
           onPressed: enabled ? () => onPressed('Apple') : null,
         ),
@@ -400,12 +399,14 @@ class _SignUpSocialButtons extends StatelessWidget {
 class _SignUpSocialButton extends StatelessWidget {
   final IconData? icon;
   final String? label;
+  final String tooltip;
   final Color color;
   final VoidCallback? onPressed;
 
   const _SignUpSocialButton({
     this.icon,
     this.label,
+    required this.tooltip,
     required this.color,
     required this.onPressed,
   });
@@ -416,7 +417,7 @@ class _SignUpSocialButton extends StatelessWidget {
       child: SizedBox(
         height: 48,
         child: IconButton(
-          tooltip: label == 'G' ? 'Google' : null,
+          tooltip: tooltip,
           onPressed: onPressed,
           style: IconButton.styleFrom(
             backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,

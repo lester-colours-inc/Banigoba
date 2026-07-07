@@ -1,11 +1,14 @@
 // Centralizes email, Google, Facebook, Apple, and sign-out authentication.
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 
+import 'permissions_service.dart';
+
 class AuthService {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  FirebaseAuth get _auth => FirebaseAuth.instance;
 
   // For Web: Replace with your actual Web Client ID from Firebase Console -> Authentication -> Sign-in method -> Google
   static const String _webClientId =
@@ -14,6 +17,41 @@ class AuthService {
   final GoogleSignIn _googleSignIn = GoogleSignIn(
     clientId: kIsWeb ? _webClientId : null,
   );
+
+  /// Sign in with a standard email and password account.
+  Future<void> signInWithEmail({
+    required String email,
+    required String password,
+  }) async {
+    await _auth.signInWithEmailAndPassword(email: email, password: password);
+  }
+
+  /// Registers an email/password user and stores the initial app profile.
+  Future<void> registerWithEmail({
+    required String name,
+    required String email,
+    required String password,
+  }) async {
+    final userCredential = await _auth.createUserWithEmailAndPassword(
+      email: email,
+      password: password,
+    );
+
+    final user = userCredential.user;
+    if (user == null) return;
+
+    await user.updateDisplayName(name);
+    await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+      'uid': user.uid,
+      'displayName': name,
+      'email': email,
+      'stylePreference': 'casual',
+      'role': 'user',
+      'permissionStatus': PermissionsService.emptyPermissionsSummary,
+      'permissionsGranted': false,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
 
   /// Sign in with Google
   Future<UserCredential?> signInWithGoogle() async {

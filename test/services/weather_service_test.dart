@@ -1,3 +1,7 @@
+// Tests the WeatherService without making real HTTP requests.
+//
+// MockClient lets each test control the provider response so error handling,
+// optional fallback behavior, and response parsing remain deterministic.
 import 'package:banigoba/data/services/weather_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -62,6 +66,56 @@ void main() {
         expect(requestedUrl?.queryParameters['q'], '51.5,-0.12');
         expect(weather.locationName, 'London');
         expect(weather.temperatureC, 18);
+      },
+    );
+
+    test('throws a typed exception for invalid weather JSON values', () async {
+      final service = WeatherService(
+        client: MockClient((_) async => http.Response('not-json', 200)),
+      );
+
+      expect(
+        () => service.fetchWeather('London'),
+        throwsA(isA<WeatherFetchException>()),
+      );
+    });
+
+    test('returns a recommendation for valid weather values', () async {
+      final service = WeatherService(
+        client: MockClient(
+          (_) async => http.Response('''
+{
+  "location": {"name": "Harare"},
+  "current": {
+    "temp_c": 28.0,
+    "condition": {
+      "text": "Sunny",
+      "icon": "//cdn.weatherapi.com/weather/64x64/day/113.png"
+    }
+  }
+}
+''', 200),
+        ),
+      );
+
+      final recommendation = await service.getRecommendation('Harare');
+
+      expect(recommendation, isNot(contains('Unable to get')));
+    });
+
+    test(
+      'returns a fallback recommendation for invalid weather values',
+      () async {
+        final service = WeatherService(
+          client: MockClient((_) async => http.Response('Unavailable', 503)),
+        );
+
+        final recommendation = await service.getRecommendation('Harare');
+
+        expect(
+          recommendation,
+          'Unable to get weather-based recommendations at this time.',
+        );
       },
     );
   });

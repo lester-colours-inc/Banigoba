@@ -1,12 +1,14 @@
 // Handles email/password sign-in and navigation to account registration.
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../../data/services/auth_service.dart';
 import 'email_signup_screen.dart';
 
 class EmailSignInScreen extends StatefulWidget {
-  const EmailSignInScreen({super.key});
+  EmailSignInScreen({super.key, AuthService? authService})
+    : authService = authService ?? AuthService();
+
+  final AuthService authService;
 
   @override
   State<EmailSignInScreen> createState() => _EmailSignInScreenState();
@@ -16,8 +18,6 @@ class _EmailSignInScreenState extends State<EmailSignInScreen> {
   static const _navy = Color(0xFF17008A);
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _auth = FirebaseAuth.instance;
-  final _authService = AuthService();
   bool _isLoading = false;
   bool _obscurePassword = true;
 
@@ -34,10 +34,14 @@ class _EmailSignInScreenState extends State<EmailSignInScreen> {
       _showMessage('Enter your email and password');
       return;
     }
+    if (!_isValidEmail(_emailController.text.trim())) {
+      _showMessage('Enter a valid email address');
+      return;
+    }
 
     setState(() => _isLoading = true);
     try {
-      await _auth.signInWithEmailAndPassword(
+      await widget.authService.signInWithEmail(
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
@@ -53,11 +57,11 @@ class _EmailSignInScreenState extends State<EmailSignInScreen> {
     setState(() => _isLoading = true);
     try {
       if (provider == 'Google') {
-        await _authService.signInWithGoogle();
+        await widget.authService.signInWithGoogle();
       } else if (provider == 'Facebook') {
-        await _authService.signInWithFacebook();
+        await widget.authService.signInWithFacebook();
       } else {
-        await _authService.signInWithApple();
+        await widget.authService.signInWithApple();
       }
       if (mounted) Navigator.of(context).popUntil((route) => route.isFirst);
     } catch (error) {
@@ -71,6 +75,10 @@ class _EmailSignInScreenState extends State<EmailSignInScreen> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  bool _isValidEmail(String email) {
+    return RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email);
   }
 
   @override
@@ -147,8 +155,9 @@ class _EmailSignInScreenState extends State<EmailSignInScreen> {
                     onPressed: _handleSocialSignIn,
                   ),
                   const SizedBox(height: 44),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       const Text(
                         'Don’t have an account? ',
@@ -158,7 +167,7 @@ class _EmailSignInScreenState extends State<EmailSignInScreen> {
                         onPressed: () => Navigator.push(
                           context,
                           MaterialPageRoute<void>(
-                            builder: (_) => const EmailSignUpScreen(),
+                            builder: (_) => EmailSignUpScreen(),
                           ),
                         ),
                         style: TextButton.styleFrom(
@@ -297,18 +306,21 @@ class _SocialButtons extends StatelessWidget {
       children: [
         _SocialButton(
           label: 'G',
+          tooltip: 'Google',
           color: const Color(0xFF4285F4),
           onPressed: enabled ? () => onPressed('Google') : null,
         ),
         const SizedBox(width: 14),
         _SocialButton(
           icon: Icons.facebook,
+          tooltip: 'Facebook',
           color: const Color(0xFF1877F2),
           onPressed: enabled ? () => onPressed('Facebook') : null,
         ),
         const SizedBox(width: 14),
         _SocialButton(
           icon: Icons.apple,
+          tooltip: 'Apple',
           color: Theme.of(context).colorScheme.onSurface,
           onPressed: enabled ? () => onPressed('Apple') : null,
         ),
@@ -320,12 +332,14 @@ class _SocialButtons extends StatelessWidget {
 class _SocialButton extends StatelessWidget {
   final IconData? icon;
   final String? label;
+  final String tooltip;
   final Color color;
   final VoidCallback? onPressed;
 
   const _SocialButton({
     this.icon,
     this.label,
+    required this.tooltip,
     required this.color,
     required this.onPressed,
   });
@@ -336,7 +350,7 @@ class _SocialButton extends StatelessWidget {
       child: SizedBox(
         height: 48,
         child: IconButton(
-          tooltip: label == 'G' ? 'Google' : null,
+          tooltip: tooltip,
           onPressed: onPressed,
           style: IconButton.styleFrom(
             backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,

@@ -260,53 +260,7 @@ class _HomePageState extends State<HomePage> {
             if (_selectedTabIndex == 2)
               const EventsSection(embedded: true, listHeight: 520)
             else ...[
-              _buildAiMakeoverCard(),
-              SizedBox(height: 25),
-              Container(
-                padding: EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainerLow,
-                  borderRadius: BorderRadius.circular(30),
-                ),
-                child: Column(
-                  children: [
-                    _buildStyleByOccasion(),
-                    SizedBox(height: 25),
-                    _buildFeatureCard(
-                      title: "Idol Style Match",
-                      subtitle: "Discover your global style icon twin",
-                      icon: Icons.star,
-                      color: primaryColor,
-                      onTap: () {},
-                    ),
-                    SizedBox(height: 15),
-                    _buildFeatureCard(
-                      title: "Plan Ahead",
-                      subtitle: "Week planner, trip packer & event series",
-                      icon: Icons.calendar_today,
-                      color: Colors.pinkAccent,
-                      onTap: () {
-                        Navigator.pushNamed(context, AppRoutes.planAhead);
-                      },
-                    ),
-                    SizedBox(height: 15),
-                    _buildFeatureCard(
-                      title: "Shopping Intelligence",
-                      subtitle: "Smart insights for your wardrobe",
-                      icon: Icons.shopping_cart_outlined,
-                      color: Colors.orange,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute<void>(
-                            builder: (_) => const ShoppingIntelligencePage(),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ),
+              _buildFashionStyleLandingActions(),
               SizedBox(height: 25),
               _buildWeatherRecommendation(),
             ],
@@ -383,175 +337,51 @@ class _HomePageState extends State<HomePage> {
 
   /// Navigation tabs for Makeover/Community/Events
   Widget _buildTabs() {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          _tabButton("Makeover", 0),
-          SizedBox(width: 15),
-          _tabButton("Community", 1),
-          SizedBox(width: 15),
-          _tabButton("Events", 2),
-        ],
-      ),
+    return FashionLandingTabs(
+      selectedIndex: _selectedTabIndex,
+      onSelected: (index) => setState(() => _selectedTabIndex = index),
     );
   }
 
-  /// Tab button with pill-shaped design
-  Widget _tabButton(String title, int index) {
-    bool isSelected = _selectedTabIndex == index;
-    return GestureDetector(
-      onTap: () => setState(() => _selectedTabIndex = index),
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 25, vertical: 10),
-        decoration: BoxDecoration(
-          color: isSelected ? primaryColor : Colors.white,
-          borderRadius: BorderRadius.circular(25),
-          border: Border.all(
-            color: isSelected
-                ? primaryColor
-                : Theme.of(context).colorScheme.outlineVariant,
-            width: 1,
-          ),
-        ),
-        child: Text(
-          title,
-          style: TextStyle(
-            color: isSelected
-                ? Colors.white
-                : Theme.of(context).colorScheme.outline,
-            fontWeight: FontWeight.w600,
-            fontSize: 14,
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// AI Makeover card matching the design
-  Widget _buildAiMakeoverCard() {
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => AiUploadPage()),
-        );
-      },
-      child: Container(
-        width: double.infinity,
-        padding: EdgeInsets.all(25),
-        decoration: BoxDecoration(
-          color: primaryColor,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Start Your\nAI Makeover',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      height: 1.2,
-                    ),
-                  ),
-                  SizedBox(height: 10),
-                  Text(
-                    'Upload a full-body photo or\nselfie to begin.',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.6),
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Container(
-              width: 70,
-              height: 70,
-              decoration: BoxDecoration(
-                color: Colors.transparent,
-                borderRadius: BorderRadius.circular(15),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.3),
-                  width: 2,
-                ),
-              ),
-              child: Icon(Icons.add, color: Colors.white, size: 35),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Style By Occasion horizontal list
-  Widget _buildStyleByOccasion() {
-    final List<Map<String, dynamic>> occasions = [
-      {'name': 'Casual', 'value': 'casual', 'icon': Icons.check_circle_outline},
-      {'name': 'Afro-Chic', 'value': 'afrochic', 'icon': Icons.eco_outlined},
-      {
-        'name': 'Corporate',
-        'value': 'corporate',
-        'icon': Icons.business_center_outlined,
-      },
-      {
-        'name': 'Street wear',
-        'value': 'streetwear',
-        'icon': Icons.style_outlined,
-      },
-      {'name': 'Glamour', 'value': 'glamour', 'icon': Icons.diamond_outlined},
-    ];
+  /// Wires the reusable landing action widget to Firebase and app navigation.
+  Widget _buildFashionStyleLandingActions() {
     final userId = FirebaseAuth.instance.currentUser?.uid;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          "Style By Occasion",
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
-        SizedBox(height: 4),
-        Text(
-          "Discover your global style icon twin",
-          style: TextStyle(
-            color: Theme.of(context).colorScheme.outline,
-            fontSize: 11,
-          ),
-        ),
-        SizedBox(height: 15),
-        StreamBuilder<DocumentSnapshot>(
-          stream: userId == null
+    return StreamBuilder<DocumentSnapshot>(
+      stream: userId == null
+          ? null
+          : FirebaseFirestore.instance
+                .collection('users')
+                .doc(userId)
+                .snapshots(),
+      builder: (context, snapshot) {
+        final userData = snapshot.data?.data() as Map<String, dynamic>?;
+        final selectedStyle = (userData?['stylePreference'] ?? 'casual')
+            .toString();
+
+        return FashionStyleLandingActions(
+          selectedStylePreference: selectedStyle,
+          onStartMakeover: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => AiUploadPage()),
+            );
+          },
+          onStyleOccasionSelected: userId == null
               ? null
-              : FirebaseFirestore.instance
-                    .collection('users')
-                    .doc(userId)
-                    .snapshots(),
-          builder: (context, snapshot) {
-            final userData = snapshot.data?.data() as Map<String, dynamic>?;
-            final selectedStyle = (userData?['stylePreference'] ?? 'casual')
-                .toString();
-            return SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: occasions.map((occ) {
-                  return _buildOccasionItem(
-                    occ,
-                    isSelected: occ['value'] == selectedStyle,
-                    onTap: userId == null
-                        ? null
-                        : () => _updateStylePreference(userId, occ['value']),
-                  );
-                }).toList(),
+              : (stylePreference) =>
+                    _updateStylePreference(userId, stylePreference),
+          onPlanAhead: () => Navigator.pushNamed(context, AppRoutes.planAhead),
+          onShoppingIntelligence: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => const ShoppingIntelligencePage(),
               ),
             );
           },
-        ),
-      ],
+        );
+      },
     );
   }
 
@@ -563,104 +393,6 @@ class _HomePageState extends State<HomePage> {
       'stylePreference': stylePreference,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
-  }
-
-  Widget _buildOccasionItem(
-    Map<String, dynamic> occasion, {
-    required bool isSelected,
-    VoidCallback? onTap,
-  }) {
-    return Padding(
-      padding: EdgeInsets.only(right: 15),
-      child: GestureDetector(
-        onTap: onTap,
-        child: Column(
-          children: [
-            Container(
-              width: 55,
-              height: 55,
-              decoration: BoxDecoration(
-                color: isSelected ? primaryColor : Colors.grey.shade50,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                occasion['icon'],
-                color: isSelected
-                    ? Colors.white
-                    : Theme.of(context).colorScheme.outline,
-                size: 24,
-              ),
-            ),
-            SizedBox(height: 8),
-            Text(
-              occasion['name'],
-              style: TextStyle(
-                fontSize: 11,
-                color: isSelected
-                    ? Colors.black
-                    : Theme.of(context).colorScheme.onSurfaceVariant,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Shortcut card for main app features
-  Widget _buildFeatureCard({
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: double.infinity,
-        margin: EdgeInsets.only(bottom: 15),
-        padding: EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 55,
-              height: 55,
-              decoration: BoxDecoration(
-                color: color,
-                borderRadius: BorderRadius.circular(15),
-              ),
-              child: Icon(icon, color: Colors.white, size: 28),
-            ),
-            SizedBox(width: 15),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                  SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.outline,
-                      fontSize: 11,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   Widget _buildWeatherRecommendation() {
@@ -754,6 +486,384 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class FashionLandingTabs extends StatelessWidget {
+  const FashionLandingTabs({
+    super.key,
+    required this.selectedIndex,
+    required this.onSelected,
+  });
+
+  final int selectedIndex;
+  final ValueChanged<int> onSelected;
+
+  static const Color _primaryColor = Color(0xFF0D0140);
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          _FashionLandingTabButton(
+            title: 'Makeover',
+            index: 0,
+            selectedIndex: selectedIndex,
+            onSelected: onSelected,
+          ),
+          const SizedBox(width: 15),
+          _FashionLandingTabButton(
+            title: 'Community',
+            index: 1,
+            selectedIndex: selectedIndex,
+            onSelected: onSelected,
+          ),
+          const SizedBox(width: 15),
+          _FashionLandingTabButton(
+            title: 'Events',
+            index: 2,
+            selectedIndex: selectedIndex,
+            onSelected: onSelected,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FashionLandingTabButton extends StatelessWidget {
+  const _FashionLandingTabButton({
+    required this.title,
+    required this.index,
+    required this.selectedIndex,
+    required this.onSelected,
+  });
+
+  final String title;
+  final int index;
+  final int selectedIndex;
+  final ValueChanged<int> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final isSelected = selectedIndex == index;
+
+    return GestureDetector(
+      key: Key('fashion_${title.toLowerCase()}_tab'),
+      onTap: () => onSelected(index),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? FashionLandingTabs._primaryColor : Colors.white,
+          borderRadius: BorderRadius.circular(25),
+          border: Border.all(
+            color: isSelected
+                ? FashionLandingTabs._primaryColor
+                : Theme.of(context).colorScheme.outlineVariant,
+            width: 1,
+          ),
+        ),
+        child: Text(
+          title,
+          style: TextStyle(
+            color: isSelected
+                ? Colors.white
+                : Theme.of(context).colorScheme.outline,
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class FashionStyleLandingActions extends StatelessWidget {
+  const FashionStyleLandingActions({
+    super.key,
+    required this.onStartMakeover,
+    required this.onPlanAhead,
+    required this.onShoppingIntelligence,
+    this.selectedStylePreference = 'casual',
+    this.onStyleOccasionSelected,
+  });
+
+  final VoidCallback onStartMakeover;
+  final VoidCallback onPlanAhead;
+  final VoidCallback onShoppingIntelligence;
+  final String selectedStylePreference;
+  final ValueChanged<String>? onStyleOccasionSelected;
+
+  static const Color _primaryColor = Color(0xFF0D0140);
+  static const List<Map<String, dynamic>> _occasions = [
+    {'name': 'Casual', 'value': 'casual', 'icon': Icons.check_circle_outline},
+    {'name': 'Afro-Chic', 'value': 'afrochic', 'icon': Icons.eco_outlined},
+    {
+      'name': 'Corporate',
+      'value': 'corporate',
+      'icon': Icons.business_center_outlined,
+    },
+    {
+      'name': 'Street wear',
+      'value': 'streetwear',
+      'icon': Icons.style_outlined,
+    },
+    {'name': 'Glamour', 'value': 'glamour', 'icon': Icons.diamond_outlined},
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        _buildAiMakeoverCard(context),
+        const SizedBox(height: 25),
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(30),
+          ),
+          child: Column(
+            children: [
+              _buildStyleByOccasion(context),
+              const SizedBox(height: 25),
+              _buildFeatureCard(
+                context,
+                title: 'Idol Style Match',
+                subtitle: 'Discover your global style icon twin',
+                icon: Icons.star,
+                color: _primaryColor,
+                onTap: () {},
+              ),
+              const SizedBox(height: 15),
+              _buildFeatureCard(
+                context,
+                key: const Key('fashion_plan_ahead_button'),
+                title: 'Plan Ahead',
+                subtitle: 'Week planner, trip packer & event series',
+                icon: Icons.calendar_today,
+                color: Colors.pinkAccent,
+                onTap: onPlanAhead,
+              ),
+              const SizedBox(height: 15),
+              _buildFeatureCard(
+                context,
+                key: const Key('fashion_shopping_intelligence_button'),
+                title: 'Shopping Intelligence',
+                subtitle: 'Smart insights for your wardrobe',
+                icon: Icons.shopping_cart_outlined,
+                color: Colors.orange,
+                onTap: onShoppingIntelligence,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAiMakeoverCard(BuildContext context) {
+    return GestureDetector(
+      key: const Key('fashion_start_makeover_button'),
+      onTap: onStartMakeover,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(25),
+        decoration: BoxDecoration(
+          color: _primaryColor,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Start Your\nAI Makeover',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      height: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Upload a full-body photo or\nselfie to begin.',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.6),
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              width: 70,
+              height: 70,
+              decoration: BoxDecoration(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.3),
+                  width: 2,
+                ),
+              ),
+              child: const Icon(Icons.add, color: Colors.white, size: 35),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStyleByOccasion(BuildContext context) {
+    return Column(
+      key: const Key('fashion_style_by_occasion_section'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Style By Occasion',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Discover your global style icon twin',
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.outline,
+            fontSize: 11,
+          ),
+        ),
+        const SizedBox(height: 15),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: _occasions.map((occasion) {
+              final value = occasion['value'] as String;
+
+              return _buildOccasionItem(
+                context,
+                occasion,
+                isSelected: value == selectedStylePreference,
+                onTap: onStyleOccasionSelected == null
+                    ? null
+                    : () => onStyleOccasionSelected!(value),
+              );
+            }).toList(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildOccasionItem(
+    BuildContext context,
+    Map<String, dynamic> occasion, {
+    required bool isSelected,
+    required VoidCallback? onTap,
+  }) {
+    final value = occasion['value'] as String;
+
+    return Padding(
+      padding: const EdgeInsets.only(right: 15),
+      child: GestureDetector(
+        key: Key('fashion_occasion_$value'),
+        onTap: onTap,
+        child: Column(
+          children: [
+            Container(
+              width: 55,
+              height: 55,
+              decoration: BoxDecoration(
+                color: isSelected ? _primaryColor : Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                occasion['icon'] as IconData,
+                color: isSelected
+                    ? Colors.white
+                    : Theme.of(context).colorScheme.outline,
+                size: 24,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              occasion['name'] as String,
+              style: TextStyle(
+                fontSize: 11,
+                color: isSelected
+                    ? Colors.black
+                    : Theme.of(context).colorScheme.onSurfaceVariant,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFeatureCard(
+    BuildContext context, {
+    Key? key,
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      key: key,
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        margin: const EdgeInsets.only(bottom: 15),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 55,
+              height: 55,
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: Icon(icon, color: Colors.white, size: 28),
+            ),
+            const SizedBox(width: 15),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.outline,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

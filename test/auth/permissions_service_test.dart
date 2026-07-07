@@ -28,6 +28,23 @@ void main() {
     );
   });
 
+  test('ignores invalid extra permission keys when valid keys are granted', () {
+    expect(
+      PermissionsService.areAllPermissionsGranted({
+        'camera': true,
+        'location': true,
+        'photos': true,
+        'notifications': true,
+        'microphone': false,
+      }),
+      isTrue,
+    );
+  });
+
+  test('returns false for empty permission values', () {
+    expect(PermissionsService.areAllPermissionsGranted({}), isFalse);
+  });
+
   test('treats limited photo access as accepted', () {
     expect(
       PermissionsService.isAcceptedStatus(PermissionStatus.limited),
