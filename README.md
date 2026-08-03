@@ -1,19 +1,17 @@
-# SimpleApp - Virtual Wardrobe & AR Try-On
+# Banigoba - Virtual Wardrobe & AR Try-On
 
-SimpleApp is a modern Flutter-based social wardrobe platform that allows users to manage their daily dress-up, discover community trends, and try on accessories using Augmented Reality (AR).
+Banigoba is a modern Flutter-based social wardrobe platform that allows users to manage their daily dress-up, discover community trends, and try on accessories using artificial intelligence (AI).
 
 ## 🚀 Key Features
 
 ### 👗 Wardrobe Management
 - **Personal Wardrobe**: Upload and organize your clothing items with details like category, subcategory, colour, and gender.
-- **Supabase Storage**: Efficient image handling using Supabase Storage buckets.
+- ** Firebase Storage**: Efficient image handling.
 - **Privacy Controls**: Set items as 'private' or 'public'. Public items are visible to friends and the community.
 - **Favorites**: Add items from the community or search results to your own wardrobe.
 
-### 👓 AR Try-On
-- **Real-time Face Detection**: Uses Google ML Kit to detect facial landmarks.
-- **Virtual Overlay**: Interactive AR experience to try on items (currently featuring AR Glasses).
-- **Camera Integration**: Seamless transition from product details to AR try-on.
+### AI Try-On
+- **FASHNA AI API**: overlays product on stored avatar image.
 
 ### 🤝 Social Discovery
 - **Community Feed**: Explore public wardrobes from users across the platform.
@@ -30,7 +28,7 @@ SimpleApp is a modern Flutter-based social wardrobe platform that allows users t
 
 - **Frontend**: Flutter (Dart)
 - **Backend/Auth**: Firebase Authentication & Cloud Firestore
-- **Storage**: Supabase Storage
+- **Storage**: Firebase Storage
 - **AI/AR**: Google ML Kit (Face Detection) & Camera API
 - **Navigation**: Structured Routing system
 
@@ -51,22 +49,15 @@ lib/
 1.  **Firebase Setup**:
     - Create a Firebase project and enable Auth (Email/Password) and Firestore.
     - Add your `google-services.json` (Android) and `GoogleService-Info.plist` (iOS).
-2.  **Supabase Setup**:
-    - Initialize a Supabase project.
-    - Create a storage bucket named `products`.
-    - Configure Supabase credentials in `ProductService`.
-3.  **Install Dependencies**:
+      
+2.  **Install Dependencies**:
     ```bash
     flutter pub get
     ```
-4.  **Run the App**:
+3.  **Run the App**:
     ```bash
     flutter run
     ```
-
-## 📸 Screenshots
-
-*(Add screenshots here)*
 
 ---
 Developed as a comprehensive solution for digital fashion management.
