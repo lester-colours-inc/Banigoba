@@ -4,9 +4,12 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../../core/app_routes.dart';
+import '../../../core/main_tab.dart';
+import '../../../data/models/affirmation.dart';
 import '../../../data/models/post.dart';
 import '../../../data/services/friend_service.dart';
 import '../../../data/services/post_service.dart';
+import '../../widgets/affirmation_row.dart';
 import '../../widgets/bottom_navigation.dart';
 import '../../widgets/post_comments_sheet.dart';
 import '../../widgets/try_on_product_picker.dart';
@@ -195,7 +198,7 @@ class ProfilePage extends StatelessWidget {
   }
 
   void _openMainTab(BuildContext context, int index) {
-    MainScreen.selectTab(index);
+    MainScreen.selectTab(MainTab.fromIndex(index));
     Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
@@ -296,7 +299,6 @@ class ProfilePage extends StatelessWidget {
   ) {
     final colors = Theme.of(context).colorScheme;
     final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
-    final isLiked = post.likes.contains(currentUserId);
     final initial = userName.trim().isEmpty
         ? 'U'
         : userName.trim()[0].toUpperCase();
@@ -361,19 +363,23 @@ class ProfilePage extends StatelessWidget {
         const SizedBox(height: 15),
         _buildPublicPostPreview(context, post),
         const SizedBox(height: 15),
+        AffirmationRow(
+          targetType: AffirmationTargetType.post,
+          targetId: post.id,
+          targetOwnerId: post.authorId,
+          currentUserId: currentUserId,
+          ownerName: userName,
+          onOpenReceived: () => showReceivedAffirmations(
+            context,
+            targetType: AffirmationTargetType.post,
+            targetId: post.id,
+          ),
+        ),
+        const SizedBox(height: 4),
         Wrap(
           spacing: 20,
           runSpacing: 12,
           children: [
-            _buildPostAction(
-              context,
-              isLiked ? Icons.favorite : Icons.favorite_border,
-              '${post.likeCount}',
-              color: isLiked ? Colors.red : null,
-              onTap: currentUserId.isEmpty
-                  ? null
-                  : () => PostService().toggleLike(post.id, post.likes),
-            ),
             _buildPostAction(
               context,
               Icons.chat_bubble_outline,

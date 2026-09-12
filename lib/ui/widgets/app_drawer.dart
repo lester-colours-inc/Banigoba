@@ -4,13 +4,14 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../../core/theme_provider.dart';
 import '../../core/app_routes.dart';
+import '../../core/main_tab.dart';
 import '../screens/agents/agents_page.dart';
 import '../screens/designers/fashion_designers_page.dart';
 import '../screens/shop/shop_chat_page.dart';
 
 class AppDrawer extends StatelessWidget {
   final ThemeProvider themeProvider;
-  final Function(int)? onTabSelect;
+  final ValueChanged<MainTab>? onTabSelect;
 
   const AppDrawer({super.key, required this.themeProvider, this.onTabSelect});
 
@@ -57,7 +58,7 @@ class AppDrawer extends StatelessWidget {
                   'My Fashion Style',
                   onTap: () {
                     if (onTabSelect != null) {
-                      onTabSelect!(0);
+                      onTabSelect!(MainTab.home);
                     } else {
                       Navigator.pushReplacementNamed(context, '/home');
                     }
@@ -65,11 +66,11 @@ class AppDrawer extends StatelessWidget {
                 ),
                 _buildDrawerItem(
                   context,
-                  Icons.checkroom_outlined,
-                  'My Daily Dress Up',
+                  Icons.auto_awesome,
+                  'Create a Look',
                   onTap: () {
                     if (onTabSelect != null) {
-                      onTabSelect!(1);
+                      onTabSelect!(MainTab.create);
                     }
                   },
                 ),

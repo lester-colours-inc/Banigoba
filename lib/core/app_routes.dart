@@ -3,6 +3,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../ui/screens/main/main_screen.dart';
+import '../ui/screens/main/notifications_page.dart';
+import '../ui/screens/main/daily_dress_up_page.dart';
+import '../ui/screens/main/hair_style_page.dart';
 import '../ui/screens/wardrobe/wardrobe_page.dart';
 import '../ui/screens/shop/cart_page.dart';
 import '../ui/screens/main/search_page.dart';
@@ -252,6 +255,13 @@ class AppRoutes {
   static const String shops = '/shops';
   static const String fashionDesigners = '/fashion-designers';
   static const String agents = '/agents';
+  static const String notifications = '/notifications';
+
+  // Daily Dress Up and Hair Style are no longer tab destinations — their work
+  // is one coordinated journey under Create. They stay routable because they
+  // also host the shop try-on picker and the hairstyle catalogue.
+  static const String dailyDressUp = '/daily-dress-up';
+  static const String hairStyle = '/hair-style';
 
   static Map<String, WidgetBuilder> routes = {
     root: (context) => const AuthGate(),
@@ -268,6 +278,9 @@ class AppRoutes {
     shops: (context) => const ShopsPage(),
     fashionDesigners: (context) => const FashionDesignersPage(),
     agents: (context) => const AgentsPage(),
+    notifications: (context) => const NotificationsPage(),
+    dailyDressUp: (context) => const DailyDressUpPage(),
+    hairStyle: (context) => const HairStylePage(),
   };
 }
 

@@ -1,4 +1,8 @@
 // Defines social post and comment data read from Cloud Firestore.
+//
+// Posts intentionally expose no reaction count. Qualitative affirmations are a
+// separate object (see models/affirmation.dart) and are never aggregated onto
+// the post, so nothing here can be rendered as a popularity total.
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class Post {
@@ -8,8 +12,6 @@ class Post {
   final int commentCount;
   final DateTime createdAt;
   final String imageURL;
-  final int likeCount;
-  final List<String> likes;
   final String outfitId;
   final List<String> productIds;
   final List<Map<String, dynamic>> products;
@@ -22,8 +24,6 @@ class Post {
     required this.commentCount,
     required this.createdAt,
     required this.imageURL,
-    required this.likeCount,
-    required this.likes,
     this.outfitId = '',
     this.productIds = const [],
     this.products = const [],
@@ -32,13 +32,6 @@ class Post {
 
   factory Post.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>? ?? const {};
-    final rawLikes = data['likedBy'] ?? data['likes'] ?? const [];
-    final likes = rawLikes is Iterable
-        ? rawLikes
-              .map((value) => value.toString())
-              .where((value) => value.isNotEmpty)
-              .toList()
-        : <String>[];
     final rawCreatedAt = data['createdAt'];
     final rawProductIds = data['productIds'];
     final rawProducts = data['products'] ?? data['outfitProducts'];
@@ -54,8 +47,6 @@ class Post {
           ? rawCreatedAt
           : DateTime.now(),
       imageURL: (data['imageURL'] ?? data['imageUrl'] ?? '').toString(),
-      likeCount: _asInt(data['likeCount'], fallback: likes.length),
-      likes: likes,
       outfitId: (data['outfitId'] ?? '').toString(),
       productIds: rawProductIds is Iterable
           ? rawProductIds
@@ -81,9 +72,6 @@ class Post {
       'commentCount': commentCount,
       'createdAt': Timestamp.fromDate(createdAt),
       'imageURL': imageURL,
-      'likeCount': likeCount,
-      'likes': likes,
-      'likedBy': likes,
       if (outfitId.isNotEmpty) 'outfitId': outfitId,
       if (productIds.isNotEmpty) 'productIds': productIds,
       if (products.isNotEmpty) 'products': products,

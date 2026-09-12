@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../../../data/models/affirmation.dart';
 import '../../../data/models/post.dart';
 import '../../../data/services/weather_service.dart';
 import '../../../data/services/notification_service.dart';
@@ -15,6 +16,7 @@ import '../../../data/services/upcoming_event_service.dart';
 import '../../../data/models/weather.dart';
 import 'package:geolocator/geolocator.dart';
 import '../../../core/app_routes.dart';
+import '../../widgets/affirmation_row.dart';
 import '../../widgets/post_comments_sheet.dart';
 import '../../widgets/cart_badge_button.dart';
 import '../../widgets/safe_product_image.dart';
@@ -1038,7 +1040,6 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
             authorSnapshot.data ?? _PostAuthor.fallback(post.authorId);
         final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
         final isOwner = currentUserId == post.authorId;
-        final isLiked = post.likes.contains(currentUserId);
         final imageUrl = post.imageURL.isNotEmpty
             ? post.imageURL
             : author.fullBodyImageUrl;
@@ -1235,31 +1236,31 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
             if (post.isPublic) ...[
               SizedBox(height: 8),
               Container(
-                height: 42,
                 decoration: BoxDecoration(
                   color: Theme.of(context).colorScheme.surfaceContainerLow,
                   borderRadius: BorderRadius.circular(10),
                 ),
-                padding: EdgeInsets.symmetric(horizontal: 14),
-                child: Row(
+                padding: EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                child: Column(
                   children: [
-                    Expanded(
-                      child: _buildMineReaction(
-                        icon: isLiked ? Icons.favorite : Icons.favorite_border,
-                        label: '${post.likeCount} likes',
-                        color: Colors.red,
-                        onTap: currentUserId.isEmpty
-                            ? null
-                            : () =>
-                                  _postService.toggleLike(post.id, post.likes),
+                    AffirmationRow(
+                      targetType: AffirmationTargetType.post,
+                      targetId: post.id,
+                      targetOwnerId: post.authorId,
+                      currentUserId: currentUserId,
+                      ownerName: isOwner ? 'your look' : author.displayName,
+                      onOpenReceived: () => showReceivedAffirmations(
+                        context,
+                        targetType: AffirmationTargetType.post,
+                        targetId: post.id,
                       ),
                     ),
-                    Container(
-                      width: 1,
-                      height: 22,
+                    Divider(
+                      height: 1,
                       color: Theme.of(context).colorScheme.outlineVariant,
                     ),
-                    Expanded(
+                    SizedBox(
+                      height: 40,
                       child: _buildMineReaction(
                         icon: Icons.chat_bubble_outline,
                         label: '${post.commentCount} comments',

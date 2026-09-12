@@ -9,6 +9,7 @@ import '../../../data/services/outfit_service.dart';
 import '../../../data/services/photo_edit_api.dart';
 import '../../widgets/safe_product_image.dart';
 import 'ai_upload_page.dart';
+import '../../../core/main_tab.dart';
 import '../main/main_screen.dart';
 
 class AvatarTryOnPage extends StatefulWidget {
@@ -404,7 +405,7 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
   }
 
   void _returnToHome() {
-    MainScreen.selectTab(0);
+    MainScreen.selectTab(MainTab.home);
     Navigator.of(context).popUntil((route) => route.isFirst);
   }
 

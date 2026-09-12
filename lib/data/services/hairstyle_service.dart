@@ -5,7 +5,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:http/http.dart' as http;
 
+import '../models/affirmation.dart';
 import '../models/post.dart';
+import 'affirmation_service.dart';
 import 'photo_edit_api.dart';
 
 class HairstyleService {
@@ -143,10 +145,7 @@ class HairstyleService {
           'authorId': userId,
           'isPublic': false,
           'visibility': 'private',
-          'likeCount': 0,
           'commentCount': 0,
-          'likedBy': [],
-          'likes': [],
           'createdAt': FieldValue.serverTimestamp(),
         });
   }
@@ -194,37 +193,12 @@ class HairstyleService {
     }
     batch.delete(lookRef);
     await batch.commit();
-  }
 
-  Future<void> toggleSavedLookLike({
-    required String ownerId,
-    required String lookId,
-    required String userId,
-    required List<String> currentLikes,
-  }) async {
-    if (userId.isEmpty) return;
-    final lookRef = _savedLookRef(ownerId, lookId);
-    final likeRef = lookRef.collection('likes').doc(userId);
-
-    if (currentLikes.contains(userId)) {
-      await lookRef.update({
-        'likedBy': FieldValue.arrayRemove([userId]),
-        'likes': FieldValue.arrayRemove([userId]),
-        'likeCount': FieldValue.increment(-1),
-      });
-      await likeRef.delete();
-      return;
-    }
-
-    await lookRef.update({
-      'likedBy': FieldValue.arrayUnion([userId]),
-      'likes': FieldValue.arrayUnion([userId]),
-      'likeCount': FieldValue.increment(1),
-    });
-    await likeRef.set({
-      'userId': userId,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
+    // Affirmations must not outlive the look they were about.
+    await AffirmationService().deleteAllForTarget(
+      targetType: AffirmationTargetType.hairLook,
+      targetId: lookId,
+    );
   }
 
   Future<void> addSavedLookComment({

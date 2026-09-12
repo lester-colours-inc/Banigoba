@@ -7,10 +7,13 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/app_routes.dart';
+import '../../../core/main_tab.dart';
+import '../../../data/models/affirmation.dart';
 import '../../../data/models/post.dart';
 import '../../../data/services/friend_service.dart';
 import '../../../data/services/notification_service.dart';
 import '../../../data/services/hairstyle_service.dart';
+import '../../widgets/affirmation_row.dart';
 import '../../widgets/cart_badge_button.dart';
 import 'main_screen.dart';
 import 'notifications_page.dart';
@@ -2136,7 +2139,7 @@ class _HairResultPageState extends State<_HairResultPage> {
   }
 
   void _returnToHairStyleHome() {
-    MainScreen.selectTab(2);
+    MainScreen.selectTab(MainTab.create);
     Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
@@ -2542,9 +2545,6 @@ class _SavedHairStyleCardState extends State<_SavedHairStyleCard> {
     final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
     final isOwner = currentUserId == widget.ownerId;
     final isPublic = data['isPublic'] == true || data['visibility'] == 'public';
-    final likes = _stringList(data['likedBy'] ?? data['likes']);
-    final isLiked = likes.contains(currentUserId);
-    final likeCount = _asInt(data['likeCount'], fallback: likes.length);
     final commentCount = _asInt(data['commentCount']);
 
     return Column(
@@ -2682,26 +2682,28 @@ class _SavedHairStyleCardState extends State<_SavedHairStyleCard> {
         if (isPublic) ...[
           const SizedBox(height: 8),
           Container(
-            height: 42,
             decoration: BoxDecoration(
               color: colors.surfaceContainerLow,
               borderRadius: BorderRadius.circular(10),
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            child: Row(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+            child: Column(
               children: [
-                Expanded(
-                  child: _HairSocialReaction(
-                    icon: isLiked ? Icons.favorite : Icons.favorite_border,
-                    label: '$likeCount likes',
-                    color: Colors.red,
-                    onTap: currentUserId.isEmpty || _busy
-                        ? null
-                        : () => _toggleLike(currentUserId, likes),
+                AffirmationRow(
+                  targetType: AffirmationTargetType.hairLook,
+                  targetId: widget.lookId,
+                  targetOwnerId: widget.ownerId,
+                  currentUserId: currentUserId,
+                  ownerName: isOwner ? 'your look' : styleName,
+                  onOpenReceived: () => showReceivedAffirmations(
+                    context,
+                    targetType: AffirmationTargetType.hairLook,
+                    targetId: widget.lookId,
                   ),
                 ),
-                Container(width: 1, height: 22, color: colors.outlineVariant),
-                Expanded(
+                Divider(height: 1, color: colors.outlineVariant),
+                SizedBox(
+                  height: 40,
                   child: _HairSocialReaction(
                     icon: Icons.chat_bubble_outline,
                     label: '$commentCount comments',
@@ -2808,20 +2810,6 @@ class _SavedHairStyleCardState extends State<_SavedHairStyleCard> {
     );
   }
 
-  Future<void> _toggleLike(String userId, List<String> likes) async {
-    await _runAction(
-      () => _service.toggleSavedLookLike(
-        ownerId: widget.ownerId,
-        lookId: widget.lookId,
-        userId: userId,
-        currentLikes: likes,
-      ),
-      '',
-      'Unable to update like',
-      showSuccess: false,
-    );
-  }
-
   Future<void> _runAction(
     Future<void> Function() action,
     String success,
@@ -2845,14 +2833,6 @@ class _SavedHairStyleCardState extends State<_SavedHairStyleCard> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
-  }
-
-  List<String> _stringList(dynamic value) {
-    if (value is! Iterable) return const [];
-    return value
-        .map((item) => item.toString())
-        .where((item) => item.isNotEmpty)
-        .toList();
   }
 
   int _asInt(dynamic value, {int fallback = 0}) {
