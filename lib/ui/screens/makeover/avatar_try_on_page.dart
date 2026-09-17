@@ -1,5 +1,4 @@
 // Generates a clothing try-on using the signed-in user's saved avatar.
-import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -40,7 +39,7 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
   bool _isGenerating = false;
   bool _isSavingOutfit = false;
   bool _outfitSaved = false;
-  bool _showMockCollage = false;
+  String? _generatingLabel;
 
   List<Map<String, dynamic>> get _selectedProducts {
     final arguments = ModalRoute.of(context)?.settings.arguments;
@@ -188,21 +187,34 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
     });
 
     try {
+      final api = PhotoEditApi(apiKey: _apiKey);
       var currentAvatarUrl = avatarUrl;
       for (final product in _orderedProducts(products)) {
         final garmentUrl = _productImageUrl(product);
         if (garmentUrl.isEmpty) continue;
-        final results = await PhotoEditApi(apiKey: _apiKey).tryOnClothes(
-          modelImageUrl: currentAvatarUrl,
-          garmentImageUrl: garmentUrl,
-          category: _fashnCategory(
-            (product['category'] ?? product['subcategory']).toString(),
-          ),
-        );
+        final group = _productGroup(product);
+        final productName = (product['name'] ?? 'a product').toString();
+
+        if (mounted) {
+          setState(() => _generatingLabel = productName);
+        }
+
+        // tryon-v1.6 renders apparel only; bags, hats, shoes and jewellery
+        // have to go through tryon-max or they come back mangled.
+        final results = group == 'accessories'
+            ? await api.tryOnProductMax(
+                modelImageUrl: currentAvatarUrl,
+                productImageUrl: garmentUrl,
+                prompt: _accessoryPrompt(product),
+              )
+            : await api.tryOnClothes(
+                modelImageUrl: currentAvatarUrl,
+                garmentImageUrl: garmentUrl,
+                category: _fashnCategory(group),
+                mode: 'quality',
+              );
         if (results.isEmpty) {
-          throw Exception(
-            'No image was returned for ${product['name'] ?? 'a product'}.',
-          );
+          throw Exception('No image was returned for $productName.');
         }
         currentAvatarUrl = results.first;
       }
@@ -219,9 +231,41 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
       if (mounted) {
         setState(() {
           _isGenerating = false;
+          _generatingLabel = null;
         });
       }
     }
+  }
+
+  /// Names the item so Try-On Max places it the way the item is actually worn.
+  String _accessoryPrompt(Map<String, dynamic> product) {
+    final name = (product['name'] ?? 'accessory').toString();
+    final descriptor =
+        '${product['subcategory'] ?? ''} ${product['category'] ?? ''}'
+            .toLowerCase();
+
+    if (descriptor.contains('bag') ||
+        descriptor.contains('purse') ||
+        descriptor.contains('clutch')) {
+      return 'Place the $name so the person carries it naturally by the handle, '
+          'keeping their outfit and pose unchanged.';
+    }
+    if (descriptor.contains('hat') || descriptor.contains('cap')) {
+      return 'Place the $name on the person\'s head at a natural angle, '
+          'keeping their outfit and pose unchanged.';
+    }
+    if (descriptor.contains('shoe') ||
+        descriptor.contains('sneaker') ||
+        descriptor.contains('boot')) {
+      return 'Put the $name on the person\'s feet, '
+          'keeping their outfit and pose unchanged.';
+    }
+    if (descriptor.contains('glass') || descriptor.contains('sunglass')) {
+      return 'Place the $name on the person\'s face, '
+          'keeping their outfit and pose unchanged.';
+    }
+    return 'Add the $name to the person as it would normally be worn, '
+        'keeping their outfit and pose unchanged.';
   }
 
   List<Map<String, dynamic>> _orderedProducts(
@@ -306,8 +350,8 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
   Future<void> _saveCompletedOutfit() async {
     final user = FirebaseAuth.instance.currentUser;
     final avatarUrl = _avatarImageUrl;
-    if (user == null || avatarUrl == null || !_showMockCollage) return;
-    final resultUrl = _resultImageUrl ?? avatarUrl;
+    final resultUrl = _resultImageUrl;
+    if (user == null || avatarUrl == null || resultUrl == null) return;
     final plannedDate = _plannedDate;
 
     final caption = plannedDate == null
@@ -324,7 +368,7 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
           avatarImageUrl: avatarUrl,
           resultImageUrl: resultUrl,
           products: _selectedProducts,
-          previewType: _resultImageUrl == null ? 'mock_collage' : 'generated',
+          previewType: 'generated',
           caption: caption,
         );
       } else {
@@ -333,7 +377,7 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
           avatarImageUrl: avatarUrl,
           resultImageUrl: resultUrl,
           products: _selectedProducts,
-          previewType: _resultImageUrl == null ? 'mock_collage' : 'generated',
+          previewType: 'generated',
           date: plannedDate,
           eventId: _eventId,
           eventName: _eventName,
@@ -409,38 +453,14 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
     Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
-  void _previewMockLook() {
-    if (_avatarImageUrl == null || _selectedProducts.isEmpty) return;
-    setState(() {
-      _showMockCollage = true;
-      _outfitSaved = false;
-      _error = null;
-    });
-  }
-
-  String _fashnCategory(String? value) {
-    final category = value?.toLowerCase() ?? '';
-    if (category.contains('bottom') ||
-        category.contains('pants') ||
-        category.contains('trouser') ||
-        category.contains('skirt')) {
-      return 'bottoms';
-    }
-    if (category.contains('dress') ||
-        category.contains('jumpsuit') ||
-        category.contains('one-piece')) {
-      return 'one-pieces';
-    }
-    if (category.contains('top') ||
-        category.contains('shirt') ||
-        category.contains('jacket') ||
-        category.contains('outerwear') ||
-        category.contains('blazer') ||
-        category.contains('coat') ||
-        category.contains('hoodie')) {
-      return 'tops';
-    }
-    return 'auto';
+  /// Maps a [_productGroup] onto the categories tryon-v1.6 accepts.
+  String _fashnCategory(String group) {
+    return switch (group) {
+      'bottoms' => 'bottoms',
+      'dresses' => 'one-pieces',
+      'tops' || 'outerwear' => 'tops',
+      _ => 'auto',
+    };
   }
 
   Future<void> _createOrUpdateAvatar() async {
@@ -463,9 +483,11 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
 
   @override
   Widget build(BuildContext context) {
-    final garmentUrl = _garmentImageUrl;
     final products = _selectedProducts;
     final isMultiProductLook = products.length > 1;
+    final clothingImageUrl = products.length == 1
+        ? _productImageUrl(products.first)
+        : _garmentImageUrl;
     final colors = Theme.of(context).colorScheme;
 
     return Scaffold(
@@ -548,7 +570,7 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
                         Expanded(
                           child: _imageCard(
                             title: 'Clothing',
-                            imageUrl: garmentUrl,
+                            imageUrl: clothingImageUrl,
                             emptyText: 'Choose clothing to try on',
                           ),
                         ),
@@ -573,95 +595,114 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
                   ],
                   const SizedBox(height: 20),
                   ElevatedButton.icon(
-                    onPressed: _avatarImageUrl == null || products.isEmpty
+                    onPressed:
+                        _avatarImageUrl == null ||
+                            products.isEmpty ||
+                            _isGenerating
                         ? null
-                        : _previewMockLook,
+                        : _generateTryOn,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: _primaryColor,
                       foregroundColor: Colors.white,
                       minimumSize: const Size(double.infinity, 54),
                     ),
-                    icon: const Icon(Icons.dashboard_customize_outlined),
-                    label: const Text('Preview Mock Look'),
-                  ),
-                  if (_showMockCollage) ...[
-                    const SizedBox(height: 28),
-                    const Text(
-                      'Mock Try-On Preview',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    icon: _isGenerating
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.auto_awesome),
+                    label: Text(
+                      _isGenerating
+                          ? 'Dressing your avatar...'
+                          : _resultImageUrl == null
+                          ? 'See It On Me'
+                          : 'Try Again',
                     ),
-                    const SizedBox(height: 12),
-                    _buildMockCollage(products),
+                  ),
+                  if (_isGenerating && _generatingLabel != null) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      'Putting on $_generatingLabel',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: colors.onSurfaceVariant),
+                    ),
+                  ],
+                  if (_resultImageUrl != null) ...[
+                    const SizedBox(height: 28),
+                    Row(
+                      children: [
+                        const Text(
+                          'Your Look',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: colors.primaryContainer,
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.auto_awesome,
+                                size: 13,
+                                color: colors.onPrimaryContainer,
+                              ),
+                              const SizedBox(width: 5),
+                              Text(
+                                'AI generated',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: colors.onPrimaryContainer,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 12),
                     Container(
-                      padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: colors.primaryContainer,
-                        borderRadius: BorderRadius.circular(14),
+                        color: colors.surfaceContainerLow,
+                        borderRadius: BorderRadius.circular(22),
+                        border: Border.all(color: colors.outlineVariant),
                       ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Icon(
-                            Icons.info_outline,
-                            color: colors.onPrimaryContainer,
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              'This collage is a temporary confirmation preview. '
-                              'The try-on API integration will replace it with a '
-                              'generated image of the selected items worn on your avatar.',
-                              style: TextStyle(
-                                color: colors.onPrimaryContainer,
-                                fontWeight: FontWeight.w600,
+                      clipBehavior: Clip.antiAlias,
+                      child: Image.network(
+                        _resultImageUrl!,
+                        fit: BoxFit.contain,
+                        loadingBuilder: (context, child, progress) =>
+                            progress == null
+                            ? child
+                            : const SizedBox(
+                                height: 380,
+                                child: Center(
+                                  child: CircularProgressIndicator(),
+                                ),
                               ),
-                            ),
+                        errorBuilder: (_, _, _) => const SizedBox(
+                          height: 240,
+                          child: Center(
+                            child: Text('Unable to display your look.'),
                           ),
-                        ],
+                        ),
                       ),
                     ),
-                    if (_apiKey.isNotEmpty) ...[
-                      const SizedBox(height: 12),
-                      OutlinedButton.icon(
-                        onPressed: _isGenerating ? null : _generateTryOn,
-                        icon: _isGenerating
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Icon(Icons.auto_awesome),
-                        label: Text(
-                          _isGenerating
-                              ? 'Generating API Preview...'
-                              : 'Test API Preview',
-                        ),
-                      ),
-                    ],
-                    if (_resultImageUrl != null) ...[
-                      const SizedBox(height: 16),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(20),
-                        child: Image.network(
-                          _resultImageUrl!,
-                          fit: BoxFit.contain,
-                          errorBuilder: (_, _, _) => const SizedBox(
-                            height: 240,
-                            child: Center(
-                              child: Text(
-                                'Unable to display generated preview.',
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
                     const SizedBox(height: 16),
                     FilledButton.icon(
                       onPressed: _isSavingOutfit || _outfitSaved
@@ -670,10 +711,10 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
                       style: FilledButton.styleFrom(
                         backgroundColor: _primaryColor,
                         foregroundColor: Colors.white,
-                        minimumSize: Size(double.infinity, 54),
+                        minimumSize: const Size(double.infinity, 54),
                       ),
                       icon: _isSavingOutfit
-                          ? SizedBox(
+                          ? const SizedBox(
                               width: 18,
                               height: 18,
                               child: CircularProgressIndicator(
@@ -737,145 +778,6 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
                 ),
         ),
       ],
-    );
-  }
-
-  Widget _buildMockCollage(List<Map<String, dynamic>> products) {
-    final colors = Theme.of(context).colorScheme;
-    return Container(
-      height: 380,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: colors.outlineVariant),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final displayProducts = products
-                .where((product) => _productImageUrl(product).isNotEmpty)
-                .toList();
-            final bottomCount = _collageBottomCount(displayProducts.length);
-            final tileSize = _collageProductTileSize(
-              itemCount: displayProducts.length,
-              bottomCount: bottomCount,
-              width: constraints.maxWidth,
-              height: constraints.maxHeight,
-            );
-            final gap = tileSize <= 48 ? 5.0 : 8.0;
-            final bottomProducts = displayProducts.take(bottomCount).toList();
-            final sideProducts = displayProducts.skip(bottomCount).toList();
-            final bottomGap = _collageEvenGap(
-              extent: constraints.maxWidth,
-              itemCount: bottomProducts.length,
-              tileSize: tileSize,
-              fallback: gap,
-            );
-            final sideAvailableHeight = constraints.maxHeight - tileSize - gap;
-            final sideGap = _collageEvenGap(
-              extent: sideAvailableHeight,
-              itemCount: sideProducts.length,
-              tileSize: tileSize,
-              fallback: gap,
-            );
-
-            return Stack(
-              fit: StackFit.expand,
-              children: [
-                Container(
-                  color: colors.surface,
-                  child: Image.network(
-                    _resultImageUrl ?? _avatarImageUrl!,
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, _, _) => const Center(
-                      child: Icon(Icons.person_outline, size: 64),
-                    ),
-                  ),
-                ),
-                for (var index = 0; index < sideProducts.length; index++)
-                  Positioned(
-                    right: gap,
-                    top: sideGap + index * (tileSize + sideGap),
-                    width: tileSize,
-                    height: tileSize,
-                    child: _buildCollageProduct(sideProducts[index]),
-                  ),
-                for (var index = 0; index < bottomProducts.length; index++)
-                  Positioned(
-                    left: bottomGap + index * (tileSize + bottomGap),
-                    bottom: gap,
-                    width: tileSize,
-                    height: tileSize,
-                    child: _buildCollageProduct(bottomProducts[index]),
-                  ),
-              ],
-            );
-          },
-        ),
-      ),
-    );
-  }
-
-  int _collageBottomCount(int itemCount) {
-    if (itemCount <= 3) return itemCount;
-    if (itemCount == 4) return 3;
-    return math.min(3, itemCount);
-  }
-
-  double _collageProductTileSize({
-    required int itemCount,
-    required int bottomCount,
-    required double width,
-    required double height,
-  }) {
-    const maxTile = 136.0;
-    const minTile = 58.0;
-    const gap = 8.0;
-
-    final sideCount = itemCount - bottomCount;
-    final bottomFit = bottomCount == 0
-        ? maxTile
-        : (width - gap * (bottomCount + 1)) / bottomCount;
-    final sideFit = sideCount == 0
-        ? maxTile
-        : (height - bottomFit - gap * (sideCount + 2)) / sideCount;
-    final fit = math.min(maxTile, math.min(bottomFit, sideFit));
-    return fit.clamp(minTile, maxTile).toDouble();
-  }
-
-  double _collageEvenGap({
-    required double extent,
-    required int itemCount,
-    required double tileSize,
-    required double fallback,
-  }) {
-    if (itemCount <= 0) return fallback;
-    final available = extent - itemCount * tileSize;
-    if (available <= fallback * (itemCount + 1)) return fallback;
-    return available / (itemCount + 1);
-  }
-
-  Widget _buildCollageProduct(Map<String, dynamic> product) {
-    final colors = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.all(6),
-      decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: colors.outlineVariant),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(9),
-        child: SafeProductImage(
-          imageUrl: _productImageUrl(product),
-          width: double.infinity,
-          height: double.infinity,
-          fit: BoxFit.contain,
-          iconSize: 34,
-        ),
-      ),
     );
   }
 }

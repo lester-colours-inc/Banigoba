@@ -18,7 +18,10 @@ import '../main/main_screen.dart';
 /// Screen displaying user profile details and public Daily Dress Up posts.
 class ProfilePage extends StatelessWidget {
   final String? userId; // If null, displays the current user's profile
-  const ProfilePage({super.key, this.userId});
+  // False when embedded as a MainScreen tab, which already supplies its own
+  // bottom navigation bar around this page's IndexedStack.
+  final bool showBottomNav;
+  const ProfilePage({super.key, this.userId, this.showBottomNav = true});
 
   @override
   Widget build(BuildContext context) {
@@ -186,10 +189,12 @@ class ProfilePage extends StatelessWidget {
                   ],
                 ),
               ),
-              bottomNavigationBar: CustomBottomNavigation(
-                currentIndex: -1,
-                onTap: (index) => _openMainTab(context, index),
-              ),
+              bottomNavigationBar: showBottomNav
+                  ? CustomBottomNavigation(
+                      currentIndex: -1,
+                      onTap: (index) => _openMainTab(context, index),
+                    )
+                  : null,
             );
           },
         );

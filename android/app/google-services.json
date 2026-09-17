@@ -1,41 +1,117 @@
 {
   "project_info": {
-    "project_number": "1057057002281",
-    "firebase_url": "https://internshipproject-68c13-default-rtdb.europe-west1.firebasedatabase.app",
-    "project_id": "internshipproject-68c13",
-    "storage_bucket": "internshipproject-68c13.firebasestorage.app"
+    "project_number": "379405824371",
+    "firebase_url": "https://appdemo-b9e3e.firebaseio.com",
+    "project_id": "appdemo-b9e3e",
+    "storage_bucket": "appdemo-b9e3e.appspot.com"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:1057057002281:android:39ef218f3602fd72505d38",
+        "mobilesdk_app_id": "1:379405824371:android:3d51ac0fb0ec085c685506",
         "android_client_info": {
           "package_name": "com.banigoba"
         }
       },
       "oauth_client": [
         {
-          "client_id": "1057057002281-d6g305b25lvjmfck44fvngmf91utua1f.apps.googleusercontent.com",
+          "client_id": "379405824371-kf677g195hrbd54bgabpvpiuuit22q1l.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.banigoba",
+            "certificate_hash": "512e95a45b76010f51bd0705f31b3077fce27396"
+          }
+        },
+        {
+          "client_id": "379405824371-i657b4cj9ahacjl3j2u1v3df6erfm5a2.apps.googleusercontent.com",
           "client_type": 3
         }
       ],
       "api_key": [
         {
-          "current_key": "AIzaSyAT1RUBbmQiZaPa_b71E19BTa5o-qj2JdU"
+          "current_key": "AIzaSyC4yKLG2OH4334nXEUii7W90DoyR2kGcZk"
         }
       ],
       "services": {
         "appinvite_service": {
           "other_platform_oauth_client": [
             {
-              "client_id": "1057057002281-d6g305b25lvjmfck44fvngmf91utua1f.apps.googleusercontent.com",
+              "client_id": "379405824371-3q8i0kq1a6g1es8sqrek9me7hi2d63l7.apps.googleusercontent.com",
               "client_type": 3
             },
             {
-              "client_id": "1057057002281-etceq9fo3smch6jpv1fpsgsti59g9iei.apps.googleusercontent.com",
+              "client_id": "379405824371-3i0domiemedqsmdd0jl7vkcet0roaa9c.apps.googleusercontent.com",
               "client_type": 2,
               "ios_info": {
-                "bundle_id": "com.example.simpleApp"
+                "bundle_id": "com.tembaa.app"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:379405824371:android:ded3503a7d6028b1685506",
+        "android_client_info": {
+          "package_name": "com.beecrumbs.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "379405824371-7dshc79hhrunc821r74pmc9n8r6f6alo.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.beecrumbs.app",
+            "certificate_hash": "ff2447a5c1d44b3ad947d8bf4a383eefac19328b"
+          }
+        },
+        {
+          "client_id": "379405824371-k4n2bf4lpakh9fokcbd9qvbejbm9gc6g.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.beecrumbs.app",
+            "certificate_hash": "512e95a45b76010f51bd0705f31b3077fce27396"
+          }
+        },
+        {
+          "client_id": "379405824371-umtcgjif97liml8kgc6imcvi1ovkm682.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.beecrumbs.app",
+            "certificate_hash": "f5ce28335366293644198acacea9c9694680851b"
+          }
+        },
+        {
+          "client_id": "379405824371-uo9mjcsd6659bjbl6i8o44jif3ccseqs.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.beecrumbs.app",
+            "certificate_hash": "8055c58b8b3896b0867693d7a5f5840b301ba9ac"
+          }
+        },
+        {
+          "client_id": "379405824371-i657b4cj9ahacjl3j2u1v3df6erfm5a2.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC4yKLG2OH4334nXEUii7W90DoyR2kGcZk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "379405824371-3q8i0kq1a6g1es8sqrek9me7hi2d63l7.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "379405824371-3i0domiemedqsmdd0jl7vkcet0roaa9c.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.tembaa.app"
               }
             }
           ]

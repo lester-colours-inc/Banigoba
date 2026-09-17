@@ -63,7 +63,7 @@ class _MainScreenState extends State<MainScreen> {
     SearchPage(),
     CreateMakeoverPage(),
     WardrobePage(),
-    ProfilePage(),
+    ProfilePage(showBottomNav: false),
   ];
 
   @override

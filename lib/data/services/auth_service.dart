@@ -10,9 +10,9 @@ import 'permissions_service.dart';
 class AuthService {
   FirebaseAuth get _auth => FirebaseAuth.instance;
 
-  // For Web: Replace with your actual Web Client ID from Firebase Console -> Authentication -> Sign-in method -> Google
+  // Web Client ID for the appdemo-b9e3e Firebase project.
   static const String _webClientId =
-      '1057057002281-YOUR_WEB_CLIENT_ID.apps.googleusercontent.com';
+      '379405824371-i657b4cj9ahacjl3j2u1v3df6erfm5a2.apps.googleusercontent.com';
 
   final GoogleSignIn _googleSignIn = GoogleSignIn(
     clientId: kIsWeb ? _webClientId : null,
