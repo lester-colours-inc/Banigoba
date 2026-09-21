@@ -10,6 +10,7 @@ class StorageService {
   static const String _fullBodyDir = 'fullBody';
   static const String _selfieDir = 'selfie';
   static const String _profileDir = 'profile';
+  static const String _tryOnResultsDir = 'tryOnResults';
   static const String _productImagesDir = 'productImages';
 
   /// Uploads a full-body image to userImages/{userId}/fullBody/ directory
@@ -23,6 +24,23 @@ class StorageService {
       imageBytes,
       userId,
       _fullBodyDir,
+      filename: filename,
+    );
+  }
+
+  /// Uploads a generated try-on image to userImages/{userId}/tryOnResults/
+  ///
+  /// Gemini hands back raw bytes rather than a hosted URL, so results have to
+  /// be stored before they can be shown or saved to an outfit.
+  Future<String> uploadTryOnResultBytes(
+    Uint8List imageBytes,
+    String userId, {
+    String? filename,
+  }) async {
+    return await _uploadUserImageBytes(
+      imageBytes,
+      userId,
+      _tryOnResultsDir,
       filename: filename,
     );
   }

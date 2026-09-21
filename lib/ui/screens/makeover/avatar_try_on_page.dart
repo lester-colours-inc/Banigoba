@@ -4,12 +4,29 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../../data/services/gemini_image_api.dart';
 import '../../../data/services/outfit_service.dart';
 import '../../../data/services/photo_edit_api.dart';
+import '../../../data/services/storage_service.dart';
+import '../../widgets/before_after_view.dart';
 import '../../widgets/safe_product_image.dart';
 import 'ai_upload_page.dart';
 import '../../../core/main_tab.dart';
 import '../main/main_screen.dart';
+
+/// The engines the page can dress the avatar with. Results are kept per
+/// provider so the same look can be generated twice and compared.
+enum TryOnProvider {
+  fashn('FASHN', 'generated'),
+  gemini('Gemini', 'generated_gemini');
+
+  const TryOnProvider(this.label, this.previewType);
+
+  final String label;
+
+  /// Recorded on the saved outfit so it stays clear which engine made it.
+  final String previewType;
+}
 
 class AvatarTryOnPage extends StatefulWidget {
   final String? garmentImageUrl;
@@ -29,16 +46,21 @@ class AvatarTryOnPage extends StatefulWidget {
 
 class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
   static const Color _primaryColor = Color(0xFF0D0140);
-  static const String _apiKey = String.fromEnvironment('FASHN_API_KEY');
+  static const String _fashnApiKey = String.fromEnvironment('FASHN_API_KEY');
+  static const String _geminiApiKey = String.fromEnvironment('GEMINI_API_KEY');
   final OutfitService _outfitService = OutfitService();
+  final StorageService _storageService = StorageService();
 
   String? _avatarImageUrl;
-  String? _resultImageUrl;
   String? _error;
   bool _isLoadingAvatar = true;
-  bool _isGenerating = false;
-  bool _isSavingOutfit = false;
-  bool _outfitSaved = false;
+  Map<TryOnProvider, String> _results = const {};
+  Set<TryOnProvider> _savedResults = const {};
+
+  /// The result currently shown in the before/after panel.
+  TryOnProvider? _visibleResult;
+  TryOnProvider? _generatingProvider;
+  TryOnProvider? _savingProvider;
   String? _generatingLabel;
 
   List<Map<String, dynamic>> get _selectedProducts {
@@ -165,39 +187,110 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
     }
   }
 
-  Future<void> _generateTryOn() async {
+  /// Validates the shared pre-conditions both engines need.
+  ///
+  /// Returns null — after surfacing an error where one is useful — when the
+  /// avatar, the products or the provider's API key are missing.
+  ({String avatarUrl, List<Map<String, dynamic>> products})? _generationInputs({
+    required String apiKey,
+    required String keyName,
+    required String providerLabel,
+  }) {
     final avatarUrl = _avatarImageUrl;
     final products = _selectedProducts;
-    if (avatarUrl == null || products.isEmpty) return;
+    if (avatarUrl == null || products.isEmpty) return null;
 
-    if (_apiKey.isEmpty) {
+    if (apiKey.isEmpty) {
       setState(() {
         _error =
-            'FASHN is not configured. Start the app with '
-            '--dart-define=FASHN_API_KEY=your_key.';
+            '$providerLabel is not configured. Start the app with '
+            '--dart-define=$keyName=your_key.';
       });
-      return;
+      return null;
     }
 
+    return (avatarUrl: avatarUrl, products: products);
+  }
+
+  /// Runs [generate] for [provider], keeping any result the other engine
+  /// already produced so the two can sit side by side.
+  Future<void> _runGeneration(
+    TryOnProvider provider,
+    Future<String> Function() generate,
+  ) async {
     setState(() {
-      _isGenerating = true;
+      _generatingProvider = provider;
       _error = null;
-      _resultImageUrl = null;
-      _outfitSaved = false;
+      _results = {..._results}..remove(provider);
+      _savedResults = {..._savedResults}..remove(provider);
+      _visibleResult = _remainingResult(provider);
     });
 
     try {
-      final api = PhotoEditApi(apiKey: _apiKey);
-      var currentAvatarUrl = avatarUrl;
-      for (final product in _orderedProducts(products)) {
+      final resultUrl = await generate();
+      if (!mounted) return;
+      setState(() {
+        _results = {..._results, provider: resultUrl};
+        _visibleResult = provider;
+      });
+    } on Exception catch (e) {
+      if (!mounted) return;
+      setState(() => _error = '${provider.label} try-on failed: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _generatingProvider = null;
+          _generatingLabel = null;
+        });
+      }
+    }
+  }
+
+  void _setGeneratingLabel(String? label) {
+    if (!mounted) return;
+    setState(() => _generatingLabel = label);
+  }
+
+  /// The other engine's result, if it has one, once [dropped] goes away.
+  TryOnProvider? _remainingResult(TryOnProvider dropped) {
+    if (_visibleResult != dropped) return _visibleResult;
+    for (final provider in TryOnProvider.values) {
+      if (provider != dropped && _results.containsKey(provider)) {
+        return provider;
+      }
+    }
+    return null;
+  }
+
+  /// Throws away a look the user does not want to keep.
+  void _discardResult(TryOnProvider provider) {
+    setState(() {
+      _visibleResult = _remainingResult(provider);
+      _results = {..._results}..remove(provider);
+      _savedResults = {..._savedResults}..remove(provider);
+    });
+  }
+
+  /// FASHN dresses the avatar one garment at a time, feeding each result into
+  /// the next call.
+  Future<void> _generateWithFashn() async {
+    final inputs = _generationInputs(
+      apiKey: _fashnApiKey,
+      keyName: 'FASHN_API_KEY',
+      providerLabel: TryOnProvider.fashn.label,
+    );
+    if (inputs == null) return;
+
+    await _runGeneration(TryOnProvider.fashn, () async {
+      final api = PhotoEditApi(apiKey: _fashnApiKey);
+      var currentAvatarUrl = inputs.avatarUrl;
+      for (final product in _orderedProducts(inputs.products)) {
         final garmentUrl = _productImageUrl(product);
         if (garmentUrl.isEmpty) continue;
         final group = _productGroup(product);
         final productName = (product['name'] ?? 'a product').toString();
 
-        if (mounted) {
-          setState(() => _generatingLabel = productName);
-        }
+        _setGeneratingLabel(productName);
 
         // tryon-v1.6 renders apparel only; bags, hats, shoes and jewellery
         // have to go through tryon-max or they come back mangled.
@@ -218,23 +311,82 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
         }
         currentAvatarUrl = results.first;
       }
-      if (!mounted) return;
-      setState(() {
-        _resultImageUrl = currentAvatarUrl;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _error = 'Try-on failed: $e';
-      });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isGenerating = false;
-          _generatingLabel = null;
-        });
-      }
+      return currentAvatarUrl;
+    });
+  }
+
+  /// Gemini takes the avatar and every garment in one call and returns raw
+  /// bytes, so the result is uploaded before it can be shown or saved.
+  Future<void> _generateWithGemini() async {
+    final inputs = _generationInputs(
+      apiKey: _geminiApiKey,
+      keyName: 'GEMINI_API_KEY',
+      providerLabel: TryOnProvider.gemini.label,
+    );
+    if (inputs == null) return;
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      setState(() => _error = 'Sign in to use avatar try-on.');
+      return;
     }
+
+    await _runGeneration(TryOnProvider.gemini, () async {
+      final products = _orderedProducts(
+        inputs.products,
+      ).where((product) => _productImageUrl(product).isNotEmpty).toList();
+      if (products.isEmpty) {
+        throw Exception('None of the selected items have an image.');
+      }
+
+      _setGeneratingLabel('your whole look at once');
+      final images = <GeminiImage>[
+        await GeminiImageApi.fetchImage(inputs.avatarUrl),
+        for (final product in products)
+          await GeminiImageApi.fetchImage(_productImageUrl(product)),
+      ];
+
+      final result = await GeminiImageApi(
+        apiKey: _geminiApiKey,
+      ).editImage(images: images, prompt: _geminiTryOnPrompt(products));
+
+      return await _storageService.uploadTryOnResultBytes(
+        result.bytes,
+        user.uid,
+      );
+    });
+  }
+
+  /// Describes the whole look in one instruction, in the same order the images
+  /// are attached.
+  String _geminiTryOnPrompt(List<Map<String, dynamic>> products) {
+    final items = products
+        .map((product) => '- ${_geminiItemDescription(product)}')
+        .join('\n');
+
+    return 'The first image is a full-body photo of a person. The remaining '
+        '${products.length} image(s) are items to put on that person:\n'
+        '$items\n\n'
+        'Generate one photorealistic full-body image of the same person '
+        'wearing every item exactly as shown. Keep each item\'s colour, '
+        'pattern, print, texture, length and cut identical to its reference '
+        'image. Preserve the person\'s face, skin tone, hair, body shape, pose '
+        'and the background from the first image. Replace any existing '
+        'clothing that an item covers. Natural lighting, sharp detail, no '
+        'text or watermarks.';
+  }
+
+  String _geminiItemDescription(Map<String, dynamic> product) {
+    final name = (product['name'] ?? 'item').toString();
+    final placement = switch (_productGroup(product)) {
+      'tops' => 'worn on the upper body',
+      'bottoms' => 'worn on the lower body',
+      'dresses' => 'worn as a one-piece',
+      'outerwear' => 'worn as an outer layer over the other clothing',
+      'accessories' => 'worn or carried the way this accessory normally is',
+      _ => 'worn the way this item normally is',
+    };
+    return '$name ($placement)';
   }
 
   /// Names the item so Try-On Max places it the way the item is actually worn.
@@ -347,10 +499,10 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
     return '';
   }
 
-  Future<void> _saveCompletedOutfit() async {
+  Future<void> _saveCompletedOutfit(TryOnProvider provider) async {
     final user = FirebaseAuth.instance.currentUser;
     final avatarUrl = _avatarImageUrl;
-    final resultUrl = _resultImageUrl;
+    final resultUrl = _results[provider];
     if (user == null || avatarUrl == null || resultUrl == null) return;
     final plannedDate = _plannedDate;
 
@@ -360,7 +512,7 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
     if (caption == null) return;
     if (!mounted) return;
 
-    setState(() => _isSavingOutfit = true);
+    setState(() => _savingProvider = provider);
     try {
       if (plannedDate == null) {
         await _outfitService.saveOutfitToDailyDressUp(
@@ -368,7 +520,7 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
           avatarImageUrl: avatarUrl,
           resultImageUrl: resultUrl,
           products: _selectedProducts,
-          previewType: 'generated',
+          previewType: provider.previewType,
           caption: caption,
         );
       } else {
@@ -377,14 +529,14 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
           avatarImageUrl: avatarUrl,
           resultImageUrl: resultUrl,
           products: _selectedProducts,
-          previewType: 'generated',
+          previewType: provider.previewType,
           date: plannedDate,
           eventId: _eventId,
           eventName: _eventName,
         );
       }
       if (!mounted) return;
-      setState(() => _outfitSaved = true);
+      setState(() => _savedResults = {..._savedResults, provider});
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -405,7 +557,7 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
         context,
       ).showSnackBar(SnackBar(content: Text('Unable to save outfit: $error')));
     } finally {
-      if (mounted) setState(() => _isSavingOutfit = false);
+      if (mounted) setState(() => _savingProvider = null);
     }
   }
 
@@ -489,6 +641,13 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
         ? _productImageUrl(products.first)
         : _garmentImageUrl;
     final colors = Theme.of(context).colorScheme;
+    final canGenerate =
+        _avatarImageUrl != null &&
+        products.isNotEmpty &&
+        _generatingProvider == null;
+    final resultProviders = TryOnProvider.values
+        .where(_results.containsKey)
+        .toList();
 
     return Scaffold(
       backgroundColor: colors.surface,
@@ -595,18 +754,13 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
                   ],
                   const SizedBox(height: 20),
                   ElevatedButton.icon(
-                    onPressed:
-                        _avatarImageUrl == null ||
-                            products.isEmpty ||
-                            _isGenerating
-                        ? null
-                        : _generateTryOn,
+                    onPressed: canGenerate ? _generateWithFashn : null,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: _primaryColor,
                       foregroundColor: Colors.white,
                       minimumSize: const Size(double.infinity, 54),
                     ),
-                    icon: _isGenerating
+                    icon: _generatingProvider == TryOnProvider.fashn
                         ? const SizedBox(
                             width: 18,
                             height: 18,
@@ -617,14 +771,38 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
                           )
                         : const Icon(Icons.auto_awesome),
                     label: Text(
-                      _isGenerating
+                      _generatingProvider == TryOnProvider.fashn
                           ? 'Dressing your avatar...'
-                          : _resultImageUrl == null
-                          ? 'See It On Me'
-                          : 'Try Again',
+                          : _results.containsKey(TryOnProvider.fashn)
+                          ? 'Try FASHN Again'
+                          : 'See It On Me',
                     ),
                   ),
-                  if (_isGenerating && _generatingLabel != null) ...[
+                  const SizedBox(height: 10),
+                  OutlinedButton.icon(
+                    onPressed: canGenerate ? _generateWithGemini : null,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: _primaryColor,
+                      minimumSize: const Size(double.infinity, 54),
+                      side: BorderSide(color: colors.outlineVariant),
+                    ),
+                    icon: _generatingProvider == TryOnProvider.gemini
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.blur_on),
+                    label: Text(
+                      _generatingProvider == TryOnProvider.gemini
+                          ? 'Gemini is dressing your avatar...'
+                          : _results.containsKey(TryOnProvider.gemini)
+                          ? 'Try Gemini Again'
+                          : 'Also Generate With Gemini',
+                    ),
+                  ),
+                  if (_generatingProvider != null &&
+                      _generatingLabel != null) ...[
                     const SizedBox(height: 10),
                     Text(
                       'Putting on $_generatingLabel',
@@ -632,115 +810,243 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
                       style: TextStyle(color: colors.onSurfaceVariant),
                     ),
                   ],
-                  if (_resultImageUrl != null) ...[
+                  if (resultProviders.isNotEmpty) ...[
                     const SizedBox(height: 28),
-                    Row(
-                      children: [
-                        const Text(
-                          'Your Look',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: colors.primaryContainer,
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.auto_awesome,
-                                size: 13,
-                                color: colors.onPrimaryContainer,
-                              ),
-                              const SizedBox(width: 5),
-                              Text(
-                                'AI generated',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  color: colors.onPrimaryContainer,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: colors.surfaceContainerLow,
-                        borderRadius: BorderRadius.circular(22),
-                        border: Border.all(color: colors.outlineVariant),
-                      ),
-                      clipBehavior: Clip.antiAlias,
-                      child: Image.network(
-                        _resultImageUrl!,
-                        fit: BoxFit.contain,
-                        loadingBuilder: (context, child, progress) =>
-                            progress == null
-                            ? child
-                            : const SizedBox(
-                                height: 380,
-                                child: Center(
-                                  child: CircularProgressIndicator(),
-                                ),
-                              ),
-                        errorBuilder: (_, _, _) => const SizedBox(
-                          height: 240,
-                          child: Center(
-                            child: Text('Unable to display your look.'),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    FilledButton.icon(
-                      onPressed: _isSavingOutfit || _outfitSaved
-                          ? null
-                          : _saveCompletedOutfit,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: _primaryColor,
-                        foregroundColor: Colors.white,
-                        minimumSize: const Size(double.infinity, 54),
-                      ),
-                      icon: _isSavingOutfit
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : Icon(
-                              _outfitSaved
-                                  ? Icons.check_circle
-                                  : Icons.save_outlined,
-                            ),
-                      label: Text(
-                        _outfitSaved
-                            ? (_plannedDate == null
-                                  ? 'Saved to My Daily Dress Up'
-                                  : 'Saved to Week Planner')
-                            : (_plannedDate == null
-                                  ? 'Save to My Daily Dress Up'
-                                  : 'Save for Planned Day'),
-                      ),
-                    ),
+                    _transformationPanel(resultProviders),
                   ],
                 ],
               ),
             ),
+    );
+  }
+
+  /// The before/after panel: the avatar on the left, the generated look on the
+  /// right, with a handle to drag between them.
+  ///
+  /// When both engines have run, [resultProviders] becomes a chip row so the
+  /// same transformation view can switch between the two looks.
+  Widget _transformationPanel(List<TryOnProvider> resultProviders) {
+    final provider = _results.containsKey(_visibleResult)
+        ? _visibleResult!
+        : resultProviders.first;
+    final resultUrl = _results[provider];
+    final avatarUrl = _avatarImageUrl;
+    if (resultUrl == null || avatarUrl == null) return const SizedBox.shrink();
+
+    final colors = Theme.of(context).colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            const Expanded(
+              child: Text(
+                'Try On: Before & After',
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: colors.primaryContainer,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.auto_awesome,
+                    size: 13,
+                    color: colors.onPrimaryContainer,
+                  ),
+                  const SizedBox(width: 5),
+                  Text(
+                    'AI generated',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: colors.onPrimaryContainer,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        if (resultProviders.length > 1) ...[
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              for (final option in resultProviders) ...[
+                _providerChip(option, isSelected: option == provider),
+                const SizedBox(width: 10),
+              ],
+            ],
+          ),
+        ],
+        const SizedBox(height: 16),
+        Text(
+          'See the Transformation',
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            color: colors.onSurface,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Drag the handle to compare, or tap to see the look full screen.',
+          style: TextStyle(fontSize: 12, color: colors.onSurfaceVariant),
+        ),
+        const SizedBox(height: 14),
+        BeforeAfterView(
+          key: ValueKey(resultUrl),
+          beforeImageUrl: avatarUrl,
+          afterImageUrl: resultUrl,
+          onTapAfter: () => _openFullScreenResult(provider),
+        ),
+        const SizedBox(height: 16),
+        _transformationActions(provider),
+      ],
+    );
+  }
+
+  /// Switches the panel between the two engines' looks.
+  Widget _providerChip(TryOnProvider provider, {required bool isSelected}) {
+    final colors = Theme.of(context).colorScheme;
+
+    return GestureDetector(
+      onTap: isSelected
+          ? null
+          : () => setState(() => _visibleResult = provider),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? _primaryColor : Colors.transparent,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: isSelected ? _primaryColor : colors.outlineVariant,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              provider.label,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: isSelected ? Colors.white : colors.onSurfaceVariant,
+              ),
+            ),
+            if (_savedResults.contains(provider)) ...[
+              const SizedBox(width: 6),
+              Icon(
+                Icons.check_circle,
+                size: 14,
+                color: isSelected ? Colors.white : colors.primary,
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Discard or keep the look currently on screen.
+  Widget _transformationActions(TryOnProvider provider) {
+    final colors = Theme.of(context).colorScheme;
+    final isSaved = _savedResults.contains(provider);
+    final isSaving = _savingProvider == provider;
+
+    return Row(
+      children: [
+        Expanded(
+          child: OutlinedButton(
+            onPressed: isSaving ? null : () => _discardResult(provider),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: colors.onSurfaceVariant,
+              backgroundColor: colors.surfaceContainerLow,
+              minimumSize: const Size(0, 54),
+              side: BorderSide(color: colors.outlineVariant),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: FilledButton.icon(
+            onPressed: isSaving || isSaved
+                ? null
+                : () => _saveCompletedOutfit(provider),
+            style: FilledButton.styleFrom(
+              backgroundColor: _primaryColor,
+              foregroundColor: Colors.white,
+              minimumSize: const Size(0, 54),
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+            icon: isSaving
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : Icon(isSaved ? Icons.check_circle : Icons.save_outlined),
+            label: Text(
+              isSaved ? 'Saved' : 'Save Look',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _openFullScreenResult(TryOnProvider provider) {
+    final imageUrl = _results[provider];
+    if (imageUrl == null) return;
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (viewerContext) => Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(
+            title: Text('${provider.label} look'),
+            backgroundColor: Colors.black,
+            foregroundColor: Colors.white,
+          ),
+          body: Center(
+            child: InteractiveViewer(
+              maxScale: 4,
+              child: Image.network(
+                imageUrl,
+                fit: BoxFit.contain,
+                errorBuilder: (_, _, _) => const Text(
+                  'Unable to display this look.',
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 
