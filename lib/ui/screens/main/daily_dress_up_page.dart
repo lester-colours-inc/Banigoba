@@ -16,7 +16,9 @@ import '../../../data/services/upcoming_event_service.dart';
 import '../../../data/models/weather.dart';
 import 'package:geolocator/geolocator.dart';
 import '../../../core/app_routes.dart';
+import '../../../core/theme_provider.dart';
 import '../../widgets/affirmation_row.dart';
+import '../../widgets/app_drawer.dart';
 import '../../widgets/post_comments_sheet.dart';
 import '../../widgets/cart_badge_button.dart';
 import '../../widgets/safe_product_image.dart';
@@ -880,6 +882,10 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
     final colors = Theme.of(context).colorScheme;
     return Scaffold(
       backgroundColor: colors.surface,
+      // This page is pushed as a standalone route (from Avatar Try-On, most
+      // notably) rather than hosted inside MainScreen's IndexedStack, so it
+      // needs its own drawer for the menu button to have something to open.
+      drawer: AppDrawer(themeProvider: themeProvider),
       appBar: AppBar(
         backgroundColor: colors.surface,
         elevation: 0,
@@ -1086,31 +1092,40 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Text(
-                                      username,
-                                      softWrap: true,
-                                      style: TextStyle(
-                                        color: primaryColor,
-                                        fontSize: _responsiveCardFontSize(
-                                          username,
-                                          base: 22,
-                                          compact: 18,
+                                    // On your own tab every card is already
+                                    // known to be yours, so naming the owner
+                                    // is only useful for Friends/Community.
+                                    if (!isOwner) ...[
+                                      Text(
+                                        username,
+                                        softWrap: true,
+                                        style: TextStyle(
+                                          color: primaryColor,
+                                          fontSize: _responsiveCardFontSize(
+                                            username,
+                                            base: 22,
+                                            compact: 18,
+                                          ),
+                                          fontWeight: FontWeight.w800,
                                         ),
-                                        fontWeight: FontWeight.w800,
                                       ),
-                                    ),
-                                    SizedBox(height: 8),
+                                      SizedBox(height: 8),
+                                    ],
                                     Text(
                                       caption,
                                       softWrap: true,
                                       style: TextStyle(
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.onSurface,
+                                        // Without a username above it, the
+                                        // caption is the card's headline.
+                                        color: isOwner
+                                            ? primaryColor
+                                            : Theme.of(
+                                                context,
+                                              ).colorScheme.onSurface,
                                         fontSize: _responsiveCardFontSize(
                                           caption,
-                                          base: 17,
-                                          compact: 13,
+                                          base: isOwner ? 21 : 17,
+                                          compact: isOwner ? 16 : 13,
                                         ),
                                         fontWeight: FontWeight.w700,
                                         height: 1.18,
@@ -1233,28 +1248,35 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
                   ),
               ],
             ),
-            if (post.isPublic) ...[
-              SizedBox(height: 8),
-              Container(
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainerLow,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                padding: EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-                child: Column(
-                  children: [
-                    AffirmationRow(
+            SizedBox(height: 8),
+            Container(
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              padding: EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+              child: Column(
+                children: [
+                  // Affirmations aren't gated by post visibility — they're a
+                  // private signal between two people, not something that
+                  // needs an audience. Showing them only on public posts hid
+                  // this section on every private "Mine" look, which is the
+                  // default state right after a save.
+                  AffirmationRow(
+                    targetType: AffirmationTargetType.post,
+                    targetId: post.id,
+                    targetOwnerId: post.authorId,
+                    currentUserId: currentUserId,
+                    ownerName: isOwner ? 'your look' : author.displayName,
+                    onOpenReceived: () => showReceivedAffirmations(
+                      context,
                       targetType: AffirmationTargetType.post,
                       targetId: post.id,
-                      targetOwnerId: post.authorId,
-                      currentUserId: currentUserId,
-                      ownerName: isOwner ? 'your look' : author.displayName,
-                      onOpenReceived: () => showReceivedAffirmations(
-                        context,
-                        targetType: AffirmationTargetType.post,
-                        targetId: post.id,
-                      ),
                     ),
+                  ),
+                  // Comments require an audience — the backend rejects them
+                  // on private posts — so this row stays public-only.
+                  if (post.isPublic) ...[
                     Divider(
                       height: 1,
                       color: Theme.of(context).colorScheme.outlineVariant,
@@ -1269,9 +1291,9 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
                       ),
                     ),
                   ],
-                ),
+                ],
               ),
-            ],
+            ),
           ],
         );
       },
@@ -1782,22 +1804,29 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
             color: Color(0xFFC5CAE9),
             borderRadius: BorderRadius.circular(15),
           ),
-          child: Wrap(
-            spacing: 14,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
+          child: Row(
             children: [
-              _statusChip(
-                icon: Icons.cloud_outlined,
-                label: _currentWeather != null
-                    ? "$conditionText • $tempText • ${_currentWeather!.locationName}"
-                    : conditionText,
-                flex: 2,
+              Expanded(
+                flex: 3,
+                child: _statusChip(
+                  icon: Icons.cloud_outlined,
+                  label: _currentWeather != null
+                      ? "$conditionText • $tempText • ${_currentWeather!.locationName}"
+                      : conditionText,
+                ),
               ),
-              _statusChip(
-                icon: Icons.calendar_today_outlined,
-                label: eventLabel,
-                flex: 1,
+              Container(
+                width: 1,
+                height: 18,
+                margin: EdgeInsets.symmetric(horizontal: 12),
+                color: Colors.white.withValues(alpha: 0.4),
+              ),
+              Expanded(
+                flex: 2,
+                child: _statusChip(
+                  icon: Icons.calendar_today_outlined,
+                  label: eventLabel,
+                ),
               ),
             ],
           ),
@@ -1806,34 +1835,25 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
     );
   }
 
-  Widget _statusChip({
-    required IconData icon,
-    required String label,
-    required int flex,
-  }) {
-    return ConstrainedBox(
-      constraints: BoxConstraints(
-        minWidth: flex == 2 ? 210 : 150,
-        maxWidth: flex == 2 ? 420 : 260,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: Colors.white, size: 20),
-          SizedBox(width: 8),
-          Flexible(
-            child: Text(
-              label,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-              ),
+  Widget _statusChip({required IconData icon, required String label}) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, color: Colors.white, size: 18),
+        SizedBox(width: 6),
+        Flexible(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -1892,12 +1912,16 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
   }
 
   String _formatPostTime(DateTime createdAt) {
-    final difference = DateTime.now().difference(createdAt);
-    if (difference.isNegative || difference.inMinutes < 1) return 'Now';
-    if (difference.inMinutes < 60) return '${difference.inMinutes}m';
-    if (difference.inHours < 24) return '${difference.inHours}h';
-    if (difference.inDays == 1) return 'Yesterday';
-    if (difference.inDays < 7) return '${difference.inDays}d';
+    final now = DateTime.now();
+    final difference = now.difference(createdAt);
+    if (difference.isNegative) return 'Today';
+
+    final today = DateTime(now.year, now.month, now.day);
+    final postDay = DateTime(createdAt.year, createdAt.month, createdAt.day);
+    final dayGap = today.difference(postDay).inDays;
+    if (dayGap == 0) return 'Today';
+    if (dayGap == 1) return 'Yesterday';
+    if (dayGap < 7) return '$dayGap Days Ago';
     return '${createdAt.day}/${createdAt.month}/${createdAt.year}';
   }
 

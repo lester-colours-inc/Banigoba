@@ -12,6 +12,7 @@ import '../../widgets/before_after_view.dart';
 import '../../widgets/safe_product_image.dart';
 import 'ai_upload_page.dart';
 import '../../../core/main_tab.dart';
+import '../main/daily_dress_up_page.dart';
 import '../main/main_screen.dart';
 
 /// The engines the page can dress the avatar with. Results are kept per
@@ -549,7 +550,7 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
         ),
       );
       if (plannedDate == null) {
-        _returnToHome();
+        _openSavedLook();
       }
     } catch (error) {
       if (!mounted) return;
@@ -600,9 +601,18 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
     return caption;
   }
 
-  void _returnToHome() {
+  /// Takes the user to where the look they just saved actually lives.
+  ///
+  /// "Save to My Daily Dress Up" is a promise the snackbar makes, but that
+  /// page isn't one of the five bottom-nav destinations — it's only
+  /// reachable by route — so getting there means pushing it directly rather
+  /// than switching tabs and hoping it turns up.
+  void _openSavedLook() {
     MainScreen.selectTab(MainTab.home);
     Navigator.of(context).popUntil((route) => route.isFirst);
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const DailyDressUpPage()));
   }
 
   /// Maps a [_productGroup] onto the categories tryon-v1.6 accepts.
