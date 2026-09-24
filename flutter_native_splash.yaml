@@ -1,0 +1,12 @@
+# Native splash: the mark centred on brand navy. Regenerate with:
+#   dart run flutter_native_splash:create
+flutter_native_splash:
+  color: "#05105F"
+  image: "assets/branding/splash_logo.png"
+  android_12:
+    color: "#05105F"
+    image: "assets/branding/app_icon_foreground.png"
+    icon_background_color: "#05105F"
+  android: true
+  ios: true
+  web: false
