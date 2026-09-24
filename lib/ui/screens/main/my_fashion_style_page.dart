@@ -1,4 +1,4 @@
-// Builds the primary dashboard with weather recommendations, products, and makeover entry points.
+// Builds the My Fashion Style hub: AI makeover, style by occasion, community and events. Reached from the drawer.
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -14,17 +14,16 @@ import '../makeover/ai_upload_page.dart';
 import '../shop/product_detail_page.dart';
 import 'hair_style_page.dart';
 
-/// The main landing page after login, providing quick access to features
-/// Primary landing screen for users, featuring AI makeover options,
-/// weather-based recommendations, and style categories.
-class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+/// Makeover, style-by-occasion, community and events hub. No longer the Home
+/// tab — Home is the dress-up feed — so it is pushed from the drawer.
+class MyFashionStylePage extends StatefulWidget {
+  const MyFashionStylePage({super.key});
 
   @override
-  State<HomePage> createState() => _HomePageState();
+  State<MyFashionStylePage> createState() => _MyFashionStylePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _MyFashionStylePageState extends State<MyFashionStylePage> {
   int _selectedTabIndex = 0;
   static Color primaryColor = Color(0xFF0D0140);
 
@@ -224,10 +223,10 @@ class _HomePageState extends State<HomePage> {
         elevation: 0,
         leading: IconButton(
           icon: Icon(
-            Icons.menu,
+            Icons.arrow_back_ios_new,
             color: Theme.of(context).colorScheme.onSurface,
           ),
-          onPressed: () => Scaffold.of(context).openDrawer(),
+          onPressed: () => Navigator.maybePop(context),
         ),
         title: Row(
           children: [

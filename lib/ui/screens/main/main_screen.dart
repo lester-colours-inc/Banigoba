@@ -13,7 +13,7 @@ import '../../widgets/bottom_navigation.dart';
 import '../makeover/create_makeover_page.dart';
 import '../social/profile_page.dart';
 import '../wardrobe/wardrobe_page.dart';
-import 'home_page.dart';
+import 'daily_dress_up_page.dart';
 import 'search_page.dart';
 
 class MainScreen extends StatefulWidget {
@@ -59,7 +59,7 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   static const List<Widget> _pages = [
-    HomePage(),
+    DailyDressUpPage(),
     SearchPage(),
     CreateMakeoverPage(),
     WardrobePage(),

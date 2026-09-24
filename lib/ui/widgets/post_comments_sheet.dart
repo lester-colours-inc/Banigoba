@@ -4,6 +4,41 @@ import 'package:flutter/material.dart';
 
 import '../../data/models/post.dart';
 import '../../data/services/post_service.dart';
+import 'quick_reply_bar.dart';
+
+/// Posts [text] as the signed-in user's comment on [post].
+///
+/// Shared by the comments sheet and the quick-reply strip on feed cards so
+/// both write identical comment documents. Throws if nobody is signed in.
+Future<void> sendPostComment(
+  Post post,
+  String text, {
+  PostService? postService,
+}) async {
+  final user = FirebaseAuth.instance.currentUser;
+  if (user == null) throw StateError('Sign in to reply.');
+
+  final userSnapshot = await FirebaseFirestore.instance
+      .collection('users')
+      .doc(user.uid)
+      .get();
+  final userData = userSnapshot.data() ?? const <String, dynamic>{};
+  final username = (userData['displayName'] ?? user.displayName ?? 'User')
+      .toString();
+  final profileImageUrl =
+      (userData['profileImageURL'] ??
+              userData['profileImageUrl'] ??
+              user.photoURL ??
+              '')
+          .toString();
+
+  await (postService ?? PostService()).addComment(
+    postId: post.id,
+    text: text,
+    username: username,
+    profileImageURL: profileImageUrl,
+  );
+}
 
 Future<void> showPostCommentsSheet(BuildContext context, Post post) {
   return showModalBottomSheet<void>(
@@ -28,44 +63,16 @@ class _PostCommentsSheet extends StatefulWidget {
 }
 
 class _PostCommentsSheetState extends State<_PostCommentsSheet> {
-  final _controller = TextEditingController();
   final _postService = PostService();
   bool _isSending = false;
 
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  Future<void> _sendComment() async {
-    final text = _controller.text.trim();
-    final user = FirebaseAuth.instance.currentUser;
-    if (text.isEmpty || user == null || _isSending) return;
+  Future<void> _sendComment(String preset) async {
+    final text = preset.trim();
+    if (text.isEmpty || _isSending) return;
 
     setState(() => _isSending = true);
     try {
-      final userSnapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .get();
-      final userData = userSnapshot.data() ?? const <String, dynamic>{};
-      final username = (userData['displayName'] ?? user.displayName ?? 'User')
-          .toString();
-      final profileImageUrl =
-          (userData['profileImageURL'] ??
-                  userData['profileImageUrl'] ??
-                  user.photoURL ??
-                  '')
-              .toString();
-
-      await _postService.addComment(
-        postId: widget.post.id,
-        text: text,
-        username: username,
-        profileImageURL: profileImageUrl,
-      );
-      _controller.clear();
+      await sendPostComment(widget.post, text, postService: _postService);
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -80,166 +87,135 @@ class _PostCommentsSheetState extends State<_PostCommentsSheet> {
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
     final colors = Theme.of(context).colorScheme;
-    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
-
-    return Padding(
-      padding: EdgeInsets.only(bottom: keyboardInset),
-      child: SizedBox(
-        height: MediaQuery.sizeOf(context).height * 0.72,
-        child: Column(
-          children: [
-            const SizedBox(height: 10),
-            Container(
-              width: 42,
-              height: 4,
-              decoration: BoxDecoration(
-                color: colors.outlineVariant,
-                borderRadius: BorderRadius.circular(99),
-              ),
+    return SizedBox(
+      height: MediaQuery.sizeOf(context).height * 0.72,
+      child: Column(
+        children: [
+          const SizedBox(height: 10),
+          Container(
+            width: 42,
+            height: 4,
+            decoration: BoxDecoration(
+              color: colors.outlineVariant,
+              borderRadius: BorderRadius.circular(99),
             ),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              child: Row(
-                children: [
-                  Text(
-                    'Comments',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Row(
+              children: [
+                Text(
+                  'Comments',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+              ],
             ),
-            const Divider(height: 1),
-            Expanded(
-              child: StreamBuilder<List<PostComment>>(
-                stream: _postService.getComments(widget.post.id),
-                builder: (context, snapshot) {
-                  if (snapshot.hasError) {
-                    return const Center(
-                      child: Text('Comments could not be loaded.'),
-                    );
-                  }
-                  if (!snapshot.hasData) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-
-                  final comments = snapshot.data!;
-                  if (comments.isEmpty) {
-                    return const Center(
-                      child: Text(
-                        'No comments yet. Start the conversation.',
-                        style: TextStyle(color: Colors.grey),
-                      ),
-                    );
-                  }
-
-                  return ListView.separated(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: comments.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 14),
-                    itemBuilder: (context, index) {
-                      final comment = comments[index];
-                      return Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _CommentAvatar(comment: comment),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 10,
-                              ),
-                              decoration: BoxDecoration(
-                                color: colors.surfaceContainerLow,
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          comment.username,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ),
-                                      Text(
-                                        _formatTime(comment.createdAt),
-                                        style: TextStyle(
-                                          color: colors.onSurfaceVariant,
-                                          fontSize: 11,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(comment.text),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      );
-                    },
+          ),
+          const Divider(height: 1),
+          Expanded(
+            child: StreamBuilder<List<PostComment>>(
+              stream: _postService.getComments(widget.post.id),
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return const Center(
+                    child: Text('Comments could not be loaded.'),
                   );
-                },
-              ),
-            ),
-            const Divider(height: 1),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 12, 12),
-              child: user == null
-                  ? const Text('Sign in to add a comment.')
-                  : Row(
+                }
+                if (!snapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                final comments = snapshot.data!;
+                if (comments.isEmpty) {
+                  return const Center(
+                    child: Text(
+                      'No comments yet. Start the conversation.',
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  );
+                }
+
+                return ListView.separated(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: comments.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 14),
+                  itemBuilder: (context, index) {
+                    final comment = comments[index];
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        _CommentAvatar(comment: comment),
+                        const SizedBox(width: 10),
                         Expanded(
-                          child: TextField(
-                            controller: _controller,
-                            textCapitalization: TextCapitalization.sentences,
-                            minLines: 1,
-                            maxLines: 4,
-                            decoration: InputDecoration(
-                              hintText: 'Add a comment...',
-                              filled: true,
-                              fillColor: colors.surfaceContainerLow,
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(22),
-                                borderSide: BorderSide.none,
-                              ),
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 11,
-                              ),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 10,
                             ),
-                            onSubmitted: (_) => _sendComment(),
+                            decoration: BoxDecoration(
+                              color: colors.surfaceContainerLow,
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        comment.username,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                    Text(
+                                      _formatTime(comment.createdAt),
+                                      style: TextStyle(
+                                        color: colors.onSurfaceVariant,
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text(comment.text),
+                              ],
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        IconButton.filled(
-                          onPressed: _isSending ? null : _sendComment,
-                          style: IconButton.styleFrom(
-                            backgroundColor: const Color(0xFF0D0140),
-                            foregroundColor: Colors.white,
-                          ),
-                          icon: _isSending
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : const Icon(Icons.send_rounded),
                         ),
                       ],
-                    ),
+                    );
+                  },
+                );
+              },
             ),
-          ],
-        ),
+          ),
+          const Divider(height: 1),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+            child: user == null
+                ? const Text('Sign in to reply.')
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Tap a reply to send it',
+                        style: TextStyle(
+                          color: colors.onSurfaceVariant,
+                          fontSize: 12,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      QuickReplyBar(
+                        wrap: true,
+                        isSending: _isSending,
+                        onSelected: _sendComment,
+                      ),
+                    ],
+                  ),
+          ),
+        ],
       ),
     );
   }
@@ -277,5 +253,40 @@ class _CommentAvatar extends StatelessWidget {
             )
           : null,
     );
+  }
+}
+
+/// Quick-reply strip for a feed card: one tap posts a preset comment.
+class PostQuickReplies extends StatefulWidget {
+  const PostQuickReplies({super.key, required this.post});
+
+  final Post post;
+
+  @override
+  State<PostQuickReplies> createState() => _PostQuickRepliesState();
+}
+
+class _PostQuickRepliesState extends State<PostQuickReplies> {
+  bool _isSending = false;
+
+  Future<void> _reply(String text) async {
+    if (_isSending) return;
+    setState(() => _isSending = true);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await sendPostComment(widget.post, text);
+      messenger.showSnackBar(SnackBar(content: Text('Replied "$text"')));
+    } catch (error) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('Unable to send reply: $error')),
+      );
+    } finally {
+      if (mounted) setState(() => _isSending = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return QuickReplyBar(isSending: _isSending, onSelected: _reply);
   }
 }

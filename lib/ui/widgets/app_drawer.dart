@@ -7,6 +7,7 @@ import '../../core/app_routes.dart';
 import '../../core/main_tab.dart';
 import '../screens/agents/agents_page.dart';
 import '../screens/designers/fashion_designers_page.dart';
+import '../screens/main/main_screen.dart';
 import '../screens/shop/shop_chat_page.dart';
 
 class AppDrawer extends StatelessWidget {
@@ -14,6 +15,18 @@ class AppDrawer extends StatelessWidget {
   final ValueChanged<MainTab>? onTabSelect;
 
   const AppDrawer({super.key, required this.themeProvider, this.onTabSelect});
+
+  /// Switches the bottom-nav destination. Without an [onTabSelect] (the
+  /// drawer is hosted by a pushed page or a tab's own Scaffold), close the
+  /// drawer, return to MainScreen and ask it to switch.
+  void _selectTab(BuildContext context, MainTab tab) {
+    if (onTabSelect != null) {
+      onTabSelect!(tab);
+      return;
+    }
+    Navigator.of(context).popUntil((route) => route.isFirst);
+    MainScreen.selectTab(tab);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -54,25 +67,25 @@ class AppDrawer extends StatelessWidget {
                 ),
                 _buildDrawerItem(
                   context,
+                  Icons.home_outlined,
+                  'Home',
+                  onTap: () => _selectTab(context, MainTab.home),
+                ),
+                _buildDrawerItem(
+                  context,
                   Icons.grid_view,
                   'My Fashion Style',
                   onTap: () {
-                    if (onTabSelect != null) {
-                      onTabSelect!(MainTab.home);
-                    } else {
-                      Navigator.pushReplacementNamed(context, '/home');
-                    }
+                    final navigator = Navigator.of(context);
+                    navigator.pop();
+                    navigator.pushNamed(AppRoutes.myFashionStyle);
                   },
                 ),
                 _buildDrawerItem(
                   context,
                   Icons.auto_awesome,
                   'Create a Look',
-                  onTap: () {
-                    if (onTabSelect != null) {
-                      onTabSelect!(MainTab.create);
-                    }
-                  },
+                  onTap: () => _selectTab(context, MainTab.create),
                 ),
                 _buildDrawerItem(
                   context,

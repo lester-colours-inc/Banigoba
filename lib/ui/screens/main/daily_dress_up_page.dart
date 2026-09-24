@@ -1,6 +1,4 @@
 // Shows daily outfit inspiration using local weather and wardrobe actions.
-import 'dart:math' as math;
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
@@ -19,6 +17,7 @@ import '../../../core/app_routes.dart';
 import '../../../core/theme_provider.dart';
 import '../../widgets/affirmation_row.dart';
 import '../../widgets/app_drawer.dart';
+import '../../widgets/dress_up_post_card.dart';
 import '../../widgets/post_comments_sheet.dart';
 import '../../widgets/cart_badge_button.dart';
 import '../../widgets/safe_product_image.dart';
@@ -882,9 +881,8 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
     final colors = Theme.of(context).colorScheme;
     return Scaffold(
       backgroundColor: colors.surface,
-      // This page is pushed as a standalone route (from Avatar Try-On, most
-      // notably) rather than hosted inside MainScreen's IndexedStack, so it
-      // needs its own drawer for the menu button to have something to open.
+      // This is the Home tab. It keeps its own drawer because it is also
+      // reachable as a standalone route, where there is no MainScreen drawer.
       drawer: AppDrawer(themeProvider: themeProvider),
       appBar: AppBar(
         backgroundColor: colors.surface,
@@ -897,7 +895,7 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
           children: [
             Expanded(
               child: Text(
-                'My Daily Dress Up',
+                'Home',
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
@@ -998,17 +996,12 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
           emptyMessage: _selectedTabIndex == 0
               ? 'You have not shared a daily dress-up post yet.'
               : 'No community posts yet.',
-          useMineLayout: _selectedTabIndex == 0,
         );
       },
     );
   }
 
-  Widget _buildPostList(
-    List<Post> posts, {
-    required String emptyMessage,
-    bool useMineLayout = false,
-  }) {
+  Widget _buildPostList(List<Post> posts, {required String emptyMessage}) {
     if (posts.isEmpty) {
       return _buildFeedMessage(
         icon: Icons.checkroom_outlined,
@@ -1019,21 +1012,19 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
     return Column(
       children: [
         for (var index = 0; index < posts.length; index++) ...[
-          useMineLayout
-              ? _buildMinePostItem(posts[index], index)
-              : _buildDressUpItem(posts[index], index),
-          if (index != posts.length - 1) SizedBox(height: 16),
+          _buildPostItem(posts[index], index),
+          if (index != posts.length - 1) SizedBox(height: 20),
         ],
       ],
     );
   }
 
-  Widget _buildMinePostItem(Post post, int index) {
+  Widget _buildPostItem(Post post, int index) {
     final cardColors = [
-      Color(0xFFF1B4F1),
-      Color(0xFFBDB7FF),
-      Color(0xFFFFECB0),
-      Color(0xFFBDEDD8),
+      Color(0xFFE3A6E6),
+      Color(0xFF7F7FC0),
+      Color(0xFFF3D98B),
+      Color(0xFFA9DDC4),
     ];
 
     return FutureBuilder<_PostAuthor>(
@@ -1046,255 +1037,104 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
             authorSnapshot.data ?? _PostAuthor.fallback(post.authorId);
         final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
         final isOwner = currentUserId == post.authorId;
+        final isMineTab = _selectedTabIndex == 0;
         final imageUrl = post.imageURL.isNotEmpty
             ? post.imageURL
             : author.fullBodyImageUrl;
-        final username = isOwner ? 'You' : author.displayName;
         final caption = post.caption.trim().isEmpty
             ? 'Daily Outfit'
             : post.caption.trim();
         final styleLabel = author.stylePreference.isEmpty
             ? 'Styled for your day'
             : '${_titleCase(author.stylePreference)} style';
-        final cardHeight = caption.length > 95
-            ? 310.0
-            : caption.length > 55
-            ? 270.0
-            : 220.0;
+        final canComment = post.isPublic;
+        final canQuickReply = post.isPublic && !isOwner && !isMineTab;
 
-        return Column(
-          children: [
-            Container(
-              width: double.infinity,
-              height: cardHeight,
-              clipBehavior: Clip.antiAlias,
-              decoration: BoxDecoration(
-                color: cardColors[index % cardColors.length],
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final imageWidth = constraints.maxWidth * 0.46;
-                  return Stack(
-                    children: [
-                      Positioned.fill(
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Padding(
-                                padding: EdgeInsets.fromLTRB(
-                                  20,
-                                  50,
-                                  imageWidth > 160 ? 6 : 12,
-                                  20,
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    // On your own tab every card is already
-                                    // known to be yours, so naming the owner
-                                    // is only useful for Friends/Community.
-                                    if (!isOwner) ...[
-                                      Text(
-                                        username,
-                                        softWrap: true,
-                                        style: TextStyle(
-                                          color: primaryColor,
-                                          fontSize: _responsiveCardFontSize(
-                                            username,
-                                            base: 22,
-                                            compact: 18,
-                                          ),
-                                          fontWeight: FontWeight.w800,
-                                        ),
-                                      ),
-                                      SizedBox(height: 8),
-                                    ],
-                                    Text(
-                                      caption,
-                                      softWrap: true,
-                                      style: TextStyle(
-                                        // Without a username above it, the
-                                        // caption is the card's headline.
-                                        color: isOwner
-                                            ? primaryColor
-                                            : Theme.of(
-                                                context,
-                                              ).colorScheme.onSurface,
-                                        fontSize: _responsiveCardFontSize(
-                                          caption,
-                                          base: isOwner ? 21 : 17,
-                                          compact: isOwner ? 16 : 13,
-                                        ),
-                                        fontWeight: FontWeight.w700,
-                                        height: 1.18,
-                                      ),
-                                    ),
-                                    SizedBox(height: 8),
-                                    Text(
-                                      styleLabel,
-                                      softWrap: true,
-                                      style: TextStyle(
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.onSurfaceVariant,
-                                        fontSize: 13,
-                                        height: 1.2,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            SizedBox(
-                              width: imageWidth,
-                              child: ColoredBox(
-                                color: imageUrl.isEmpty
-                                    ? Colors.transparent
-                                    : Colors.white,
-                                child: _buildMinePostVisual(post, imageUrl),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Positioned(
-                        top: 16,
-                        left: 16,
-                        child: Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 5,
-                          ),
-                          decoration: BoxDecoration(
-                            color: primaryColor,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            _formatPostTime(post.createdAt),
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              ),
+        return DressUpPostCard(
+          key: ValueKey('dress_up_post_${post.id}'),
+          isMineLayout: isMineTab,
+          title: author.displayName,
+          subtitle: isMineTab ? caption : '',
+          detail: isMineTab ? styleLabel : '',
+          captionLead: isOwner ? 'Your look' : "${author.displayName}'s",
+          caption: isMineTab ? '' : caption,
+          avatarUrl: author.profileImageUrl.isNotEmpty
+              ? author.profileImageUrl
+              : author.fullBodyImageUrl,
+          timeLabel: _formatPostTime(post.createdAt),
+          imageBackground: cardColors[index % cardColors.length],
+          visual: _buildPostImage(imageUrl),
+          actions: [
+            DressUpCardAction(
+              icon: Icons.shortcut_outlined,
+              label: 'Try On',
+              onTap: () => _tryOnPost(post),
             ),
-            SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildMineCommand(
-                    icon: Icons.shortcut_outlined,
-                    label: 'Try On',
-                    backgroundColor: primaryColor,
-                    foregroundColor: Colors.white,
-                    onTap: () => _tryOnPost(post),
-                  ),
-                ),
-                SizedBox(width: 8),
-                if (post.isPublic) ...[
-                  Expanded(
-                    child: _buildMineCommand(
-                      icon: Icons.chat_bubble_outline,
-                      label: 'Comment',
-                      backgroundColor: Color(0xFFFF8A2A),
-                      foregroundColor: Colors.white,
-                      onTap: () => showPostCommentsSheet(context, post),
-                    ),
-                  ),
-                  SizedBox(width: 8),
-                  if (isOwner) ...[
-                    Expanded(
-                      child: _buildMineCommand(
-                        icon: Icons.lock_outline,
-                        label: 'Private',
-                        backgroundColor: Theme.of(context).colorScheme.surface,
-                        foregroundColor: Theme.of(
-                          context,
-                        ).colorScheme.onSurface,
-                        onTap: () => _privatePost(post),
-                      ),
-                    ),
-                    SizedBox(width: 8),
-                  ],
-                ],
-                if (isOwner && !post.isPublic)
-                  Expanded(
-                    child: _buildMineCommand(
-                      icon: Icons.share_outlined,
-                      label: 'Share',
-                      backgroundColor: Theme.of(context).colorScheme.surface,
-                      foregroundColor: Theme.of(context).colorScheme.onSurface,
-                      onTap: () => _sharePost(post),
-                    ),
-                  ),
-                if (isOwner && !post.isPublic) SizedBox(width: 8),
-                if (isOwner)
-                  Expanded(
-                    child: _buildMineCommand(
-                      icon: Icons.delete_outline,
-                      label: 'Delete',
-                      backgroundColor: Theme.of(context).colorScheme.error,
-                      foregroundColor: Theme.of(context).colorScheme.onError,
-                      onTap: () => _deletePost(post),
-                    ),
-                  ),
-              ],
-            ),
-            SizedBox(height: 8),
-            Container(
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(10),
+            if (canComment)
+              DressUpCardAction(
+                icon: Icons.chat_bubble_outline,
+                label: post.commentCount > 0
+                    ? '${post.commentCount}'
+                    : 'Comment',
+                onTap: () => showPostCommentsSheet(context, post),
               ),
-              padding: EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-              child: Column(
-                children: [
-                  // Affirmations aren't gated by post visibility — they're a
-                  // private signal between two people, not something that
-                  // needs an audience. Showing them only on public posts hid
-                  // this section on every private "Mine" look, which is the
-                  // default state right after a save.
-                  AffirmationRow(
-                    targetType: AffirmationTargetType.post,
-                    targetId: post.id,
-                    targetOwnerId: post.authorId,
-                    currentUserId: currentUserId,
-                    ownerName: isOwner ? 'your look' : author.displayName,
-                    onOpenReceived: () => showReceivedAffirmations(
-                      context,
-                      targetType: AffirmationTargetType.post,
-                      targetId: post.id,
-                    ),
-                  ),
-                  // Comments require an audience — the backend rejects them
-                  // on private posts — so this row stays public-only.
-                  if (post.isPublic) ...[
-                    Divider(
-                      height: 1,
-                      color: Theme.of(context).colorScheme.outlineVariant,
-                    ),
-                    SizedBox(
-                      height: 40,
-                      child: _buildMineReaction(
-                        icon: Icons.chat_bubble_outline,
-                        label: '${post.commentCount} comments',
-                        color: primaryColor,
-                        onTap: () => showPostCommentsSheet(context, post),
-                      ),
-                    ),
-                  ],
-                ],
+            if (isOwner && !post.isPublic)
+              DressUpCardAction(
+                icon: Icons.share_outlined,
+                label: 'Share',
+                onTap: () => _sharePost(post),
               ),
-            ),
           ],
+          menuItems: [
+            if (!isOwner && canComment)
+              DressUpMenuItem(
+                icon: Icons.chat_bubble_outline,
+                label: 'Comment',
+                onSelected: () => showPostCommentsSheet(context, post),
+              ),
+            if (isOwner && post.isPublic)
+              DressUpMenuItem(
+                icon: Icons.lock_outline,
+                label: 'Make private',
+                onSelected: () => _privatePost(post),
+              ),
+            if (isOwner && !post.isPublic)
+              DressUpMenuItem(
+                icon: Icons.public,
+                label: 'Share publicly',
+                onSelected: () => _sharePost(post),
+              ),
+            if (isOwner)
+              DressUpMenuItem(
+                icon: Icons.delete_outline,
+                label: 'Delete',
+                isDestructive: true,
+                onSelected: () => _deletePost(post),
+              ),
+          ],
+          footer: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Affirmations stand in for the design's like counter: public
+              // reaction totals are prohibited (BNG SRS 001, AFF-003).
+              AffirmationRow(
+                targetType: AffirmationTargetType.post,
+                targetId: post.id,
+                targetOwnerId: post.authorId,
+                currentUserId: currentUserId,
+                ownerName: isOwner ? 'your look' : author.displayName,
+                onOpenReceived: () => showReceivedAffirmations(
+                  context,
+                  targetType: AffirmationTargetType.post,
+                  targetId: post.id,
+                ),
+              ),
+              if (canQuickReply) ...[
+                SizedBox(height: 6),
+                PostQuickReplies(post: post),
+              ],
+            ],
+          ),
         );
       },
     );
@@ -1414,7 +1254,8 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
     }
   }
 
-  Widget _buildMinePostImage(String imageUrl) {
+  /// The generated try-on image, filling the card.
+  Widget _buildPostImage(String imageUrl) {
     if (imageUrl.isEmpty) {
       return Align(
         alignment: Alignment.center,
@@ -1428,13 +1269,13 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
 
     return Image.network(
       imageUrl,
-      fit: BoxFit.contain,
-      alignment: Alignment.bottomCenter,
+      fit: BoxFit.cover,
+      alignment: Alignment.topCenter,
       webHtmlElementStrategy: kIsWeb
           ? WebHtmlElementStrategy.prefer
           : WebHtmlElementStrategy.never,
       errorBuilder: (context, error, stackTrace) {
-        debugPrint('Unable to display Mine post image: $error');
+        debugPrint('Unable to display post image: $error');
         return Align(
           alignment: Alignment.center,
           child: Icon(
@@ -1444,194 +1285,6 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
           ),
         );
       },
-    );
-  }
-
-  Widget _buildMinePostVisual(Post post, String imageUrl) {
-    final products = _collageProducts(post);
-    if (products.isEmpty) return _buildMinePostImage(imageUrl);
-
-    return Padding(
-      padding: EdgeInsets.all(8),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(10),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final bottomCount = _collageBottomCount(products.length);
-            final tileSize = _collageProductTileSize(
-              itemCount: products.length,
-              bottomCount: bottomCount,
-              width: constraints.maxWidth,
-              height: constraints.maxHeight,
-            );
-            final gap = tileSize <= 42 ? 4.0 : 6.0;
-            final bottomProducts = products.take(bottomCount).toList();
-            final sideProducts = products.skip(bottomCount).toList();
-            final bottomGap = _collageEvenGap(
-              extent: constraints.maxWidth,
-              itemCount: bottomProducts.length,
-              tileSize: tileSize,
-              fallback: gap,
-            );
-            final sideAvailableHeight = constraints.maxHeight - tileSize - gap;
-            final sideGap = _collageEvenGap(
-              extent: sideAvailableHeight,
-              itemCount: sideProducts.length,
-              tileSize: tileSize,
-              fallback: gap,
-            );
-
-            return Stack(
-              fit: StackFit.expand,
-              children: [
-                Container(
-                  color: Theme.of(context).colorScheme.surfaceContainerLow,
-                  child: _buildMinePostImage(imageUrl),
-                ),
-                for (var index = 0; index < sideProducts.length; index++)
-                  Positioned(
-                    right: gap,
-                    top: sideGap + index * (tileSize + sideGap),
-                    width: tileSize,
-                    height: tileSize,
-                    child: _buildCollageProduct(sideProducts[index]),
-                  ),
-                for (var index = 0; index < bottomProducts.length; index++)
-                  Positioned(
-                    left: bottomGap + index * (tileSize + bottomGap),
-                    bottom: gap,
-                    width: tileSize,
-                    height: tileSize,
-                    child: _buildCollageProduct(bottomProducts[index]),
-                  ),
-              ],
-            );
-          },
-        ),
-      ),
-    );
-  }
-
-  int _collageBottomCount(int itemCount) {
-    if (itemCount <= 3) return itemCount;
-    if (itemCount == 4) return 3;
-    return math.min(3, itemCount);
-  }
-
-  double _collageProductTileSize({
-    required int itemCount,
-    required int bottomCount,
-    required double width,
-    required double height,
-  }) {
-    final shortestSide = math.min(width, height);
-    final maxTile = shortestSide < 360
-        ? 72.0
-        : shortestSide < 520
-        ? 84.0
-        : 104.0;
-    const minTile = 44.0;
-    const gap = 6.0;
-
-    final sideCount = itemCount - bottomCount;
-    final bottomFit = bottomCount == 0
-        ? maxTile
-        : (width - gap * (bottomCount + 1)) / bottomCount;
-    final sideFit = sideCount == 0
-        ? maxTile
-        : (height - bottomFit - gap * (sideCount + 2)) / sideCount;
-    final fit = math.min(maxTile, math.min(bottomFit, sideFit));
-    return fit.clamp(minTile, maxTile).toDouble();
-  }
-
-  double _collageEvenGap({
-    required double extent,
-    required int itemCount,
-    required double tileSize,
-    required double fallback,
-  }) {
-    if (itemCount <= 0) return fallback;
-    final available = extent - itemCount * tileSize;
-    if (available <= fallback * (itemCount + 1)) return fallback;
-    return available / (itemCount + 1);
-  }
-
-  Widget _buildMineCommand({
-    required IconData icon,
-    required String label,
-    required Color backgroundColor,
-    required Color foregroundColor,
-    VoidCallback? onTap,
-  }) {
-    return SizedBox(
-      height: 34,
-      child: Material(
-        color: onTap == null
-            ? backgroundColor.withValues(alpha: 0.45)
-            : backgroundColor,
-        borderRadius: BorderRadius.circular(7),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(7),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 17, color: foregroundColor),
-              SizedBox(width: 5),
-              Flexible(
-                child: Text(
-                  label,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: foregroundColor,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  double _responsiveCardFontSize(
-    String text, {
-    required double base,
-    required double compact,
-  }) {
-    if (text.length > 110) return compact;
-    if (text.length > 70) return (base + compact) / 2;
-    return base;
-  }
-
-  Widget _buildMineReaction({
-    required IconData icon,
-    required String label,
-    required Color color,
-    VoidCallback? onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 17, color: color),
-          SizedBox(width: 6),
-          Flexible(
-            child: Text(
-              label,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurface,
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -1858,39 +1511,6 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
   }
 
   /// Friends and community posts use the same visual card as My Daily Dress Up.
-  Widget _buildDressUpItem(Post post, int index) {
-    return _buildMinePostItem(post, index);
-  }
-
-  List<Map<String, dynamic>> _collageProducts(Post post) {
-    return post.products
-        .where((product) => _productImageUrl(product).isNotEmpty)
-        .toList();
-  }
-
-  Widget _buildCollageProduct(Map<String, dynamic> product) {
-    final colors = Theme.of(context).colorScheme;
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.all(5),
-      decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: colors.outlineVariant),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: SafeProductImage(
-          imageUrl: _productImageUrl(product),
-          width: double.infinity,
-          height: double.infinity,
-          fit: BoxFit.contain,
-          iconSize: 34,
-        ),
-      ),
-    );
-  }
-
   Future<_PostAuthor> _loadPostAuthor(String authorId) async {
     if (authorId.isEmpty) return _PostAuthor.fallback(authorId);
 
@@ -1902,6 +1522,9 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
       return _PostAuthor(
         displayName: (data['displayName'] ?? data['name'] ?? 'User').toString(),
         fullBodyImageUrl: (data['latestFullBodyImageUrl'] ?? '').toString(),
+        profileImageUrl:
+            (data['profileImageURL'] ?? data['profileImageUrl'] ?? '')
+                .toString(),
         stylePreference: (data['stylePreference'] ?? data['style'] ?? '')
             .toString(),
       );
@@ -1942,12 +1565,14 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
 class _PostAuthor {
   final String displayName;
   final String fullBodyImageUrl;
+  final String profileImageUrl;
   final String stylePreference;
 
   _PostAuthor({
     required this.displayName,
     required this.fullBodyImageUrl,
     required this.stylePreference,
+    this.profileImageUrl = '',
   });
 
   factory _PostAuthor.fallback(String authorId) {
