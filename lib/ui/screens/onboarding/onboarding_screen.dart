@@ -21,6 +21,9 @@ class OnboardingSlide {
 }
 
 /// The intro sequence, in order.
+// UNCLEAR: copy and illustrations are placeholders written from the meeting
+// notes. Swap in the Figma illustrations and final marketing copy when ready.
+// "Get the look" promises boutiques and salons, which arrive in Phase 5.
 const List<OnboardingSlide> onboardingSlides = [
   OnboardingSlide(
     icon: Icons.auto_awesome,
@@ -53,6 +56,9 @@ const List<OnboardingSlide> onboardingSlides = [
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
 
+  // UNCLEAR: the meeting suggested showing the intro again after logout.
+  // Today it shows once per install. If it should return after logout, clear
+  // this key on sign-out.
   static const String doneKey = 'onboarding_done';
 
   @override

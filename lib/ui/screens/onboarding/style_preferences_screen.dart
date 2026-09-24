@@ -27,6 +27,9 @@ class StylePreferencesScreen extends StatefulWidget {
   /// First run shows "Skip for now"; from Settings it is a normal page.
   final bool isFirstRun;
 
+  // UNCLEAR: placeholder list; confirm the style options with the
+  // stakeholder. Existing users are also asked once on their next launch,
+  // because nobody has answered this yet.
   static const List<String> styleOptions = [
     'Casual',
     'Smart',

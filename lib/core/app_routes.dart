@@ -13,6 +13,7 @@ import '../ui/screens/main/search_page.dart';
 import '../ui/screens/social/profile_page.dart';
 import '../ui/screens/makeover/avatar_try_on_page.dart';
 import '../ui/screens/makeover/create_makeover_page.dart';
+import '../ui/screens/makeover/makeover_page.dart';
 import '../ui/screens/auth/custom_login_screen.dart';
 import '../ui/screens/onboarding/onboarding_screen.dart';
 import '../ui/screens/onboarding/style_preferences_screen.dart';
@@ -275,6 +276,10 @@ class AppRoutes {
   // A makeover is started from Home's floating Makeover button, not a tab.
   static const String makeover = '/makeover';
 
+  // The earlier catalogue-first makeover. Not linked from anywhere now; kept
+  // for "Get this look" (Phase 5), which needs real items to try on.
+  static const String makeoverWithItems = '/makeover/items';
+
   // Daily Dress Up and Hair Style are not tab destinations — their work is one
   // coordinated makeover journey. They stay routable because they also host
   // the shop try-on picker and the hairstyle catalogue.
@@ -298,7 +303,8 @@ class AppRoutes {
     fashionDesigners: (context) => const FashionDesignersPage(),
     agents: (context) => const AgentsPage(),
     notifications: (context) => const NotificationsPage(),
-    makeover: (context) => const CreateMakeoverPage(),
+    makeover: (context) => const MakeoverPage(),
+    makeoverWithItems: (context) => const CreateMakeoverPage(),
     dailyDressUp: (context) => const DailyDressUpPage(),
     myFashionStyle: (context) => const MyFashionStylePage(),
     hairStyle: (context) => const HairStylePage(),

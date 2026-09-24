@@ -1,5 +1,10 @@
-// The makeover flow — one coordinated clothing-and-hair makeover, opened from
-// Home's floating Makeover button.
+// The original coordinated clothing-and-hair makeover, built on chosen
+// catalogue items.
+//
+// Superseded as the entry point by MakeoverPage (Phase 3), which starts from
+// the user's photo and an idea rather than products. Kept because choosing
+// real items to try on is what "Get this look" (Phase 5) will need; it is
+// reachable at AppRoutes.makeoverWithItems.
 //
 // Covers UI-04 (intent) through UI-09 (save and visibility) from BNG SRS 001,
 // and the JRN-01 journey. Clothing and hair are presented as equal sections of
@@ -9,18 +14,14 @@
 // Deliberately absent: any score, rating, ranking or "best look" marker. The
 // compare step offers alternatives and an explanation of what changed.
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../../../core/main_tab.dart';
 import '../../../data/models/makeover_job.dart';
 import '../../../data/services/coordinated_makeover_service.dart';
-import '../../../data/services/notification_service.dart';
-import '../../../data/services/post_service.dart';
 import '../../../data/services/storage_service.dart';
+import '../../widgets/save_look_sheet.dart';
 import '../../widgets/try_on_product_picker.dart';
-import '../main/main_screen.dart';
 
 /// Steps of the coordinated journey.
 enum _CreateStep { brief, generating, compare }
@@ -36,8 +37,6 @@ class _CreateMakeoverPageState extends State<CreateMakeoverPage> {
   final CoordinatedMakeoverService _service = CoordinatedMakeoverService();
   final StorageService _storage = StorageService();
   final ImagePicker _picker = ImagePicker();
-  final PostService _posts = PostService();
-  final NotificationService _notifications = NotificationService();
 
   final TextEditingController _occasionController = TextEditingController();
   final TextEditingController _feelingController = TextEditingController();
@@ -880,55 +879,13 @@ class _CreateMakeoverPageState extends State<CreateMakeoverPage> {
 
   // ── UI-09 save and visibility ───────────────────────────────────────────
 
-  /// Saves the chosen look as a post, so it lands on the user's own timeline,
-  /// then returns to Home. Sharing is the user's choice, never the default.
   Future<void> _saveAndChooseVisibility(MakeoverAlternative alternative) async {
-    final visibility = await showModalBottomSheet<_SaveVisibility>(
-      context: context,
-      showDragHandle: true,
-      builder: (sheetContext) => const _SaveVisibilitySheet(),
-    );
-    if (visibility == null || !mounted) return;
-
-    final messenger = ScaffoldMessenger.of(context);
-    final navigator = Navigator.of(context);
-    final isPublic = visibility == _SaveVisibility.share;
     final occasion = _occasionController.text.trim();
-    final caption = occasion.isEmpty ? 'My makeover' : 'My $occasion look';
-
-    setState(() => _isBusy = true);
-    try {
-      await _posts.createPost(
-        caption: caption,
-        imageURL: alternative.imageUrl,
-        isPublic: isPublic,
-      );
-      if (isPublic) {
-        await _notifications.notifyFollowersNewPost(caption);
-      }
-    } on SignInRequiredException catch (error) {
-      if (mounted) setState(() => _isBusy = false);
-      messenger.showSnackBar(SnackBar(content: Text(error.message)));
-      return;
-    } on Exception catch (error) {
-      if (mounted) setState(() => _isBusy = false);
-      messenger.showSnackBar(
-        SnackBar(content: Text('Unable to save your look: $error')),
-      );
-      return;
-    }
-
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text(
-          isPublic
-              ? 'Your look is on your timeline and shared with friends and community.'
-              : 'Your look is saved to My Timeline.',
-        ),
-      ),
+    await saveLookToTimeline(
+      context,
+      imageUrl: alternative.imageUrl,
+      caption: occasion.isEmpty ? 'My makeover' : 'My $occasion look',
     );
-    MainScreen.selectTab(MainTab.home);
-    navigator.popUntil((route) => route.isFirst);
   }
 
   Widget _buildErrorBanner(BuildContext context, String message) {
@@ -1126,50 +1083,6 @@ class _ComparePanel extends StatelessWidget {
                   fontSize: 13,
                 ),
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-enum _SaveVisibility { private, share }
-
-/// Asks where a saved look should go: only the user's timeline, or also to
-/// friends and the community.
-class _SaveVisibilitySheet extends StatelessWidget {
-  const _SaveVisibilitySheet();
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: Text(
-                'Save your look',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-            ),
-            ListTile(
-              key: const ValueKey('save_look_private'),
-              leading: const Icon(Icons.lock_outline),
-              title: const Text('Save to My Timeline'),
-              subtitle: const Text('Only you can see it. Share it later.'),
-              onTap: () => Navigator.pop(context, _SaveVisibility.private),
-            ),
-            ListTile(
-              key: const ValueKey('save_look_share'),
-              leading: const Icon(Icons.public),
-              title: const Text('Share with friends and community'),
-              subtitle: const Text('It also appears on your timeline.'),
-              onTap: () => Navigator.pop(context, _SaveVisibility.share),
             ),
           ],
         ),

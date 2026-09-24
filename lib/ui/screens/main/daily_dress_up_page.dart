@@ -4,6 +4,13 @@
 // Kept deliberately simple (September 2026 review): no weather or calendar
 // banner here. Style by Occasion, Plan Ahead and Shopping Intelligence live on
 // My Fashion Style.
+//
+// UNCLEAR: Shopping Intelligence should become an "order / get this look"
+// action beside each post, but its placement and wording were left to be
+// decided while building Home. Not added yet.
+// UNCLEAR: this class is still called DailyDressUpPage although it is Home.
+// Daily Dress Up is meant to be a separate feature whose role after the
+// review is undecided; rename once that is settled.
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
