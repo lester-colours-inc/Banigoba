@@ -1,16 +1,15 @@
-// The five consumer destinations.
+// The four consumer destinations.
 //
-// BNG SRS 001 fixes this navigation model: Home, Discover, Create, Wardrobe
-// and Profile, with Create visually central but not oversized. The order here
-// is the tab order, so it must not be rearranged casually — it is a spec
-// commitment, not a layout preference.
+// BNG SRS 001 originally placed a Create tab at the centre. Following the
+// September 2026 review, Create was removed as a destination: a makeover now
+// starts from the floating Makeover button on Home, the way a tweet starts
+// from X's compose button. The order here is the tab order.
 //
 // Notifications is deliberately not a destination. It is a signal surfaced on
 // Home, reached by route.
 enum MainTab {
   home('Home'),
   discover('Discover'),
-  create('Create'),
   wardrobe('Wardrobe'),
   profile('Profile');
 

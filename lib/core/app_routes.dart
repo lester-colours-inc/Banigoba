@@ -12,8 +12,10 @@ import '../ui/screens/shop/cart_page.dart';
 import '../ui/screens/main/search_page.dart';
 import '../ui/screens/social/profile_page.dart';
 import '../ui/screens/makeover/avatar_try_on_page.dart';
+import '../ui/screens/makeover/create_makeover_page.dart';
 import '../ui/screens/auth/custom_login_screen.dart';
 import '../ui/screens/onboarding/onboarding_screen.dart';
+import '../ui/screens/onboarding/style_preferences_screen.dart';
 import '../ui/screens/permissions/permissions_request_screen.dart';
 import '../ui/screens/shop/seller_dashboard_page.dart';
 import '../ui/screens/shop/shops_page.dart';
@@ -24,6 +26,7 @@ import '../ui/screens/wardrobe/measurement_page.dart';
 import '../ui/screens/admin/curators_workspace_page.dart';
 import '../ui/screens/settings/settings_page.dart';
 import '../data/services/permissions_service.dart';
+import '../data/services/style_preferences_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthGate extends StatefulWidget {
@@ -50,7 +53,7 @@ class _AuthGateState extends State<AuthGate> {
     if (!mounted) return;
 
     setState(() {
-      _onboardingDone = prefs.getBool('onboarding_done') ?? false;
+      _onboardingDone = prefs.getBool(OnboardingScreen.doneKey) ?? false;
     });
   }
 
@@ -220,9 +223,20 @@ class _AuthGateState extends State<AuthGate> {
                       userData['isAdmin'] == true ||
                       userData['role'] == 'admin';
                   if (isAdmin) return const CuratorsWorkspacePage();
-                  return userData['sellerMode'] == true
-                      ? const SellerDashboardPage()
-                      : const MainScreen();
+                  if (userData['sellerMode'] == true) {
+                    return const SellerDashboardPage();
+                  }
+                  // Asked once, after the account exists; the user document
+                  // stream rebuilds into Home as soon as it is answered or
+                  // skipped.
+                  if (StylePreferencesService.needsPrompt(userData)) {
+                    final preferences = StylePreferencesService();
+                    return StylePreferencesScreen(
+                      onSave: (answers) => preferences.save(user.uid, answers),
+                      onSkip: () => preferences.skip(user.uid),
+                    );
+                  }
+                  return const MainScreen();
                 },
               );
             },
@@ -258,9 +272,12 @@ class AppRoutes {
   static const String agents = '/agents';
   static const String notifications = '/notifications';
 
-  // Daily Dress Up and Hair Style are no longer tab destinations — their work
-  // is one coordinated journey under Create. They stay routable because they
-  // also host the shop try-on picker and the hairstyle catalogue.
+  // A makeover is started from Home's floating Makeover button, not a tab.
+  static const String makeover = '/makeover';
+
+  // Daily Dress Up and Hair Style are not tab destinations — their work is one
+  // coordinated makeover journey. They stay routable because they also host
+  // the shop try-on picker and the hairstyle catalogue.
   static const String dailyDressUp = '/daily-dress-up';
   static const String myFashionStyle = '/my-fashion-style';
   static const String hairStyle = '/hair-style';
@@ -281,6 +298,7 @@ class AppRoutes {
     fashionDesigners: (context) => const FashionDesignersPage(),
     agents: (context) => const AgentsPage(),
     notifications: (context) => const NotificationsPage(),
+    makeover: (context) => const CreateMakeoverPage(),
     dailyDressUp: (context) => const DailyDressUpPage(),
     myFashionStyle: (context) => const MyFashionStylePage(),
     hairStyle: (context) => const HairStylePage(),

@@ -11,6 +11,16 @@ import '../models/post.dart';
 import 'affirmation_service.dart';
 import 'notification_service.dart';
 
+/// Thrown when a post is created without a signed-in user.
+class SignInRequiredException implements Exception {
+  const SignInRequiredException();
+
+  String get message => 'Sign in to save your look.';
+
+  @override
+  String toString() => message;
+}
+
 class PostService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -18,24 +28,31 @@ class PostService {
 
   String get _currentUserId => _auth.currentUser?.uid ?? '';
 
-  /// Creates a new post
-  Future<void> createPost({
+  /// Creates a new post, private unless [isPublic] is set.
+  ///
+  /// Throws [SignInRequiredException] when nobody is signed in, so callers can
+  /// tell the user rather than silently losing the look.
+  Future<String> createPost({
     required String caption,
     required String imageURL,
     String? outfitId,
     List<Map<String, dynamic>> products = const [],
+    bool isPublic = false,
   }) async {
-    if (_currentUserId.isEmpty) return;
+    if (_currentUserId.isEmpty) {
+      throw const SignInRequiredException();
+    }
 
-    await _db.collection('posts').add({
+    final ref = await _db.collection('posts').add({
       'authorID': _currentUserId,
       'authorId': _currentUserId,
       'caption': caption,
       'commentCount': 0,
       'createdAt': FieldValue.serverTimestamp(),
       'imageURL': imageURL,
-      'isPublic': false,
-      'visibility': 'private',
+      'isPublic': isPublic,
+      'visibility': isPublic ? 'public' : 'private',
+      if (isPublic) 'publishedAt': FieldValue.serverTimestamp(),
       if (outfitId?.isNotEmpty == true) 'outfitId': outfitId,
       if (products.isNotEmpty) ...{
         'products': products,
@@ -45,6 +62,7 @@ class PostService {
             .toList(),
       },
     });
+    return ref.id;
   }
 
   Future<void> makePostPublic(String postId) async {

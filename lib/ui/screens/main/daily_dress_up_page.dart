@@ -1,30 +1,31 @@
-// Shows daily outfit inspiration using local weather and wardrobe actions.
+// Home: an X-style feed of looks — My Timeline, Friends and Community — with a
+// floating Makeover button that starts a new look, like composing a tweet.
+//
+// Kept deliberately simple (September 2026 review): no weather or calendar
+// banner here. Style by Occasion, Plan Ahead and Shopping Intelligence live on
+// My Fashion Style.
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../../data/models/affirmation.dart';
 import '../../../data/models/post.dart';
-import '../../../data/services/weather_service.dart';
 import '../../../data/services/notification_service.dart';
 import '../../../data/services/post_service.dart';
 import '../../../data/services/friend_service.dart';
 import '../../../data/services/product_service.dart';
-import '../../../data/services/upcoming_event_service.dart';
-import '../../../data/models/weather.dart';
-import 'package:geolocator/geolocator.dart';
 import '../../../core/app_routes.dart';
 import '../../../core/theme_provider.dart';
 import '../../widgets/affirmation_row.dart';
 import '../../widgets/app_drawer.dart';
 import '../../widgets/dress_up_post_card.dart';
+import '../../widgets/home_feed_tabs.dart';
 import '../../widgets/post_comments_sheet.dart';
 import '../../widgets/cart_badge_button.dart';
 import '../../widgets/safe_product_image.dart';
 import '../../widgets/try_on_product_picker.dart';
-import '../wardrobe/wardrobe_calendar_page.dart';
 
-/// Page displaying daily dress up recommendations and user posts
+/// Home feed of the user's own looks, friends' looks and the community.
 class DailyDressUpPage extends StatefulWidget {
   const DailyDressUpPage({super.key});
 
@@ -33,85 +34,14 @@ class DailyDressUpPage extends StatefulWidget {
 }
 
 class _DailyDressUpPageState extends State<DailyDressUpPage> {
-  int _selectedTabIndex = 0;
+  HomeFeed _selectedFeed = HomeFeed.myTimeline;
   static Color primaryColor = Color(0xFF0D0140);
 
-  final WeatherService _weatherService = WeatherService();
   final PostService _postService = PostService();
   final FriendService _friendService = FriendService();
   final ProductService _productService = ProductService();
-  final UpcomingEventService _upcomingEventService = UpcomingEventService();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final Map<String, Future<_PostAuthor>> _authorProfiles = {};
-  Weather? _currentWeather;
-  bool _isLoadingWeather = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _fetchWeather();
-  }
-
-  /// Fetches weather data using the current device location
-  Future<void> _fetchWeather() async {
-    // Check permissions before attempting to fetch weather
-    final status = await Geolocator.checkPermission();
-
-    if (status == LocationPermission.deniedForever) {
-      // Silently fail - location permissions permanently denied
-      if (!mounted) return;
-      setState(() {
-        _isLoadingWeather = false;
-      });
-      return;
-    }
-
-    setState(() {
-      _isLoadingWeather = true;
-    });
-    try {
-      final Position position = await _determinePosition();
-      final String latLong = "${position.latitude},${position.longitude}";
-      final weather = await _weatherService.fetchOptionalWeather(latLong);
-      if (mounted) {
-        setState(() {
-          _currentWeather = weather;
-          _isLoadingWeather = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isLoadingWeather = false;
-        });
-      }
-      debugPrint("Weather fetch error: $e");
-    }
-  }
-
-  /// Handles location permission and returns the current position
-  Future<Position> _determinePosition() async {
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      return Future.error('Location services are disabled.');
-    }
-
-    var status = await Geolocator.checkPermission();
-    if (status == LocationPermission.denied) {
-      status = await Geolocator.requestPermission();
-      if (status == LocationPermission.denied) {
-        return Future.error('Location permissions are denied');
-      }
-    }
-
-    if (status == LocationPermission.deniedForever) {
-      return Future.error('Location permissions are permanently denied');
-    }
-
-    return await Geolocator.getCurrentPosition(
-      locationSettings: LocationSettings(accuracy: LocationAccuracy.low),
-    );
-  }
 
   // Kept temporarily for compatibility while all active entry points use the
   // shared Build Your Look picker.
@@ -910,33 +840,30 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
           ],
         ),
         actions: [SizedBox(width: 20)],
+        bottom: HomeFeedTabs(
+          selected: _selectedFeed,
+          onSelected: (feed) => setState(() => _selectedFeed = feed),
+        ),
       ),
       body: SingleChildScrollView(
-        padding: EdgeInsets.symmetric(horizontal: 20.0),
+        padding: EdgeInsets.fromLTRB(20, 16, 20, 0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(height: 10),
-            _buildTabs(),
-            SizedBox(height: 20),
-            _buildStatusHeader(),
-            SizedBox(height: 25),
             _buildPostsFeed(),
-            SizedBox(height: 30),
+            // Clears the floating Makeover button so it never covers the
+            // last post's actions.
+            SizedBox(height: 96),
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.extended(
+        key: const ValueKey('home_makeover_button'),
         backgroundColor: primaryColor,
-        child: Icon(Icons.add, color: Colors.white),
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const WardrobeCalendarPage(),
-            ),
-          );
-        },
+        foregroundColor: Colors.white,
+        icon: Icon(Icons.auto_awesome),
+        label: Text('Makeover', style: TextStyle(fontWeight: FontWeight.bold)),
+        onPressed: () => Navigator.pushNamed(context, AppRoutes.makeover),
       ),
     );
   }
@@ -958,7 +885,7 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
         }
 
         final posts = postSnapshot.data!;
-        if (_selectedTabIndex == 1) {
+        if (_selectedFeed == HomeFeed.friends) {
           return StreamBuilder<List<String>>(
             stream: _friendService.getMutualFriendsIds(),
             builder: (context, friendSnapshot) {
@@ -987,14 +914,14 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
         }
 
         final currentUserId = FirebaseAuth.instance.currentUser?.uid;
-        final filteredPosts = _selectedTabIndex == 0
+        final filteredPosts = _selectedFeed == HomeFeed.myTimeline
             ? posts.where((post) => post.authorId == currentUserId).toList()
             : posts.where((post) => post.isPublic).toList();
 
         return _buildPostList(
           filteredPosts,
-          emptyMessage: _selectedTabIndex == 0
-              ? 'You have not shared a daily dress-up post yet.'
+          emptyMessage: _selectedFeed == HomeFeed.myTimeline
+              ? 'Your looks will appear here. Tap Makeover to create your first one.'
               : 'No community posts yet.',
         );
       },
@@ -1037,7 +964,7 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
             authorSnapshot.data ?? _PostAuthor.fallback(post.authorId);
         final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
         final isOwner = currentUserId == post.authorId;
-        final isMineTab = _selectedTabIndex == 0;
+        final isMineTab = _selectedFeed == HomeFeed.myTimeline;
         final imageUrl = post.imageURL.isNotEmpty
             ? post.imageURL
             : author.fullBodyImageUrl;
@@ -1146,7 +1073,7 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
       builder: (dialogContext) => AlertDialog(
         title: const Text('Make this post public?'),
         content: const Text(
-          'Friends and community members will be able to see, like, and comment on this look.',
+          'Friends and community members will be able to see this look, send affirmations and reply.',
         ),
         actions: [
           TextButton(
@@ -1186,7 +1113,7 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
       builder: (dialogContext) => AlertDialog(
         title: const Text('Make this post private?'),
         content: const Text(
-          'This look will be removed from friends and community feeds. Likes and comments stay saved if you share it again later.',
+          'This look will be removed from friends and community feeds. Affirmations and replies stay saved if you share it again later.',
         ),
         actions: [
           TextButton(
@@ -1221,9 +1148,9 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
     final shouldDelete = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Delete this Daily Dress Up?'),
+        title: const Text('Delete this look?'),
         content: const Text(
-          'This removes the look from My Daily Dress Up and deletes its likes and comments. This cannot be undone.',
+          'This removes the look from your timeline and deletes its affirmations and replies. This cannot be undone.',
         ),
         actions: [
           TextButton(
@@ -1245,12 +1172,12 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Daily Dress Up deleted.')));
+      ).showSnackBar(const SnackBar(content: Text('Look deleted.')));
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Unable to delete Daily Dress Up: $error')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Unable to delete look: $error')));
     }
   }
 
@@ -1372,140 +1299,6 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
               );
             },
           ),
-      ],
-    );
-  }
-
-  /// Horizontal tab selector for filtering content
-  Widget _buildTabs() {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          _tabButton("Mine", 0),
-          SizedBox(width: 15),
-          _tabButton("My Friends", 1),
-          SizedBox(width: 15),
-          _tabButton("Community", 2),
-        ],
-      ),
-    );
-  }
-
-  /// Individual tab button with selection state
-  Widget _tabButton(String title, int index) {
-    bool isSelected = _selectedTabIndex == index;
-    final colors = Theme.of(context).colorScheme;
-    return GestureDetector(
-      onTap: () => setState(() => _selectedTabIndex = index),
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 25, vertical: 10),
-        decoration: BoxDecoration(
-          color: isSelected ? primaryColor : colors.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(25),
-          border: Border.all(
-            color: isSelected ? primaryColor : colors.outlineVariant,
-            width: 1,
-          ),
-        ),
-        child: Text(
-          title,
-          style: TextStyle(
-            color: isSelected ? Colors.white : colors.onSurfaceVariant,
-            fontWeight: FontWeight.w600,
-            fontSize: 14,
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// Header showing current weather and next calendar event
-  Widget _buildStatusHeader() {
-    final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
-    if (_isLoadingWeather) {
-      return Container(
-        constraints: BoxConstraints(minHeight: 58),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: Color(0xFFC5CAE9),
-          borderRadius: BorderRadius.circular(15),
-        ),
-        child: SizedBox(
-          width: 20,
-          height: 20,
-          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-        ),
-      );
-    }
-
-    String conditionText = _currentWeather?.condition ?? "Weather Unavailable";
-    String tempText = _currentWeather != null
-        ? "${_currentWeather!.temperatureC.round()}°C"
-        : "";
-
-    return StreamBuilder<UpcomingEvent?>(
-      stream: _upcomingEventService.watchClosestEvent(currentUserId),
-      builder: (context, eventSnapshot) {
-        final eventLabel =
-            eventSnapshot.data?.shortLabel ?? 'No upcoming event';
-
-        return Container(
-          width: double.infinity,
-          padding: EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-          decoration: BoxDecoration(
-            color: Color(0xFFC5CAE9),
-            borderRadius: BorderRadius.circular(15),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                flex: 3,
-                child: _statusChip(
-                  icon: Icons.cloud_outlined,
-                  label: _currentWeather != null
-                      ? "$conditionText • $tempText • ${_currentWeather!.locationName}"
-                      : conditionText,
-                ),
-              ),
-              Container(
-                width: 1,
-                height: 18,
-                margin: EdgeInsets.symmetric(horizontal: 12),
-                color: Colors.white.withValues(alpha: 0.4),
-              ),
-              Expanded(
-                flex: 2,
-                child: _statusChip(
-                  icon: Icons.calendar_today_outlined,
-                  label: eventLabel,
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _statusChip({required IconData icon, required String label}) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, color: Colors.white, size: 18),
-        SizedBox(width: 6),
-        Flexible(
-          child: Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
       ],
     );
   }

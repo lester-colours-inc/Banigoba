@@ -1,8 +1,7 @@
-// Renders the five-destination tab bar.
+// Renders the four-destination tab bar: Home, Discover, Wardrobe, Profile.
 //
-// Destinations are Home, Discover, Create, Wardrobe and Profile (BNG SRS 001).
-// Create sits centre and is emphasised by shape, not by size — the spec asks
-// for "visually central but not oversized".
+// Creating a makeover is not a destination; it starts from the floating
+// Makeover button on Home.
 //
 // No destination carries a count of anything social. The only badge is the
 // unread notification indicator on Home, which is a signal to the user about
@@ -27,7 +26,6 @@ class CustomBottomNavigation extends StatelessWidget {
   static const Map<MainTab, IconData> _icons = {
     MainTab.home: Icons.home_filled,
     MainTab.discover: Icons.search,
-    MainTab.create: Icons.auto_awesome,
     MainTab.wardrobe: Icons.checkroom_outlined,
     MainTab.profile: Icons.person_outline,
   };
@@ -60,7 +58,6 @@ class CustomBottomNavigation extends StatelessWidget {
 
   Widget _buildNavItem(BuildContext context, MainTab tab) {
     final isActive = currentIndex == tab.index;
-    final isCreate = tab == MainTab.create;
     final colors = Theme.of(context).colorScheme;
 
     // Unread notifications live on Home; no other destination is badged.
@@ -85,17 +82,8 @@ class CustomBottomNavigation extends StatelessWidget {
                     height: 44,
                     width: 44,
                     decoration: BoxDecoration(
-                      color: isActive
-                          ? _primaryColor
-                          : isCreate
-                          ? _primaryColor.withValues(alpha: 0.08)
-                          : Colors.transparent,
+                      color: isActive ? _primaryColor : Colors.transparent,
                       shape: BoxShape.circle,
-                      border: isCreate && !isActive
-                          ? Border.all(
-                              color: _primaryColor.withValues(alpha: 0.35),
-                            )
-                          : null,
                     ),
                     child: Icon(
                       _icons[tab] ?? Icons.circle_outlined,

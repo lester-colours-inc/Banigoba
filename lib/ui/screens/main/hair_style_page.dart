@@ -2139,7 +2139,7 @@ class _HairResultPageState extends State<_HairResultPage> {
   }
 
   void _returnToHairStyleHome() {
-    MainScreen.selectTab(MainTab.create);
+    MainScreen.selectTab(MainTab.home);
     Navigator.of(context).popUntil((route) => route.isFirst);
   }
 

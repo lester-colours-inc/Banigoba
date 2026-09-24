@@ -84,8 +84,12 @@ class AppDrawer extends StatelessWidget {
                 _buildDrawerItem(
                   context,
                   Icons.auto_awesome,
-                  'Create a Look',
-                  onTap: () => _selectTab(context, MainTab.create),
+                  'Create a Makeover',
+                  onTap: () {
+                    final navigator = Navigator.of(context);
+                    navigator.pop();
+                    navigator.pushNamed(AppRoutes.makeover);
+                  },
                 ),
                 _buildDrawerItem(
                   context,

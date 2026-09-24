@@ -1,23 +1,26 @@
-// The five consumer destinations are a spec commitment (BNG SRS 001), so
-// their identity and order are asserted rather than left to layout drift.
+// The consumer destinations are a product commitment, so their identity and
+// order are asserted rather than left to layout drift. Create was removed as a
+// tab in the September 2026 review: a makeover starts from Home's floating
+// Makeover button instead.
 import 'package:banigoba/core/main_tab.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('MainTab', () {
-    test('is exactly Home, Discover, Create, Wardrobe, Profile in order', () {
+    test('is exactly Home, Discover, Wardrobe, Profile in order', () {
       expect(MainTab.values.map((tab) => tab.label), [
         'Home',
         'Discover',
-        'Create',
         'Wardrobe',
         'Profile',
       ]);
     });
 
-    test('places Create in the centre', () {
-      expect(MainTab.create.position, 2);
-      expect(MainTab.values.length, 5);
+    test('Create is not a destination', () {
+      expect(
+        MainTab.values.map((tab) => tab.label),
+        isNot(contains('Create')),
+      );
     });
 
     test('position matches declaration order', () {

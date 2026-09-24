@@ -1,16 +1,12 @@
-// Hosts the app drawer, bottom navigation, and the five main destinations.
-//
-// Home, Discover, Create, Wardrobe, Profile (BNG SRS 001). Daily Dress Up and
-// Hair Style are no longer destinations: their clothing and hair work is now
-// one coordinated journey under Create. Both pages remain reachable by route,
-// since they also host the shop try-on picker and the hairstyle catalogue.
+// Hosts the app drawer, bottom navigation, and the four main destinations:
+// Home, Discover, Wardrobe, Profile. A makeover is started from the floating
+// Makeover button on Home rather than from a tab.
 import 'package:flutter/material.dart';
 
 import '../../../core/main_tab.dart';
 import '../../../core/theme_provider.dart';
 import '../../widgets/app_drawer.dart';
 import '../../widgets/bottom_navigation.dart';
-import '../makeover/create_makeover_page.dart';
 import '../social/profile_page.dart';
 import '../wardrobe/wardrobe_page.dart';
 import 'daily_dress_up_page.dart';
@@ -61,7 +57,6 @@ class _MainScreenState extends State<MainScreen> {
   static const List<Widget> _pages = [
     DailyDressUpPage(),
     SearchPage(),
-    CreateMakeoverPage(),
     WardrobePage(),
     ProfilePage(showBottomNav: false),
   ];
