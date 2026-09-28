@@ -6,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../makeover/style_selection_page.dart';
+import '../../widgets/app_network_image.dart';
 
 class MeasurementPage extends StatefulWidget {
   const MeasurementPage({
@@ -177,10 +178,10 @@ class _MeasurementPageState extends State<MeasurementPage> {
       return Image.memory(widget.imageBytes!, fit: BoxFit.contain);
     }
     if (widget.imageUrl != null) {
-      return Image.network(
+      return AppNetworkImage(
         widget.imageUrl!,
         fit: BoxFit.contain,
-        errorBuilder: (_, _, _) => _buildPlaceholder(),
+        fallback: _buildPlaceholder(),
       );
     }
     return _buildPlaceholder();

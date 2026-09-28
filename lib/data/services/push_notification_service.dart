@@ -10,7 +10,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../firebase_options.dart';
-import '../../ui/screens/main/main_screen.dart';
+import '../../core/app_routes.dart';
 
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -188,8 +188,10 @@ class PushNotificationService with WidgetsBindingObserver {
 
     _pendingNotificationOpen = false;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      MainScreen.selectTab(4);
-      _navigatorKey?.currentState?.popUntil((route) => route.isFirst);
+      final navigator = _navigatorKey?.currentState;
+      if (navigator == null) return;
+      navigator.popUntil((route) => route.isFirst);
+      navigator.pushNamed(AppRoutes.notifications);
     });
   }
 
@@ -199,8 +201,10 @@ class PushNotificationService with WidgetsBindingObserver {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_pendingNotificationOpen || _auth.currentUser == null) return;
       _pendingNotificationOpen = false;
-      MainScreen.selectTab(4);
-      _navigatorKey?.currentState?.popUntil((route) => route.isFirst);
+      final navigator = _navigatorKey?.currentState;
+      if (navigator == null) return;
+      navigator.popUntil((route) => route.isFirst);
+      navigator.pushNamed(AppRoutes.notifications);
     });
   }
 

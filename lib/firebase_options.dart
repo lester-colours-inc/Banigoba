@@ -17,7 +17,10 @@ import 'package:flutter/foundation.dart'
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
-      return web;
+      throw UnsupportedError(
+        'DefaultFirebaseOptions have not been configured for web - '
+        'you can reconfigure this by running the FlutterFire CLI again.',
+      );
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
@@ -25,9 +28,15 @@ class DefaultFirebaseOptions {
       case TargetPlatform.iOS:
         return ios;
       case TargetPlatform.macOS:
-        return macos;
+        throw UnsupportedError(
+          'DefaultFirebaseOptions have not been configured for macos - '
+          'you can reconfigure this by running the FlutterFire CLI again.',
+        );
       case TargetPlatform.windows:
-        return windows;
+        throw UnsupportedError(
+          'DefaultFirebaseOptions have not been configured for windows - '
+          'you can reconfigure this by running the FlutterFire CLI again.',
+        );
       case TargetPlatform.linux:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for linux - '
@@ -40,54 +49,26 @@ class DefaultFirebaseOptions {
     }
   }
 
-  static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyAqv8pW1XY8tEVc_Ljrgx-JvS1zMTFaGPw',
-    appId: '1:1057057002281:web:2680e27f099f89b5505d38',
-    messagingSenderId: '1057057002281',
-    projectId: 'internshipproject-68c13',
-    authDomain: 'internshipproject-68c13.firebaseapp.com',
-    databaseURL: 'https://internshipproject-68c13-default-rtdb.europe-west1.firebasedatabase.app',
-    storageBucket: 'internshipproject-68c13.firebasestorage.app',
-    measurementId: 'G-T0JNWKMYP3',
-  );
-
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyAT1RUBbmQiZaPa_b71E19BTa5o-qj2JdU',
-    appId: '1:1057057002281:android:39ef218f3602fd72505d38',
-    messagingSenderId: '1057057002281',
-    projectId: 'internshipproject-68c13',
-    databaseURL: 'https://internshipproject-68c13-default-rtdb.europe-west1.firebasedatabase.app',
-    storageBucket: 'internshipproject-68c13.firebasestorage.app',
-  );
-  static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyBFAR8DZP1Fse-fAuv9Qk1a8878VKvvtZI',
-    appId: '1:1057057002281:ios:3542ea90b01a7110505d38',
-    messagingSenderId: '1057057002281',
-    projectId: 'internshipproject-68c13',
-    databaseURL: 'https://internshipproject-68c13-default-rtdb.europe-west1.firebasedatabase.app',
-    storageBucket: 'internshipproject-68c13.firebasestorage.app',
-    iosClientId: '1057057002281-m71o9rjc7uoe58ja6dp3im0qedpv0c6g.apps.googleusercontent.com',
-    iosBundleId: 'com.banigoba',
-  );
-  static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyBFAR8DZP1Fse-fAuv9Qk1a8878VKvvtZI',
-    appId: '1:1057057002281:ios:83c780790eafe109505d38',
-    messagingSenderId: '1057057002281',
-    projectId: 'internshipproject-68c13',
-    databaseURL: 'https://internshipproject-68c13-default-rtdb.europe-west1.firebasedatabase.app',
-    storageBucket: 'internshipproject-68c13.firebasestorage.app',
-    iosClientId: '1057057002281-rcnc4a2142ididv1fi8l3i2rv02a7vnn.apps.googleusercontent.com',
-    iosBundleId: 'com.tino.banigoba',
+    apiKey: 'AIzaSyC4yKLG2OH4334nXEUii7W90DoyR2kGcZk',
+    appId: '1:379405824371:android:3d51ac0fb0ec085c685506',
+    messagingSenderId: '379405824371',
+    projectId: 'appdemo-b9e3e',
+    databaseURL: 'https://appdemo-b9e3e.firebaseio.com',
+    storageBucket: 'appdemo-b9e3e.appspot.com',
   );
 
-  static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyAqv8pW1XY8tEVc_Ljrgx-JvS1zMTFaGPw',
-    appId: '1:1057057002281:web:2680e27f099f89b5505d38',
-    messagingSenderId: '1057057002281',
-    projectId: 'internshipproject-68c13',
-    authDomain: 'internshipproject-68c13.firebaseapp.com',
-    databaseURL: 'https://internshipproject-68c13-default-rtdb.europe-west1.firebasedatabase.app',
-    storageBucket: 'internshipproject-68c13.firebasestorage.app',
-    measurementId: 'G-T0JNWKMYP3',
+  static const FirebaseOptions ios = FirebaseOptions(
+    apiKey: 'AIzaSyB3efYBdzd_O_GMMhntia-Ur90NzN-26Ec',
+    appId: '1:379405824371:ios:8f07de4b03475321685506',
+    messagingSenderId: '379405824371',
+    projectId: 'appdemo-b9e3e',
+    databaseURL: 'https://appdemo-b9e3e.firebaseio.com',
+    storageBucket: 'appdemo-b9e3e.appspot.com',
+    androidClientId:
+        '379405824371-0nuk4dqvovthttl23koqlkravn7mim2p.apps.googleusercontent.com',
+    iosClientId:
+        '379405824371-bej13ghpsuglcgmujgsehfeolrf3qe8i.apps.googleusercontent.com',
+    iosBundleId: 'com.banigoba',
   );
 }

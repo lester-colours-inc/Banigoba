@@ -3,13 +3,20 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../ui/screens/main/main_screen.dart';
+import '../ui/screens/main/notifications_page.dart';
+import '../ui/screens/main/daily_dress_up_page.dart';
+import '../ui/screens/main/my_fashion_style_page.dart';
+import '../ui/screens/main/hair_style_page.dart';
 import '../ui/screens/wardrobe/wardrobe_page.dart';
 import '../ui/screens/shop/cart_page.dart';
 import '../ui/screens/main/search_page.dart';
 import '../ui/screens/social/profile_page.dart';
 import '../ui/screens/makeover/avatar_try_on_page.dart';
+import '../ui/screens/makeover/create_makeover_page.dart';
+import '../ui/screens/makeover/makeover_page.dart';
 import '../ui/screens/auth/custom_login_screen.dart';
 import '../ui/screens/onboarding/onboarding_screen.dart';
+import '../ui/screens/onboarding/style_preferences_screen.dart';
 import '../ui/screens/permissions/permissions_request_screen.dart';
 import '../ui/screens/shop/seller_dashboard_page.dart';
 import '../ui/screens/shop/shops_page.dart';
@@ -18,8 +25,11 @@ import '../ui/screens/designers/fashion_designers_page.dart';
 import '../ui/screens/wardrobe/plan_ahead_page.dart';
 import '../ui/screens/wardrobe/measurement_page.dart';
 import '../ui/screens/admin/curators_workspace_page.dart';
+import '../ui/screens/profile_details/body_profile_page.dart';
 import '../ui/screens/settings/settings_page.dart';
+import '../ui/widgets/brand_splash.dart';
 import '../data/services/permissions_service.dart';
+import '../data/services/style_preferences_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthGate extends StatefulWidget {
@@ -46,7 +56,7 @@ class _AuthGateState extends State<AuthGate> {
     if (!mounted) return;
 
     setState(() {
-      _onboardingDone = prefs.getBool('onboarding_done') ?? false;
+      _onboardingDone = prefs.getBool(OnboardingScreen.doneKey) ?? false;
     });
   }
 
@@ -143,7 +153,7 @@ class _AuthGateState extends State<AuthGate> {
   @override
   Widget build(BuildContext context) {
     if (_onboardingDone == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const BrandSplash();
     }
 
     if (!_onboardingDone!) {
@@ -154,9 +164,7 @@ class _AuthGateState extends State<AuthGate> {
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
+          return const BrandSplash();
         }
 
         final user = snapshot.data;
@@ -171,9 +179,7 @@ class _AuthGateState extends State<AuthGate> {
             builder: (context, permissionSnapshot) {
               if (permissionSnapshot.connectionState ==
                   ConnectionState.waiting) {
-                return const Scaffold(
-                  body: Center(child: CircularProgressIndicator()),
-                );
+                return const BrandSplash();
               }
 
               if (permissionSnapshot.hasError) {
@@ -206,9 +212,7 @@ class _AuthGateState extends State<AuthGate> {
                     .snapshots(),
                 builder: (context, userSnapshot) {
                   if (!userSnapshot.hasData) {
-                    return const Scaffold(
-                      body: Center(child: CircularProgressIndicator()),
-                    );
+                    return const BrandSplash();
                   }
                   final userData =
                       userSnapshot.data?.data() ?? const <String, dynamic>{};
@@ -216,9 +220,20 @@ class _AuthGateState extends State<AuthGate> {
                       userData['isAdmin'] == true ||
                       userData['role'] == 'admin';
                   if (isAdmin) return const CuratorsWorkspacePage();
-                  return userData['sellerMode'] == true
-                      ? const SellerDashboardPage()
-                      : const MainScreen();
+                  if (userData['sellerMode'] == true) {
+                    return const SellerDashboardPage();
+                  }
+                  // Asked once, after the account exists; the user document
+                  // stream rebuilds into Home as soon as it is answered or
+                  // skipped.
+                  if (StylePreferencesService.needsPrompt(userData)) {
+                    final preferences = StylePreferencesService();
+                    return StylePreferencesScreen(
+                      onSave: (answers) => preferences.save(user.uid, answers),
+                      onSkip: () => preferences.skip(user.uid),
+                    );
+                  }
+                  return const MainScreen();
                 },
               );
             },
@@ -252,6 +267,25 @@ class AppRoutes {
   static const String shops = '/shops';
   static const String fashionDesigners = '/fashion-designers';
   static const String agents = '/agents';
+  static const String notifications = '/notifications';
+
+  // Photos, sizes and measurements for the eFitting Room and Fashion Idol
+  // Twin.
+  static const String bodyProfile = '/profile/details';
+
+  // A makeover is started from Home's floating Makeover button, not a tab.
+  static const String makeover = '/makeover';
+
+  // The earlier catalogue-first makeover. Not linked from anywhere now; kept
+  // for "Get this look" (Phase 5), which needs real items to try on.
+  static const String makeoverWithItems = '/makeover/items';
+
+  // Daily Dress Up and Hair Style are not tab destinations — their work is one
+  // coordinated makeover journey. They stay routable because they also host
+  // the shop try-on picker and the hairstyle catalogue.
+  static const String dailyDressUp = '/daily-dress-up';
+  static const String myFashionStyle = '/my-fashion-style';
+  static const String hairStyle = '/hair-style';
 
   static Map<String, WidgetBuilder> routes = {
     root: (context) => const AuthGate(),
@@ -268,6 +302,13 @@ class AppRoutes {
     shops: (context) => const ShopsPage(),
     fashionDesigners: (context) => const FashionDesignersPage(),
     agents: (context) => const AgentsPage(),
+    notifications: (context) => const NotificationsPage(),
+    bodyProfile: (context) => const BodyProfilePage(),
+    makeover: (context) => const MakeoverPage(),
+    makeoverWithItems: (context) => const CreateMakeoverPage(),
+    dailyDressUp: (context) => const DailyDressUpPage(),
+    myFashionStyle: (context) => const MyFashionStylePage(),
+    hairStyle: (context) => const HairStylePage(),
   };
 }
 

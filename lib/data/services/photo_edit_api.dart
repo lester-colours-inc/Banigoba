@@ -23,7 +23,9 @@ class PhotoEditApi {
     if (imageFile != null) {
       final bytes = await imageFile.readAsBytes();
       final extension = imageFile.path.split('.').last.toLowerCase();
-      final mimeType = extension == 'jpg' || extension == 'jpeg' ? 'image/jpeg' : 'image/$extension';
+      final mimeType = extension == 'jpg' || extension == 'jpeg'
+          ? 'image/jpeg'
+          : 'image/$extension';
       return 'data:$mimeType;base64,${base64Encode(bytes)}';
     }
 
@@ -31,9 +33,9 @@ class PhotoEditApi {
   }
 
   Map<String, String> get _authHeaders => {
-        HttpHeaders.authorizationHeader: 'Bearer $apiKey',
-        HttpHeaders.contentTypeHeader: 'application/json',
-      };
+    HttpHeaders.authorizationHeader: 'Bearer $apiKey',
+    HttpHeaders.contentTypeHeader: 'application/json',
+  };
 
   Future<String> _createPrediction(
     String modelName,
@@ -42,17 +44,17 @@ class PhotoEditApi {
     final response = await http.post(
       Uri.parse('$_baseUrl/v1/run'),
       headers: _authHeaders,
-      body: jsonEncode({
-        'model_name': modelName,
-        'inputs': inputs,
-      }),
+      body: jsonEncode({'model_name': modelName, 'inputs': inputs}),
     );
 
     if (response.statusCode != 200) {
-      throw HttpException('Fashn API request failed: ${response.statusCode} ${response.body}');
+      throw HttpException(
+        'Fashn API request failed: ${response.statusCode} ${response.body}',
+      );
     }
 
-    final Map<String, dynamic> body = jsonDecode(response.body) as Map<String, dynamic>;
+    final Map<String, dynamic> body =
+        jsonDecode(response.body) as Map<String, dynamic>;
     final id = body['id']?.toString();
     if (id == null || id.isEmpty) {
       throw FormatException('Fashn API response missing prediction id.');
@@ -63,19 +65,28 @@ class PhotoEditApi {
   Future<FashnPrediction> _pollPrediction(String predictionId) async {
     final uri = Uri.parse('$_baseUrl/v1/status/$predictionId');
     return await Future.any([
-      Future.delayed(_pollTimeout, () => throw TimeoutException('Fashn prediction polling timed out.')),
+      Future.delayed(
+        _pollTimeout,
+        () => throw TimeoutException('Fashn prediction polling timed out.'),
+      ),
       _pollUntilComplete(uri, predictionId),
     ]);
   }
 
-  Future<FashnPrediction> _pollUntilComplete(Uri uri, String predictionId) async {
+  Future<FashnPrediction> _pollUntilComplete(
+    Uri uri,
+    String predictionId,
+  ) async {
     while (true) {
       final response = await http.get(uri, headers: _authHeaders);
       if (response.statusCode != 200) {
-        throw HttpException('Fashn status check failed: ${response.statusCode} ${response.body}');
+        throw HttpException(
+          'Fashn status check failed: ${response.statusCode} ${response.body}',
+        );
       }
 
-      final Map<String, dynamic> body = jsonDecode(response.body) as Map<String, dynamic>;
+      final Map<String, dynamic> body =
+          jsonDecode(response.body) as Map<String, dynamic>;
       final status = body['status']?.toString();
       final error = body['error'] as Map<String, dynamic>?;
       final output = <String>[];
@@ -112,14 +123,14 @@ class PhotoEditApi {
     File? imageFile,
     bool returnBase64 = false,
   }) async {
-    final imageInput = await _prepareImageInput(imageUrl: imageUrl, imageFile: imageFile);
-    final predictionId = await _createPrediction(
-      'background-remove',
-      {
-        'image': imageInput,
-        if (returnBase64) 'return_base64': true,
-      },
+    final imageInput = await _prepareImageInput(
+      imageUrl: imageUrl,
+      imageFile: imageFile,
     );
+    final predictionId = await _createPrediction('background-remove', {
+      'image': imageInput,
+      if (returnBase64) 'return_base64': true,
+    });
 
     final result = await _pollPrediction(predictionId);
     return result.output;
@@ -138,22 +149,54 @@ class PhotoEditApi {
     String outputFormat = 'png',
     bool returnBase64 = false,
   }) async {
-    final modelImage = await _prepareImageInput(imageUrl: modelImageUrl, imageFile: modelImageFile);
-    final garmentImage = await _prepareImageInput(imageUrl: garmentImageUrl, imageFile: garmentImageFile);
-
-    final predictionId = await _createPrediction(
-      modelName,
-      {
-        'model_image': modelImage,
-        'garment_image': garmentImage,
-        'category': category,
-        'garment_photo_type': garmentPhotoType,
-        'mode': mode,
-        'num_samples': numImages,
-        'output_format': outputFormat,
-        if (returnBase64) 'return_base64': true,
-      },
+    final modelImage = await _prepareImageInput(
+      imageUrl: modelImageUrl,
+      imageFile: modelImageFile,
     );
+    final garmentImage = await _prepareImageInput(
+      imageUrl: garmentImageUrl,
+      imageFile: garmentImageFile,
+    );
+
+    final predictionId = await _createPrediction(modelName, {
+      'model_image': modelImage,
+      'garment_image': garmentImage,
+      'category': category,
+      'garment_photo_type': garmentPhotoType,
+      'mode': mode,
+      'num_samples': numImages,
+      'output_format': outputFormat,
+      if (returnBase64) 'return_base64': true,
+    });
+
+    final result = await _pollPrediction(predictionId);
+    return result.output;
+  }
+
+  /// Places a product on a model using the Try-On Max endpoint.
+  ///
+  /// Unlike [tryOnClothes], this supports non-apparel items — bags, hats,
+  /// shoes and jewellery — which tryon-v1.6 cannot render.
+  Future<List<String>> tryOnProductMax({
+    required String modelImageUrl,
+    required String productImageUrl,
+    String? prompt,
+    String resolution = '1k',
+    String generationMode = 'quality',
+    int numImages = 1,
+    String outputFormat = 'png',
+    bool returnBase64 = false,
+  }) async {
+    final predictionId = await _createPrediction('tryon-max', {
+      'model_image': modelImageUrl,
+      'product_image': productImageUrl,
+      'resolution': resolution,
+      'generation_mode': generationMode,
+      'num_images': numImages,
+      'output_format': outputFormat,
+      if (returnBase64) 'return_base64': true,
+      if (prompt != null && prompt.isNotEmpty) 'prompt': prompt,
+    });
 
     final result = await _pollPrediction(predictionId);
     return result.output;
@@ -169,19 +212,19 @@ class PhotoEditApi {
     String outputFormat = 'png',
     bool returnBase64 = false,
   }) async {
-    final imageInput = await _prepareImageInput(imageUrl: imageUrl, imageFile: imageFile);
-
-    final predictionId = await _createPrediction(
-      modelName,
-      {
-        'image': imageInput,
-        'prompt': prompt,
-        'generation_mode': generationMode,
-        'num_images': numImages,
-        'output_format': outputFormat,
-        if (returnBase64) 'return_base64': true,
-      },
+    final imageInput = await _prepareImageInput(
+      imageUrl: imageUrl,
+      imageFile: imageFile,
     );
+
+    final predictionId = await _createPrediction(modelName, {
+      'image': imageInput,
+      'prompt': prompt,
+      'generation_mode': generationMode,
+      'num_images': numImages,
+      'output_format': outputFormat,
+      if (returnBase64) 'return_base64': true,
+    });
 
     final result = await _pollPrediction(predictionId);
     return result.output;
@@ -189,7 +232,7 @@ class PhotoEditApi {
 
   /// Converts a packshot product image into a realistic model wearing the product
   /// Uses Fashn Product to Model endpoint for e-commerce applications
-  /// 
+  ///
   /// Parameters:
   /// - productImageUrl or productImageFile: The product image (flat-lay or ghost mannequin)
   /// - modelImageUrl or modelImageFile: Optional reference model image for pose/style guidance
@@ -206,7 +249,10 @@ class PhotoEditApi {
     String outputFormat = 'png',
     bool returnBase64 = false,
   }) async {
-    final productImage = await _prepareImageInput(imageUrl: productImageUrl, imageFile: productImageFile);
+    final productImage = await _prepareImageInput(
+      imageUrl: productImageUrl,
+      imageFile: productImageFile,
+    );
 
     final inputs = {
       'product_image': productImage,
@@ -221,7 +267,9 @@ class PhotoEditApi {
     if (modelImageUrl != null && modelImageUrl.isNotEmpty) {
       inputs['model_image'] = modelImageUrl;
     } else if (modelImageFile != null) {
-      inputs['model_image'] = await _prepareImageInput(imageFile: modelImageFile);
+      inputs['model_image'] = await _prepareImageInput(
+        imageFile: modelImageFile,
+      );
     }
 
     final predictionId = await _createPrediction('product-to-model', inputs);
@@ -231,7 +279,7 @@ class PhotoEditApi {
 
   /// Cleans up packshot images by removing backgrounds and creating transparent PNGs
   /// Ideal for preparing product images for e-commerce catalogs
-  /// 
+  ///
   /// Parameters:
   /// - imageUrl or imageFile: The packshot product image to clean
   /// - returnBase64: Whether to return base64 or CDN URLs
@@ -267,12 +315,9 @@ class FashnApiException implements Exception {
   final String message;
   final Map<String, dynamic>? error;
 
-  FashnApiException({
-    required this.id,
-    required this.message,
-    this.error,
-  });
+  FashnApiException({required this.id, required this.message, this.error});
 
   @override
-  String toString() => 'FashnApiException(id: $id, message: $message, error: $error)';
+  String toString() =>
+      'FashnApiException(id: $id, message: $message, error: $error)';
 }

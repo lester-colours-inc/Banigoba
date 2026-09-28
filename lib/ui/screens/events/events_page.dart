@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../data/services/event_service.dart';
+import '../../widgets/app_network_image.dart';
 
 class EventsSection extends StatelessWidget {
   const EventsSection({super.key, this.embedded = false, this.listHeight});
@@ -543,10 +544,10 @@ class _EventSubmissionPageState extends State<EventSubmissionPage> {
       return ColoredBox(
         color: background,
         child: Center(
-          child: Image.network(
+          child: AppNetworkImage(
             _existingFlyerUrl!,
             fit: BoxFit.contain,
-            errorBuilder: (_, _, _) => _buildFlyerPlaceholder(),
+            fallback: _buildFlyerPlaceholder(),
           ),
         ),
       );
@@ -609,10 +610,10 @@ class EventCard extends StatelessWidget {
                 : ColoredBox(
                     color: colors.surfaceContainerHighest,
                     child: Center(
-                      child: Image.network(
+                      child: AppNetworkImage(
                         flyerUrl,
                         fit: BoxFit.contain,
-                        errorBuilder: (_, _, _) => Container(
+                        fallback: Container(
                           color: colors.surfaceContainerHighest,
                           child: const Icon(Icons.broken_image_outlined),
                         ),

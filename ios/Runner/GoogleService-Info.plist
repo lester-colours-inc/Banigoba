@@ -3,21 +3,23 @@
 <plist version="1.0">
 <dict>
 	<key>CLIENT_ID</key>
-	<string>1057057002281-m71o9rjc7uoe58ja6dp3im0qedpv0c6g.apps.googleusercontent.com</string>
+	<string>379405824371-bej13ghpsuglcgmujgsehfeolrf3qe8i.apps.googleusercontent.com</string>
 	<key>REVERSED_CLIENT_ID</key>
-	<string>com.googleusercontent.apps.1057057002281-m71o9rjc7uoe58ja6dp3im0qedpv0c6g</string>
+	<string>com.googleusercontent.apps.379405824371-bej13ghpsuglcgmujgsehfeolrf3qe8i</string>
+	<key>ANDROID_CLIENT_ID</key>
+	<string>379405824371-0nuk4dqvovthttl23koqlkravn7mim2p.apps.googleusercontent.com</string>
 	<key>API_KEY</key>
-	<string>AIzaSyBFAR8DZP1Fse-fAuv9Qk1a8878VKvvtZI</string>
+	<string>AIzaSyB3efYBdzd_O_GMMhntia-Ur90NzN-26Ec</string>
 	<key>GCM_SENDER_ID</key>
-	<string>1057057002281</string>
+	<string>379405824371</string>
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
 	<string>com.banigoba</string>
 	<key>PROJECT_ID</key>
-	<string>internshipproject-68c13</string>
+	<string>appdemo-b9e3e</string>
 	<key>STORAGE_BUCKET</key>
-	<string>internshipproject-68c13.firebasestorage.app</string>
+	<string>appdemo-b9e3e.appspot.com</string>
 	<key>IS_ADS_ENABLED</key>
 	<false></false>
 	<key>IS_ANALYTICS_ENABLED</key>
@@ -29,8 +31,8 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:1057057002281:ios:3542ea90b01a7110505d38</string>
+	<string>1:379405824371:ios:8f07de4b03475321685506</string>
 	<key>DATABASE_URL</key>
-	<string>https://internshipproject-68c13-default-rtdb.europe-west1.firebasedatabase.app</string>
+	<string>https://appdemo-b9e3e.firebaseio.com</string>
 </dict>
 </plist>

@@ -8,7 +8,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../../data/models/piece_details.dart';
 import '../../../data/services/product_service.dart';
+import '../../widgets/piece_extra_details_fields.dart';
 import '../../widgets/safe_product_image.dart';
 
 /// Product and inventory manager for the current seller.
@@ -208,6 +210,23 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
     final List<_SizeInventoryEntry> sizeEntries = _sizeEntriesFor(
       existingData ?? const <String, dynamic>{},
     );
+    final pieceDetails = PieceDetails.fromMap(existingData);
+    final shoulderController = TextEditingController(
+      text: pieceDetails.shoulderMeasurement,
+    );
+    final heightMeasurementController = TextEditingController(
+      text: pieceDetails.heightMeasurement,
+    );
+    final linenTypeController = TextEditingController(
+      text: pieceDetails.linenType,
+    );
+    final madeWhereController = TextEditingController(
+      text: pieceDetails.madeWhere,
+    );
+    final otherDetailControllers = [
+      for (final detail in pieceDetails.otherDetails)
+        TextEditingController(text: detail),
+    ];
     String gender = existingData?['gender'] ?? 'unisex';
     File? selectedImage;
     String existingImageUrl = existingData?['imageUrl'] ?? '';
@@ -491,6 +510,20 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                   ],
                 ),
               const SizedBox(height: 15),
+              buildPieceExtraDetailsFields(
+                context,
+                shoulderController: shoulderController,
+                heightController: heightMeasurementController,
+                linenTypeController: linenTypeController,
+                madeWhereController: madeWhereController,
+                otherDetailControllers: otherDetailControllers,
+                onAddDetail: () => setModalState(
+                  () => otherDetailControllers.add(TextEditingController()),
+                ),
+                onRemoveDetail: (index) =>
+                    setModalState(() => otherDetailControllers.removeAt(index)),
+              ),
+              const SizedBox(height: 15),
               Row(
                 children: [
                   Expanded(
@@ -745,6 +778,15 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                           'sizeInventory': sizeInventory,
                         if (sizeInventory.isEmpty && isEditing)
                           'sizeInventory': FieldValue.delete(),
+                        ...PieceDetails.fromControllerText(
+                          shoulderMeasurement: shoulderController.text,
+                          heightMeasurement: heightMeasurementController.text,
+                          linenType: linenTypeController.text,
+                          madeWhere: madeWhereController.text,
+                          otherDetails: otherDetailControllers.map(
+                            (controller) => controller.text,
+                          ),
+                        ).toMap(),
                         if (!isEditing)
                           'createdAt': FieldValue.serverTimestamp(),
                         if (isEditing)

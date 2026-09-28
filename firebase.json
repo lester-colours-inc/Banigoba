@@ -1,4 +1,7 @@
 {
+  "firestore": {
+    "rules": "firestore.rules"
+  },
   "functions": {
     "source": "functions"
   },
@@ -9,36 +12,25 @@
     "platforms": {
       "android": {
         "default": {
-          "projectId": "internshipproject-68c13",
-          "appId": "1:1057057002281:android:39ef218f3602fd72505d38",
+          "projectId": "appdemo-b9e3e",
+          "appId": "1:379405824371:android:3d51ac0fb0ec085c685506",
           "fileOutput": "android/app/google-services.json"
         }
       },
       "ios": {
         "default": {
-          "projectId": "internshipproject-68c13",
-          "appId": "1:1057057002281:ios:3542ea90b01a7110505d38",
+          "projectId": "appdemo-b9e3e",
+          "appId": "1:379405824371:ios:8f07de4b03475321685506",
           "uploadDebugSymbols": false,
           "fileOutput": "ios/Runner/GoogleService-Info.plist"
         }
       },
-      "macos": {
-        "default": {
-          "projectId": "internshipproject-68c13",
-          "appId": "1:1057057002281:ios:83c780790eafe109505d38",
-          "uploadDebugSymbols": false,
-          "fileOutput": "macos/Runner/GoogleService-Info.plist"
-        }
-      },
       "dart": {
         "lib/firebase_options.dart": {
-          "projectId": "internshipproject-68c13",
+          "projectId": "appdemo-b9e3e",
           "configurations": {
-            "android": "1:1057057002281:android:39ef218f3602fd72505d38",
-            "ios": "1:1057057002281:ios:3542ea90b01a7110505d38",
-            "macos": "1:1057057002281:ios:83c780790eafe109505d38",
-            "web": "1:1057057002281:web:2680e27f099f89b5505d38",
-            "windows": "1:1057057002281:web:2680e27f099f89b5505d38"
+            "android": "1:379405824371:android:3d51ac0fb0ec085c685506",
+            "ios": "1:379405824371:ios:8f07de4b03475321685506"
           }
         }
       }

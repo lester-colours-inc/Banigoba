@@ -43,3 +43,12 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Secrets / build-time config
+# Real keys live here; dart_defines.example.json is the committed template.
+# NOTE: --dart-define values are compiled into the binary. This keeps keys out
+# of version control, NOT out of a shipped APK/IPA.
+/dart_defines.json
+*.keystore
+*.jks
+key.properties

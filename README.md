@@ -11,7 +11,16 @@ Banigoba is a modern Flutter-based social wardrobe platform that allows users to
 - **Favorites**: Add items from the community or search results to your own wardrobe.
 
 ### AI Try-On
-- **FASHNA AI API**: overlays product on stored avatar image.
+- **FASHN AI API**: overlays product on stored avatar image, one garment per call.
+- **Gemini (Nano Banana)**: alternative engine that dresses the avatar in every
+  selected item in a single call. Generate with both to compare results side by
+  side on the Avatar Try-On page.
+
+Both engines read their keys from `--dart-define` (see `dart_defines.example.json`):
+
+```bash
+flutter run --dart-define-from-file=dart_defines.json
+```
 
 ### 🤝 Social Discovery
 - **Community Feed**: Explore public wardrobes from users across the platform.

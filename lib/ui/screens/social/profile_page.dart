@@ -1,21 +1,29 @@
 // Displays user profiles, public dress-up posts, and follow controls.
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../../core/app_routes.dart';
+import '../../../core/main_tab.dart';
+import '../../../data/models/affirmation.dart';
 import '../../../data/models/post.dart';
 import '../../../data/services/friend_service.dart';
 import '../../../data/services/post_service.dart';
+import '../../widgets/affirmation_row.dart';
 import '../../widgets/bottom_navigation.dart';
 import '../../widgets/post_comments_sheet.dart';
 import '../../widgets/try_on_product_picker.dart';
 import '../main/main_screen.dart';
+import '../../widgets/app_network_image.dart';
 
 /// Screen displaying user profile details and public Daily Dress Up posts.
 class ProfilePage extends StatelessWidget {
   final String? userId; // If null, displays the current user's profile
-  const ProfilePage({super.key, this.userId});
+  // False when embedded as a MainScreen tab, which already supplies its own
+  // bottom navigation bar around this page's IndexedStack.
+  final bool showBottomNav;
+  const ProfilePage({super.key, this.userId, this.showBottomNav = true});
 
   @override
   Widget build(BuildContext context) {
@@ -65,11 +73,18 @@ class ProfilePage extends StatelessWidget {
                 foregroundColor: Colors.black,
                 elevation: 0,
                 actions: [
-                  if (isMe)
+                  if (isMe) ...[
+                    IconButton(
+                      icon: const Icon(Icons.straighten),
+                      tooltip: 'My Profile Details',
+                      onPressed: () =>
+                          Navigator.pushNamed(context, AppRoutes.bodyProfile),
+                    ),
                     IconButton(
                       icon: const Icon(Icons.logout),
                       onPressed: () => FirebaseAuth.instance.signOut(),
                     ),
+                  ],
                 ],
               ),
               body: SingleChildScrollView(
@@ -82,7 +97,7 @@ class ProfilePage extends StatelessWidget {
                       backgroundColor: const Color(0xFF0D0140),
                       backgroundImage: profileImageUrl.isEmpty
                           ? null
-                          : NetworkImage(profileImageUrl),
+                          : CachedNetworkImageProvider(profileImageUrl),
                       child: profileImageUrl.isEmpty
                           ? Text(
                               userName.toString().isEmpty
@@ -183,10 +198,12 @@ class ProfilePage extends StatelessWidget {
                   ],
                 ),
               ),
-              bottomNavigationBar: CustomBottomNavigation(
-                currentIndex: -1,
-                onTap: (index) => _openMainTab(context, index),
-              ),
+              bottomNavigationBar: showBottomNav
+                  ? CustomBottomNavigation(
+                      currentIndex: -1,
+                      onTap: (index) => _openMainTab(context, index),
+                    )
+                  : null,
             );
           },
         );
@@ -195,7 +212,7 @@ class ProfilePage extends StatelessWidget {
   }
 
   void _openMainTab(BuildContext context, int index) {
-    MainScreen.selectTab(index);
+    MainScreen.selectTab(MainTab.fromIndex(index));
     Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
@@ -296,7 +313,6 @@ class ProfilePage extends StatelessWidget {
   ) {
     final colors = Theme.of(context).colorScheme;
     final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
-    final isLiked = post.likes.contains(currentUserId);
     final initial = userName.trim().isEmpty
         ? 'U'
         : userName.trim()[0].toUpperCase();
@@ -317,7 +333,7 @@ class ProfilePage extends StatelessWidget {
                 backgroundColor: const Color(0xFF0D0140),
                 backgroundImage: profileImageUrl.isEmpty
                     ? null
-                    : NetworkImage(profileImageUrl),
+                    : CachedNetworkImageProvider(profileImageUrl),
                 child: profileImageUrl.isEmpty
                     ? Text(
                         initial,
@@ -361,19 +377,23 @@ class ProfilePage extends StatelessWidget {
         const SizedBox(height: 15),
         _buildPublicPostPreview(context, post),
         const SizedBox(height: 15),
+        AffirmationRow(
+          targetType: AffirmationTargetType.post,
+          targetId: post.id,
+          targetOwnerId: post.authorId,
+          currentUserId: currentUserId,
+          ownerName: userName,
+          onOpenReceived: () => showReceivedAffirmations(
+            context,
+            targetType: AffirmationTargetType.post,
+            targetId: post.id,
+          ),
+        ),
+        const SizedBox(height: 4),
         Wrap(
           spacing: 20,
           runSpacing: 12,
           children: [
-            _buildPostAction(
-              context,
-              isLiked ? Icons.favorite : Icons.favorite_border,
-              '${post.likeCount}',
-              color: isLiked ? Colors.red : null,
-              onTap: currentUserId.isEmpty
-                  ? null
-                  : () => PostService().toggleLike(post.id, post.likes),
-            ),
             _buildPostAction(
               context,
               Icons.chat_bubble_outline,
@@ -484,15 +504,12 @@ class ProfilePage extends StatelessWidget {
       );
     }
 
-    return Image.network(
+    return AppNetworkImage(
       imageUrl,
       width: double.infinity,
       height: double.infinity,
       fit: fit,
-      webHtmlElementStrategy: kIsWeb
-          ? WebHtmlElementStrategy.prefer
-          : WebHtmlElementStrategy.never,
-      errorBuilder: (context, error, stackTrace) => Container(
+      fallback: Container(
         color: colors.surfaceContainerHighest,
         alignment: Alignment.center,
         child: Icon(Icons.broken_image_outlined, color: colors.outline),

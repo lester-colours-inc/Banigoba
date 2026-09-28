@@ -11,6 +11,7 @@ import '../../../data/services/friend_service.dart';
 import '../designers/fashion_designers_page.dart';
 import '../social/profile_page.dart';
 import '../shop/shop_products_page.dart';
+import '../../widgets/app_network_image.dart';
 
 /// Screen displaying a list of user notifications, matching the provided designs
 class NotificationsPage extends StatefulWidget {
@@ -600,11 +601,10 @@ class _NotificationsPageState extends State<NotificationsPage> {
             shape: BoxShape.circle,
             border: Border.all(color: Colors.orange.shade200, width: 2),
           ),
-          child: Image.network(
+          child: AppNetworkImage(
             imageUrl,
             fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) =>
-                _buildInitialAvatar(name, includeBorder: false),
+            fallback: _buildInitialAvatar(name, includeBorder: false),
           ),
         );
       },

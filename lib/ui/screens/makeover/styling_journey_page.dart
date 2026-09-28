@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/app_routes.dart';
 import '../../widgets/cart_badge_button.dart';
+import '../../widgets/app_network_image.dart';
 
 class StylingJourneyPage extends StatelessWidget {
   const StylingJourneyPage({super.key});
@@ -87,7 +88,7 @@ class StylingJourneyPage extends StatelessWidget {
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(15),
-              child: Image.network(
+              child: AppNetworkImage(
                 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80',
                 fit: BoxFit.cover,
               ),

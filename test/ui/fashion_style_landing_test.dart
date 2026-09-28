@@ -1,5 +1,5 @@
 // Verifies the Fashion Style landing entry points stay visible and tappable.
-import 'package:banigoba/ui/screens/main/home_page.dart';
+import 'package:banigoba/ui/screens/main/my_fashion_style_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

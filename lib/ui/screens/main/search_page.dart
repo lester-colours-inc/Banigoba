@@ -1,4 +1,5 @@
 // Searches community members and opens their social profiles.
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -265,7 +266,7 @@ class _SearchPageState extends State<SearchPage> {
                         backgroundColor: primaryColor,
                         backgroundImage: imageUrl.isEmpty
                             ? null
-                            : NetworkImage(imageUrl),
+                            : CachedNetworkImageProvider(imageUrl),
                         child: imageUrl.isEmpty
                             ? Text(
                                 initial,

@@ -1,5 +1,37 @@
 // Defines social post and comment data read from Cloud Firestore.
+//
+// Posts intentionally expose no reaction count. Qualitative affirmations are a
+// separate object (see models/affirmation.dart) and are never aggregated onto
+// the post, so nothing here can be rendered as a popularity total.
 import 'package:cloud_firestore/cloud_firestore.dart';
+
+/// Who can see a post beyond its owner.
+///
+/// A friends-only share is only ever shown in a friend's Friends tab; a
+/// community share also appears in Community and on the author's public
+/// profile grid (BNG SRS 001: Home's Friends tab shows a friend's community
+/// shares too, the way it always has — this only adds the narrower option).
+enum PostVisibility {
+  private('private', 'Only me'),
+  friends('friends', 'Friends'),
+  public('public', 'Community');
+
+  const PostVisibility(this.value, this.label);
+
+  final String value;
+  final String label;
+
+  static PostVisibility fromValue(
+    Object? value, {
+    required bool legacyIsPublic,
+  }) {
+    for (final visibility in PostVisibility.values) {
+      if (visibility.value == value) return visibility;
+    }
+    // Older documents only ever wrote the boolean.
+    return legacyIsPublic ? PostVisibility.public : PostVisibility.private;
+  }
+}
 
 class Post {
   final String id;
@@ -8,12 +40,10 @@ class Post {
   final int commentCount;
   final DateTime createdAt;
   final String imageURL;
-  final int likeCount;
-  final List<String> likes;
   final String outfitId;
   final List<String> productIds;
   final List<Map<String, dynamic>> products;
-  final bool isPublic;
+  final PostVisibility visibility;
 
   Post({
     required this.id,
@@ -22,23 +52,22 @@ class Post {
     required this.commentCount,
     required this.createdAt,
     required this.imageURL,
-    required this.likeCount,
-    required this.likes,
     this.outfitId = '',
     this.productIds = const [],
     this.products = const [],
-    this.isPublic = false,
+    this.visibility = PostVisibility.private,
   });
+
+  /// Visible to everyone: Community tab, and the author's public profile.
+  bool get isPublic => visibility == PostVisibility.public;
+
+  /// Visible to someone other than the owner at all (friends or everyone).
+  /// Gates comments and quick replies, which make no sense on a post nobody
+  /// else can see.
+  bool get isShared => visibility != PostVisibility.private;
 
   factory Post.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>? ?? const {};
-    final rawLikes = data['likedBy'] ?? data['likes'] ?? const [];
-    final likes = rawLikes is Iterable
-        ? rawLikes
-              .map((value) => value.toString())
-              .where((value) => value.isNotEmpty)
-              .toList()
-        : <String>[];
     final rawCreatedAt = data['createdAt'];
     final rawProductIds = data['productIds'];
     final rawProducts = data['products'] ?? data['outfitProducts'];
@@ -54,8 +83,6 @@ class Post {
           ? rawCreatedAt
           : DateTime.now(),
       imageURL: (data['imageURL'] ?? data['imageUrl'] ?? '').toString(),
-      likeCount: _asInt(data['likeCount'], fallback: likes.length),
-      likes: likes,
       outfitId: (data['outfitId'] ?? '').toString(),
       productIds: rawProductIds is Iterable
           ? rawProductIds
@@ -69,7 +96,10 @@ class Post {
                 .map((value) => Map<String, dynamic>.from(value))
                 .toList()
           : const [],
-      isPublic: data['isPublic'] == true || data['visibility'] == 'public',
+      visibility: PostVisibility.fromValue(
+        data['visibility'],
+        legacyIsPublic: data['isPublic'] == true,
+      ),
     );
   }
 
@@ -81,14 +111,11 @@ class Post {
       'commentCount': commentCount,
       'createdAt': Timestamp.fromDate(createdAt),
       'imageURL': imageURL,
-      'likeCount': likeCount,
-      'likes': likes,
-      'likedBy': likes,
       if (outfitId.isNotEmpty) 'outfitId': outfitId,
       if (productIds.isNotEmpty) 'productIds': productIds,
       if (products.isNotEmpty) 'products': products,
       'isPublic': isPublic,
-      'visibility': isPublic ? 'public' : 'private',
+      'visibility': visibility.value,
     };
   }
 

@@ -3,22 +3,41 @@
 // This page lets shoppers browse verified boutiques and products. It filters
 // seller profiles by shop.verified so only admin-approved boutiques are visible
 // in the public marketplace.
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/app_routes.dart';
 import '../../../data/services/product_service.dart';
+import '../../../data/utils/garment_taxonomy.dart';
 import '../../../data/services/shop_chat_service.dart';
 import '../../widgets/cart_badge_button.dart';
 import '../../widgets/safe_product_image.dart';
 import 'product_detail_page.dart';
 import 'shop_chat_page.dart';
 
+/// Matches a lower-case search [query] against the product's name, shop,
+/// category and garment group, so "bottoms" also finds trousers and skirts.
+bool productMatchesQuery(Map<String, dynamic> product, String query) {
+  if (query.isEmpty) return true;
+  final haystack = [
+    product['name'],
+    product['shopName'],
+    product['category'],
+    product['subcategory'],
+    garmentGroupOf(product),
+  ].map((value) => (value ?? '').toString().toLowerCase()).join(' ');
+  return haystack.contains(query);
+}
+
 class ShopsPage extends StatefulWidget {
-  const ShopsPage({super.key, this.initialTab = 0});
+  const ShopsPage({super.key, this.initialTab = 0, this.initialQuery = ''});
 
   final int initialTab;
+
+  /// Prefills the search, e.g. "shoe" when arriving from "Find pieces".
+  final String initialQuery;
 
   @override
   State<ShopsPage> createState() => _ShopsPageState();
@@ -27,13 +46,22 @@ class ShopsPage extends StatefulWidget {
 class _ShopsPageState extends State<ShopsPage> {
   static const _primary = Color(0xFF0D0140);
   final _productService = ProductService();
+  late final TextEditingController _search = TextEditingController(
+    text: widget.initialQuery,
+  );
   late int _tab;
-  String _query = '';
+  late String _query = widget.initialQuery.trim().toLowerCase();
 
   @override
   void initState() {
     super.initState();
     _tab = widget.initialTab.clamp(0, 1);
+  }
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
   }
 
   @override
@@ -59,6 +87,7 @@ class _ShopsPageState extends State<ShopsPage> {
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
             child: TextField(
+              controller: _search,
               onChanged: (value) =>
                   setState(() => _query = value.trim().toLowerCase()),
               decoration: InputDecoration(
@@ -102,17 +131,7 @@ class _ShopsPageState extends State<ShopsPage> {
                       data['id'] = doc.id;
                       return data;
                     })
-                    .where((product) {
-                      final name = (product['name'] ?? '')
-                          .toString()
-                          .toLowerCase();
-                      final shop = (product['shopName'] ?? '')
-                          .toString()
-                          .toLowerCase();
-                      return _query.isEmpty ||
-                          name.contains(_query) ||
-                          shop.contains(_query);
-                    })
+                    .where((product) => productMatchesQuery(product, _query))
                     .toList();
 
                 return _tab == 0
@@ -221,7 +240,7 @@ class _ShopsPageState extends State<ShopsPage> {
                         backgroundColor: _primary,
                         backgroundImage: imageUrl.isEmpty
                             ? null
-                            : NetworkImage(imageUrl),
+                            : CachedNetworkImageProvider(imageUrl),
                         child: imageUrl.isEmpty
                             ? Text(
                                 shopName.isEmpty

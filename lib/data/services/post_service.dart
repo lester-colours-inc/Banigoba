@@ -1,37 +1,59 @@
-// Handles creation and retrieval of social posts, likes, and comments in Firestore.
+// Handles creation and retrieval of social posts, affirmations, and comments.
+//
+// Posts carry no like or reaction counter. Qualitative affirmations are stored
+// separately by AffirmationService so no aggregate lands on the post document
+// and no public total can be derived from it.
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import '../models/affirmation.dart';
 import '../models/post.dart';
+import 'affirmation_service.dart';
 import 'notification_service.dart';
+
+/// Thrown when a post is created without a signed-in user.
+class SignInRequiredException implements Exception {
+  const SignInRequiredException();
+
+  String get message => 'Sign in to save your look.';
+
+  @override
+  String toString() => message;
+}
 
 class PostService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final AffirmationService _affirmations = AffirmationService();
 
   String get _currentUserId => _auth.currentUser?.uid ?? '';
 
-  /// Creates a new post
-  Future<void> createPost({
+  /// Creates a new post, private unless [visibility] says otherwise.
+  ///
+  /// Throws [SignInRequiredException] when nobody is signed in, so callers can
+  /// tell the user rather than silently losing the look.
+  Future<String> createPost({
     required String caption,
     required String imageURL,
     String? outfitId,
     List<Map<String, dynamic>> products = const [],
+    PostVisibility visibility = PostVisibility.private,
   }) async {
-    if (_currentUserId.isEmpty) return;
+    if (_currentUserId.isEmpty) {
+      throw const SignInRequiredException();
+    }
 
-    await _db.collection('posts').add({
+    final ref = await _db.collection('posts').add({
       'authorID': _currentUserId,
       'authorId': _currentUserId,
       'caption': caption,
       'commentCount': 0,
       'createdAt': FieldValue.serverTimestamp(),
       'imageURL': imageURL,
-      'likeCount': 0,
-      'likedBy': [],
-      'likes': [],
-      'isPublic': false,
-      'visibility': 'private',
+      'isPublic': visibility == PostVisibility.public,
+      'visibility': visibility.value,
+      if (visibility != PostVisibility.private)
+        'publishedAt': FieldValue.serverTimestamp(),
       if (outfitId?.isNotEmpty == true) 'outfitId': outfitId,
       if (products.isNotEmpty) ...{
         'products': products,
@@ -41,23 +63,35 @@ class PostService {
             .toList(),
       },
     });
+    return ref.id;
   }
 
-  Future<void> makePostPublic(String postId) async {
-    if (_currentUserId.isEmpty) return;
+  /// Replaces the picture of one of the user's own posts with an edited
+  /// version of the look.
+  Future<void> updatePostImage(String postId, String imageURL) async {
+    if (_currentUserId.isEmpty) {
+      throw const SignInRequiredException();
+    }
     final ref = _db.collection('posts').doc(postId);
     final snapshot = await ref.get();
+    final data = snapshot.data();
     if (!snapshot.exists ||
-        (snapshot.data()?['authorId'] ?? snapshot.data()?['authorID']) !=
-            _currentUserId) {
-      throw Exception('You can only share your own post.');
+        (data?['authorId'] ?? data?['authorID']) != _currentUserId) {
+      throw Exception('You can only edit your own look.');
     }
     await ref.update({
-      'isPublic': true,
-      'visibility': 'public',
-      'publishedAt': FieldValue.serverTimestamp(),
+      'imageURL': imageURL,
+      'updatedAt': FieldValue.serverTimestamp(),
     });
   }
+
+  Future<void> makePostPublic(String postId) =>
+      _setVisibility(postId, PostVisibility.public, action: 'share');
+
+  /// Shares a private post with friends only: it never appears in Community
+  /// or on the author's public profile grid.
+  Future<void> shareWithFriends(String postId) =>
+      _setVisibility(postId, PostVisibility.friends, action: 'share');
 
   Future<void> makePostPrivate(String postId) async {
     if (_currentUserId.isEmpty) return;
@@ -70,8 +104,28 @@ class PostService {
     }
     await ref.update({
       'isPublic': false,
-      'visibility': 'private',
+      'visibility': PostVisibility.private.value,
       'privatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> _setVisibility(
+    String postId,
+    PostVisibility visibility, {
+    required String action,
+  }) async {
+    if (_currentUserId.isEmpty) return;
+    final ref = _db.collection('posts').doc(postId);
+    final snapshot = await ref.get();
+    if (!snapshot.exists ||
+        (snapshot.data()?['authorId'] ?? snapshot.data()?['authorID']) !=
+            _currentUserId) {
+      throw Exception('You can only $action your own post.');
+    }
+    await ref.update({
+      'isPublic': visibility == PostVisibility.public,
+      'visibility': visibility.value,
+      'publishedAt': FieldValue.serverTimestamp(),
     });
   }
 
@@ -86,7 +140,9 @@ class PostService {
     }
 
     final comments = await postRef.collection('comments').get();
-    final likes = await postRef.collection('likes').get();
+    // Legacy subcollection from the removed like implementation. Still cleaned
+    // up on delete so old documents do not leave orphans behind.
+    final legacyLikes = await postRef.collection('likes').get();
     final outfitId = (data?['outfitId'] ?? '').toString();
     final outfitRef = outfitId.isEmpty
         ? null
@@ -101,7 +157,7 @@ class PostService {
     for (final comment in comments.docs) {
       batch.delete(comment.reference);
     }
-    for (final like in likes.docs) {
+    for (final like in legacyLikes.docs) {
       batch.delete(like.reference);
     }
     if (outfitRef != null && outfitSnapshot?.exists == true) {
@@ -113,6 +169,12 @@ class PostService {
     }
     batch.delete(postRef);
     await batch.commit();
+
+    // Affirmations must not outlive the look they were about.
+    await _affirmations.deleteAllForTarget(
+      targetType: AffirmationTargetType.post,
+      targetId: postId,
+    );
   }
 
   /// Resolves the garments used by a Daily Dress Up post.
@@ -175,42 +237,6 @@ class PostService {
           (snapshot) =>
               snapshot.docs.map((doc) => Post.fromFirestore(doc)).toList(),
         );
-  }
-
-  /// Likes or unlikes a post
-  Future<void> toggleLike(String postId, List<String> currentLikes) async {
-    if (_currentUserId.isEmpty) return;
-
-    final postRef = _db.collection('posts').doc(postId);
-    final likeRef = postRef.collection('likes').doc(_currentUserId);
-    final post = await postRef.get();
-    if (post.data()?['isPublic'] != true) {
-      throw Exception('Private posts cannot be liked.');
-    }
-
-    if (currentLikes.contains(_currentUserId)) {
-      // Unlike
-      await postRef.update({
-        'likedBy': FieldValue.arrayRemove([_currentUserId]),
-        'likes': FieldValue.arrayRemove([_currentUserId]),
-        'likeCount': FieldValue.increment(-1),
-      });
-      await likeRef.delete();
-    } else {
-      // Like
-      await postRef.update({
-        'likedBy': FieldValue.arrayUnion([_currentUserId]),
-        'likes': FieldValue.arrayUnion([_currentUserId]),
-        'likeCount': FieldValue.increment(1),
-      });
-      await likeRef.set({'userId': _currentUserId});
-      await _notifyPostAuthor(
-        postData: post.data(),
-        postId: postId,
-        type: 'like',
-        body: 'liked your Daily Dress Up.',
-      );
-    }
   }
 
   /// Adds a comment to a post
@@ -286,7 +312,6 @@ class PostService {
       await NotificationService().addNotification(
         receiverId: authorId,
         title: switch (type) {
-          'like' => 'New Like',
           'comment' => 'New Comment',
           'try_on' => 'Look Tried On',
           _ => 'Daily Dress Up',

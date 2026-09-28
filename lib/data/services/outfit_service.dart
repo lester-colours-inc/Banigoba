@@ -240,16 +240,13 @@ class OutfitService {
           .doc(userId)
           .collection('eventPlans')
           .doc(eventId);
-      batch.set(
-        eventRef.collection('days').doc(dateKey),
-        {
-          'outfitId': outfitRef.id,
-          'wearDate': Timestamp.fromDate(normalizedDate),
-          'outfitName': 'Planned Look',
-          'imageUrl': resultImageUrl,
-          'products': productSnapshots,
-        },
-      );
+      batch.set(eventRef.collection('days').doc(dateKey), {
+        'outfitId': outfitRef.id,
+        'wearDate': Timestamp.fromDate(normalizedDate),
+        'outfitName': 'Planned Look',
+        'imageUrl': resultImageUrl,
+        'products': productSnapshots,
+      });
       batch.set(eventRef, {
         'plannedOutfitIds': FieldValue.arrayUnion([outfitRef.id]),
         'updatedAt': FieldValue.serverTimestamp(),
@@ -330,9 +327,6 @@ class OutfitService {
       'commentCount': 0,
       'createdAt': FieldValue.serverTimestamp(),
       'imageURL': resultImageUrl,
-      'likeCount': 0,
-      'likedBy': [],
-      'likes': [],
       'isPublic': false,
       'visibility': 'private',
       'outfitId': outfitRef.id,
@@ -362,9 +356,6 @@ class OutfitService {
       'commentCount': 0,
       'createdAt': FieldValue.serverTimestamp(),
       'imageURL': resultImageUrl,
-      'likeCount': 0,
-      'likedBy': [],
-      'likes': [],
       'isPublic': false,
       'visibility': 'private',
       'outfitId': outfitId,

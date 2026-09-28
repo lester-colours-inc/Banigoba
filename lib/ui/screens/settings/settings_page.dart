@@ -1,10 +1,13 @@
 // Lets the signed-in user manage account details, profile photo, and address.
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../data/services/storage_service.dart';
+import '../../../data/services/style_preferences_service.dart';
+import '../onboarding/style_preferences_screen.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -48,6 +51,42 @@ class _SettingsPageState extends State<SettingsPage> {
     _currentPasswordController.dispose();
     _newPasswordController.dispose();
     super.dispose();
+  }
+
+  Future<void> _openStylePreferences() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+
+    final Map<String, dynamic> userData;
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+      userData = snapshot.data() ?? const {};
+    } on FirebaseException catch (error) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('Unable to load preferences: ${error.message}')),
+      );
+      return;
+    }
+
+    final service = StylePreferencesService();
+    await navigator.push(
+      MaterialPageRoute<void>(
+        builder: (routeContext) => StylePreferencesScreen(
+          isFirstRun: false,
+          initial: StylePreferencesService.fromUserData(userData),
+          onSave: (answers) async {
+            await service.save(user.uid, answers);
+            if (routeContext.mounted) Navigator.pop(routeContext);
+          },
+          onSkip: () async => Navigator.pop(routeContext),
+        ),
+      ),
+    );
   }
 
   Future<void> _load() async {
@@ -235,7 +274,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           backgroundColor: _primaryColor,
                           backgroundImage: _profileImageUrl.isEmpty
                               ? null
-                              : NetworkImage(_profileImageUrl),
+                              : CachedNetworkImageProvider(_profileImageUrl),
                           child: _profileImageUrl.isEmpty
                               ? const Icon(
                                   Icons.person,
@@ -308,6 +347,27 @@ class _SettingsPageState extends State<SettingsPage> {
                       minimumSize: const Size(double.infinity, 52),
                     ),
                     child: Text(_saving ? 'Saving...' : 'Save Settings'),
+                  ),
+                  const SizedBox(height: 28),
+                  const Text(
+                    'Style',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Card(
+                    child: ListTile(
+                      key: const ValueKey('settings_style_preferences'),
+                      leading: const Icon(Icons.style_outlined),
+                      title: const Text(
+                        'Style preferences',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: const Text(
+                        'Styles you like and what a makeover should change.',
+                      ),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: _saving ? null : _openStylePreferences,
+                    ),
                   ),
                   const SizedBox(height: 28),
                   const Text(

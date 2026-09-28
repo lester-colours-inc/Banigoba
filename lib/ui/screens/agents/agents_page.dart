@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -763,7 +764,9 @@ class _AgentAvatar extends StatelessWidget {
     return CircleAvatar(
       radius: radius,
       backgroundColor: _AgentColors.primary,
-      backgroundImage: imageUrl.isEmpty ? null : NetworkImage(imageUrl),
+      backgroundImage: imageUrl.isEmpty
+          ? null
+          : CachedNetworkImageProvider(imageUrl),
       child: imageUrl.isEmpty
           ? Icon(
               agent.type == 'hair'

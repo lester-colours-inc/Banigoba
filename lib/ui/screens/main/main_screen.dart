@@ -1,23 +1,30 @@
-// Hosts the app drawer, bottom navigation, and the main tab pages.
+// Hosts the app drawer, bottom navigation, and the four main destinations:
+// Home, Discover, Wardrobe, Profile. A makeover is started from the floating
+// Makeover button on Home rather than from a tab.
 import 'package:flutter/material.dart';
-import '../../widgets/bottom_navigation.dart';
-import '../../widgets/app_drawer.dart';
+
+import '../../../core/main_tab.dart';
 import '../../../core/theme_provider.dart';
-import 'home_page.dart';
+import '../../widgets/app_drawer.dart';
+import '../../widgets/bottom_navigation.dart';
+import '../social/profile_page.dart';
+import '../wardrobe/wardrobe_page.dart';
 import 'daily_dress_up_page.dart';
-import 'hair_style_page.dart';
 import 'search_page.dart';
-import 'notifications_page.dart';
 
 class MainScreen extends StatefulWidget {
-  final int initialIndex;
-  const MainScreen({super.key, this.initialIndex = 0});
+  const MainScreen({super.key, this.initialTab = MainTab.home});
 
-  static final ValueNotifier<int?> _tabRequests = ValueNotifier<int?>(null);
+  final MainTab initialTab;
 
-  static void selectTab(int index) {
+  static final ValueNotifier<MainTab?> _tabRequests = ValueNotifier<MainTab?>(
+    null,
+  );
+
+  /// Switches the visible destination from anywhere in the app.
+  static void selectTab(MainTab tab) {
     _tabRequests.value = null;
-    _tabRequests.value = index;
+    _tabRequests.value = tab;
   }
 
   @override
@@ -25,12 +32,12 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-  late int _currentIndex;
+  late MainTab _currentTab;
 
   @override
   void initState() {
     super.initState();
-    _currentIndex = widget.initialIndex;
+    _currentTab = widget.initialTab;
     MainScreen._tabRequests.addListener(_handleTabRequest);
     WidgetsBinding.instance.addPostFrameCallback((_) => _handleTabRequest());
   }
@@ -42,20 +49,16 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   void _handleTabRequest() {
-    final index = MainScreen._tabRequests.value;
-    if (index == null || index < 0 || index >= _pages.length) return;
-    if (!mounted) return;
-    setState(() {
-      _currentIndex = index;
-    });
+    final tab = MainScreen._tabRequests.value;
+    if (tab == null || !mounted) return;
+    setState(() => _currentTab = tab);
   }
 
-  final List<Widget> _pages = [
-    const HomePage(),
-    const DailyDressUpPage(),
-    const HairStylePage(),
-    const SearchPage(),
-    const NotificationsPage(),
+  static const List<Widget> _pages = [
+    DailyDressUpPage(),
+    SearchPage(),
+    WardrobePage(),
+    ProfilePage(showBottomNav: false),
   ];
 
   @override
@@ -63,21 +66,16 @@ class _MainScreenState extends State<MainScreen> {
     return Scaffold(
       drawer: AppDrawer(
         themeProvider: themeProvider,
-        onTabSelect: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
+        onTabSelect: (tab) {
+          setState(() => _currentTab = tab);
           Navigator.pop(context);
         },
       ),
-      body: IndexedStack(index: _currentIndex, children: _pages),
+      body: IndexedStack(index: _currentTab.index, children: _pages),
       bottomNavigationBar: CustomBottomNavigation(
-        currentIndex: _currentIndex,
-        onTap: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
+        currentIndex: _currentTab.index,
+        onTap: (index) =>
+            setState(() => _currentTab = MainTab.fromIndex(index)),
       ),
     );
   }

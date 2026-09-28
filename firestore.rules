@@ -1,0 +1,311 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helpers ────────────────────────────────────────────────────────────
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isUser(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Ownership fields are inconsistent across the codebase (sellerId on
+    // products/orders, authorId on posts/hairstyles, userId elsewhere), so
+    // owner checks accept any of the fields actually written by the app.
+    function ownsDoc(data) {
+      return isSignedIn() && (
+        data.get('userId', '') == request.auth.uid ||
+        data.get('sellerId', '') == request.auth.uid ||
+        data.get('shopId', '') == request.auth.uid ||
+        data.get('uploaderId', '') == request.auth.uid ||
+        data.get('authorId', '') == request.auth.uid ||
+        data.get('authorID', '') == request.auth.uid ||
+        data.get('createdBy', '') == request.auth.uid ||
+        data.get('submittedBy', '') == request.auth.uid
+      );
+    }
+
+    // True when an update touches only the given keys.
+    function onlyChanges(keys) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys);
+    }
+
+    // Reaction counters are prohibited on consumer surfaces (AFF-003,
+    // SRS-DEC-010). Qualitative affirmations live in /affirmations and are
+    // never aggregated onto the content document, so any write carrying a
+    // like field is either stale client code or an attempt to rebuild a
+    // popularity score. Reject it at the database.
+    function hasNoReactionCounters() {
+      return !request.resource.data.keys().hasAny(
+        ['likeCount', 'likedBy', 'likes', 'affirmationCount', 'affirmationScore']
+      );
+    }
+
+    // ── users ──────────────────────────────────────────────────────────────
+
+    match /users/{userId} {
+      // Profiles are readable by any signed-in user (social feed, follower
+      // lists, shop pages all resolve display names from here).
+      allow read: if isSignedIn();
+      allow create, update, delete: if isUser(userId);
+
+      // Social graph: both sides of a follow write to each other's documents.
+      match /followers/{followerId} {
+        allow read: if isSignedIn();
+        allow write: if isUser(userId) || isUser(followerId);
+      }
+
+      match /following/{targetId} {
+        allow read: if isSignedIn();
+        allow write: if isUser(userId) || isUser(targetId);
+      }
+
+      match /follow_requests/{requesterId} {
+        allow read, write: if isUser(userId) || isUser(requesterId);
+      }
+
+      // Notifications are created by whoever triggered them, but only the
+      // recipient may read, mark read, or delete them.
+      match /notifications/{notificationId} {
+        allow create: if isSignedIn();
+        allow read, update, delete: if isUser(userId);
+      }
+
+      // Publicly visible profile content.
+      match /outfits/{outfitId} {
+        allow read: if isSignedIn();
+        allow create, update: if isUser(userId) && hasNoReactionCounters();
+        allow delete: if isUser(userId);
+      }
+
+      match /user_products/{productId} {
+        allow read: if isSignedIn();
+        allow write: if isUser(userId);
+      }
+
+      // Saved hair looks. Matched explicitly so the reaction-counter guard
+      // applies here and not only via the private catch-all below.
+      match /hairStyles/{lookId} {
+        allow read: if isUser(userId) ||
+          (isSignedIn() && resource.data.get('isPublic', false) == true);
+        allow create, update: if isUser(userId) && hasNoReactionCounters();
+        allow delete: if isUser(userId);
+
+        match /comments/{commentId} {
+          allow read: if isSignedIn();
+          allow create: if ownsDoc(request.resource.data);
+          allow update, delete: if ownsDoc(resource.data);
+        }
+
+        // Legacy subcollection from the removed like implementation.
+        match /likes/{likeId} {
+          allow read: if isSignedIn();
+          allow create, update: if false;
+          allow delete: if isUser(likeId) || isUser(userId);
+        }
+      }
+
+      // Everything else under a user document is private to that user:
+      // wardrobe, cart, fcmTokens, wearHistory, packingLists, eventPlans,
+      // ai_makeovers, days.
+      match /{document=**} {
+        allow read, write: if isUser(userId);
+      }
+    }
+
+    // ── products ───────────────────────────────────────────────────────────
+
+    match /products/{productId} {
+      allow read: if isSignedIn();
+      allow create: if ownsDoc(request.resource.data);
+      allow delete: if ownsDoc(resource.data);
+      // Checkout decrements stock on another seller's product inside a
+      // transaction, so any signed-in user may touch stock fields only.
+      allow update: if ownsDoc(resource.data) ||
+        (isSignedIn() && onlyChanges(['stock', 'sizeInventory', 'updatedAt']));
+    }
+
+    // ── posts ──────────────────────────────────────────────────────────────
+
+    match /posts/{postId} {
+      allow read: if isSignedIn();
+      allow create: if ownsDoc(request.resource.data) && hasNoReactionCounters();
+      allow update: if ownsDoc(resource.data) && hasNoReactionCounters();
+      allow delete: if ownsDoc(resource.data);
+
+      match /comments/{commentId} {
+        allow read: if isSignedIn();
+        allow create: if ownsDoc(request.resource.data);
+        allow update, delete: if ownsDoc(resource.data);
+      }
+
+      // Legacy subcollection from the removed like implementation. Readable
+      // so the migration and cleanup can see it; no new writes accepted. The
+      // post owner may delete stale documents.
+      match /likes/{likeId} {
+        allow read: if isSignedIn();
+        allow create, update: if false;
+        allow delete: if isUser(likeId) ||
+          ownsDoc(get(/databases/$(database)/documents/posts/$(postId)).data);
+      }
+    }
+
+    // ── hairstyles ─────────────────────────────────────────────────────────
+
+    match /hairstyles/{hairstyleId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update, delete: if ownsDoc(resource.data);
+
+      match /comments/{commentId} {
+        allow read: if isSignedIn();
+        allow create: if ownsDoc(request.resource.data);
+        allow update, delete: if ownsDoc(resource.data);
+      }
+
+      // Legacy subcollection from the removed like implementation.
+      match /likes/{likeId} {
+        allow read: if isSignedIn();
+        allow create, update: if false;
+        allow delete: if isUser(likeId);
+      }
+    }
+
+    // Legacy camelCase collection still referenced by hairstyle_service.
+    match /hairStyles/{hairstyleId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && hasNoReactionCounters();
+      allow update: if ownsDoc(resource.data) && hasNoReactionCounters();
+      allow delete: if ownsDoc(resource.data);
+    }
+
+    // ── affirmations ───────────────────────────────────────────────────────
+    // Structured qualitative responses. One document per
+    // (target, sender, expression); the id is deterministic, so re-sending is
+    // idempotent rather than additive.
+
+    match /affirmations/{affirmationId} {
+      allow read: if isSignedIn();
+
+      // The sender must be the signed-in user, must not affirm their own
+      // look, and cannot forge a migration record.
+      allow create: if isSignedIn() &&
+        request.resource.data.get('senderId', '') == request.auth.uid &&
+        request.resource.data.get('targetOwnerId', '') != request.auth.uid &&
+        request.resource.data.get('targetId', '') != '' &&
+        request.resource.data.get('migratedFromLike', false) == false;
+
+      // Affirmations are immutable once sent. Moderation state is changed by
+      // privileged tooling through the admin SDK, which bypasses these rules.
+      allow update: if false;
+
+      // The sender may withdraw; the owner of the look may remove
+      // affirmations from their own content, including on delete.
+      allow delete: if isSignedIn() && (
+        resource.data.get('senderId', '') == request.auth.uid ||
+        resource.data.get('targetOwnerId', '') == request.auth.uid
+      );
+    }
+
+    // ── affirmation_library ────────────────────────────────────────────────
+    // Curator-managed cultural expressions. Universal affirmations ship in
+    // the client and are not stored here. Entries require provenance and an
+    // approved review state before the client will serve them; writes happen
+    // only through curator tooling on the admin SDK.
+
+    match /affirmation_library/{entryId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    // ── shop chats ─────────────────────────────────────────────────────────
+
+    match /shop_chats/{chatId} {
+      function isParticipant(data) {
+        return isSignedIn() && (
+          data.get('sellerId', '') == request.auth.uid ||
+          data.get('customerId', '') == request.auth.uid ||
+          data.get('designerId', '') == request.auth.uid
+        );
+      }
+
+      allow read, update: if isParticipant(resource.data);
+      allow create: if isParticipant(request.resource.data);
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        function inConversation() {
+          return isParticipant(
+            get(/databases/$(database)/documents/shop_chats/$(chatId)).data
+          );
+        }
+
+        allow read: if inConversation();
+        allow create: if inConversation() &&
+          request.resource.data.get('senderId', '') == request.auth.uid;
+        allow update, delete: if false;
+      }
+    }
+
+    // ── orders ─────────────────────────────────────────────────────────────
+
+    match /orders/{orderId} {
+      function isParty(data) {
+        return isSignedIn() && (
+          data.get('sellerId', '') == request.auth.uid ||
+          data.get('customerId', '') == request.auth.uid
+        );
+      }
+
+      allow read: if isParty(resource.data);
+      allow create: if isParty(request.resource.data);
+      allow update: if isParty(resource.data);
+      allow delete: if false;
+    }
+
+    // ── events ─────────────────────────────────────────────────────────────
+
+    match /events/{eventId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() &&
+        request.resource.data.get('submittedBy', '') == request.auth.uid;
+      allow update, delete: if ownsDoc(resource.data);
+    }
+
+    // ── design & agent requests ────────────────────────────────────────────
+
+    match /design_requests/{requestId} {
+      allow read: if ownsDoc(resource.data);
+      allow create: if ownsDoc(request.resource.data);
+      allow update, delete: if ownsDoc(resource.data);
+    }
+
+    match /agent_requests/{requestId} {
+      allow read: if ownsDoc(resource.data);
+      allow create: if ownsDoc(request.resource.data);
+      allow update, delete: if ownsDoc(resource.data);
+    }
+
+    // ── ai_makeovers ───────────────────────────────────────────────────────
+    // Top-level collection written both by the generateMakeover function
+    // (admin SDK, bypasses rules) and by the client in saveGeneratedMakeover.
+
+    match /ai_makeovers/{makeoverId} {
+      allow read: if ownsDoc(resource.data);
+      allow create: if ownsDoc(request.resource.data);
+      allow update, delete: if ownsDoc(resource.data);
+    }
+
+    // ── metadata ───────────────────────────────────────────────────────────
+    // Catalog filter facets, written by admin tooling only.
+
+    match /metadata/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+  }
+}
