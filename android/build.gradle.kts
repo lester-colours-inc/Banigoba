@@ -9,6 +9,11 @@ subprojects {
     afterEvaluate {
         if (extensions.findByName("android") != null) {
             extensions.configure<com.android.build.gradle.BaseExtension>("android") {
+                // Some plugins (e.g. flutter_facebook_auth) pin an old compileSdk in
+                // their own module, which now fails AGP's stricter AAR metadata check
+                // against newer transitive androidx deps. Force every subproject to
+                // compile against the same SDK as the app.
+                compileSdkVersion(36)
                 compileOptions {
                     sourceCompatibility = JavaVersion.VERSION_17
                     targetCompatibility = JavaVersion.VERSION_17
