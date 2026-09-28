@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../../data/services/outfit_service.dart';
+import '../../widgets/app_network_image.dart';
 
 class TripPackerPage extends StatefulWidget {
   const TripPackerPage({super.key});
@@ -123,11 +124,12 @@ class _TripPackerPageState extends State<TripPackerPage> {
                               width: 58,
                               child: outfit.imageUrl.isEmpty
                                   ? const Icon(Icons.checkroom_outlined)
-                                  : Image.network(
+                                  : AppNetworkImage(
                                       outfit.imageUrl,
                                       fit: BoxFit.contain,
-                                      errorBuilder: (_, _, _) =>
-                                          const Icon(Icons.checkroom_outlined),
+                                      fallback: const Icon(
+                                        Icons.checkroom_outlined,
+                                      ),
                                     ),
                             ),
                             title: Text(outfit.name),

@@ -11,6 +11,7 @@ class StorageService {
   static const String _selfieDir = 'selfie';
   static const String _profileDir = 'profile';
   static const String _tryOnResultsDir = 'tryOnResults';
+  static const String _styleReferencesDir = 'styleReferences';
   static const String _productImagesDir = 'productImages';
 
   /// Uploads a full-body image to userImages/{userId}/fullBody/ directory
@@ -43,6 +44,18 @@ class StorageService {
       _tryOnResultsDir,
       filename: filename,
     );
+  }
+
+  /// Uploads a look the user wants to copy (Style twin) to
+  /// userImages/{userId}/styleReferences/.
+  ///
+  /// Kept apart from fullBody so a reference photo is never mistaken for the
+  /// user's own photo by [getLatestFullBodyImageUrl].
+  Future<String> uploadStyleReferenceBytes(
+    Uint8List imageBytes,
+    String userId,
+  ) {
+    return _uploadUserImageBytes(imageBytes, userId, _styleReferencesDir);
   }
 
   /// Downloads an image from Firebase Storage using its download URL.

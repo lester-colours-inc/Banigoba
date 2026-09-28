@@ -10,6 +10,7 @@ import '../../../data/services/weather_service.dart';
 import '../../widgets/try_on_product_picker.dart';
 import '../wardrobe/wardrobe_calendar_page.dart';
 import 'avatar_try_on_page.dart';
+import '../../widgets/app_network_image.dart';
 
 class StyleSelectionPage extends StatefulWidget {
   final Uint8List? imageBytes;
@@ -252,14 +253,13 @@ class _StyleSelectionPageState extends State<StyleSelectionPage> {
                           fit: BoxFit.contain,
                           alignment: Alignment.center,
                         )
-                      : Image.network(
+                      : AppNetworkImage(
                           widget.imageUrl!,
                           width: double.infinity,
                           height: double.infinity,
                           fit: BoxFit.contain,
                           alignment: Alignment.center,
-                          webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
-                          errorBuilder: (context, error, stackTrace) => Center(
+                          fallback: Center(
                             child: Icon(
                               Icons.broken_image,
                               size: 64,

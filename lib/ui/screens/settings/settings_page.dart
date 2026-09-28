@@ -1,4 +1,5 @@
 // Lets the signed-in user manage account details, profile photo, and address.
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -273,7 +274,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           backgroundColor: _primaryColor,
                           backgroundImage: _profileImageUrl.isEmpty
                               ? null
-                              : NetworkImage(_profileImageUrl),
+                              : CachedNetworkImageProvider(_profileImageUrl),
                           child: _profileImageUrl.isEmpty
                               ? const Icon(
                                   Icons.person,

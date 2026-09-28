@@ -1,6 +1,7 @@
 // Side-by-side before/after comparison with a draggable reveal handle.
 
 import 'package:flutter/material.dart';
+import 'app_network_image.dart';
 
 /// Shows [afterImageUrl] over [beforeImageUrl], split by a handle the user can
 /// drag left or right to reveal more of either side.
@@ -118,13 +119,10 @@ class _ComparisonImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Image.network(
+    return AppNetworkImage(
       imageUrl,
       fit: BoxFit.cover,
-      loadingBuilder: (context, child, progress) => progress == null
-          ? child
-          : const Center(child: CircularProgressIndicator()),
-      errorBuilder: (_, _, _) => const Center(
+      fallback: const Center(
         child: Padding(
           padding: EdgeInsets.all(12),
           child: Text(

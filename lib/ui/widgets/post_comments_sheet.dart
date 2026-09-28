@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -242,7 +243,9 @@ class _CommentAvatar extends StatelessWidget {
     return CircleAvatar(
       radius: 18,
       backgroundColor: const Color(0xFF0D0140),
-      backgroundImage: imageUrl.isEmpty ? null : NetworkImage(imageUrl),
+      backgroundImage: imageUrl.isEmpty
+          ? null
+          : CachedNetworkImageProvider(imageUrl),
       child: imageUrl.isEmpty
           ? Text(
               username.isEmpty ? 'U' : username[0].toUpperCase(),

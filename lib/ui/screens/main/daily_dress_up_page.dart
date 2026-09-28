@@ -6,8 +6,8 @@
 // My Fashion Style.
 //
 // UNCLEAR: Shopping Intelligence should become an "order / get this look"
-// action beside each post, but its placement and wording were left to be
-// decided while building Home. Not added yet.
+// action beside each post. For now each post's menu has "Find pieces"; its
+// final placement and wording are still to be agreed.
 // UNCLEAR: this class is still called DailyDressUpPage although it is Home.
 // Daily Dress Up is meant to be a separate feature whose role after the
 // review is undecided; rename once that is settled.
@@ -26,15 +26,28 @@ import '../../../core/theme_provider.dart';
 import '../../widgets/affirmation_row.dart';
 import '../../widgets/app_drawer.dart';
 import '../../widgets/dress_up_post_card.dart';
+import '../../widgets/find_pieces_sheet.dart';
 import '../../widgets/home_feed_tabs.dart';
 import '../../widgets/post_comments_sheet.dart';
 import '../../widgets/cart_badge_button.dart';
 import '../../widgets/safe_product_image.dart';
+import '../../widgets/share_audience_sheet.dart';
 import '../../widgets/try_on_product_picker.dart';
+import '../makeover/makeover_page.dart';
+import '../../widgets/app_network_image.dart';
 
 /// Home feed of the user's own looks, friends' looks and the community.
 class DailyDressUpPage extends StatefulWidget {
   const DailyDressUpPage({super.key});
+
+  static final ValueNotifier<HomeFeed?> _feedRequests = ValueNotifier(null);
+
+  /// Switches Home to [feed] from anywhere, e.g. "My Fashion Community" in
+  /// the drawer.
+  static void showFeed(HomeFeed feed) {
+    _feedRequests.value = null;
+    _feedRequests.value = feed;
+  }
 
   @override
   State<DailyDressUpPage> createState() => _DailyDressUpPageState();
@@ -43,6 +56,33 @@ class DailyDressUpPage extends StatefulWidget {
 class _DailyDressUpPageState extends State<DailyDressUpPage> {
   HomeFeed _selectedFeed = HomeFeed.myTimeline;
   static Color primaryColor = Color(0xFF0D0140);
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedFeed = _takeFeedRequest() ?? _selectedFeed;
+    DailyDressUpPage._feedRequests.addListener(_handleFeedRequest);
+  }
+
+  @override
+  void dispose() {
+    DailyDressUpPage._feedRequests.removeListener(_handleFeedRequest);
+    super.dispose();
+  }
+
+  /// Returns a pending request and clears it, so it is applied only once.
+  HomeFeed? _takeFeedRequest() {
+    final feed = DailyDressUpPage._feedRequests.value;
+    DailyDressUpPage._feedRequests.value = null;
+    return feed;
+  }
+
+  void _handleFeedRequest() {
+    if (!mounted) return;
+    if (_takeFeedRequest() case final feed?) {
+      setState(() => _selectedFeed = feed);
+    }
+  }
 
   final PostService _postService = PostService();
   final FriendService _friendService = FriendService();
@@ -582,6 +622,20 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
       Navigator.of(context, rootNavigator: true).pop();
       loadingVisible = false;
 
+      // Looks made with the photo-first makeover have no products: copy the
+      // look itself onto the user as their style twin instead.
+      if (products.isEmpty && post.imageURL.isNotEmpty) {
+        await _postService.notifyPostTryOn(post);
+        if (!mounted) return;
+        await Navigator.push(
+          context,
+          MaterialPageRoute<void>(
+            builder: (_) => MakeoverPage(initialTwinUrl: post.imageURL),
+          ),
+        );
+        return;
+      }
+
       if (products.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -830,13 +884,16 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
         ),
         title: Row(
           children: [
+            // The app name, written like the logo wordmark; the bottom bar
+            // already says this is Home.
             Expanded(
               child: Text(
-                'Home',
+                'Banigoba',
                 style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: colors.onSurface,
+                  fontSize: 26,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.5,
+                  color: colors.primary,
                 ),
               ),
             ),
@@ -911,7 +968,7 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
                 posts
                     .where(
                       (post) =>
-                          post.isPublic && friendIds.contains(post.authorId),
+                          post.isShared && friendIds.contains(post.authorId),
                     )
                     .toList(),
                 emptyMessage: 'No posts from your friends yet.',
@@ -981,8 +1038,8 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
         final styleLabel = author.stylePreference.isEmpty
             ? 'Styled for your day'
             : '${_titleCase(author.stylePreference)} style';
-        final canComment = post.isPublic;
-        final canQuickReply = post.isPublic && !isOwner && !isMineTab;
+        final canComment = post.isShared;
+        final canQuickReply = post.isShared && !isOwner && !isMineTab;
 
         return DressUpPostCard(
           key: ValueKey('dress_up_post_${post.id}'),
@@ -999,6 +1056,12 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
           imageBackground: cardColors[index % cardColors.length],
           visual: _buildPostImage(imageUrl),
           actions: [
+            if (isOwner)
+              DressUpCardAction(
+                icon: Icons.edit_outlined,
+                label: 'Edit',
+                onTap: () => _editPost(post, imageUrl),
+              ),
             DressUpCardAction(
               icon: Icons.shortcut_outlined,
               label: 'Try On',
@@ -1012,7 +1075,7 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
                     : 'Comment',
                 onTap: () => showPostCommentsSheet(context, post),
               ),
-            if (isOwner && !post.isPublic)
+            if (isOwner && !post.isShared)
               DressUpCardAction(
                 icon: Icons.share_outlined,
                 label: 'Share',
@@ -1020,22 +1083,27 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
               ),
           ],
           menuItems: [
+            DressUpMenuItem(
+              icon: Icons.shopping_bag_outlined,
+              label: 'Place Order',
+              onSelected: () => showFindPiecesSheet(context),
+            ),
             if (!isOwner && canComment)
               DressUpMenuItem(
                 icon: Icons.chat_bubble_outline,
                 label: 'Comment',
                 onSelected: () => showPostCommentsSheet(context, post),
               ),
-            if (isOwner && post.isPublic)
+            if (isOwner && post.isShared)
               DressUpMenuItem(
                 icon: Icons.lock_outline,
                 label: 'Make private',
                 onSelected: () => _privatePost(post),
               ),
-            if (isOwner && !post.isPublic)
+            if (isOwner && !post.isShared)
               DressUpMenuItem(
-                icon: Icons.public,
-                label: 'Share publicly',
+                icon: Icons.share_outlined,
+                label: 'Share',
                 onSelected: () => _sharePost(post),
               ),
             if (isOwner)
@@ -1074,38 +1142,49 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
     );
   }
 
-  Future<void> _sharePost(Post post) async {
-    final shouldShare = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Make this post public?'),
-        content: const Text(
-          'Friends and community members will be able to see this look, send affirmations and reply.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton.icon(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            icon: const Icon(Icons.public),
-            label: const Text('Make Public'),
-          ),
-        ],
+  /// Opens the Makeover on a saved look so it can be changed and saved back.
+  Future<void> _editPost(Post post, String imageUrl) async {
+    if (imageUrl.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('This look has no picture to edit.')),
+      );
+      return;
+    }
+    await Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            MakeoverPage(initialPhotoUrl: imageUrl, editingPostId: post.id),
       ),
     );
-    if (shouldShare != true) return;
+  }
+
+  Future<void> _sharePost(Post post) async {
+    final audience = await showShareAudienceSheet(context);
+    if (audience == null || !mounted) return;
 
     try {
-      await _postService.makePostPublic(post.id);
-      await NotificationService().notifyFollowersNewPost(
-        post.caption.isEmpty ? 'Daily Outfit' : post.caption,
-      );
+      if (audience == PostVisibility.friends) {
+        await _postService.shareWithFriends(post.id);
+      } else {
+        await _postService.makePostPublic(post.id);
+        // Only a community share goes out to everyone who follows the
+        // author; a friends-only share stays quiet and simply becomes
+        // visible in their Friends tab.
+        await NotificationService().notifyFollowersNewPost(
+          post.caption.isEmpty ? 'Daily Outfit' : post.caption,
+        );
+      }
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Post is now public.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            audience == PostVisibility.friends
+                ? 'Post shared with friends.'
+                : 'Post is now public.',
+          ),
+        ),
+      );
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -1201,24 +1280,18 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
       );
     }
 
-    return Image.network(
+    return AppNetworkImage(
       imageUrl,
       fit: BoxFit.cover,
       alignment: Alignment.topCenter,
-      webHtmlElementStrategy: kIsWeb
-          ? WebHtmlElementStrategy.prefer
-          : WebHtmlElementStrategy.never,
-      errorBuilder: (context, error, stackTrace) {
-        debugPrint('Unable to display post image: $error');
-        return Align(
-          alignment: Alignment.center,
-          child: Icon(
-            Icons.broken_image_outlined,
-            size: 54,
-            color: Theme.of(context).colorScheme.outlineVariant,
-          ),
-        );
-      },
+      fallback: Align(
+        alignment: Alignment.center,
+        child: Icon(
+          Icons.broken_image_outlined,
+          size: 54,
+          color: Theme.of(context).colorScheme.outlineVariant,
+        ),
+      ),
     );
   }
 

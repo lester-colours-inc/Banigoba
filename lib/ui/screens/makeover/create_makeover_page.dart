@@ -22,6 +22,7 @@ import '../../../data/services/coordinated_makeover_service.dart';
 import '../../../data/services/storage_service.dart';
 import '../../widgets/save_look_sheet.dart';
 import '../../widgets/try_on_product_picker.dart';
+import '../../widgets/app_network_image.dart';
 
 /// Steps of the coordinated journey.
 enum _CreateStep { brief, generating, compare }
@@ -554,11 +555,10 @@ class _CreateMakeoverPageState extends State<CreateMakeoverPage> {
           ),
           child: _sourceImageUrl.isEmpty
               ? Icon(Icons.person_outline, color: colors.onSurfaceVariant)
-              : Image.network(
+              : AppNetworkImage(
                   _sourceImageUrl,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) =>
-                      const Icon(Icons.broken_image_outlined),
+                  fallback: const Icon(Icons.broken_image_outlined),
                 ),
         ),
         const SizedBox(width: 12),
@@ -1065,11 +1065,11 @@ class _ComparePanel extends StatelessWidget {
             Expanded(
               child: imageUrl.isEmpty
                   ? const Center(child: Icon(Icons.image_outlined))
-                  : Image.network(
+                  : AppNetworkImage(
                       imageUrl,
                       width: double.infinity,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => const Center(
+                      fallback: const Center(
                         child: Icon(Icons.broken_image_outlined),
                       ),
                     ),

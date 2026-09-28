@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/app_routes.dart';
+import '../../../data/models/piece_details.dart';
 import '../../../data/services/cart_service.dart';
 import '../../../data/services/product_service.dart';
 import '../../../data/services/shop_chat_service.dart';
@@ -100,6 +101,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
           )
         : (_currentProductData['stock'] as num?)?.toInt() ?? 0;
     final shopName = (_currentProductData['shopName'] ?? '').toString();
+    final pieceDetails = PieceDetails.fromMap(_currentProductData);
 
     // Identify the product ID and uploader
     final String? originalProductId = _currentProductData['originalProductId'];
@@ -249,6 +251,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                   _buildDetailRow("Gender", gender),
                   if (_currentProductData.containsKey('visibility'))
                     _buildDetailRow("Visibility", visibility),
+                  ..._buildPieceDetails(pieceDetails),
 
                   // Weather and Functional Tags
                   if (_currentProductData.containsKey('weatherTags'))
@@ -582,6 +585,46 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
         ],
       ),
     );
+  }
+
+  /// The seller's measurement, fabric, origin and extra-detail fields, each
+  /// only shown when the seller actually filled it in.
+  List<Widget> _buildPieceDetails(PieceDetails details) {
+    return [
+      if (details.shoulderMeasurement.isNotEmpty)
+        _buildDetailRow(
+          "Shoulder Measurement",
+          '${details.shoulderMeasurement} cm',
+        ),
+      if (details.heightMeasurement.isNotEmpty)
+        _buildDetailRow(
+          "Height Measurement",
+          '${details.heightMeasurement} cm',
+        ),
+      if (details.linenType.isNotEmpty)
+        _buildDetailRow("Linen Type", details.linenType),
+      if (details.madeWhere.isNotEmpty)
+        _buildDetailRow("Made Where", details.madeWhere),
+      if (details.otherDetails.isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 5.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                "Other Details",
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              const SizedBox(height: 5),
+              for (final detail in details.otherDetails)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 2),
+                  child: Text('• $detail'),
+                ),
+            ],
+          ),
+        ),
+    ];
   }
 
   /// Helper for building tag chips

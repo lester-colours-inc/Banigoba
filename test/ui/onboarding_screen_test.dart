@@ -33,7 +33,7 @@ void main() {
     await tester.pumpWidget(_app());
 
     for (var index = 0; index < onboardingSlides.length; index += 1) {
-      expect(find.text(onboardingSlides[index].title), findsOneWidget);
+      expect(find.text(onboardingSlides[index].highlight), findsOneWidget);
       final isLast = index == onboardingSlides.length - 1;
       expect(find.text(isLast ? 'Get Started' : 'Next'), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('onboarding_next')));

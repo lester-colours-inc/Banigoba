@@ -27,6 +27,8 @@ dependencies:
   shared_preferences: ^2.2.2
   firebase_messaging: ^15.2.10
   url_launcher: ^6.3.1
+  cached_network_image: ^4.0.2
+  audioplayers: ^6.8.1
 
 dev_dependencies:
   flutter_test:
@@ -40,3 +42,5 @@ flutter:
 
   assets:
     - assets/images/
+    - assets/branding/splash_logo.png
+    - assets/sounds/

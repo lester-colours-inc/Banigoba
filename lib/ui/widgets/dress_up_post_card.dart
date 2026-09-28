@@ -2,8 +2,10 @@
 //
 // Presentational only: the page resolves the author, picks the visual and
 // wires the actions. Mine and the social tabs share one layout and differ
-// only in where the timestamp and the overflow menu sit, as in the design.
+// only in where the timestamp sits: beside the menu in the header on Mine,
+// on the image on the social tabs.
 import 'package:flutter/material.dart';
+import 'app_network_image.dart';
 
 /// A tappable action shown in the row under the image.
 class DressUpCardAction {
@@ -67,8 +69,8 @@ class DressUpPostCard extends StatelessWidget {
   final Color imageBackground;
   final Widget visual;
 
-  /// Mine puts the time in the header and the menu on the image; the social
-  /// tabs swap them.
+  /// Mine puts the time and the menu together in the header; the social tabs
+  /// put the menu in the header and the time on the image.
   final bool isMineLayout;
   final List<DressUpCardAction> actions;
   final List<DressUpMenuItem> menuItems;
@@ -176,7 +178,7 @@ class DressUpPostCard extends StatelessWidget {
             ],
           ),
         ),
-        if (isMineLayout)
+        if (isMineLayout) ...[
           Text(
             timeLabel,
             style: TextStyle(
@@ -184,8 +186,16 @@ class DressUpPostCard extends StatelessWidget {
               fontSize: 11,
               fontWeight: FontWeight.w600,
             ),
-          )
-        else
+          ),
+          if (menuItems.isNotEmpty) ...[
+            const SizedBox(width: 2),
+            _buildMenu(
+              context,
+              iconColor: colors.onSurfaceVariant,
+              isCompact: true,
+            ),
+          ],
+        ] else
           _buildMenu(context, iconColor: colors.onSurfaceVariant),
       ],
     );
@@ -237,34 +247,35 @@ class DressUpPostCard extends StatelessWidget {
         child: Stack(
           children: [
             Positioned.fill(child: visual),
-            Positioned(
-              top: 6,
-              right: 6,
-              child: isMineLayout && menuItems.isEmpty
-                  ? const SizedBox.shrink()
-                  : isMineLayout
-                  ? DecoratedBox(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.black.withValues(alpha: 0.35),
-                      ),
-                      child: _buildMenu(context, iconColor: Colors.white),
-                    )
-                  : _TimePill(label: timeLabel),
-            ),
+            if (!isMineLayout)
+              Positioned(top: 6, right: 6, child: _TimePill(label: timeLabel)),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildMenu(BuildContext context, {required Color iconColor}) {
+  /// The ⋮ menu. [isCompact] sizes it to sit beside the time label without
+  /// making the header taller.
+  Widget _buildMenu(
+    BuildContext context, {
+    required Color iconColor,
+    bool isCompact = false,
+  }) {
     if (menuItems.isEmpty) return const SizedBox(width: 40, height: 40);
     final colors = Theme.of(context).colorScheme;
 
     return PopupMenuButton<int>(
       tooltip: 'More options',
-      icon: Icon(Icons.more_vert, color: iconColor),
+      icon: Icon(Icons.more_vert, color: iconColor, size: isCompact ? 20 : 24),
+      padding: isCompact ? EdgeInsets.zero : const EdgeInsets.all(8),
+      style: isCompact
+          ? IconButton.styleFrom(
+              minimumSize: const Size(32, 32),
+              fixedSize: const Size(32, 32),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            )
+          : null,
       onSelected: (index) => menuItems[index].onSelected(),
       itemBuilder: (context) => [
         for (var index = 0; index < menuItems.length; index++)
@@ -376,11 +387,11 @@ class _Avatar extends StatelessWidget {
                     ),
                   ),
                 )
-              : Image.network(
+              : AppNetworkImage(
                   url,
                   fit: BoxFit.cover,
                   alignment: Alignment.topCenter,
-                  errorBuilder: (context, error, stackTrace) => ColoredBox(
+                  fallback: ColoredBox(
                     color: colors.surfaceContainerHigh,
                     child: Icon(
                       Icons.person_outline,

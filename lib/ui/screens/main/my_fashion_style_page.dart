@@ -13,6 +13,7 @@ import '../events/events_page.dart';
 import '../makeover/ai_upload_page.dart';
 import '../shop/product_detail_page.dart';
 import 'hair_style_page.dart';
+import '../../widgets/app_network_image.dart';
 
 /// Makeover, style-by-occasion, community and events hub. No longer the Home
 /// tab — Home is the dress-up feed — so it is pushed from the drawer.
@@ -449,12 +450,15 @@ class _MyFashionStylePageState extends State<MyFashionStylePage> {
           ),
           child: Row(
             children: [
-              Image.network(
+              AppNetworkImage(
                 weather.iconUrl,
                 width: 58,
                 height: 58,
-                errorBuilder: (_, _, _) =>
-                    Icon(Icons.cloud_outlined, color: Colors.white, size: 46),
+                fallback: Icon(
+                  Icons.cloud_outlined,
+                  color: Colors.white,
+                  size: 46,
+                ),
               ),
               SizedBox(width: 14),
               Expanded(
@@ -1209,12 +1213,12 @@ class _SmartRecommendationTile extends StatelessWidget {
                             fit: BoxFit.contain,
                             iconSize: 38,
                           )
-                        : Image.network(
+                        : AppNetworkImage(
                             recommendation.imageUrl,
                             width: double.infinity,
                             height: double.infinity,
                             fit: BoxFit.contain,
-                            errorBuilder: (_, _, _) => Icon(
+                            fallback: Icon(
                               Icons.broken_image_outlined,
                               color: Colors.grey,
                             ),

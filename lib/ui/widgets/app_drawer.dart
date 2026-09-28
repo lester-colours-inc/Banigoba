@@ -5,10 +5,34 @@ import 'package:flutter/material.dart';
 import '../../core/theme_provider.dart';
 import '../../core/app_routes.dart';
 import '../../core/main_tab.dart';
-import '../screens/agents/agents_page.dart';
-import '../screens/designers/fashion_designers_page.dart';
+import '../screens/main/daily_dress_up_page.dart';
 import '../screens/main/main_screen.dart';
+import '../screens/makeover/makeover_page.dart';
+import '../screens/makeover/widgets/look_source_picker.dart';
 import '../screens/shop/shop_chat_page.dart';
+import 'app_network_image.dart';
+import 'coming_soon_page.dart';
+import 'home_feed_tabs.dart';
+
+/// The drawer's main menu, in the order agreed in September 2026. Home is
+/// not listed: it is the first tab of the bottom bar.
+enum DrawerDestination {
+  makeover('Create My Fashion Makeover', Icons.auto_awesome),
+  wardrobe('Smart Wardrobe & eFitting Room', Icons.checkroom_outlined),
+  fashionTwins('My Fashion Twins', Icons.people_alt_outlined),
+  hairStylist('My Hair Stylist', Icons.content_cut),
+  fashionIdols('My Fashion Idols', Icons.star_outline),
+  shops('My Shops & Boutiques', Icons.storefront_outlined),
+  designers('My Fashion Designers', Icons.design_services_outlined),
+  community('My Fashion Community', Icons.groups_outlined),
+  agents('Agents', Icons.support_agent),
+  influencers('Fashion Influencers', Icons.campaign_outlined);
+
+  const DrawerDestination(this.label, this.icon);
+
+  final String label;
+  final IconData icon;
+}
 
 class AppDrawer extends StatelessWidget {
   final ThemeProvider themeProvider;
@@ -20,12 +44,61 @@ class AppDrawer extends StatelessWidget {
   /// drawer is hosted by a pushed page or a tab's own Scaffold), close the
   /// drawer, return to MainScreen and ask it to switch.
   void _selectTab(BuildContext context, MainTab tab) {
-    if (onTabSelect != null) {
-      onTabSelect!(tab);
+    if (onTabSelect case final select?) {
+      select(tab);
       return;
     }
-    Navigator.of(context).popUntil((route) => route.isFirst);
+    // Close the drawer first: popUntil stops at once when this page is
+    // already the first route, and would leave the drawer open.
+    final navigator = Navigator.of(context)..pop();
+    navigator.popUntil((route) => route.isFirst);
     MainScreen.selectTab(tab);
+  }
+
+  /// Closes the drawer and opens [page] on top.
+  void _push(BuildContext context, Widget page) {
+    final navigator = Navigator.of(context)..pop();
+    navigator.push(MaterialPageRoute<void>(builder: (_) => page));
+  }
+
+  void _pushNamed(BuildContext context, String routeName) {
+    final navigator = Navigator.of(context)..pop();
+    navigator.pushNamed(routeName);
+  }
+
+  void _open(BuildContext context, DrawerDestination destination) {
+    switch (destination) {
+      case DrawerDestination.makeover:
+        _pushNamed(context, AppRoutes.makeover);
+      case DrawerDestination.wardrobe:
+        _selectTab(context, MainTab.wardrobe);
+      case DrawerDestination.fashionTwins:
+        _push(context, const MakeoverPage(initialMethod: LookMethod.twin));
+      case DrawerDestination.hairStylist:
+        _pushNamed(context, AppRoutes.hairStyle);
+      case DrawerDestination.fashionIdols:
+        _push(context, const MakeoverPage(initialMethod: LookMethod.idol));
+      case DrawerDestination.shops:
+        _pushNamed(context, AppRoutes.shops);
+      case DrawerDestination.designers:
+        _pushNamed(context, AppRoutes.fashionDesigners);
+      case DrawerDestination.community:
+        _selectTab(context, MainTab.home);
+        DailyDressUpPage.showFeed(HomeFeed.community);
+      case DrawerDestination.agents:
+        _pushNamed(context, AppRoutes.agents);
+      case DrawerDestination.influencers:
+        _push(
+          context,
+          const ComingSoonPage(
+            title: 'Fashion Influencers',
+            icon: Icons.campaign_outlined,
+            description:
+                'Follow fashion influencers, shop the looks they wear and '
+                'try them on yourself.',
+          ),
+        );
+    }
   }
 
   @override
@@ -65,70 +138,13 @@ class AppDrawer extends StatelessWidget {
                     ),
                   ),
                 ),
-                _buildDrawerItem(
-                  context,
-                  Icons.home_outlined,
-                  'Home',
-                  onTap: () => _selectTab(context, MainTab.home),
-                ),
-                _buildDrawerItem(
-                  context,
-                  Icons.grid_view,
-                  'My Fashion Style',
-                  onTap: () {
-                    final navigator = Navigator.of(context);
-                    navigator.pop();
-                    navigator.pushNamed(AppRoutes.myFashionStyle);
-                  },
-                ),
-                _buildDrawerItem(
-                  context,
-                  Icons.auto_awesome,
-                  'Create a Makeover',
-                  onTap: () {
-                    final navigator = Navigator.of(context);
-                    navigator.pop();
-                    navigator.pushNamed(AppRoutes.makeover);
-                  },
-                ),
-                _buildDrawerItem(
-                  context,
-                  Icons.storefront,
-                  'Shops & Boutiques',
-                  onTap: () {
-                    final navigator = Navigator.of(context);
-                    navigator.pop();
-                    navigator.pushNamed(AppRoutes.shops);
-                  },
-                ),
-                _buildDrawerItem(
-                  context,
-                  Icons.description_outlined,
-                  'Fashion Designers',
-                  onTap: () {
-                    final navigator = Navigator.of(context);
-                    navigator.pop();
-                    navigator.push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const FashionDesignersPage(),
-                      ),
-                    );
-                  },
-                ),
-                _buildDrawerItem(
-                  context,
-                  Icons.calendar_today_outlined,
-                  'Agents',
-                  onTap: () {
-                    final navigator = Navigator.of(context);
-                    navigator.pop();
-                    navigator.push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const AgentsPage(),
-                      ),
-                    );
-                  },
-                ),
+                for (final destination in DrawerDestination.values)
+                  _buildDrawerItem(
+                    context,
+                    destination.icon,
+                    destination.label,
+                    onTap: () => _open(context, destination),
+                  ),
                 const Padding(
                   padding: EdgeInsets.fromLTRB(25, 20, 25, 10),
                   child: Text(
@@ -142,23 +158,21 @@ class AppDrawer extends StatelessWidget {
                 ),
                 _buildDrawerItem(
                   context,
+                  Icons.straighten,
+                  'My Profile Details',
+                  onTap: () => _pushNamed(context, AppRoutes.bodyProfile),
+                ),
+                _buildDrawerItem(
+                  context,
                   Icons.chat_bubble_outline,
                   'Messages',
-                  onTap: () {
-                    final navigator = Navigator.of(context);
-                    navigator.pop();
-                    navigator.push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const ShopChatInboxPage(),
-                      ),
-                    );
-                  },
+                  onTap: () => _push(context, const ShopChatInboxPage()),
                 ),
                 _buildDrawerItem(
                   context,
                   Icons.settings_outlined,
                   'Settings',
-                  onTap: () => Navigator.pushNamed(context, AppRoutes.settings),
+                  onTap: () => _pushNamed(context, AppRoutes.settings),
                 ),
                 _buildDrawerItem(
                   context,
@@ -350,20 +364,19 @@ class AppDrawer extends StatelessWidget {
                                 ),
                               ),
                             )
-                          : Image.network(
+                          : AppNetworkImage(
                               profileImageUrl,
                               fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) =>
-                                  Center(
-                                    child: Text(
-                                      initials,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 20,
-                                      ),
-                                    ),
+                              fallback: Center(
+                                child: Text(
+                                  initials,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 20,
                                   ),
+                                ),
+                              ),
                             ),
                     ),
                     Positioned(

@@ -11,6 +11,7 @@ import '../../../data/services/notification_service.dart';
 import '../../widgets/cart_badge_button.dart';
 import '../shop/product_detail_page.dart';
 import '../main/notifications_page.dart';
+import '../../widgets/app_network_image.dart';
 
 /// Screen representing the "My Daily Dress Up" section, managing the user's wardrobe items
 class WardrobePage extends StatefulWidget {
@@ -491,7 +492,7 @@ class _WardrobePageState extends State<WardrobePage> {
               child: ClipRRect(
                 borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
                 child: rawImageUrl.isNotEmpty
-                    ? Image.network(
+                    ? AppNetworkImage(
                         rawImageUrl,
                         fit: BoxFit.contain,
                         width: double.infinity,
@@ -814,12 +815,10 @@ class _WardrobePageState extends State<WardrobePage> {
                   ),
                   SizedBox(width: 10),
                   Expanded(
-                    child: _buildSimpleDropdown(
-                      "Visibility",
-                      visibility,
-                      ['private', 'public'],
-                      (val) => setModalState(() => visibility = val!),
-                    ),
+                    child: _buildSimpleDropdown("Visibility", visibility, [
+                      'private',
+                      'public',
+                    ], (val) => setModalState(() => visibility = val!)),
                   ),
                 ],
               ),

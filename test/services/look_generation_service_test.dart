@@ -11,13 +11,18 @@ class _FakeGenerator implements LookImageGenerator {
   final bool isConfigured;
   final Exception? error;
   final List<String> prompts = [];
+  final List<String> photoUrls = [];
+  final List<List<String>> references = [];
 
   @override
   Future<Uint8List> generate({
     required String photoUrl,
     required String prompt,
+    List<String> referenceImageUrls = const [],
   }) async {
     prompts.add(prompt);
+    photoUrls.add(photoUrl);
+    references.add(referenceImageUrls);
     if (error case final failure?) throw failure;
     return Uint8List.fromList([1, 2, 3]);
   }
@@ -42,12 +47,53 @@ void main() {
       currentUserId: () => 'user-1',
     );
 
-    final look = await service.generate(_ready);
+    final look = await service.generate(_ready, part: LookPart.hair);
 
     expect(look.imageUrl, 'https://example.com/look.jpg');
     expect(generator.prompts, hasLength(1));
     expect(generator.prompts.single, contains('"low haircut"'));
     expect(uploads, ['user-1']);
+  });
+
+  test('a step builds on the image the user kept last', () async {
+    final generator = _FakeGenerator();
+    final service = LookGenerationService(
+      generator: generator,
+      upload: (_, _) async => 'https://example.com/shoes.jpg',
+      currentUserId: () => 'user-1',
+    );
+
+    await service.generate(
+      _ready,
+      part: LookPart.shoes,
+      baseImageUrl: 'https://example.com/after-hair.jpg',
+      tweak: 'white sneakers',
+    );
+
+    expect(generator.photoUrls.single, 'https://example.com/after-hair.jpg');
+    expect(generator.prompts.single, contains('Change only the shoes'));
+    expect(generator.prompts.single, contains('"white sneakers"'));
+  });
+
+  test('a style twin sends the look to copy after the photo', () async {
+    final generator = _FakeGenerator();
+    final service = LookGenerationService(
+      generator: generator,
+      upload: (_, _) async => 'https://example.com/look.jpg',
+      currentUserId: () => 'user-1',
+    );
+
+    await service.generate(
+      const LookRequest(
+        photoUrl: 'https://example.com/me.jpg',
+        scope: LookScope.outfit,
+        source: TwinSource(imageUrl: 'https://example.com/twin.jpg'),
+      ),
+      part: LookPart.outfit,
+    );
+
+    expect(generator.photoUrls.single, 'https://example.com/me.jpg');
+    expect(generator.references.single, ['https://example.com/twin.jpg']);
   });
 
   test('asks the user to sign in when nobody is signed in', () async {
@@ -58,7 +104,7 @@ void main() {
     );
 
     expect(
-      () => service.generate(_ready),
+      () => service.generate(_ready, part: LookPart.hair),
       throwsA(
         isA<LookGenerationException>().having(
           (error) => error.message,
@@ -84,6 +130,7 @@ void main() {
           scope: LookScope.hair,
           source: DescribeSource('x'),
         ),
+        part: LookPart.hair,
       ),
       throwsA(isA<LookGenerationException>()),
     );
@@ -99,7 +146,7 @@ void main() {
     );
 
     await expectLater(
-      service.generate(_ready),
+      service.generate(_ready, part: LookPart.hair),
       throwsA(
         isA<LookGenerationException>().having(
           (error) => error.message,
@@ -119,7 +166,7 @@ void main() {
     );
 
     await expectLater(
-      service.generate(_ready),
+      service.generate(_ready, part: LookPart.hair),
       throwsA(
         isA<LookGenerationException>().having(
           (error) => error.message,

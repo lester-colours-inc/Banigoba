@@ -2,56 +2,63 @@
 //
 // These slides market the app; they ask for nothing. Permissions and style
 // preferences come after the account exists (September 2026 review). The
-// layout follows the Figma intro frames: logo, Skip, illustration, uppercase
-// title, one line of copy, and a full-width navy action bar.
+// layout follows the Figma "Intro" frames (node 510:2245): logo, a fanned
+// three-photo illustration, a soft grey card holding a two-tone title and one
+// line of copy, page dots, and a full-width navy action bar.
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// One marketing slide.
+/// One marketing slide. The title renders as [lead] in near-black over
+/// [highlight] in bold navy, as in Figma.
 class OnboardingSlide {
   const OnboardingSlide({
-    required this.icon,
-    required this.title,
+    required this.lead,
+    required this.highlight,
     required this.body,
   });
 
-  final IconData icon;
-  final String title;
+  final String lead;
+  final String highlight;
   final String body;
+
+  String get title => '$lead $highlight';
 }
 
-/// The intro sequence, in order.
-// UNCLEAR: copy and illustrations are placeholders written from the meeting
-// notes. Swap in the Figma illustrations and final marketing copy when ready.
-// "Get the look" promises boutiques and salons, which arrive in Phase 5.
+/// The intro sequence, in order. Copy is taken from the Figma intro frames.
+// UNCLEAR: all three Figma slides reuse the same model photo. Swap in a
+// distinct photo per slide if design supplies them.
 const List<OnboardingSlide> onboardingSlides = [
   OnboardingSlide(
-    icon: Icons.auto_awesome,
-    title: 'SEE YOUR NEW LOOK',
-    body: 'Upload a photo and try a new outfit or hairstyle on yourself.',
+    lead: 'Style',
+    highlight: 'Discovery',
+    body: 'Browse curated hairstyle galleries and cultural looks.',
   ),
   OnboardingSlide(
-    icon: Icons.trending_up,
-    title: 'STYLE YOUR WAY',
-    body:
-        'Describe what you want, follow a fashion icon, or see trends based '
-        'on your location.',
+    lead: 'Community',
+    highlight: 'Feed',
+    body: 'Share your own styles, get feedback, and connect with creators.',
   ),
   OnboardingSlide(
-    icon: Icons.volunteer_activism_outlined,
-    title: 'SHARE WITH KINDNESS',
-    body:
-        'Post to friends and the community. Only affirmations here: no likes, '
-        'no counts.',
-  ),
-  OnboardingSlide(
-    icon: Icons.storefront_outlined,
-    title: 'GET THE LOOK',
-    body:
-        'Find the pieces in your wardrobe, then at boutiques and salons near '
-        'you.',
+    lead: 'Personalized',
+    highlight: 'Experience',
+    body: 'Save favorites, follow trends, and build your style profile.',
   ),
 ];
+
+// Figma palette for the intro frames.
+const Color _navy = Color(0xFF0E007B);
+const Color _ink = Color(0xFF080808);
+const Color _bodyGrey = Color(0xFF454545);
+const Color _cardGrey = Color(0xFFF7F7F7);
+const Color _periwinkle = Color(0xFF848CFF);
+const Color _plum = Color(0xFF83008A);
+const Color _orchid = Color(0xFFE0ACE3);
+const Color _dotActive = Color(0xFFA5A2A5);
+const Color _dotIdle = Color(0xFFD9D9D9);
+
+const String _modelImage = 'assets/images/onboarding_model.png';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -66,12 +73,16 @@ class OnboardingScreen extends StatefulWidget {
 }
 
 class _OnboardingScreenState extends State<OnboardingScreen> {
-  static const Color _navy = Color(0xFF17008A);
-
   final PageController _pageController = PageController();
   int _page = 0;
 
   bool get _isLastPage => _page == onboardingSlides.length - 1;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    precacheImage(const AssetImage(_modelImage), context);
+  }
 
   @override
   void dispose() {
@@ -102,112 +113,250 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            const SizedBox(height: 28),
-            Image.asset('assets/images/logo.png', width: 150),
-            Align(
-              alignment: Alignment.centerRight,
-              child: Padding(
-                padding: const EdgeInsets.only(right: 12),
-                child: TextButton(
-                  key: const ValueKey('onboarding_skip'),
-                  onPressed: _finishOnboarding,
-                  style: TextButton.styleFrom(foregroundColor: Colors.black54),
-                  child: const Text('Skip'),
-                ),
+      body: Column(
+        children: [
+          SafeArea(
+            bottom: false,
+            child: SizedBox(
+              width: double.infinity,
+              height: 88,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Image.asset('assets/images/logo.png', width: 142),
+                  // UNCLEAR: the Figma frames have no Skip. Kept, subtle, so
+                  // returning users are not forced through every slide.
+                  Positioned(
+                    top: 0,
+                    right: 8,
+                    child: TextButton(
+                      key: const ValueKey('onboarding_skip'),
+                      onPressed: _finishOnboarding,
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.black38,
+                      ),
+                      child: const Text('Skip'),
+                    ),
+                  ),
+                ],
               ),
             ),
-            Expanded(
-              child: PageView.builder(
-                controller: _pageController,
-                itemCount: onboardingSlides.length,
-                onPageChanged: (page) => setState(() => _page = page),
-                itemBuilder: (context, index) =>
-                    _SlideView(slide: onboardingSlides[index]),
+          ),
+          Expanded(
+            child: PageView.builder(
+              controller: _pageController,
+              itemCount: onboardingSlides.length,
+              onPageChanged: (page) => setState(() => _page = page),
+              itemBuilder: (context, index) => _SlideView(
+                slide: onboardingSlides[index],
+                dots: _PageDots(count: onboardingSlides.length, current: _page),
               ),
             ),
-            _PageDots(count: onboardingSlides.length, current: _page),
-            const SizedBox(height: 24),
-            _ActionBar(
-              label: _isLastPage ? 'Get Started' : 'Next',
-              color: _navy,
-              onPressed: _next,
-            ),
-          ],
-        ),
+          ),
+          _ActionBar(
+            label: _isLastPage ? 'Get Started' : 'Next',
+            onPressed: _next,
+          ),
+        ],
       ),
     );
   }
 }
 
 class _SlideView extends StatelessWidget {
-  const _SlideView({required this.slide});
+  const _SlideView({required this.slide, required this.dots});
 
   final OnboardingSlide slide;
-
-  static const Color _navy = Color(0xFF17008A);
-  static const Color _orange = Color(0xFFF08A24);
+  final Widget dots;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 40),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          // Illustration: a soft orange disc with the navy motif, echoing the
-          // orange-and-navy palette of the Figma illustrations.
-          Stack(
-            alignment: Alignment.center,
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: constraints.maxHeight),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Container(
-                width: 190,
-                height: 190,
-                decoration: BoxDecoration(
-                  color: _orange.withValues(alpha: 0.12),
-                  shape: BoxShape.circle,
-                ),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12),
+                child: _FannedPhotos(),
               ),
-              Container(
-                width: 124,
-                height: 124,
-                decoration: BoxDecoration(
-                  color: _orange.withValues(alpha: 0.22),
-                  shape: BoxShape.circle,
-                ),
-              ),
-              Icon(slide.icon, size: 72, color: _navy),
-              const Positioned(
-                top: 22,
-                right: 26,
-                child: CircleAvatar(radius: 9, backgroundColor: _orange),
-              ),
+              const SizedBox(height: 36),
+              _CopyCard(slide: slide, dots: dots),
+              const SizedBox(height: 24),
             ],
           ),
-          const SizedBox(height: 44),
+        ),
+      ),
+    );
+  }
+}
+
+/// Three rounded photos fanned out: tilted periwinkle cards either side and
+/// a plum-to-orchid card in the middle. Positions are the Figma coordinates
+/// on a 375pt canvas, scaled to the available width.
+class _FannedPhotos extends StatelessWidget {
+  const _FannedPhotos();
+
+  static const double _canvasWidth = 375;
+  static const double _canvasHeight = 240;
+  static const double _tilt = 6 * math.pi / 180;
+
+  @override
+  Widget build(BuildContext context) {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 420),
+      child: AspectRatio(
+        aspectRatio: _canvasWidth / _canvasHeight,
+        child: FittedBox(
+          child: SizedBox(
+            width: _canvasWidth,
+            height: _canvasHeight,
+            child: Stack(
+              children: [
+                _sideCard(left: 32, angle: -_tilt, mirrored: true),
+                _sideCard(left: 212, angle: _tilt, mirrored: false),
+                Positioned(
+                  left: 107,
+                  top: 0,
+                  child: Container(
+                    width: 161,
+                    height: 238,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(50),
+                      gradient: const LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [_plum, _orchid],
+                      ),
+                    ),
+                  ),
+                ),
+                const Positioned(
+                  left: 101,
+                  top: 18,
+                  child: _Photo(width: 170, height: 220, radius: 63),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _sideCard({
+    required double left,
+    required double angle,
+    required bool mirrored,
+  }) {
+    return Positioned(
+      left: left,
+      top: 38,
+      child: Transform.rotate(
+        angle: angle,
+        child: Container(
+          width: 131,
+          height: 173,
+          alignment: Alignment.bottomCenter,
+          decoration: BoxDecoration(
+            color: _periwinkle,
+            borderRadius: BorderRadius.circular(30),
+          ),
+          child: Transform.flip(
+            flipX: mirrored,
+            child: const _Photo(width: 131, height: 168, radius: 50),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _Photo extends StatelessWidget {
+  const _Photo({
+    required this.width,
+    required this.height,
+    required this.radius,
+  });
+
+  final double width;
+  final double height;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(radius),
+      child: Image.asset(
+        _modelImage,
+        width: width,
+        height: height,
+        fit: BoxFit.cover,
+        alignment: Alignment.topCenter,
+        // Decorative: the title and copy carry the meaning.
+        excludeFromSemantics: true,
+      ),
+    );
+  }
+}
+
+class _CopyCard extends StatelessWidget {
+  const _CopyCard({required this.slide, required this.dots});
+
+  final OnboardingSlide slide;
+  final Widget dots;
+
+  // UNCLEAR: Figma sets this copy in Poppins. The app has no Poppins yet, so
+  // it uses the platform font. Bundle Poppins if the brand requires it.
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 32),
+      padding: const EdgeInsets.fromLTRB(24, 32, 24, 14),
+      decoration: BoxDecoration(
+        color: _cardGrey,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [BoxShadow(color: Color(0x21000000), blurRadius: 5)],
+      ),
+      child: Column(
+        children: [
           Text(
-            slide.title,
+            slide.lead,
             textAlign: TextAlign.center,
             style: const TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.6,
-              color: Colors.black,
+              fontSize: 24,
+              height: 1.25,
+              fontWeight: FontWeight.w500,
+              color: _ink,
+            ),
+          ),
+          Text(
+            slide.highlight,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 24,
+              height: 1.25,
+              fontWeight: FontWeight.w700,
+              color: _navy,
             ),
           ),
           const SizedBox(height: 12),
-          Text(
-            slide.body,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 14,
-              height: 1.4,
-              color: Colors.black54,
+          SizedBox(
+            width: 250,
+            child: Text(
+              slide.body,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 12,
+                height: 1.6,
+                color: _bodyGrey,
+              ),
             ),
           ),
+          const SizedBox(height: 16),
+          dots,
         ],
       ),
     );
@@ -228,14 +377,12 @@ class _PageDots extends StatelessWidget {
         for (var index = 0; index < count; index += 1)
           AnimatedContainer(
             duration: const Duration(milliseconds: 200),
-            margin: const EdgeInsets.symmetric(horizontal: 4),
-            width: index == current ? 22 : 8,
-            height: 8,
+            margin: const EdgeInsets.symmetric(horizontal: 2.5),
+            width: index == current ? 13 : 6,
+            height: 6,
             decoration: BoxDecoration(
-              color: index == current
-                  ? const Color(0xFF17008A)
-                  : Colors.black12,
-              borderRadius: BorderRadius.circular(4),
+              color: index == current ? _dotActive : _dotIdle,
+              borderRadius: BorderRadius.circular(3),
             ),
           ),
       ],
@@ -245,14 +392,9 @@ class _PageDots extends StatelessWidget {
 
 /// Full-width navy bar with the primary action, as in the Figma frames.
 class _ActionBar extends StatelessWidget {
-  const _ActionBar({
-    required this.label,
-    required this.color,
-    required this.onPressed,
-  });
+  const _ActionBar({required this.label, required this.onPressed});
 
   final String label;
-  final Color color;
   final VoidCallback onPressed;
 
   @override
@@ -260,20 +402,18 @@ class _ActionBar extends StatelessWidget {
     final bottomInset = MediaQuery.paddingOf(context).bottom;
 
     return Material(
-      color: color,
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      color: _navy,
       child: InkWell(
         key: const ValueKey('onboarding_next'),
         onTap: onPressed,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         child: Padding(
-          padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + bottomInset),
+          padding: EdgeInsets.fromLTRB(24, 26, 24, 26 + bottomInset),
           child: Center(
             child: Text(
               label,
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 18,
+                fontSize: 16,
                 fontWeight: FontWeight.w600,
               ),
             ),

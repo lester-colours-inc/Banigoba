@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../../core/app_routes.dart';
 import '../../../data/services/makeover_service.dart';
 import '../../widgets/cart_badge_button.dart';
+import '../../widgets/app_network_image.dart';
 
 class StyledLookPage extends StatefulWidget {
   final String style;
@@ -191,10 +192,10 @@ class _StyledLookPageState extends State<StyledLookPage> {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(30),
-        child: Image.network(
+        child: AppNetworkImage(
           firstImageUrl,
           fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) => Center(
+          fallback: Center(
             child: Icon(Icons.broken_image, size: 60, color: Colors.grey),
           ),
         ),
@@ -211,10 +212,10 @@ class _StyledLookPageState extends State<StyledLookPage> {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(15),
-        child: Image.network(
+        child: AppNetworkImage(
           imageUrl,
           fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) => Center(
+          fallback: Center(
             child: Icon(Icons.broken_image, size: 28, color: Colors.grey),
           ),
         ),

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../data/services/shop_chat_service.dart';
 import '../designers/fashion_designers_page.dart';
 import 'shop_products_page.dart';
+import '../../widgets/app_network_image.dart';
 
 class ShopChatInboxPage extends StatelessWidget {
   const ShopChatInboxPage({super.key, this.sellerOnly = false});
@@ -166,13 +167,12 @@ class _ProductReferenceMessage extends StatelessWidget {
                   borderRadius: BorderRadius.circular(10),
                   child: imageUrl.isEmpty
                       ? _ProductReferenceImageFallback(mine: mine)
-                      : Image.network(
+                      : AppNetworkImage(
                           imageUrl,
                           width: 58,
                           height: 58,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) =>
-                              _ProductReferenceImageFallback(mine: mine),
+                          fallback: _ProductReferenceImageFallback(mine: mine),
                         ),
                 ),
                 const SizedBox(width: 10),

@@ -8,6 +8,7 @@ import 'package:banigoba/data/services/storage_service.dart';
 import '../../../core/app_routes.dart';
 import '../../widgets/cart_badge_button.dart';
 import '../wardrobe/measurement_page.dart';
+import '../../widgets/app_network_image.dart';
 
 /// The starting point of the AI Makeover flow.
 /// Users upload a full-body photo or take a selfie to be used for the AI generation.
@@ -465,23 +466,13 @@ class _AiUploadPageState extends State<AiUploadPage> {
                       fit: StackFit.expand,
                       children: [
                         kIsWeb
-                            ? Image.network(
+                            ? AppNetworkImage(
                                 _existingFullBodyImageUrl!,
                                 width: double.infinity,
                                 height: double.infinity,
                                 fit: BoxFit.contain,
                                 alignment: Alignment.center,
-                                webHtmlElementStrategy:
-                                    WebHtmlElementStrategy.prefer,
-                                errorBuilder: (context, error, stackTrace) {
-                                  debugPrint(
-                                    '[AiUpload] HTML image element failed: $error',
-                                  );
-                                  if (stackTrace != null) {
-                                    debugPrintStack(stackTrace: stackTrace);
-                                  }
-                                  return _buildImageLoadError();
-                                },
+                                fallback: _buildImageLoadError(),
                               )
                             : _existingFullBodyImageBytes != null
                             ? Image.memory(

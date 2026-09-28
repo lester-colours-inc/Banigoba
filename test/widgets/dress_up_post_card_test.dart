@@ -46,6 +46,30 @@ void main() {
     expect(find.textContaining('Heritage Fusion'), findsNothing);
   });
 
+  testWidgets('Mine layout puts the menu beside the time, off the photo', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        _card(
+          isMineLayout: true,
+          menuItems: [
+            DressUpMenuItem(
+              icon: Icons.delete_outline,
+              label: 'Delete',
+              onSelected: () {},
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final time = tester.getCenter(find.text('Today'));
+    final menu = tester.getCenter(find.byTooltip('More options'));
+    expect(menu.dx, greaterThan(time.dx));
+    expect((menu.dy - time.dy).abs(), lessThan(4));
+  });
+
   testWidgets('social layout shows author name and caption with lead', (
     tester,
   ) async {

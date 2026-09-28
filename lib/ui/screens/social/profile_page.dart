@@ -1,4 +1,5 @@
 // Displays user profiles, public dress-up posts, and follow controls.
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
@@ -14,6 +15,7 @@ import '../../widgets/bottom_navigation.dart';
 import '../../widgets/post_comments_sheet.dart';
 import '../../widgets/try_on_product_picker.dart';
 import '../main/main_screen.dart';
+import '../../widgets/app_network_image.dart';
 
 /// Screen displaying user profile details and public Daily Dress Up posts.
 class ProfilePage extends StatelessWidget {
@@ -71,11 +73,18 @@ class ProfilePage extends StatelessWidget {
                 foregroundColor: Colors.black,
                 elevation: 0,
                 actions: [
-                  if (isMe)
+                  if (isMe) ...[
+                    IconButton(
+                      icon: const Icon(Icons.straighten),
+                      tooltip: 'My Profile Details',
+                      onPressed: () =>
+                          Navigator.pushNamed(context, AppRoutes.bodyProfile),
+                    ),
                     IconButton(
                       icon: const Icon(Icons.logout),
                       onPressed: () => FirebaseAuth.instance.signOut(),
                     ),
+                  ],
                 ],
               ),
               body: SingleChildScrollView(
@@ -88,7 +97,7 @@ class ProfilePage extends StatelessWidget {
                       backgroundColor: const Color(0xFF0D0140),
                       backgroundImage: profileImageUrl.isEmpty
                           ? null
-                          : NetworkImage(profileImageUrl),
+                          : CachedNetworkImageProvider(profileImageUrl),
                       child: profileImageUrl.isEmpty
                           ? Text(
                               userName.toString().isEmpty
@@ -324,7 +333,7 @@ class ProfilePage extends StatelessWidget {
                 backgroundColor: const Color(0xFF0D0140),
                 backgroundImage: profileImageUrl.isEmpty
                     ? null
-                    : NetworkImage(profileImageUrl),
+                    : CachedNetworkImageProvider(profileImageUrl),
                 child: profileImageUrl.isEmpty
                     ? Text(
                         initial,
@@ -495,15 +504,12 @@ class ProfilePage extends StatelessWidget {
       );
     }
 
-    return Image.network(
+    return AppNetworkImage(
       imageUrl,
       width: double.infinity,
       height: double.infinity,
       fit: fit,
-      webHtmlElementStrategy: kIsWeb
-          ? WebHtmlElementStrategy.prefer
-          : WebHtmlElementStrategy.never,
-      errorBuilder: (context, error, stackTrace) => Container(
+      fallback: Container(
         color: colors.surfaceContainerHighest,
         alignment: Alignment.center,
         child: Icon(Icons.broken_image_outlined, color: colors.outline),

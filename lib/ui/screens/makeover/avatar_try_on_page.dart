@@ -13,6 +13,7 @@ import '../../widgets/safe_product_image.dart';
 import 'ai_upload_page.dart';
 import '../../../core/main_tab.dart';
 import '../main/main_screen.dart';
+import '../../widgets/app_network_image.dart';
 
 /// The engines the page can dress the avatar with. Results are kept per
 /// provider so the same look can be generated twice and compared.
@@ -1037,10 +1038,10 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
           body: Center(
             child: InteractiveViewer(
               maxScale: 4,
-              child: Image.network(
+              child: AppNetworkImage(
                 imageUrl,
                 fit: BoxFit.contain,
-                errorBuilder: (_, _, _) => const Text(
+                fallback: const Text(
                   'Unable to display this look.',
                   style: TextStyle(color: Colors.white),
                 ),
@@ -1076,13 +1077,14 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
                     child: Text(emptyText, textAlign: TextAlign.center),
                   ),
                 )
-              : Image.network(
+              : AppNetworkImage(
                   imageUrl,
                   width: double.infinity,
                   height: double.infinity,
                   fit: BoxFit.contain,
-                  errorBuilder: (context, error, stackTrace) =>
-                      const Center(child: Icon(Icons.broken_image_outlined)),
+                  fallback: const Center(
+                    child: Icon(Icons.broken_image_outlined),
+                  ),
                 ),
         ),
       ],

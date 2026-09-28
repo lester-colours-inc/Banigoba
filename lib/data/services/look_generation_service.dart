@@ -1,9 +1,10 @@
-// Generates one makeover look at a time and returns it as soon as it exists.
+// Generates one step of a makeover (one item: hair, clothes, shoes...) and
+// returns it as soon as it exists.
 //
 // Phase 3 of the work plan: the old coordinated flow ran hair and then each
 // garment as separate FASHN calls and showed nothing until all had finished.
-// This service makes a single image call per look, so the first result shows
-// as fast as the provider allows, and "Try another" is just another call.
+// Here every step is a single image call that the user sees straight away,
+// and each step builds on the image the user kept from the one before.
 //
 // The provider sits behind [LookImageGenerator] and is never shown in the UI.
 // UNCLEAR: in the meeting someone said Gemini was "just for the demo". If a
@@ -21,9 +22,12 @@ import 'storage_service.dart';
 abstract interface class LookImageGenerator {
   bool get isConfigured;
 
+  /// Edits [photoUrl] per [prompt]. [referenceImageUrls] are extra images
+  /// the prompt refers to (a look to copy), sent after the photo.
   Future<Uint8List> generate({
     required String photoUrl,
     required String prompt,
+    List<String> referenceImageUrls = const [],
   });
 }
 
@@ -42,11 +46,15 @@ class GeminiLookGenerator implements LookImageGenerator {
   Future<Uint8List> generate({
     required String photoUrl,
     required String prompt,
+    List<String> referenceImageUrls = const [],
   }) async {
-    final photo = await GeminiImageApi.fetchImage(photoUrl);
+    final images = await Future.wait([
+      GeminiImageApi.fetchImage(photoUrl),
+      for (final url in referenceImageUrls) GeminiImageApi.fetchImage(url),
+    ]);
     final result = await GeminiImageApi(
       apiKey: _apiKey,
-    ).editImage(images: [photo], prompt: prompt);
+    ).editImage(images: images, prompt: prompt);
     return result.bytes;
   }
 }
@@ -89,8 +97,16 @@ class LookGenerationService {
 
   bool get isConfigured => _generator.isConfigured;
 
-  /// Generates exactly one look for [request].
-  Future<GeneratedLook> generate(LookRequest request) async {
+  /// Generates one step of [request]: changes [part] of [baseImageUrl] (the
+  /// image the user kept last; the original photo by default).
+  ///
+  /// [tweak] is the user's own words when they redo or edit a step.
+  Future<GeneratedLook> generate(
+    LookRequest request, {
+    required LookPart part,
+    String? baseImageUrl,
+    String tweak = '',
+  }) async {
     final userId = _currentUserId();
     if (userId.isEmpty) {
       throw const LookGenerationException('Sign in to create a makeover.');
@@ -111,8 +127,9 @@ class LookGenerationService {
     final Uint8List bytes;
     try {
       bytes = await _generator.generate(
-        photoUrl: request.photoUrl,
-        prompt: buildLookPrompt(request),
+        photoUrl: baseImageUrl ?? request.photoUrl,
+        prompt: buildLookPrompt(request, part: part, tweak: tweak),
+        referenceImageUrls: request.referenceImageUrls,
       );
     } on Exception catch (error) {
       debugPrint('Look generation failed: $error');
@@ -133,7 +150,9 @@ class LookGenerationService {
     stopwatch.stop();
 
     // Measured for the plan's speed target; compare against the old flow.
-    debugPrint('Look generated in ${stopwatch.elapsedMilliseconds} ms');
+    debugPrint(
+      'Look step ${part.name} generated in ${stopwatch.elapsedMilliseconds} ms',
+    );
     return GeneratedLook(imageUrl: imageUrl, elapsed: stopwatch.elapsed);
   }
 }

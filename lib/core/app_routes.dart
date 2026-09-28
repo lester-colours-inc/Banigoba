@@ -25,7 +25,9 @@ import '../ui/screens/designers/fashion_designers_page.dart';
 import '../ui/screens/wardrobe/plan_ahead_page.dart';
 import '../ui/screens/wardrobe/measurement_page.dart';
 import '../ui/screens/admin/curators_workspace_page.dart';
+import '../ui/screens/profile_details/body_profile_page.dart';
 import '../ui/screens/settings/settings_page.dart';
+import '../ui/widgets/brand_splash.dart';
 import '../data/services/permissions_service.dart';
 import '../data/services/style_preferences_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -151,7 +153,7 @@ class _AuthGateState extends State<AuthGate> {
   @override
   Widget build(BuildContext context) {
     if (_onboardingDone == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const BrandSplash();
     }
 
     if (!_onboardingDone!) {
@@ -162,9 +164,7 @@ class _AuthGateState extends State<AuthGate> {
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
+          return const BrandSplash();
         }
 
         final user = snapshot.data;
@@ -179,9 +179,7 @@ class _AuthGateState extends State<AuthGate> {
             builder: (context, permissionSnapshot) {
               if (permissionSnapshot.connectionState ==
                   ConnectionState.waiting) {
-                return const Scaffold(
-                  body: Center(child: CircularProgressIndicator()),
-                );
+                return const BrandSplash();
               }
 
               if (permissionSnapshot.hasError) {
@@ -214,9 +212,7 @@ class _AuthGateState extends State<AuthGate> {
                     .snapshots(),
                 builder: (context, userSnapshot) {
                   if (!userSnapshot.hasData) {
-                    return const Scaffold(
-                      body: Center(child: CircularProgressIndicator()),
-                    );
+                    return const BrandSplash();
                   }
                   final userData =
                       userSnapshot.data?.data() ?? const <String, dynamic>{};
@@ -273,6 +269,10 @@ class AppRoutes {
   static const String agents = '/agents';
   static const String notifications = '/notifications';
 
+  // Photos, sizes and measurements for the eFitting Room and Fashion Idol
+  // Twin.
+  static const String bodyProfile = '/profile/details';
+
   // A makeover is started from Home's floating Makeover button, not a tab.
   static const String makeover = '/makeover';
 
@@ -303,6 +303,7 @@ class AppRoutes {
     fashionDesigners: (context) => const FashionDesignersPage(),
     agents: (context) => const AgentsPage(),
     notifications: (context) => const NotificationsPage(),
+    bodyProfile: (context) => const BodyProfilePage(),
     makeover: (context) => const MakeoverPage(),
     makeoverWithItems: (context) => const CreateMakeoverPage(),
     dailyDressUp: (context) => const DailyDressUpPage(),

@@ -2,17 +2,18 @@
 //
 // Both lists are curated by hand for now (decision, September 2026):
 //
-//  * Archetypes stand in for "fashion icons / fashion twin" until it is
-//    decided which real public figures may be named. Styling someone "like"
-//    a real person raises likeness and endorsement questions.
+//  * Archetypes are the "pick a vibe" choices under Style idol, for people
+//    with no particular idol in mind. The app does not list real public
+//    figures until it is decided which may be named (likeness and
+//    endorsement questions); users may type an idol's name themselves.
 //  * Trends are curated until there are enough public posts to compute them.
 //
 // Keep entries short: the name and tagline are shown on small cards.
 import '../models/look_request.dart';
 
-// UNCLEAR: which real fashion icons (e.g. Winky D was mentioned in the
-// meeting) can be offered, and whether they must have joined the platform
-// first. Until then the "Style icon" option offers these archetypes only.
+// UNCLEAR: which real fashion idols (e.g. Winky D was mentioned in the
+// meeting) can be listed, and whether they must have joined the platform
+// first. Until then Style idol offers a free-text name plus these vibes.
 const List<StyleArchetype> styleArchetypes = [
   StyleArchetype(
     id: 'afro_chic',

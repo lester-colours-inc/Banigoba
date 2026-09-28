@@ -28,7 +28,7 @@ class PostService {
 
   String get _currentUserId => _auth.currentUser?.uid ?? '';
 
-  /// Creates a new post, private unless [isPublic] is set.
+  /// Creates a new post, private unless [visibility] says otherwise.
   ///
   /// Throws [SignInRequiredException] when nobody is signed in, so callers can
   /// tell the user rather than silently losing the look.
@@ -37,7 +37,7 @@ class PostService {
     required String imageURL,
     String? outfitId,
     List<Map<String, dynamic>> products = const [],
-    bool isPublic = false,
+    PostVisibility visibility = PostVisibility.private,
   }) async {
     if (_currentUserId.isEmpty) {
       throw const SignInRequiredException();
@@ -50,9 +50,10 @@ class PostService {
       'commentCount': 0,
       'createdAt': FieldValue.serverTimestamp(),
       'imageURL': imageURL,
-      'isPublic': isPublic,
-      'visibility': isPublic ? 'public' : 'private',
-      if (isPublic) 'publishedAt': FieldValue.serverTimestamp(),
+      'isPublic': visibility == PostVisibility.public,
+      'visibility': visibility.value,
+      if (visibility != PostVisibility.private)
+        'publishedAt': FieldValue.serverTimestamp(),
       if (outfitId?.isNotEmpty == true) 'outfitId': outfitId,
       if (products.isNotEmpty) ...{
         'products': products,
@@ -65,21 +66,32 @@ class PostService {
     return ref.id;
   }
 
-  Future<void> makePostPublic(String postId) async {
-    if (_currentUserId.isEmpty) return;
+  /// Replaces the picture of one of the user's own posts with an edited
+  /// version of the look.
+  Future<void> updatePostImage(String postId, String imageURL) async {
+    if (_currentUserId.isEmpty) {
+      throw const SignInRequiredException();
+    }
     final ref = _db.collection('posts').doc(postId);
     final snapshot = await ref.get();
+    final data = snapshot.data();
     if (!snapshot.exists ||
-        (snapshot.data()?['authorId'] ?? snapshot.data()?['authorID']) !=
-            _currentUserId) {
-      throw Exception('You can only share your own post.');
+        (data?['authorId'] ?? data?['authorID']) != _currentUserId) {
+      throw Exception('You can only edit your own look.');
     }
     await ref.update({
-      'isPublic': true,
-      'visibility': 'public',
-      'publishedAt': FieldValue.serverTimestamp(),
+      'imageURL': imageURL,
+      'updatedAt': FieldValue.serverTimestamp(),
     });
   }
+
+  Future<void> makePostPublic(String postId) =>
+      _setVisibility(postId, PostVisibility.public, action: 'share');
+
+  /// Shares a private post with friends only: it never appears in Community
+  /// or on the author's public profile grid.
+  Future<void> shareWithFriends(String postId) =>
+      _setVisibility(postId, PostVisibility.friends, action: 'share');
 
   Future<void> makePostPrivate(String postId) async {
     if (_currentUserId.isEmpty) return;
@@ -92,8 +104,28 @@ class PostService {
     }
     await ref.update({
       'isPublic': false,
-      'visibility': 'private',
+      'visibility': PostVisibility.private.value,
       'privatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> _setVisibility(
+    String postId,
+    PostVisibility visibility, {
+    required String action,
+  }) async {
+    if (_currentUserId.isEmpty) return;
+    final ref = _db.collection('posts').doc(postId);
+    final snapshot = await ref.get();
+    if (!snapshot.exists ||
+        (snapshot.data()?['authorId'] ?? snapshot.data()?['authorID']) !=
+            _currentUserId) {
+      throw Exception('You can only $action your own post.');
+    }
+    await ref.update({
+      'isPublic': visibility == PostVisibility.public,
+      'visibility': visibility.value,
+      'publishedAt': FieldValue.serverTimestamp(),
     });
   }
 

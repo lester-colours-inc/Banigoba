@@ -1,10 +1,15 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../../data/models/piece_details.dart';
+import '../../../data/models/portfolio_piece.dart';
 import '../../../data/services/notification_service.dart';
 import '../../../data/services/shop_chat_service.dart';
 import '../shop/shop_chat_page.dart';
+import '../../widgets/app_network_image.dart';
+import '../../widgets/piece_extra_details_fields.dart';
 
 class FashionDesignersPage extends StatefulWidget {
   const FashionDesignersPage({super.key});
@@ -645,8 +650,13 @@ class _DesignerDetailPage extends StatelessWidget {
             ),
             const SizedBox(height: 22),
           ],
-          if (designer.portfolioImages.isNotEmpty) ...[
+          if (designer.portfolioPieces.isNotEmpty) ...[
             _SectionTitle('Portfolio'),
+            const SizedBox(height: 4),
+            Text(
+              'Tap a piece to see its size, measurements and fabric.',
+              style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12),
+            ),
             const SizedBox(height: 12),
             GridView.builder(
               shrinkWrap: true,
@@ -657,16 +667,20 @@ class _DesignerDetailPage extends StatelessWidget {
                 mainAxisSpacing: 12,
                 childAspectRatio: 0.78,
               ),
-              itemCount: designer.portfolioImages.length,
+              itemCount: designer.portfolioPieces.length,
               itemBuilder: (context, index) {
-                return ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.network(
-                    designer.portfolioImages[index],
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => Container(
-                      color: colors.surfaceContainerHighest,
-                      child: const Icon(Icons.image_not_supported_outlined),
+                final piece = designer.portfolioPieces[index];
+                return GestureDetector(
+                  onTap: () => _showPortfolioPieceSheet(context, piece),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: AppNetworkImage(
+                      piece.imageUrl,
+                      fit: BoxFit.cover,
+                      fallback: Container(
+                        color: colors.surfaceContainerHighest,
+                        child: const Icon(Icons.image_not_supported_outlined),
+                      ),
                     ),
                   ),
                 );
@@ -675,6 +689,15 @@ class _DesignerDetailPage extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+
+  void _showPortfolioPieceSheet(BuildContext context, PortfolioPiece piece) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (_) => _PortfolioPieceSheet(piece: piece),
     );
   }
 
@@ -901,7 +924,7 @@ class _DesignerProfileEditorPageState
   final _locationController = TextEditingController();
   final _specialtiesController = TextEditingController();
   final _priceRangeController = TextEditingController();
-  final _portfolioController = TextEditingController();
+  final List<_PortfolioPieceEntry> _pieces = [];
   bool _loading = true;
   bool _saving = false;
 
@@ -918,7 +941,9 @@ class _DesignerProfileEditorPageState
     _locationController.dispose();
     _specialtiesController.dispose();
     _priceRangeController.dispose();
-    _portfolioController.dispose();
+    for (final piece in _pieces) {
+      piece.dispose();
+    }
     super.dispose();
   }
 
@@ -945,10 +970,24 @@ class _DesignerProfileEditorPageState
       profile['specialties'],
     ).join(', ');
     _priceRangeController.text = (profile['priceRange'] ?? '').toString();
-    _portfolioController.text = _toStringList(
-      profile['portfolioImages'],
-    ).join(', ');
+    _pieces.addAll(
+      PortfolioPiece.listFromProfile(
+        profile,
+      ).map((piece) => _PortfolioPieceEntry(piece: piece)),
+    );
     if (mounted) setState(() => _loading = false);
+  }
+
+  void _addPiece() {
+    setState(
+      () => _pieces.add(
+        _PortfolioPieceEntry(piece: const PortfolioPiece(imageUrl: '')),
+      ),
+    );
+  }
+
+  void _removePiece(int index) {
+    setState(() => _pieces.removeAt(index).dispose());
   }
 
   Future<void> _save() async {
@@ -961,6 +1000,10 @@ class _DesignerProfileEditorPageState
 
     setState(() => _saving = true);
     try {
+      final pieces = _pieces
+          .map((entry) => entry.toPiece())
+          .where((piece) => !piece.isEmpty)
+          .toList();
       await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
         'isDesigner': true,
         'designerProfile': {
@@ -970,7 +1013,14 @@ class _DesignerProfileEditorPageState
           'location': _locationController.text.trim(),
           'specialties': _splitCsv(_specialtiesController.text),
           'priceRange': _priceRangeController.text.trim(),
-          'portfolioImages': _splitCsv(_portfolioController.text),
+          'portfolioPieces': pieces.map((piece) => piece.toMap()).toList(),
+          // Kept so anything still reading the flat list (and this editor,
+          // for a profile last saved before pieces existed) sees the same
+          // pictures.
+          'portfolioImages': pieces
+              .map((piece) => piece.imageUrl)
+              .where((url) => url.isNotEmpty)
+              .toList(),
           'updatedAt': FieldValue.serverTimestamp(),
         },
       }, SetOptions(merge: true));
@@ -1025,12 +1075,36 @@ class _DesignerProfileEditorPageState
               label: 'Price range',
               hint: 'Example: 100-500',
             ),
-            _field(
-              controller: _portfolioController,
-              label: 'Portfolio image links',
-              hint: 'Paste image URLs separated by commas',
-              maxLines: 3,
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Portfolio Pieces',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: _addPiece,
+                  icon: const Icon(Icons.add),
+                  label: const Text('Add a Piece'),
+                ),
+              ],
             ),
+            if (_pieces.isEmpty)
+              Text(
+                'Show off a piece with a picture, its size, measurements, '
+                'fabric and where it was made.',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              )
+            else
+              for (int index = 0; index < _pieces.length; index += 1)
+                _PieceEditorCard(
+                  entry: _pieces[index],
+                  onRemove: () => _removePiece(index),
+                ),
             const SizedBox(height: 10),
             FilledButton.icon(
               onPressed: _saving ? null : _save,
@@ -1074,6 +1148,215 @@ class _DesignerProfileEditorPageState
           hintText: hint,
           border: const OutlineInputBorder(),
         ),
+      ),
+    );
+  }
+}
+
+/// Shows one portfolio piece full-size with the detail a customer needs to
+/// judge fit and fabric, the same way a boutique's product page does.
+class _PortfolioPieceSheet extends StatelessWidget {
+  const _PortfolioPieceSheet({required this.piece});
+
+  final PortfolioPiece piece;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final details = piece.details;
+    final rows = <MapEntry<String, String>>[
+      if (piece.size.isNotEmpty) MapEntry('Size', piece.size),
+      if (details.shoulderMeasurement.isNotEmpty)
+        MapEntry('Shoulder Measurement', '${details.shoulderMeasurement} cm'),
+      if (details.heightMeasurement.isNotEmpty)
+        MapEntry('Height Measurement', '${details.heightMeasurement} cm'),
+      if (details.linenType.isNotEmpty)
+        MapEntry('Linen Type', details.linenType),
+      if (details.madeWhere.isNotEmpty)
+        MapEntry('Made Where', details.madeWhere),
+    ];
+
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (piece.imageUrl.isNotEmpty)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: AspectRatio(
+                  aspectRatio: 1,
+                  child: AppNetworkImage(piece.imageUrl, fit: BoxFit.cover),
+                ),
+              ),
+            const SizedBox(height: 16),
+            for (final row in rows)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 150,
+                      child: Text(
+                        row.key,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    Expanded(child: Text(row.value)),
+                  ],
+                ),
+              ),
+            if (details.otherDetails.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              const Text(
+                'Other Details',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 4),
+              for (final detail in details.otherDetails)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 2),
+                  child: Text('• $detail'),
+                ),
+            ],
+            if (rows.isEmpty && details.otherDetails.isEmpty)
+              Text(
+                'No extra details were added for this piece.',
+                style: TextStyle(color: colors.onSurfaceVariant),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Owns the controllers for one portfolio piece being edited: the picture
+/// link, size, and the same measurement/fabric/origin fields a boutique
+/// stock item has.
+class _PortfolioPieceEntry {
+  _PortfolioPieceEntry({required PortfolioPiece piece})
+    : imageUrlController = TextEditingController(text: piece.imageUrl),
+      sizeController = TextEditingController(text: piece.size),
+      shoulderController = TextEditingController(
+        text: piece.details.shoulderMeasurement,
+      ),
+      heightController = TextEditingController(
+        text: piece.details.heightMeasurement,
+      ),
+      linenTypeController = TextEditingController(
+        text: piece.details.linenType,
+      ),
+      madeWhereController = TextEditingController(
+        text: piece.details.madeWhere,
+      ),
+      otherDetailControllers = [
+        for (final detail in piece.details.otherDetails)
+          TextEditingController(text: detail),
+      ];
+
+  final TextEditingController imageUrlController;
+  final TextEditingController sizeController;
+  final TextEditingController shoulderController;
+  final TextEditingController heightController;
+  final TextEditingController linenTypeController;
+  final TextEditingController madeWhereController;
+  final List<TextEditingController> otherDetailControllers;
+
+  PortfolioPiece toPiece() => PortfolioPiece(
+    imageUrl: imageUrlController.text.trim(),
+    size: sizeController.text.trim(),
+    details: PieceDetails.fromControllerText(
+      shoulderMeasurement: shoulderController.text,
+      heightMeasurement: heightController.text,
+      linenType: linenTypeController.text,
+      madeWhere: madeWhereController.text,
+      otherDetails: otherDetailControllers.map((controller) => controller.text),
+    ),
+  );
+
+  void dispose() {
+    imageUrlController.dispose();
+    sizeController.dispose();
+    shoulderController.dispose();
+    heightController.dispose();
+    linenTypeController.dispose();
+    madeWhereController.dispose();
+    for (final controller in otherDetailControllers) {
+      controller.dispose();
+    }
+  }
+}
+
+/// One portfolio piece's fields, collapsed to its picture and size until the
+/// designer expands it.
+class _PieceEditorCard extends StatefulWidget {
+  const _PieceEditorCard({required this.entry, required this.onRemove});
+
+  final _PortfolioPieceEntry entry;
+  final VoidCallback onRemove;
+
+  @override
+  State<_PieceEditorCard> createState() => _PieceEditorCardState();
+}
+
+class _PieceEditorCardState extends State<_PieceEditorCard> {
+  @override
+  Widget build(BuildContext context) {
+    final entry = widget.entry;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      child: ExpansionTile(
+        title: Text(
+          entry.imageUrlController.text.isEmpty
+              ? 'New piece'
+              : (entry.sizeController.text.isEmpty
+                    ? 'Piece'
+                    : 'Size ${entry.sizeController.text}'),
+        ),
+        trailing: IconButton(
+          tooltip: 'Remove piece',
+          onPressed: widget.onRemove,
+          icon: const Icon(Icons.delete_outline),
+        ),
+        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        children: [
+          TextField(
+            controller: entry.imageUrlController,
+            onChanged: (_) => setState(() {}),
+            decoration: const InputDecoration(
+              labelText: 'Picture link',
+              hintText: 'Paste an image URL',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 15),
+          TextField(
+            controller: entry.sizeController,
+            onChanged: (_) => setState(() {}),
+            textCapitalization: TextCapitalization.characters,
+            decoration: const InputDecoration(
+              labelText: 'Size',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 15),
+          buildPieceExtraDetailsFields(
+            context,
+            shoulderController: entry.shoulderController,
+            heightController: entry.heightController,
+            linenTypeController: entry.linenTypeController,
+            madeWhereController: entry.madeWhereController,
+            otherDetailControllers: entry.otherDetailControllers,
+            onAddDetail: () => setState(
+              () => entry.otherDetailControllers.add(TextEditingController()),
+            ),
+            onRemoveDetail: (index) => setState(
+              () => entry.otherDetailControllers.removeAt(index).dispose(),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1187,7 +1470,9 @@ class _DesignerAvatar extends StatelessWidget {
     return CircleAvatar(
       radius: radius,
       backgroundColor: _DesignerColors.primary,
-      backgroundImage: imageUrl.isEmpty ? null : NetworkImage(imageUrl),
+      backgroundImage: imageUrl.isEmpty
+          ? null
+          : CachedNetworkImageProvider(imageUrl),
       child: imageUrl.isEmpty
           ? Text(
               designer.name.isEmpty ? 'D' : designer.name[0].toUpperCase(),
@@ -1358,7 +1643,7 @@ class _DesignerSummary {
     required this.location,
     required this.specialties,
     required this.priceRange,
-    required this.portfolioImages,
+    required this.portfolioPieces,
     required this.avatarUrl,
   });
 
@@ -1368,7 +1653,7 @@ class _DesignerSummary {
   final String location;
   final List<String> specialties;
   final String priceRange;
-  final List<String> portfolioImages;
+  final List<PortfolioPiece> portfolioPieces;
   final String avatarUrl;
 
   factory _DesignerSummary.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
@@ -1379,12 +1664,12 @@ class _DesignerSummary {
     final name =
         (profile['name'] ?? data['displayName'] ?? data['email'] ?? 'Designer')
             .toString();
-    final portfolioImages = _toStringList(profile['portfolioImages']);
+    final portfolioPieces = PortfolioPiece.listFromProfile(profile);
     final avatar =
         (profile['avatarUrl'] ??
                 data['profileImageURL'] ??
                 data['profileImageUrl'] ??
-                (portfolioImages.isEmpty ? '' : portfolioImages.first))
+                (portfolioPieces.isEmpty ? '' : portfolioPieces.first.imageUrl))
             .toString();
     return _DesignerSummary(
       id: doc.id,
@@ -1393,7 +1678,7 @@ class _DesignerSummary {
       location: (profile['location'] ?? '').toString(),
       specialties: _toStringList(profile['specialties']),
       priceRange: (profile['priceRange'] ?? '').toString(),
-      portfolioImages: portfolioImages,
+      portfolioPieces: portfolioPieces,
       avatarUrl: avatar,
     );
   }

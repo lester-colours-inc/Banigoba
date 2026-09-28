@@ -1,5 +1,5 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'app_network_image.dart';
 
 class SafeProductImage extends StatelessWidget {
   const SafeProductImage({
@@ -28,33 +28,16 @@ class SafeProductImage extends StatelessWidget {
       );
     }
 
-    return Image.network(
+    return AppNetworkImage(
       cleanUrl,
       width: width,
       height: height,
       fit: fit,
-      webHtmlElementStrategy: kIsWeb
-          ? WebHtmlElementStrategy.prefer
-          : WebHtmlElementStrategy.never,
-      loadingBuilder: (context, child, progress) {
-        if (progress == null) return child;
-        return SizedBox(
-          width: width,
-          height: height,
-          child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-        );
-      },
-      errorBuilder: (context, error, stackTrace) {
-        debugPrint(
-          '[ProductImage] Failed to load product image: '
-          '${cleanUrl.split('?').first}',
-        );
-        return _ProductImageFallback(
-          width: width,
-          height: height,
-          iconSize: iconSize,
-        );
-      },
+      fallback: _ProductImageFallback(
+        width: width,
+        height: height,
+        iconSize: iconSize,
+      ),
     );
   }
 }
