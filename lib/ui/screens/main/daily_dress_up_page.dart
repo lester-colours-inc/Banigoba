@@ -1210,8 +1210,8 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
               caption: caption,
             ),
       // One evenly spaced row: affirm (and comment) · repost · quote ·
-      // save to Smart Wardrobe · ⋮ · forward. A private look cannot be
-      // reposted; share it first.
+      // save to Smart Wardrobe · ⋮ · send to. Reposting a private look
+      // asks to share it first.
       actions: [
         DressUpCardAction(
           glyph: 'a',
@@ -1224,18 +1224,17 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
             ownerName: author.displayName,
           ),
         ),
-        if (post.isShared) ...[
-          DressUpCardAction(
-            icon: Icons.repeat,
-            label: 'Repost',
-            onTap: () => repostLook(context, post, posts: _postService),
-          ),
-          DressUpCardAction(
-            icon: Icons.format_quote_outlined,
-            label: 'Quote',
-            onTap: () => quoteLook(context, post, posts: _postService),
-          ),
-        ],
+        // Always offered; a private look is shared first (P-8).
+        DressUpCardAction(
+          icon: Icons.repeat,
+          label: 'Repost',
+          onTap: () => _passOn(post, repostLook),
+        ),
+        DressUpCardAction(
+          icon: Icons.format_quote_outlined,
+          label: 'Quote',
+          onTap: () => _passOn(post, quoteLook),
+        ),
         DressUpCardAction(
           icon: Icons.checkroom_outlined,
           activeIcon: Icons.checkroom,
@@ -1260,10 +1259,12 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
           label: 'Place Order',
           onSelected: () => showFindPiecesSheet(context),
         ),
-        if (isOwner && !post.isShared)
+        // Post decides who sees the look in the feeds; Send to (the share
+        // icon) passes it to someone specific (P-4).
+        if (isOwner && !post.isRepost)
           DressUpMenuItem(
             icon: Icons.send_outlined,
-            label: 'Post',
+            label: post.isShared ? 'Post: change who sees it' : 'Post',
             onSelected: () => _sharePost(post),
           ),
         DressUpMenuItem(
@@ -1287,15 +1288,11 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
       ],
       trailingAction: DressUpCardAction(
         icon: Icons.share_outlined,
-        label: 'Forward',
+        label: kSendToLabel,
         onTap: () => showForwardLookSheet(
           context,
           imageUrl: imageUrl,
           caption: post.caption,
-          visibility: post.visibility,
-          onShareToAudience: isOwner
-              ? (audience) => _shareToAudience(post, audience)
-              : null,
         ),
       ),
       // Which affirmations the look received; never how many (BNG SRS 001,
@@ -1456,6 +1453,20 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
             MakeoverPage(initialPhotoUrl: imageUrl, editingPostId: post.id),
       ),
     );
+  }
+
+  /// Reposts or quotes [post], sharing it first when it is private.
+  Future<void> _passOn(
+    Post post,
+    Future<void> Function(BuildContext, Post, {PostService? posts}) action,
+  ) async {
+    final shared = await ensureLookShared(
+      context,
+      post,
+      share: (audience) => _shareToAudience(post, audience),
+    );
+    if (!shared || !mounted) return;
+    await action(context, post, posts: _postService);
   }
 
   Future<void> _sharePost(Post post) async {

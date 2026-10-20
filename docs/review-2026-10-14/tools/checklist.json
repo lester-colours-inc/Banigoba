@@ -2,7 +2,7 @@
   "title": "Banigoba — App Review Checklist",
   "meeting": "App review meeting, 14 October 2026 (full transcript, parts 1–3)",
   "preparedBy": "Lester",
-  "status": "In progress: Tiers 1 and 2 done except G-4. Decisions 1 and 6 built. @usernames live (rules deployed 20 October 2026).",
+  "status": "In progress: Tiers 1 and 2 done except G-4. Tier 3 decisions 1–6 made and built, except B-1 (needs artwork). @usernames live.",
   "target": "Next app version by the end of next week (about Friday 23 October 2026)",
   "tiers": [
     {
@@ -321,7 +321,7 @@
           "area": "Branding",
           "note": "Confirm exact wording",
           "done": false,
-          "progress": ""
+          "progress": "Decided: \"G for Good\" (not God). Waiting for the designer's new logo file with the line; then swap it in and regenerate the splash screens (dart run flutter_native_splash:create)."
         },
         {
           "id": "H-4",
@@ -344,16 +344,16 @@
           "text": "Make Post and Share clearly different, or merge them. Remove the duplication and settle the wording.",
           "area": "Post, save and share",
           "note": "",
-          "done": false,
-          "progress": ""
+          "done": true,
+          "progress": "Decided: keep both, renamed. \"Post\" (in the ⋮ menu) decides who sees the look in the feeds; \"Send to\" (share icon) sends it to a salon, shop, designer, WhatsApp or other apps. Community and Friends are no longer in Send to. Daily Dress Up has its own \"Post as today's dress-up\" action."
         },
         {
           "id": "P-8",
           "text": "Repost and Quote are always visible in the share sheet. Today they only appear after you share to Community.",
           "area": "Post, save and share",
           "note": "Today quoting is only possible on public looks. Open question 3.",
-          "done": false,
-          "progress": ""
+          "done": true,
+          "progress": "Decided: always shown. On a private look, Repost or Quote first asks \"Share this look first?\", then carries on."
         },
         {
           "id": "M-1",
@@ -368,16 +368,16 @@
           "text": "New feature: users connect with their own salons, shops and designers. We need a name for this kind of connection.",
           "area": "Post, save and share",
           "note": "Open question 2",
-          "done": false,
-          "progress": ""
+          "done": true,
+          "progress": "Decided: \"My Circle\". Add or remove any salon, shop or designer from the Send to list; kept privately per user."
         },
         {
           "id": "P-6",
           "text": "Share to salon, shop or designer: show a row of the ones you are already connected to above the search box.",
           "area": "Post, save and share",
           "note": "",
-          "done": false,
-          "progress": ""
+          "done": true,
+          "progress": "Send to shows your Circle as a one-tap row above the search, then everyone else."
         },
         {
           "id": "K-5",
@@ -494,8 +494,8 @@
           "text": "The wardrobe holds my clothes, the shops I am connected to and the designers I am connected to.",
           "area": "Smart Wardrobe module",
           "note": "",
-          "done": false,
-          "progress": ""
+          "done": true,
+          "progress": "The wardrobe's Shops & Designers tab now opens with My Circle (your salons, shops and designers, removable), then the directories."
         },
         {
           "id": "W-3",
@@ -720,10 +720,10 @@
   ],
   "openQuestions": [
     "DECIDED 20 Oct: counts are visible to the owner only, on looks and on profiles (fits BNG SRS 001).",
-    "What do we call a user's link to their own salon, shop or designer (\"connections\", \"my circle\", …)?",
-    "Quote on private looks: show it greyed out with a hint, or allow quoting to friends?",
-    "Post vs Share: keep both with clearer names, or merge them into one flow?",
-    "Payoff line: \"G for God\" or \"Look for God\"?",
+    "DECIDED 20 Oct: \"My Circle\".",
+    "DECIDED 20 Oct: Repost and Quote always shown; a private look asks to be shared first.",
+    "DECIDED 20 Oct: keep both, renamed: \"Post\" (who sees it in the feeds) and \"Send to\" (salon, shop, designer, WhatsApp, other apps).",
+    "DECIDED 20 Oct: \"G for Good\". Needs new logo artwork with the line.",
     "DECIDED 20 Oct: one large \"Create My Fashion Makeover\" button that then asks Hairstyle or Outfit & more.",
     "Monetization: what commission rate, and what share goes to influencers?",
     "Delivery: do shops deliver themselves, or does the platform provide or partner for delivery?",

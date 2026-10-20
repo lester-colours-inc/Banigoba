@@ -15,6 +15,7 @@ import '../../../../data/services/post_service.dart';
 import '../../../widgets/app_network_image.dart';
 import '../../../widgets/dress_up_post_card.dart';
 import '../../../widgets/forward_look_sheet.dart';
+import '../../../widgets/share_audience_sheet.dart';
 import '../../../widgets/look_viewer_page.dart';
 import '../../../../core/app_routes.dart';
 import 'friends_dress_ups.dart';
@@ -131,20 +132,35 @@ class _DailyDressUpFeedState extends State<DailyDressUpFeed> {
           label: 'Wear today',
           onTap: () => _wearToday(look),
         ),
+        // Post it as today's dress-up for friends or everyone (D-2, P-4).
+        DressUpCardAction(
+          icon: Icons.send_outlined,
+          label: "Post as today's dress-up",
+          onTap: () => _postDressUp(look.id, imageUrl, title),
+        ),
       ],
       trailingAction: DressUpCardAction(
         icon: Icons.share_outlined,
-        label: 'Forward',
-        onTap: () => showForwardLookSheet(
-          context,
-          imageUrl: imageUrl,
-          caption: title,
-          // Sharing to Friends or Community posts it as today's dress-up.
-          onShareToAudience: (audience) =>
-              _shareDressUp(look.id, imageUrl, title, audience),
-        ),
+        label: kSendToLabel,
+        onTap: () =>
+            showForwardLookSheet(context, imageUrl: imageUrl, caption: title),
       ),
     );
+  }
+
+  Future<void> _postDressUp(
+    String outfitId,
+    String imageUrl,
+    String title,
+  ) async {
+    final audience = await showShareAudienceSheet(
+      context,
+      title: "Post today's dress-up",
+    );
+    if (audience == null || audience == PostVisibility.private || !mounted) {
+      return;
+    }
+    await _shareDressUp(outfitId, imageUrl, title, audience);
   }
 
   Future<void> _shareDressUp(
@@ -164,11 +180,13 @@ class _DailyDressUpFeedState extends State<DailyDressUpFeed> {
       );
       messenger.showSnackBar(
         SnackBar(
-          content: Text(
-            audience == PostVisibility.friends
-                ? "Shared with your friends as today's dress-up."
-                : "Shared with the community as today's dress-up.",
-          ),
+          content: Text(switch (audience) {
+            PostVisibility.friends =>
+              "Posted for your friends as today's dress-up.",
+            PostVisibility.followers =>
+              "Posted for your followers as today's dress-up.",
+            _ => "Posted for everyone as today's dress-up.",
+          }),
         ),
       );
     } on SignInRequiredException {

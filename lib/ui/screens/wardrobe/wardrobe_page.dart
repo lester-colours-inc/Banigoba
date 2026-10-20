@@ -248,7 +248,7 @@ class _WardrobePageState extends State<WardrobePage> {
       case 1:
         return SavedLooksGrid(userId: _currentUserId);
       case 2:
-        return const WardrobeConnections();
+        return WardrobeConnections(userId: _currentUserId);
       default:
         return _buildMineTab();
     }

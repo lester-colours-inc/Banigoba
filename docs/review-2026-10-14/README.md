@@ -2,7 +2,7 @@
 
 **Meeting:** App review meeting, 14 October 2026 (full transcript, parts 1–3)  
 **Prepared by:** Lester  
-**Status:** In progress: Tiers 1 and 2 done except G-4. Decisions 1 and 6 built. @usernames live (rules deployed 20 October 2026).  
+**Status:** In progress: Tiers 1 and 2 done except G-4. Tier 3 decisions 1–6 made and built, except B-1 (needs artwork). @usernames live.  
 **Target:** Next app version by the end of next week (about Friday 23 October 2026)
 
 Tick items off as they ship. Item IDs (e.g. `H-2`) match the Word version (`Banigoba_Review_Checklist.docx`).
@@ -16,8 +16,8 @@ _Generated from `tools/checklist.json`; edit that file and run `npm run build` i
 - [Principles (apply to all work)](#principles-apply-to-all-work)
 - [Tier 1 — Quick wins](#tier-1-quick-wins) — 17/17 done
 - [Tier 2 — Clear, medium work](#tier-2-clear-medium-work) — 15/16 done
-- [Tier 3 — Needs a decision first](#tier-3-needs-a-decision-first) — 3/13 done
-- [Tier 4 — Bigger features](#tier-4-bigger-features) — 1/23 done
+- [Tier 3 — Needs a decision first](#tier-3-needs-a-decision-first) — 7/13 done
+- [Tier 4 — Bigger features](#tier-4-bigger-features) — 2/23 done
 - [Tier 5 — Backend, research and go-to-market](#tier-5-backend-research-and-go-to-market) — 0/10 done
 - [Issues found while working](#issues-found-while-working)
 - [Open questions](#open-questions)
@@ -111,16 +111,21 @@ _The requirement is clear. These need more than a one-line change._
 _Blocked on an open question at the end of this document. Quick to build once decided._
 
 - [ ] **B-1** Change the payoff line (tagline) to "G for God", tied to the G in the logo. — Branding _(Confirm exact wording)_
+  - **Progress:** Decided: "G for Good" (not God). Waiting for the designer's new logo file with the line; then swap it in and regenerate the splash screens (dart run flutter_native_splash:create).
 - [x] **H-4** Remove the "No affirmations yet" text. Show a number instead. — Home — My Fashion Makeover tab _(Open question 1: this clashes with the work plan's "no counters" rule)_
   - **Progress:** Decided: owner-only count. "No affirmations yet" is gone. The look's owner sees the total; everyone else sees which affirmations were given, never a number (fits BNG SRS 001).
 - [x] **U-2** Add a way to follow people. "Following" and "Followers" appear on the profile, but nothing lets you follow anyone. — Profile, identity and social graph _(Open question 1 (counts))_
   - **Progress:** Follow already existed on other people's profiles and is now reachable through people search. Follower and following numbers show only to the profile owner; others see the lists without totals.
-- [ ] **P-4** Make Post and Share clearly different, or merge them. Remove the duplication and settle the wording. — Post, save and share
-- [ ] **P-8** Repost and Quote are always visible in the share sheet. Today they only appear after you share to Community. — Post, save and share _(Today quoting is only possible on public looks. Open question 3.)_
+- [x] **P-4** Make Post and Share clearly different, or merge them. Remove the duplication and settle the wording. — Post, save and share
+  - **Progress:** Decided: keep both, renamed. "Post" (in the ⋮ menu) decides who sees the look in the feeds; "Send to" (share icon) sends it to a salon, shop, designer, WhatsApp or other apps. Community and Friends are no longer in Send to. Daily Dress Up has its own "Post as today's dress-up" action.
+- [x] **P-8** Repost and Quote are always visible in the share sheet. Today they only appear after you share to Community. — Post, save and share _(Today quoting is only possible on public looks. Open question 3.)_
+  - **Progress:** Decided: always shown. On a private look, Repost or Quote first asks "Share this look first?", then carries on.
 - [x] **M-1** Starting a makeover offers two choices: "Hairstyle" and "Other" (outfit, shoes, accessories). People think about their hair and face every morning more than about their full outfit. — Makeover generator page _(Open question 6: two buttons or one button that asks)_
   - **Progress:** Decided: one button, then a choice. "Create My Fashion Makeover" (and the menu item) asks Hairstyle or Outfit & more first.
-- [ ] **P-7** New feature: users connect with their own salons, shops and designers. We need a name for this kind of connection. — Post, save and share _(Open question 2)_
-- [ ] **P-6** Share to salon, shop or designer: show a row of the ones you are already connected to above the search box. — Post, save and share
+- [x] **P-7** New feature: users connect with their own salons, shops and designers. We need a name for this kind of connection. — Post, save and share _(Open question 2)_
+  - **Progress:** Decided: "My Circle". Add or remove any salon, shop or designer from the Send to list; kept privately per user.
+- [x] **P-6** Share to salon, shop or designer: show a row of the ones you are already connected to above the search box. — Post, save and share
+  - **Progress:** Send to shows your Circle as a one-tap row above the search, then everyone else.
 - [ ] **K-5** Platform commission on every sale, like InDrive (for example $1.00 item + $0.20). — Marketplace, e-fitting room and monetization _(Open question 7 (rates))_
 - [ ] **K-6** Influencers share in the revenue from sales they bring in. — Marketplace, e-fitting room and monetization
 - [ ] **K-3** Buy online with delivery, so people do not have to queue or walk around a crowded flea market. — Marketplace, e-fitting room and monetization _(Open question 8 (delivery))_
@@ -141,7 +146,8 @@ _Clear, but large: new screens, new data, or migrations._
   - **Progress:** Built: unique @username (3–20 characters; letters, numbers, dots, underscores), held in a usernames lookup so no two people can have the same one. Anyone without one is asked once, with a suggestion from their name. It shows on profiles and in search, and can be changed in Settings. Database rules deployed 20 October 2026.
 - [ ] **U-5** Stop using email as the public identifier. Use a private ID as the key and the username for display. — Profile, identity and social graph _(Backend migration, privacy)_
   - **Progress:** Emails are no longer shown or searchable publicly, and @username is the public handle. Still to do: email is stored on the public user record, so it can be read through the API. Moving it to a private record goes with I-2.
-- [ ] **W-2** The wardrobe holds my clothes, the shops I am connected to and the designers I am connected to. — Smart Wardrobe module
+- [x] **W-2** The wardrobe holds my clothes, the shops I am connected to and the designers I am connected to. — Smart Wardrobe module
+  - **Progress:** The wardrobe's Shops & Designers tab now opens with My Circle (your salons, shops and designers, removable), then the directories.
 - [ ] **W-3** Add item: take a photo of the piece, and the app detects the colour. Do not ask for colour by hand. — Smart Wardrobe module
 - [ ] **W-6** Saved items and looks can be put into categories and are interactive. They should not feel dead. — Smart Wardrobe module
 - [ ] **W-7** Track wear: for example "You haven't worn this shirt in 10 months". — Smart Wardrobe module
@@ -186,10 +192,10 @@ _Not raised in the meeting; found while building._
 ## Open questions
 
 1. DECIDED 20 Oct: counts are visible to the owner only, on looks and on profiles (fits BNG SRS 001).
-2. What do we call a user's link to their own salon, shop or designer ("connections", "my circle", …)?
-3. Quote on private looks: show it greyed out with a hint, or allow quoting to friends?
-4. Post vs Share: keep both with clearer names, or merge them into one flow?
-5. Payoff line: "G for God" or "Look for God"?
+2. DECIDED 20 Oct: "My Circle".
+3. DECIDED 20 Oct: Repost and Quote always shown; a private look asks to be shared first.
+4. DECIDED 20 Oct: keep both, renamed: "Post" (who sees it in the feeds) and "Send to" (salon, shop, designer, WhatsApp, other apps).
+5. DECIDED 20 Oct: "G for Good". Needs new logo artwork with the line.
 6. DECIDED 20 Oct: one large "Create My Fashion Makeover" button that then asks Hairstyle or Outfit & more.
 7. Monetization: what commission rate, and what share goes to influencers?
 8. Delivery: do shops deliver themselves, or does the platform provide or partner for delivery?

@@ -9,6 +9,45 @@ import 'share_audience_sheet.dart';
 
 const int _maxQuoteLength = 280;
 
+/// Repost and Quote are always offered (October 2026 review, P-8). Only a
+/// shared look can be passed on, so on a private one this asks the owner to
+/// share it first. Returns true when [post] is shared and the action can go
+/// on.
+Future<bool> ensureLookShared(
+  BuildContext context,
+  Post post, {
+  required Future<void> Function(PostVisibility audience) share,
+}) async {
+  if (post.isShared) return true;
+  final shareFirst = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      key: const ValueKey('share_first_dialog'),
+      title: const Text('Share this look first?'),
+      content: const Text(
+        'This look is private. Share it with friends, followers or everyone, '
+        'then you can repost or quote it.',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext, false),
+          child: const Text('Not now'),
+        ),
+        FilledButton(
+          key: const ValueKey('share_first_confirm'),
+          onPressed: () => Navigator.pop(dialogContext, true),
+          child: const Text('Share'),
+        ),
+      ],
+    ),
+  );
+  if (shareFirst != true || !context.mounted) return false;
+  final audience = await showShareAudienceSheet(context);
+  if (audience == null || audience == PostVisibility.private) return false;
+  await share(audience);
+  return true;
+}
+
 /// Reposts [post] after asking who should see it.
 Future<void> repostLook(
   BuildContext context,

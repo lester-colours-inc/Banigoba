@@ -1,43 +1,34 @@
-// Forwards a look anywhere: inside Banigoba to a hair salon, shop, designer,
-// the community or friends, or outside it to WhatsApp and any other app on
-// the phone.
+// "Send to": passes a look to someone specific: inside Banigoba a hair
+// salon, shop or designer; outside it WhatsApp or any other app.
+//
+// Who sees a look in the feeds is a separate action, "Post" (share audience
+// sheet). The two used to overlap here; the October 2026 review (P-4) kept
+// both and separated them.
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../../data/models/post.dart';
 import '../../data/services/shop_chat_service.dart';
 import '../screens/shop/shop_chat_page.dart';
 import 'forward_recipient_sheet.dart';
 
-enum ForwardDestination {
-  salon,
-  shop,
-  designer,
-  community,
-  friends,
-  whatsapp,
-  otherApps,
-}
+enum ForwardDestination { salon, shop, designer, whatsapp, otherApps }
+
+/// The label for this action everywhere it appears.
+const String kSendToLabel = 'Send to';
 
 const _shareSignature = 'Styled on Banigoba';
 
-/// Opens the Forward sheet for a look and carries out the chosen forward.
-///
-/// [onShareToAudience] changes who can see the post; pass it only when the
-/// current user owns the look; otherwise Community and Friends are shown
-/// but disabled, since only the owner decides who sees their look.
+/// Opens the Send to sheet for a look and carries out the chosen send.
 Future<void> showForwardLookSheet(
   BuildContext context, {
   required String imageUrl,
   String caption = '',
-  PostVisibility visibility = PostVisibility.private,
-  Future<void> Function(PostVisibility audience)? onShareToAudience,
 }) async {
   if (imageUrl.trim().isEmpty) {
-    _showMessage(context, 'This look has no picture to forward.');
+    _showMessage(context, 'This look has no picture to send.');
     return;
   }
 
@@ -45,10 +36,7 @@ Future<void> showForwardLookSheet(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
-    builder: (_) => _ForwardLookSheet(
-      canShareToAudience: onShareToAudience != null,
-      visibility: visibility,
-    ),
+    builder: (_) => const _ForwardLookSheet(),
   );
   if (destination == null || !context.mounted) return;
 
@@ -74,10 +62,6 @@ Future<void> showForwardLookSheet(
         imageUrl: imageUrl,
         caption: caption,
       );
-    case ForwardDestination.community:
-      await onShareToAudience?.call(PostVisibility.public);
-    case ForwardDestination.friends:
-      await onShareToAudience?.call(PostVisibility.friends);
     case ForwardDestination.whatsapp:
       await _forwardToWhatsapp(context, imageUrl: imageUrl, caption: caption);
     case ForwardDestination.otherApps:
@@ -235,27 +219,10 @@ Future<void> _forwardToOtherApps(
 }
 
 class _ForwardLookSheet extends StatelessWidget {
-  const _ForwardLookSheet({
-    required this.canShareToAudience,
-    required this.visibility,
-  });
-
-  final bool canShareToAudience;
-  final PostVisibility visibility;
+  const _ForwardLookSheet();
 
   @override
   Widget build(BuildContext context) {
-    final communityNote = !canShareToAudience
-        ? 'Only the owner can share this look with the community.'
-        : visibility == PostVisibility.public
-        ? 'Already shared with the community.'
-        : 'Everyone on Banigoba can see it.';
-    final friendsNote = !canShareToAudience
-        ? 'Only the owner can share this look with friends.'
-        : visibility != PostVisibility.private
-        ? 'Your friends can already see it.'
-        : 'Only your friends can see it.';
-
     return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
@@ -263,7 +230,7 @@ class _ForwardLookSheet extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const _SectionLabel('Forward look', isTitle: true),
+            const _SectionLabel(kSendToLabel, isTitle: true),
             const _SectionLabel('In Banigoba'),
             const _DestinationTile(
               destination: ForwardDestination.salon,
@@ -282,22 +249,6 @@ class _ForwardLookSheet extends StatelessWidget {
               icon: Icons.design_services_outlined,
               title: 'Designer',
               subtitle: 'Have a designer make something like it.',
-            ),
-            _DestinationTile(
-              destination: ForwardDestination.community,
-              icon: Icons.public,
-              title: 'Community',
-              subtitle: communityNote,
-              enabled:
-                  canShareToAudience && visibility != PostVisibility.public,
-            ),
-            _DestinationTile(
-              destination: ForwardDestination.friends,
-              icon: Icons.people_alt_outlined,
-              title: 'Friends',
-              subtitle: friendsNote,
-              enabled:
-                  canShareToAudience && visibility == PostVisibility.private,
             ),
             const _SectionLabel('Other apps'),
             const _DestinationTile(
@@ -353,7 +304,6 @@ class _DestinationTile extends StatelessWidget {
     required this.title,
     required this.subtitle,
     this.iconColor,
-    this.enabled = true,
   });
 
   final ForwardDestination destination;
@@ -361,14 +311,12 @@ class _DestinationTile extends StatelessWidget {
   final String title;
   final String subtitle;
   final Color? iconColor;
-  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
     return ListTile(
       key: ValueKey('forward_${destination.name}'),
-      enabled: enabled,
-      leading: Icon(icon, color: enabled ? iconColor : null),
+      leading: Icon(icon, color: iconColor),
       title: Text(title),
       subtitle: Text(subtitle),
       onTap: () => Navigator.pop(context, destination),
