@@ -8,6 +8,7 @@ import '../../core/main_tab.dart';
 import '../screens/main/daily_dress_up_page.dart';
 import '../screens/main/main_screen.dart';
 import '../screens/makeover/makeover_page.dart';
+import '../screens/makeover/makeover_start_sheet.dart';
 import '../screens/makeover/widgets/look_source_picker.dart';
 import '../screens/shop/shop_chat_page.dart';
 import 'app_network_image.dart';
@@ -69,7 +70,9 @@ class AppDrawer extends StatelessWidget {
   void _open(BuildContext context, DrawerDestination destination) {
     switch (destination) {
       case DrawerDestination.makeover:
-        _pushNamed(context, AppRoutes.makeover);
+        // Same first question as the Home button: hairstyle, or outfit.
+        final navigator = Navigator.of(context)..pop();
+        startMakeover(navigator.context);
       case DrawerDestination.wardrobe:
         _selectTab(context, MainTab.wardrobe);
       case DrawerDestination.fashionTwins:

@@ -63,18 +63,22 @@ class AffirmationRow extends StatelessWidget {
 
         return Row(
           children: [
+            // The owner sees nothing until affirmations arrive, then which
+            // ones and, privately, how many (H-4). Others never see a number.
             Expanded(
               child: facets.isEmpty
-                  ? Text(
-                      _isOwner
-                          ? 'No affirmations yet.'
-                          : 'Be the first to affirm this look.',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    )
+                  ? (_isOwner
+                        ? const SizedBox.shrink()
+                        : Text(
+                            'Be the first to affirm this look.',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ))
                   : _buildFacets(context, facets),
             ),
+            if (_isOwner && facets.isNotEmpty)
+              _OwnerTotal(total: privateReceivedTotal(facets)),
             if (!showAction)
               const SizedBox.shrink()
             else if (_isOwner) ...[
@@ -144,6 +148,42 @@ class AffirmationRow extends StatelessWidget {
     );
     if (!sent) return;
     messenger.showSnackBar(const SnackBar(content: Text('Affirmation sent.')));
+  }
+}
+
+/// The number of affirmations the owner's look received; only ever built for
+/// the owner.
+class _OwnerTotal extends StatelessWidget {
+  const _OwnerTotal({required this.total});
+
+  final int total;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Semantics(
+      label: '$total affirmations received. Only you can see this number.',
+      excludeSemantics: true,
+      child: Tooltip(
+        message: 'Only you can see this number',
+        child: Container(
+          key: const ValueKey('affirmation_owner_total'),
+          margin: const EdgeInsets.only(left: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+          decoration: BoxDecoration(
+            color: colors.primaryContainer,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            '$total',
+            style: TextStyle(
+              color: colors.onPrimaryContainer,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

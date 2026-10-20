@@ -114,7 +114,7 @@ class _SearchPageState extends State<SearchPage> {
           Expanded(
             child: TextField(
               decoration: InputDecoration(
-                hintText: 'Search people by name',
+                hintText: 'Search people by name or @username',
                 hintStyle: TextStyle(
                   color: Theme.of(context).colorScheme.outline,
                   fontSize: 16,
@@ -183,7 +183,8 @@ class _SearchPageState extends State<SearchPage> {
       return _buildEmptyState(
         icon: Icons.people_outline,
         title: 'Find people in the community',
-        message: 'Search by name, or type their full email address.',
+        message:
+            'Search by name or @username, or type their full email address.',
       );
     }
 
@@ -282,6 +283,14 @@ class _SearchPageState extends State<SearchPage> {
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
+                            if ((data['username'] ?? '').toString()
+                                case final username when username.isNotEmpty)
+                              Text(
+                                '@$username',
+                                style: TextStyle(
+                                  color: colors.onSurfaceVariant,
+                                ),
+                              ),
                           ],
                         ),
                       ),
@@ -338,7 +347,8 @@ class _SearchPageState extends State<SearchPage> {
   }
 }
 
-/// Whether a user record matches a people search. Names match on any part;
+/// Whether a user record matches a people search. Names and @usernames
+/// match on any part;
 /// an email only on the whole address, so emails stay private and cannot be
 /// fished for (October 2026 review: "you don't want people using people's
 /// emails"). [query] is already trimmed and lower-case.
@@ -348,5 +358,9 @@ bool matchesPersonSearch(Map<String, dynamic> data, String query) {
       .toString()
       .toLowerCase();
   final email = (data['email'] ?? '').toString().trim().toLowerCase();
-  return name.contains(query) || (email.isNotEmpty && email == query);
+  final username = (data['username'] ?? '').toString().toLowerCase();
+  final handle = query.startsWith('@') ? query.substring(1) : query;
+  return name.contains(query) ||
+      (handle.isNotEmpty && username.contains(handle)) ||
+      (email.isNotEmpty && email == query);
 }

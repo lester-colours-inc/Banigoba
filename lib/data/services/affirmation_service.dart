@@ -340,6 +340,12 @@ class AffirmationFacet {
   final int senderCount;
 }
 
+/// How many affirmations a look received in all. A private signal: show it
+/// only to the look's owner, never on public surfaces (BNG SRS 001, AFF-003;
+/// October 2026 review, H-4).
+int privateReceivedTotal(List<AffirmationFacet> facets) =>
+    facets.fold(0, (total, facet) => total + facet.senderCount);
+
 /// Collapses affirmations into distinct expressions, preserving the order in
 /// which each expression was first received.
 List<AffirmationFacet> affirmationFacetsOf(List<Affirmation> affirmations) {

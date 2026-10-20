@@ -29,6 +29,14 @@ service cloud.firestore {
       );
     }
 
+    // A user document carrying no username, or one the user owns in
+    // /usernames after this write.
+    function ownsUsernameIn(data) {
+      return data.get('username', '') == '' ||
+        getAfter(/databases/$(database)/documents/usernames/$(data.username))
+          .data.uid == request.auth.uid;
+    }
+
     // True when an update touches only the given keys.
     function onlyChanges(keys) {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys);
@@ -51,7 +59,15 @@ service cloud.firestore {
       // Profiles are readable by any signed-in user (social feed, follower
       // lists, shop pages all resolve display names from here).
       allow read: if isSignedIn();
-      allow create, update, delete: if isUser(userId);
+      // A username may only be set to one the user holds in /usernames,
+      // written in the same transaction (see UsernameService).
+      allow create: if isUser(userId) && ownsUsernameIn(request.resource.data);
+      allow update: if isUser(userId) && (
+        request.resource.data.get('username', '') ==
+          resource.data.get('username', '') ||
+        ownsUsernameIn(request.resource.data)
+      );
+      allow delete: if isUser(userId);
 
       // Social graph: both sides of a follow write to each other's documents.
       match /followers/{followerId} {
@@ -130,6 +146,22 @@ service cloud.firestore {
     }
 
     // ── posts ──────────────────────────────────────────────────────────────
+
+    // ── usernames (unique @handles) ─────────────────────────────────────────
+    // One document per taken handle, pointing at its owner. Created and
+    // released together with users/{uid}.username, never edited.
+    match /usernames/{name} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() &&
+        request.resource.data.uid == request.auth.uid &&
+        getAfter(/databases/$(database)/documents/users/$(request.auth.uid))
+          .data.get('username', '') == name;
+      allow delete: if isSignedIn() &&
+        resource.data.uid == request.auth.uid &&
+        getAfter(/databases/$(database)/documents/users/$(request.auth.uid))
+          .data.get('username', '') != name;
+      allow update: if false;
+    }
 
     // ── user_products (Smart Wardrobe items) ───────────────────────────────
     // Items a user uploads to their wardrobe. Owners see all of theirs;

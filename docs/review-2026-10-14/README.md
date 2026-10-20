@@ -2,20 +2,22 @@
 
 **Meeting:** App review meeting, 14 October 2026 (full transcript, parts 1–3)  
 **Prepared by:** Lester  
-**Status:** In progress: Tiers 1 and 2 done except G-4. Ran on an Android phone (RMX3840) on 14 October 2026.  
+**Status:** In progress: Tiers 1 and 2 done except G-4. Decisions 1 and 6 built. @usernames live (rules deployed 20 October 2026).  
 **Target:** Next app version by the end of next week (about Friday 23 October 2026)
 
 Tick items off as they ship. Item IDs (e.g. `H-2`) match the Word version (`Banigoba_Review_Checklist.docx`).
 
 Items are ordered easiest and clearest first. The ID prefix shows the app area (H = Home, M = Makeover, W = Wardrobe, …).
 
+_Generated from `tools/checklist.json`; edit that file and run `npm run build` in `tools/`._
+
 ## Contents
 
 - [Principles (apply to all work)](#principles-apply-to-all-work)
 - [Tier 1 — Quick wins](#tier-1-quick-wins) — 17/17 done
 - [Tier 2 — Clear, medium work](#tier-2-clear-medium-work) — 15/16 done
-- [Tier 3 — Needs a decision first](#tier-3-needs-a-decision-first) — 0/13 done
-- [Tier 4 — Bigger features](#tier-4-bigger-features) — 0/23 done
+- [Tier 3 — Needs a decision first](#tier-3-needs-a-decision-first) — 3/13 done
+- [Tier 4 — Bigger features](#tier-4-bigger-features) — 1/23 done
 - [Tier 5 — Backend, research and go-to-market](#tier-5-backend-research-and-go-to-market) — 0/10 done
 - [Issues found while working](#issues-found-while-working)
 - [Open questions](#open-questions)
@@ -109,11 +111,14 @@ _The requirement is clear. These need more than a one-line change._
 _Blocked on an open question at the end of this document. Quick to build once decided._
 
 - [ ] **B-1** Change the payoff line (tagline) to "G for God", tied to the G in the logo. — Branding _(Confirm exact wording)_
-- [ ] **H-4** Remove the "No affirmations yet" text. Show a number instead. — Home — My Fashion Makeover tab _(Open question 1: this clashes with the work plan's "no counters" rule)_
-- [ ] **U-2** Add a way to follow people. "Following" and "Followers" appear on the profile, but nothing lets you follow anyone. — Profile, identity and social graph _(Open question 1 (counts))_
+- [x] **H-4** Remove the "No affirmations yet" text. Show a number instead. — Home — My Fashion Makeover tab _(Open question 1: this clashes with the work plan's "no counters" rule)_
+  - **Progress:** Decided: owner-only count. "No affirmations yet" is gone. The look's owner sees the total; everyone else sees which affirmations were given, never a number (fits BNG SRS 001).
+- [x] **U-2** Add a way to follow people. "Following" and "Followers" appear on the profile, but nothing lets you follow anyone. — Profile, identity and social graph _(Open question 1 (counts))_
+  - **Progress:** Follow already existed on other people's profiles and is now reachable through people search. Follower and following numbers show only to the profile owner; others see the lists without totals.
 - [ ] **P-4** Make Post and Share clearly different, or merge them. Remove the duplication and settle the wording. — Post, save and share
 - [ ] **P-8** Repost and Quote are always visible in the share sheet. Today they only appear after you share to Community. — Post, save and share _(Today quoting is only possible on public looks. Open question 3.)_
-- [ ] **M-1** Starting a makeover offers two choices: "Hairstyle" and "Other" (outfit, shoes, accessories). People think about their hair and face every morning more than about their full outfit. — Makeover generator page _(Open question 6: two buttons or one button that asks)_
+- [x] **M-1** Starting a makeover offers two choices: "Hairstyle" and "Other" (outfit, shoes, accessories). People think about their hair and face every morning more than about their full outfit. — Makeover generator page _(Open question 6: two buttons or one button that asks)_
+  - **Progress:** Decided: one button, then a choice. "Create My Fashion Makeover" (and the menu item) asks Hairstyle or Outfit & more first.
 - [ ] **P-7** New feature: users connect with their own salons, shops and designers. We need a name for this kind of connection. — Post, save and share _(Open question 2)_
 - [ ] **P-6** Share to salon, shop or designer: show a row of the ones you are already connected to above the search box. — Post, save and share
 - [ ] **K-5** Platform commission on every sale, like InDrive (for example $1.00 item + $0.20). — Marketplace, e-fitting room and monetization _(Open question 7 (rates))_
@@ -132,8 +137,10 @@ _Clear, but large: new screens, new data, or migrations._
 - [ ] **F-2** Fashion Idols works the same way: search, follow, and their news comes into your feed. — Fashion Twins, Fashion Idols and Hair Stylists
 - [ ] **F-3** "My Hair Stylists" is a setup page, not a makeover page: follow stylists and salons, and keep the hairstyles you like (uploaded, found online, or your own photos). — Fashion Twins, Fashion Idols and Hair Stylists
 - [ ] **F-4** Do not add new timelines. Hairstyle makeovers and posts go into the existing My Fashion Makeover and My Daily Dress Up feeds. — Fashion Twins, Fashion Idols and Hair Stylists _(Keep the number of feeds small)_
-- [ ] **U-4** Give every user a unique @username, separate from their display name (which does not need to be unique). — Profile, identity and social graph
+- [x] **U-4** Give every user a unique @username, separate from their display name (which does not need to be unique). — Profile, identity and social graph
+  - **Progress:** Built: unique @username (3–20 characters; letters, numbers, dots, underscores), held in a usernames lookup so no two people can have the same one. Anyone without one is asked once, with a suggestion from their name. It shows on profiles and in search, and can be changed in Settings. Database rules deployed 20 October 2026.
 - [ ] **U-5** Stop using email as the public identifier. Use a private ID as the key and the username for display. — Profile, identity and social graph _(Backend migration, privacy)_
+  - **Progress:** Emails are no longer shown or searchable publicly, and @username is the public handle. Still to do: email is stored on the public user record, so it can be read through the API. Moving it to a private record goes with I-2.
 - [ ] **W-2** The wardrobe holds my clothes, the shops I am connected to and the designers I am connected to. — Smart Wardrobe module
 - [ ] **W-3** Add item: take a photo of the piece, and the app detects the colour. Do not ask for colour by hand. — Smart Wardrobe module
 - [ ] **W-6** Saved items and looks can be put into categories and are interactive. They should not feel dead. — Smart Wardrobe module
@@ -169,8 +176,8 @@ _Open-ended. Needs design or research before building._
 
 _Not raised in the meeting; found while building._
 
-- [ ] **I-1** Smart Wardrobe items are stored in a top-level user_products collection, but firestore.rules only covered users/{uid}/user_products. On the phone, My Clothes fails with PERMISSION_DENIED and new uploads are refused. _(Fixed locally; needs deploying)_
-  - **Action:** A user_products rule was added to firestore.rules: owners read all their items, others only public ones, and only the owner can write. Deploy with: firebase deploy --only firestore:rules
+- [x] **I-1** Smart Wardrobe items are stored in a top-level user_products collection, but firestore.rules only covered users/{uid}/user_products. On the phone, My Clothes fails with PERMISSION_DENIED and new uploads are refused. _(Fixed and deployed (20 October 2026))_
+  - **Action:** A user_products rule was added and deployed: owners read all their items, others only public ones, and only the owner can write.
 - [ ] **I-2** Any signed-in user can read every post, including private and friends-only ones. The app only hides them on the phone. _(Open (separate task created))_
   - **Action:** Tighten the posts read rule and switch the feeds to queries the rule can check.
 - [x] **I-3** People search showed everyone's email address and matched partial emails, and other people's profiles showed their email. _(Fixed)_
@@ -178,12 +185,12 @@ _Not raised in the meeting; found while building._
 
 ## Open questions
 
-1. Counts: the meeting asked for a number in place of "No affirmations yet", and Following/Followers appear on the profile. The work plan (24 September) says no like, view or follower counts anywhere. Which rule wins?
+1. DECIDED 20 Oct: counts are visible to the owner only, on looks and on profiles (fits BNG SRS 001).
 2. What do we call a user's link to their own salon, shop or designer ("connections", "my circle", …)?
 3. Quote on private looks: show it greyed out with a hint, or allow quoting to friends?
 4. Post vs Share: keep both with clearer names, or merge them into one flow?
 5. Payoff line: "G for God" or "Look for God"?
-6. Makeover entry: two floating buttons (Hairstyle and Other), or one large "Create My Fashion Makeover" button that then asks which one?
+6. DECIDED 20 Oct: one large "Create My Fashion Makeover" button that then asks Hairstyle or Outfit & more.
 7. Monetization: what commission rate, and what share goes to influencers?
 8. Delivery: do shops deliver themselves, or does the platform provide or partner for delivery?
 9. Content engine: what are the copyright and licensing rules for reposting fashion photos found online? We may need to link to the source, or use only licensed content.

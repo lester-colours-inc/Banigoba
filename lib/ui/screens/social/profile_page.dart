@@ -56,6 +56,7 @@ class ProfilePage extends StatelessWidget {
         final userData = snapshot.data!.data() as Map<String, dynamic>;
         final userName = userData['displayName'] ?? 'User';
         final userEmail = userData['email'] ?? '';
+        final username = (userData['username'] ?? '').toString();
         final profileImageUrl =
             (userData['profileImageURL'] ?? userData['profileImageUrl'] ?? '')
                 .toString();
@@ -157,6 +158,15 @@ class ProfilePage extends StatelessWidget {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
+                    if (username.isNotEmpty)
+                      Text(
+                        '@$username',
+                        key: const ValueKey('profile_username'),
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     // Your email is shown to you only, never to others.
                     if (isMe)
                       Text(userEmail, style: TextStyle(color: Colors.grey)),
@@ -213,6 +223,7 @@ class ProfilePage extends StatelessWidget {
                           targetUserId,
                           'followers',
                           canSeeContent,
+                          showTotal: isMe,
                         ),
                         _buildStatColumn(
                           context,
@@ -221,6 +232,7 @@ class ProfilePage extends StatelessWidget {
                           targetUserId,
                           'following',
                           canSeeContent,
+                          showTotal: isMe,
                         ),
                       ],
                     ),
@@ -675,8 +687,9 @@ class ProfilePage extends StatelessWidget {
     Stream<int> stream,
     String userId,
     String type,
-    bool canSee,
-  ) {
+    bool canSee, {
+    required bool showTotal,
+  }) {
     return GestureDetector(
       onTap: () {
         if (canSee) {
@@ -695,21 +708,35 @@ class ProfilePage extends StatelessWidget {
           );
         }
       },
-      child: StreamBuilder<int>(
-        stream: stream,
-        builder: (context, snapshot) {
-          final count = snapshot.data ?? 0;
-          return Column(
-            children: [
-              Text(
-                count.toString(),
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              Text(label, style: TextStyle(color: Colors.grey)),
-            ],
-          );
-        },
-      ),
+      // Totals are a private signal: only the profile's owner sees their
+      // numbers (BNG SRS 001; October 2026 review, U-2). Others get the
+      // list, without a number.
+      child: showTotal
+          ? StreamBuilder<int>(
+              stream: stream,
+              builder: (context, snapshot) {
+                final count = snapshot.data ?? 0;
+                return Column(
+                  children: [
+                    Text(
+                      count.toString(),
+                      key: ValueKey('profile_${type}_total'),
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(label, style: TextStyle(color: Colors.grey)),
+                  ],
+                );
+              },
+            )
+          : Column(
+              children: [
+                const Icon(Icons.people_outline),
+                Text(label, style: TextStyle(color: Colors.grey)),
+              ],
+            ),
     );
   }
 }

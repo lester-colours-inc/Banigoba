@@ -908,9 +908,7 @@ class _AgentSummary {
     final type = (profile['type'] ?? 'hair').toString() == 'clothes'
         ? 'clothes'
         : 'hair';
-    final name =
-        (profile['name'] ?? data['displayName'] ?? data['email'] ?? 'Agent')
-            .toString();
+    final name = (profile['name'] ?? data['displayName'] ?? 'Agent').toString();
     final avatar =
         (profile['avatarUrl'] ??
                 data['profileImageURL'] ??

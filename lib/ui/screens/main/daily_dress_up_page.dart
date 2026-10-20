@@ -49,6 +49,7 @@ import '../../widgets/repost_actions.dart';
 import '../../widgets/share_audience_sheet.dart';
 import '../../widgets/try_on_product_picker.dart';
 import '../makeover/makeover_page.dart';
+import '../makeover/makeover_start_sheet.dart';
 import 'widgets/daily_dress_up_feed.dart';
 import '../../widgets/app_network_image.dart';
 import '../../widgets/menu_or_back_button.dart';
@@ -980,7 +981,7 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
       ),
       floatingActionButton: MakeoverFab(
         color: primaryColor,
-        onPressed: () => Navigator.pushNamed(context, AppRoutes.makeover),
+        onPressed: () => startMakeover(context),
       ),
     );
   }

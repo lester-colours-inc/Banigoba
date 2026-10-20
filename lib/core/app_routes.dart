@@ -33,6 +33,8 @@ import '../ui/widgets/brand_splash.dart';
 import '../data/services/permissions_service.dart';
 import '../data/services/style_preferences_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../data/services/username_service.dart';
+import '../ui/screens/onboarding/username_screen.dart';
 
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
@@ -252,6 +254,20 @@ class _AuthGateState extends State<AuthGate> {
                   }
                   if (userData['sellerMode'] == true) {
                     return _afterSplash(const SellerDashboardPage());
+                  }
+                  // Everyone needs a unique @username (U-4). New and existing
+                  // users get one suggested from their name to confirm.
+                  if ((userData['username'] ?? '').toString().isEmpty) {
+                    final usernames = UsernameService();
+                    final name = (userData['displayName'] ?? '').toString();
+                    return _afterSplash(
+                      UsernameScreen(
+                        suggest: () => usernames.firstAvailableSuggestion(name),
+                        isAvailable: usernames.isAvailable,
+                        onClaim: (username) =>
+                            usernames.claim(userId: user.uid, input: username),
+                      ),
+                    );
                   }
                   // Asked once, after the account exists; the user document
                   // stream rebuilds into Home as soon as it is answered or
