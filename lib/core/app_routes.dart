@@ -7,8 +7,6 @@ import 'package:flutter/material.dart';
 import '../ui/screens/main/main_screen.dart';
 import '../ui/screens/main/notifications_page.dart';
 import '../ui/screens/main/daily_dress_up_page.dart';
-import '../ui/screens/main/my_fashion_style_page.dart';
-import '../ui/screens/main/hair_style_page.dart';
 import '../ui/screens/wardrobe/wardrobe_page.dart';
 import '../ui/screens/shop/cart_page.dart';
 import '../ui/screens/main/search_page.dart';
@@ -343,8 +341,6 @@ class AppRoutes {
   // coordinated makeover journey. They stay routable because they also host
   // the shop try-on picker and the hairstyle catalogue.
   static const String dailyDressUp = '/daily-dress-up';
-  static const String myFashionStyle = '/my-fashion-style';
-  static const String hairStyle = '/hair-style';
 
   static Map<String, WidgetBuilder> routes = {
     root: (context) => const AuthGate(),
@@ -366,8 +362,6 @@ class AppRoutes {
     makeover: (context) => const MakeoverPage(),
     makeoverWithItems: (context) => const CreateMakeoverPage(),
     dailyDressUp: (context) => const DailyDressUpPage(),
-    myFashionStyle: (context) => const MyFashionStylePage(),
-    hairStyle: (context) => const HairStylePage(),
   };
 }
 

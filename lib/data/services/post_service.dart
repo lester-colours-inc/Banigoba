@@ -276,21 +276,6 @@ class PostService {
         .toList();
   }
 
-  /// Public looks, newest first: the only posts anyone may list without
-  /// following the author (see firestore.rules, canReadPost).
-  Stream<List<Post>> watchPublicPosts({int limit = 100}) {
-    return _db
-        .collection('posts')
-        .where('visibility', isEqualTo: PostVisibility.public.value)
-        .limit(limit)
-        .snapshots()
-        .map(
-          (snapshot) =>
-              snapshot.docs.map(Post.fromFirestore).toList()
-                ..sort((a, b) => b.createdAt.compareTo(a.createdAt)),
-        );
-  }
-
   /// Adds a comment to a post
   Future<void> addComment({
     required String postId,

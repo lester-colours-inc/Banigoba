@@ -253,6 +253,25 @@ class AffirmationService {
         );
   }
 
+  /// Ids of the posts the signed-in user has affirmed, for "Looks I
+  /// affirmed" in the look-you-love picker (M-10).
+  Stream<Set<String>> watchAffirmedPostIds() {
+    final senderId = _currentUserId;
+    if (senderId.isEmpty) return Stream.value(const <String>{});
+    return _affirmations
+        .where('senderId', isEqualTo: senderId)
+        .where('targetType', isEqualTo: AffirmationTargetType.post.id)
+        .snapshots()
+        .map(
+          (snapshot) => {
+            for (final doc in snapshot.docs)
+              if ((doc.data()['targetId'] ?? '').toString() case final id
+                  when id.isNotEmpty)
+                id,
+          },
+        );
+  }
+
   /// Private summary for the recipient's own eyes.
   ///
   /// Permitted by the spec as a private, purpose-specific signal. Must never

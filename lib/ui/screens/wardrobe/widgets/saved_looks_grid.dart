@@ -5,6 +5,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import '../../../../data/models/wear_tracking.dart';
 import '../../../../data/services/outfit_service.dart';
 import '../../../widgets/app_network_image.dart';
 import '../../../widgets/look_viewer_page.dart';
@@ -23,6 +24,8 @@ class SavedLooksGrid extends StatefulWidget {
 }
 
 class _SavedLooksGridState extends State<SavedLooksGrid> {
+  late final Stream<QuerySnapshot<Map<String, dynamic>>> _wear =
+      (widget.outfits ?? OutfitService()).watchWearHistory(widget.userId);
   late final Stream<QuerySnapshot<Map<String, dynamic>>> _looks =
       (widget.outfits ?? OutfitService()).watchSavedOutfits(widget.userId);
 
@@ -31,6 +34,18 @@ class _SavedLooksGridState extends State<SavedLooksGrid> {
     if (widget.userId.isEmpty) {
       return const _Message('Sign in to see the looks you have saved.');
     }
+    // When each look was last worn (W-7), from "Wear today".
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: _wear,
+      builder: (context, wearSnapshot) => _buildLooks(
+        lastWornByOutfit(
+          (wearSnapshot.data?.docs ?? const []).map((doc) => doc.data()),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLooks(Map<String, DateTime> lastWorn) {
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
       stream: _looks,
       builder: (context, snapshot) {
@@ -41,7 +56,7 @@ class _SavedLooksGridState extends State<SavedLooksGrid> {
           return const Center(child: CircularProgressIndicator());
         }
         final groups = groupLooksByCategory(
-          snapshot.data!.docs.map((doc) => doc.data()),
+          snapshot.data!.docs.map((doc) => {...doc.data(), 'id': doc.id}),
         );
         if (groups.isEmpty) {
           return const _Message(
@@ -72,7 +87,10 @@ class _SavedLooksGridState extends State<SavedLooksGrid> {
                 crossAxisSpacing: 10,
                 mainAxisSpacing: 10,
                 childAspectRatio: 0.75,
-                children: [for (final look in looks) _LookTile(look: look)],
+                children: [
+                  for (final look in looks)
+                    _LookTile(look: look, lastWorn: lastWorn[look['id']]),
+                ],
               ),
             ],
           ],
@@ -119,9 +137,10 @@ DateTime _createdAt(Map<String, dynamic> look) => switch (look['createdAt']) {
 };
 
 class _LookTile extends StatelessWidget {
-  const _LookTile({required this.look});
+  const _LookTile({required this.look, required this.lastWorn});
 
   final Map<String, dynamic> look;
+  final DateTime? lastWorn;
 
   @override
   Widget build(BuildContext context) {
@@ -139,15 +158,60 @@ class _LookTile extends StatelessWidget {
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(12),
-          child: ColoredBox(
-            color: Theme.of(context).colorScheme.surfaceContainerHigh,
-            child: AppNetworkImage(
-              imageUrl,
-              fit: BoxFit.cover,
-              alignment: Alignment.topCenter,
-              fallback: const Icon(Icons.broken_image_outlined),
-            ),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              ColoredBox(
+                color: Theme.of(context).colorScheme.surfaceContainerHigh,
+                child: AppNetworkImage(
+                  imageUrl,
+                  fit: BoxFit.cover,
+                  alignment: Alignment.topCenter,
+                  fallback: const Icon(Icons.broken_image_outlined),
+                ),
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: _WearBadge(
+                  status: wearStatus(
+                    lastWorn: lastWorn,
+                    addedAt: timestampToDate(look['createdAt']),
+                    now: DateTime.now(),
+                  ),
+                ),
+              ),
+            ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// "Worn 3 weeks ago" across the foot of a saved look.
+class _WearBadge extends StatelessWidget {
+  const _WearBadge({required this.status});
+
+  final WearStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      color: status.isNudge
+          ? const Color(0xE6D9822B)
+          : Colors.black.withValues(alpha: 0.55),
+      child: Text(
+        status.label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );

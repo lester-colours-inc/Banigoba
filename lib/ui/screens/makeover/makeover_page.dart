@@ -28,7 +28,6 @@ import '../../../data/models/look_session.dart';
 import '../../../data/models/weather.dart';
 import '../../../data/services/body_profile_service.dart';
 import '../../../data/services/look_generation_service.dart';
-import '../../../data/services/post_service.dart';
 import '../../../data/services/storage_service.dart';
 import '../../../data/services/weather_service.dart';
 import '../../../core/main_tab.dart';
@@ -39,7 +38,7 @@ import '../../widgets/bottom_navigation.dart';
 import '../../widgets/find_pieces_sheet.dart';
 import '../../widgets/save_look_sheet.dart';
 import '../main/main_screen.dart';
-import 'widgets/community_look_picker.dart';
+import 'widgets/look_you_love_picker.dart';
 import 'widgets/look_done_view.dart';
 import 'widgets/look_source_picker.dart';
 import 'widgets/look_step_view.dart';
@@ -266,10 +265,7 @@ class _MakeoverPageState extends State<MakeoverPage> {
   }
 
   Future<void> _pickTwinFromCommunity() async {
-    final url = await showCommunityLookPicker(
-      context,
-      posts: PostService().watchPublicPosts(),
-    );
+    final url = await showLookYouLovePicker(context);
     if (url == null || !mounted) return;
     setState(() => _twinUrl = url);
   }

@@ -469,6 +469,14 @@ class ProductService {
         .snapshots();
   }
 
+  /// Records that the owner wore this wardrobe item today (W-7).
+  Future<void> markUserProductWorn(String userProductId) {
+    return _db.collection('user_products').doc(userProductId).update({
+      'lastWornAt': FieldValue.serverTimestamp(),
+      'wearCount': FieldValue.increment(1),
+    });
+  }
+
   /// Delete a user's uploaded product from both 'user_products' and their wardrobe tracker
   Future<void> deleteUserProduct(String userId, String userProductId) async {
     // 1. Delete from community/global user_products list

@@ -2,7 +2,7 @@
   "title": "Banigoba — App Review Checklist",
   "meeting": "App review meeting, 14 October 2026 (full transcript, parts 1–3)",
   "preparedBy": "Lester",
-  "status": "In progress: Tiers 1 and 2 done except G-4. Tier 3: 7 of 13. Fashion Twins, Idols and Hair Stylists pages built. Privacy and admin fixes are built and tested; their rules deploy with Friday's release.",
+  "status": "In progress: Tiers 1 and 2 done except G-4. Tier 3: 7 of 13. Before-Friday items done. Privacy and admin fixes are built and tested; their rules deploy with Friday's release.",
   "target": "Next app version by the end of next week (about Friday 23 October 2026)",
   "tiers": [
     {
@@ -430,16 +430,16 @@
           "text": "Bookmark categories, like Facebook's saved collections (for example \"Weddings\"). The same categories are used in the \"look you love\" picker.",
           "area": "Post, save and share",
           "note": "",
-          "done": false,
-          "progress": ""
+          "done": true,
+          "progress": "Saved looks already carry the category chosen when saving (P-3); they can now be browsed by category in Smart Wardrobe › Saved Looks and in the look picker."
         },
         {
           "id": "M-10",
           "text": "\"See a look you love\" picker: add search plus filters for liked, bookmarked, bookmark categories, trending, style idols and people you follow. Show people you follow first.",
           "area": "Makeover generator page",
           "note": "",
-          "done": false,
-          "progress": ""
+          "done": true,
+          "progress": "\"Find a look you love\" picker: Following (first), Fashion Twins, Saved (by category), Affirmed and Community, with search by words, category, name or @username. Still to do: Trending and Style idols sources, which need the content engine (E-2)."
         },
         {
           "id": "F-1",
@@ -471,7 +471,7 @@
           "area": "Fashion Twins, Fashion Idols and Hair Stylists",
           "note": "Keep the number of feeds small",
           "done": true,
-          "progress": "The menu no longer opens the old hair flow with its own Mine/Friends/Community timeline. Hair makeovers go through the main makeover and appear in the normal feeds. The old hair page code is still in the app, unused, and can be deleted."
+          "progress": "The menu no longer opens the old hair flow. Its code (and the unreachable My Fashion Style page) has been deleted, about 5,400 lines; the curators' hairstyle catalogue upload moved to the admin area. Hair makeovers go through the main makeover and appear in the normal feeds. Hair looks saved in the old flow are still in the database but no longer shown."
         },
         {
           "id": "U-4",
@@ -518,8 +518,8 @@
           "text": "Track wear: for example \"You haven't worn this shirt in 10 months\".",
           "area": "Smart Wardrobe module",
           "note": "",
-          "done": false,
-          "progress": ""
+          "done": true,
+          "progress": "Clothes in My Clothes have \"I wore this today\" and show \"Worn 3 weeks ago\" / \"Not worn in 10 months\" (highlighted after 6 months, or when never worn after a month). Saved Looks show when each was last worn, from \"Wear today\"."
         },
         {
           "id": "D-4",

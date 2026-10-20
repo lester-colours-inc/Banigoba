@@ -490,8 +490,8 @@ class _TwinPanel extends StatelessWidget {
               Text(
                 hasLook
                     ? "We'll copy this look onto you, one item at a time."
-                    : 'Copy it onto yourself: pick one from the community or '
-                          'your photos.',
+                    : 'Copy it onto yourself: find one from people you '
+                          'follow, your saved looks, or your photos.',
                 style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13),
               ),
               const SizedBox(height: 10),
@@ -501,8 +501,8 @@ class _TwinPanel extends StatelessWidget {
                 children: [
                   MakeoverPill(
                     key: const ValueKey('look_twin_community'),
-                    icon: Icons.explore_outlined,
-                    label: 'Community',
+                    icon: Icons.favorite_border,
+                    label: 'Find a look',
                     selected: false,
                     onTap: canPick ? state.onPickFromCommunity : null,
                   ),

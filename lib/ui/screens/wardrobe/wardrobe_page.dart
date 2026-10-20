@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/app_routes.dart';
 import '../../../data/models/body_profile.dart';
 import '../../../data/models/piece_details.dart';
+import '../../../data/models/wear_tracking.dart';
 import '../../../data/services/product_service.dart';
 import '../../../data/services/notification_service.dart';
 import '../../widgets/cart_badge_button.dart';
@@ -37,6 +38,9 @@ class _WardrobePageState extends State<WardrobePage> {
   late int _selectedTabIndex = widget.initialTab.index;
   final ImagePicker _picker = ImagePicker();
   static Color primaryColor = Color(0xFF0D0140);
+
+  /// Draws the eye to pieces that have gone unworn a long time.
+  static const Color _nudgeColor = Color(0xFFD9822B);
 
   @override
   Widget build(BuildContext context) {
@@ -292,7 +296,7 @@ class _WardrobePageState extends State<WardrobePage> {
               physics: NeverScrollableScrollPhysics(),
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
-                childAspectRatio: 0.72,
+                childAspectRatio: 0.64,
                 crossAxisSpacing: 20,
                 mainAxisSpacing: 20,
               ),
@@ -450,6 +454,7 @@ class _WardrobePageState extends State<WardrobePage> {
                     )
                   else
                     _buildColorSubtitle(data),
+                  if (uploaderId == _currentUserId) _buildWearRow(data),
                 ],
               ),
             ),
@@ -457,6 +462,58 @@ class _WardrobePageState extends State<WardrobePage> {
         ),
       ),
     );
+  }
+
+  /// "Worn 3 weeks ago" / "Not worn in 10 months", and a tap to record
+  /// wearing it today (W-7).
+  Widget _buildWearRow(Map<String, dynamic> data) {
+    final status = wearStatus(
+      lastWorn: timestampToDate(data['lastWornAt']),
+      addedAt: timestampToDate(data['createdAt']),
+      now: DateTime.now(),
+    );
+    final colors = Theme.of(context).colorScheme;
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            status.label,
+            key: ValueKey('wear_status_${data['id']}'),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: status.isNudge ? FontWeight.w700 : FontWeight.w500,
+              color: status.isNudge ? _nudgeColor : colors.onSurfaceVariant,
+            ),
+          ),
+        ),
+        IconButton(
+          key: ValueKey('wore_today_${data['id']}'),
+          tooltip: 'I wore this today',
+          visualDensity: VisualDensity.compact,
+          iconSize: 20,
+          onPressed: status.label == 'Worn today'
+              ? null
+              : () => _markWorn(data['id'].toString()),
+          icon: const Icon(Icons.check_circle_outline),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _markWorn(String itemId) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await _productService.markUserProductWorn(itemId);
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Noted: worn today.')),
+      );
+    } on FirebaseException catch (error) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('Could not save that: ${error.message}')),
+      );
+    }
   }
 
   /// Helper to build the color subtitle for a product card
