@@ -259,7 +259,7 @@ class _MakeoverPageState extends State<MakeoverPage> {
   Future<void> _pickTwinFromCommunity() async {
     final url = await showCommunityLookPicker(
       context,
-      posts: PostService().getPosts(),
+      posts: PostService().watchPublicPosts(),
     );
     if (url == null || !mounted) return;
     setState(() => _twinUrl = url);

@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../data/models/post.dart';
 import '../../../../data/services/friend_service.dart';
-import '../../../../data/services/post_service.dart';
+import '../../../../data/services/visible_posts.dart';
 import '../../../widgets/app_network_image.dart';
 import '../../../widgets/look_viewer_page.dart';
 
@@ -44,7 +44,12 @@ class FriendsDressUps extends StatefulWidget {
 
 class _FriendsDressUpsState extends State<FriendsDressUps> {
   final FriendService _friendService = FriendService();
-  late final Stream<List<Post>> _posts = PostService().getPosts();
+  // Only posts this viewer may see (the rules enforce it).
+  late final Stream<List<Post>> _posts = watchVisiblePosts(
+    viewerId: widget.viewerId,
+    following: _friendService.getFollowingIds(),
+    friends: _friendService.getMutualFriendsIds(),
+  );
   late final Stream<List<String>> _following = _friendService.getFollowingIds();
   late final Stream<List<String>> _friends = _friendService
       .getMutualFriendsIds();

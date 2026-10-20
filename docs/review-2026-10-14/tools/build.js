@@ -30,7 +30,9 @@ data.tiers.forEach((t) => {
   const done = t.items.filter((i) => i.done).length;
   md.push(`- [${t.name}](#${slug(t.name)})${isPrinciples(t) ? '' : ` — ${done}/${t.items.length} done`}`);
 });
-md.push('- [Issues found while working](#issues-found-while-working)', '- [Open questions](#open-questions)', '');
+md.push('- [Issues found while working](#issues-found-while-working)');
+if (data.releaseSteps?.length) md.push('- [Release day (Friday)](#release-day-friday)');
+md.push('- [Open questions](#open-questions)', '');
 data.tiers.forEach((t) => {
   md.push(`## ${t.name}`, '', `_${t.blurb}_`, '');
   t.items.forEach((i) => {
@@ -44,6 +46,10 @@ data.findings.forEach((f) => {
   md.push(`- [${findingDone(f) ? 'x' : ' '}] **${f.id}** ${f.text} _(${f.status})_`);
   md.push(`  - **Action:** ${f.action}`);
 });
+if (data.releaseSteps?.length) {
+  md.push('', '## Release day (Friday)', '');
+  data.releaseSteps.forEach((step, i) => md.push(`${i + 1}. ${step}`));
+}
 md.push('', '## Open questions', '');
 data.openQuestions.forEach((q, i) => md.push(`${i + 1}. ${q}`));
 md.push('');
@@ -98,6 +104,10 @@ data.tiers.forEach((t) => {
 });
 children.push(h1('Issues found while working'), blurb('Not raised in the meeting; found while building.'),
   table(['Done', 'ID', 'Issue', 'Status · Action'], data.findings.map((f) => row(findingDone(f), f.id, f.text, `${f.status} · ${f.action}`))));
+if (data.releaseSteps?.length) {
+  children.push(h1('Release day (Friday)'));
+  data.releaseSteps.forEach((step) => children.push(new Paragraph({ numbering: { reference: 'r', level: 0 }, children: [new TextRun(step)] })));
+}
 children.push(h1('Open questions'));
 data.openQuestions.forEach((q) => children.push(new Paragraph({ numbering: { reference: 'q', level: 0 }, children: [new TextRun(q)] })));
 
@@ -110,8 +120,8 @@ const doc = new Document({
         run: { size: 26, bold: true, color: NAVY }, paragraph: { spacing: { before: 320, after: 120 }, outlineLevel: 0 } },
     ],
   },
-  numbering: { config: [{ reference: 'q', levels: [{ level: 0, format: LevelFormat.DECIMAL, text: '%1.', alignment: AlignmentType.LEFT,
-    style: { paragraph: { indent: { left: 500, hanging: 300 }, spacing: { after: 80 } } } }] }] },
+  numbering: { config: ['q', 'r'].map((reference) => ({ reference, levels: [{ level: 0, format: LevelFormat.DECIMAL, text: '%1.', alignment: AlignmentType.LEFT,
+    style: { paragraph: { indent: { left: 500, hanging: 300 }, spacing: { after: 80 } } } }] })) },
   sections: [{ properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 1134, bottom: 1134, left: 1134, right: 1134 } } }, children }],
 });
 Packer.toBuffer(doc).then((buf) => {

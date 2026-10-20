@@ -55,7 +55,11 @@ class ProfilePage extends StatelessWidget {
 
         final userData = snapshot.data!.data() as Map<String, dynamic>;
         final userName = userData['displayName'] ?? 'User';
-        final userEmail = userData['email'] ?? '';
+        // Your own email, from your sign-in; it is not on the public
+        // profile (U-5).
+        final userEmail = isMe
+            ? (FirebaseAuth.instance.currentUser?.email ?? '')
+            : '';
         final username = (userData['username'] ?? '').toString();
         final profileImageUrl =
             (userData['profileImageURL'] ?? userData['profileImageUrl'] ?? '')

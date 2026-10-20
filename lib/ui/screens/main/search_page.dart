@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/app_routes.dart';
+import '../../../data/services/account_privacy_service.dart';
 import '../../widgets/cart_badge_button.dart';
 import '../events/events_page.dart';
 import '../social/profile_page.dart';
@@ -21,6 +22,10 @@ class _SearchPageState extends State<SearchPage> {
   static const Color primaryColor = Color(0xFF0D0140);
 
   String _searchQuery = '';
+
+  /// The user registered for exactly the typed email, looked up by hash
+  /// (U-5); null when the query is not a whole email.
+  Future<String?>? _emailMatch;
   int _selectedTabIndex = 0;
 
   @override
@@ -127,7 +132,13 @@ class _SearchPageState extends State<SearchPage> {
               ),
               textInputAction: TextInputAction.search,
               onChanged: (value) {
-                setState(() => _searchQuery = value.trim().toLowerCase());
+                final query = value.trim().toLowerCase();
+                setState(() {
+                  _searchQuery = query;
+                  _emailMatch = looksLikeEmail(query)
+                      ? AccountPrivacyService().findUserByEmail(query)
+                      : null;
+                });
               },
             ),
           ),
@@ -188,6 +199,14 @@ class _SearchPageState extends State<SearchPage> {
       );
     }
 
+    return FutureBuilder<String?>(
+      future: _emailMatch,
+      builder: (context, emailMatch) =>
+          _buildPeopleResults(emailMatch.data ?? ''),
+    );
+  }
+
+  Widget _buildPeopleResults(String emailMatchId) {
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
       stream: FirebaseFirestore.instance.collection('users').snapshots(),
       builder: (context, snapshot) {
@@ -204,7 +223,8 @@ class _SearchPageState extends State<SearchPage> {
         final people =
             (snapshot.data?.docs ?? []).where((doc) {
               if (doc.id == currentUserId) return false;
-              return matchesPersonSearch(doc.data(), _searchQuery);
+              return doc.id == emailMatchId ||
+                  matchesPersonSearch(doc.data(), _searchQuery);
             }).toList()..sort((a, b) {
               final aName = (a.data()['displayName'] ?? '').toString();
               final bName = (b.data()['displayName'] ?? '').toString();

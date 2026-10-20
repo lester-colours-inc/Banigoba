@@ -7,6 +7,8 @@ import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 
 import 'permissions_service.dart';
 
+import 'account_privacy_service.dart';
+
 class AuthService {
   FirebaseAuth get _auth => FirebaseAuth.instance;
 
@@ -44,13 +46,14 @@ class AuthService {
     await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
       'uid': user.uid,
       'displayName': name,
-      'email': email,
       'stylePreference': 'casual',
       'role': 'user',
       'permissionStatus': PermissionsService.emptyPermissionsSummary,
       'permissionsGranted': false,
       'createdAt': FieldValue.serverTimestamp(),
     });
+    // Private, never on the public profile (U-5).
+    await AccountPrivacyService().secureEmail(userId: user.uid, email: email);
   }
 
   /// Sign in with Google

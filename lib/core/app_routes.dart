@@ -33,6 +33,7 @@ import '../ui/widgets/brand_splash.dart';
 import '../data/services/permissions_service.dart';
 import '../data/services/style_preferences_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../data/services/account_privacy_service.dart';
 import '../data/services/username_service.dart';
 import '../ui/screens/onboarding/username_screen.dart';
 
@@ -95,7 +96,6 @@ class _AuthGateState extends State<AuthGate> {
 
     await userRef.set({
       'uid': user.uid,
-      'email': user.email,
       'displayName': user.displayName ?? (user.email?.split('@')[0] ?? 'User'),
       if (data == null || !data.containsKey('stylePreference'))
         'stylePreference': 'casual',
@@ -105,6 +105,16 @@ class _AuthGateState extends State<AuthGate> {
         'permissionStatus': PermissionsService.emptyPermissionsSummary,
       'lastSeen': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+    // The email stays off the public profile (U-5). Moving it must never
+    // block signing in, so a failure is only logged.
+    try {
+      await AccountPrivacyService().secureEmail(
+        userId: user.uid,
+        email: user.email ?? '',
+      );
+    } on FirebaseException catch (error) {
+      debugPrint('Unable to secure email: ${error.code}');
+    }
   }
 
   Future<_PermissionGateState> _checkUserPermissions(User user) async {

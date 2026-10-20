@@ -30,6 +30,7 @@ dependencies:
   cached_network_image: ^4.0.2
   audioplayers: ^6.8.1
   share_plus: ^13.3.1
+  crypto: ^3.0.7
 
 dev_dependencies:
   flutter_test:

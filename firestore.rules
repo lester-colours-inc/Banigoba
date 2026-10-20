@@ -37,6 +37,37 @@ service cloud.firestore {
           .data.uid == request.auth.uid;
     }
 
+    // Admins are set by the admin SDK only: users can never grant
+    // themselves isAdmin or role (see /users rules).
+    function isAdmin() {
+      let me = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return isSignedIn() &&
+        (me.get('isAdmin', false) == true || me.get('role', '') == 'admin');
+    }
+
+    // Fields only an admin (or the admin SDK) may set on a user record:
+    // admin rights, and the verified badges on shop, designer and agent
+    // profiles that the marketplace trusts.
+    function verifiedFlagsOf(data) {
+      return [
+        data.get('shop', {}).get('verified', false),
+        data.get('designerProfile', {}).get('verified', false),
+        data.get('agentProfile', {}).get('verified', false)
+      ];
+    }
+
+    function grantsNoPrivileges(data) {
+      return data.get('isAdmin', false) == false &&
+        data.get('role', 'user') == 'user' &&
+        verifiedFlagsOf(data) == [false, false, false];
+    }
+
+    function keepsPrivileges(after, before) {
+      return after.get('isAdmin', false) == before.get('isAdmin', false) &&
+        after.get('role', 'user') == before.get('role', 'user') &&
+        verifiedFlagsOf(after) == verifiedFlagsOf(before);
+    }
+
     // True when an update touches only the given keys.
     function onlyChanges(keys) {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys);
@@ -61,12 +92,19 @@ service cloud.firestore {
       allow read: if isSignedIn();
       // A username may only be set to one the user holds in /usernames,
       // written in the same transaction (see UsernameService).
-      allow create: if isUser(userId) && ownsUsernameIn(request.resource.data);
-      allow update: if isUser(userId) && (
-        request.resource.data.get('username', '') ==
-          resource.data.get('username', '') ||
-        ownsUsernameIn(request.resource.data)
-      );
+      allow create: if isUser(userId) &&
+        grantsNoPrivileges(request.resource.data) &&
+        ownsUsernameIn(request.resource.data);
+      allow update: if isUser(userId) &&
+        keepsPrivileges(request.resource.data, resource.data) && (
+          request.resource.data.get('username', '') ==
+            resource.data.get('username', '') ||
+          ownsUsernameIn(request.resource.data)
+        );
+      // Curators verify shops, designers and salons (CuratorsWorkspacePage).
+      allow update: if isAdmin() && !isUser(userId) &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['shop', 'designerProfile', 'agentProfile']);
       allow delete: if isUser(userId);
 
       // Social graph: both sides of a follow write to each other's documents.
@@ -128,7 +166,9 @@ service cloud.firestore {
       // Everything else under a user document is private to that user:
       // wardrobe, cart, fcmTokens, wearHistory, packingLists, eventPlans,
       // ai_makeovers, days.
-      match /{document=**} {
+      // At least one segment below the user, so this never matches (and
+      // never loosens) the user record itself.
+      match /{subcollection}/{document=**} {
         allow read, write: if isUser(userId);
       }
     }
@@ -163,6 +203,18 @@ service cloud.firestore {
       allow update: if false;
     }
 
+    // ── emailLookup (find someone by their full email) ─────────────────────
+    // Keyed by a SHA-256 of the lower-cased email, pointing at the uid. It
+    // can be fetched by exact key (someone who already knows the address)
+    // but never listed, so emails cannot be harvested (U-5).
+    match /emailLookup/{hash} {
+      allow get: if isSignedIn();
+      allow list: if false;
+      allow create, update: if isSignedIn() &&
+        request.resource.data.uid == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.uid == request.auth.uid;
+    }
+
     // ── user_products (Smart Wardrobe items) ───────────────────────────────
     // Items a user uploads to their wardrobe. Owners see all of theirs;
     // others only the ones marked public.
@@ -178,14 +230,51 @@ service cloud.firestore {
       allow delete: if ownsDoc(resource.data);
     }
 
+    // Who may read a post (October 2026 review, I-2): its author; anyone
+    // when public; followers of the author when shared with followers; and
+    // mutual follows (friends) when shared with friends. Feeds must query in
+    // ways these rules can check: own posts by authorId, public posts by
+    // visibility, and per followed author by authorId + visibility.
+    function postAuthorOf(data) {
+      return data.get('authorId', data.get('authorID', ''));
+    }
+
+    function isPublicPost(data) {
+      return data.get('visibility', '') == 'public' ||
+        data.get('isPublic', false) == true;
+    }
+
+    function followsAuthor(author) {
+      return exists(/databases/$(database)/documents/users/$(author)/followers/$(request.auth.uid));
+    }
+
+    function followedByAuthor(author) {
+      return exists(/databases/$(database)/documents/users/$(author)/following/$(request.auth.uid));
+    }
+
+    function canReadPost(data) {
+      let author = postAuthorOf(data);
+      let visibility = data.get('visibility', '');
+      return isSignedIn() && (
+        ownsDoc(data) ||
+        isPublicPost(data) ||
+        (visibility == 'followers' && followsAuthor(author)) ||
+        (visibility == 'friends' && followsAuthor(author) &&
+          followedByAuthor(author))
+      );
+    }
+
     match /posts/{postId} {
-      allow read: if isSignedIn();
+      allow read: if canReadPost(resource.data);
       allow create: if ownsDoc(request.resource.data) && hasNoReactionCounters();
       allow update: if ownsDoc(resource.data) && hasNoReactionCounters();
       allow delete: if ownsDoc(resource.data);
 
+      // Comments are as private as the look they are on.
       match /comments/{commentId} {
-        allow read: if isSignedIn();
+        allow read: if canReadPost(
+          get(/databases/$(database)/documents/posts/$(postId)).data
+        );
         allow create: if ownsDoc(request.resource.data);
         allow update, delete: if ownsDoc(resource.data);
       }

@@ -459,7 +459,6 @@ class _ProfileVerificationList extends StatelessWidget {
     return (profile['name'] ??
             profile['shopName'] ??
             user['displayName'] ??
-            user['email'] ??
             fallback)
         .toString();
   }
@@ -474,7 +473,6 @@ class _ProfileVerificationList extends StatelessWidget {
           profile['location'],
           profile['description'],
           profile['bio'],
-          user['email'],
         ].map((value) => value?.toString().trim() ?? '').where((value) {
           return value.isNotEmpty;
         }).toList();

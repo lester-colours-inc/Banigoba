@@ -276,15 +276,18 @@ class PostService {
         .toList();
   }
 
-  /// Gets a stream of posts
-  Stream<List<Post>> getPosts() {
+  /// Public looks, newest first: the only posts anyone may list without
+  /// following the author (see firestore.rules, canReadPost).
+  Stream<List<Post>> watchPublicPosts({int limit = 100}) {
     return _db
         .collection('posts')
-        .orderBy('createdAt', descending: true)
+        .where('visibility', isEqualTo: PostVisibility.public.value)
+        .limit(limit)
         .snapshots()
         .map(
           (snapshot) =>
-              snapshot.docs.map((doc) => Post.fromFirestore(doc)).toList(),
+              snapshot.docs.map(Post.fromFirestore).toList()
+                ..sort((a, b) => b.createdAt.compareTo(a.createdAt)),
         );
   }
 

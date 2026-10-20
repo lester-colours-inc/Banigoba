@@ -27,6 +27,7 @@ import '../../../data/models/post.dart';
 import '../../../data/services/notification_service.dart';
 import '../../../data/services/outfit_service.dart';
 import '../../../data/services/post_service.dart';
+import '../../../data/services/visible_posts.dart';
 import '../../../data/services/friend_service.dart';
 import '../../../data/services/product_service.dart';
 import '../../../core/app_routes.dart';
@@ -88,6 +89,19 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
     DailyDressUpPage._feedRequests.addListener(_handleFeedRequest);
     final userId = FirebaseAuth.instance.currentUser?.uid;
     if (userId != null) {
+      _visiblePostsSub =
+          watchVisiblePosts(
+            viewerId: userId,
+            following: _friendService.getFollowingIds(),
+            friends: _friendService.getMutualFriendsIds(),
+          ).listen(
+            (posts) {
+              if (mounted) setState(() => _visiblePosts = posts);
+            },
+            onError: (Object error) {
+              if (mounted) setState(() => _postsError = error);
+            },
+          );
       _savedPostsSub = _outfitService.watchSavedPostIds(userId).listen(
         (ids) {
           if (mounted) setState(() => _savedPostIds = ids);
@@ -101,6 +115,7 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
   @override
   void dispose() {
     unawaited(_savedPostsSub?.cancel());
+    unawaited(_visiblePostsSub?.cancel());
     DailyDressUpPage._feedRequests.removeListener(_handleFeedRequest);
     _feeds.dispose();
     super.dispose();
@@ -127,15 +142,15 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final Map<String, Future<_PostAuthor>> _authorProfiles = {};
 
+  // Every post this user may see, for the My Fashion Makeover and Community
+  // feeds (one set of listeners shared by both tabs).
+  StreamSubscription<List<Post>>? _visiblePostsSub;
+  List<Post>? _visiblePosts;
+  Object? _postsError;
+
   // Posts saved to the Smart Wardrobe, so the save icon can show as on.
   StreamSubscription<Set<String>>? _savedPostsSub;
   Set<String> _savedPostIds = const {};
-
-  // Held once so rebuilding a feed does not resubscribe to the social graph.
-  late final Stream<List<String>> _followingIds = _friendService
-      .getFollowingIds();
-  late final Stream<List<String>> _friendIds = _friendService
-      .getMutualFriendsIds();
 
   // Kept temporarily for compatibility while all active entry points use the
   // shared Build Your Look picker.
@@ -993,85 +1008,38 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
             _buildFeedMessage(icon: icon, message: message),
       );
     }
-    return StreamBuilder<List<Post>>(
-      stream: _postService.getPosts(),
-      builder: (context, postSnapshot) {
-        if (postSnapshot.hasError) {
-          debugPrint('Unable to load posts: ${postSnapshot.error}');
-          return _buildFeedMessage(
-            icon: Icons.cloud_off_outlined,
-            message: 'Posts could not be loaded.',
-          );
-        }
-
-        if (!postSnapshot.hasData) {
-          return Center(child: CircularProgressIndicator());
-        }
-
-        // Daily dress-ups live in My Daily Dress Up, not the makeover feeds.
-        final posts = postSnapshot.data!
-            .where((post) => !post.isDressUp)
-            .toList();
-        final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
-        return _buildSocialFeed(posts, currentUserId, feed);
-      },
-    );
-  }
-
-  /// Friends, people the user follows and the public, each seeing only what
-  /// the author shared with them.
-  ///
-  /// TODO(community-feed): add events and location feeds — people around the
-  /// user and places they choose, e.g. New York (docs/WORK_PLAN.md, Backlog).
-  /// My Fashion Makeover shows your looks and everyone else's you may see,
-  /// because people come for engagement (October 2026 review, H-5).
-  /// Community shows only other people's.
-  Widget _buildSocialFeed(
-    List<Post> posts,
-    String currentUserId,
-    HomeFeed feed,
-  ) {
-    return StreamBuilder<List<String>>(
-      stream: _followingIds,
-      builder: (context, followingSnapshot) {
-        return StreamBuilder<List<String>>(
-          stream: _friendIds,
-          builder: (context, friendSnapshot) {
-            if (followingSnapshot.hasError || friendSnapshot.hasError) {
-              return _buildFeedMessage(
-                icon: Icons.people_outline,
-                message: 'This feed could not be loaded.',
-              );
-            }
-            if (!followingSnapshot.hasData || !friendSnapshot.hasData) {
-              return Center(child: CircularProgressIndicator());
-            }
-            final following = followingSnapshot.data!.toSet();
-            final friends = friendSnapshot.data!.toSet();
-            final isMyMakeover = feed == HomeFeed.myMakeover;
-            final visible = posts
-                .where(
-                  (post) =>
-                      (isMyMakeover || post.authorId != currentUserId) &&
-                      post.isVisibleTo(
-                        currentUserId,
-                        following: following,
-                        friends: friends,
-                      ),
-                )
-                .toList();
-
-            return _buildPostList(
-              visible,
-              feed: feed,
-              emptyMessage: isMyMakeover
-                  ? 'Your looks and your friends\' looks will appear here. '
-                        'Tap "$kMakeoverFabLabel" to make your first one.'
-                  : 'No community looks yet. Follow people to see theirs here.',
-            );
-          },
-        );
-      },
+    final error = _postsError;
+    if (error != null) {
+      debugPrint('Unable to load posts: $error');
+      return _buildFeedMessage(
+        icon: Icons.cloud_off_outlined,
+        message: 'Posts could not be loaded.',
+      );
+    }
+    final visiblePosts = _visiblePosts;
+    if (visiblePosts == null) {
+      return Center(child: CircularProgressIndicator());
+    }
+    // Only posts this user may see arrive here (the rules enforce it).
+    // Daily dress-ups live in My Daily Dress Up, not the makeover feeds.
+    // My Fashion Makeover shows yours and everyone else's (H-5); Community
+    // shows only other people's.
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final isMyMakeover = feed == HomeFeed.myMakeover;
+    final posts = visiblePosts
+        .where(
+          (post) =>
+              !post.isDressUp &&
+              (isMyMakeover || post.authorId != currentUserId),
+        )
+        .toList();
+    return _buildPostList(
+      posts,
+      feed: feed,
+      emptyMessage: isMyMakeover
+          ? 'Your looks and your friends\' looks will appear here. '
+                'Tap "$kMakeoverFabLabel" to make your first one.'
+          : 'No community looks yet. Follow people to see theirs here.',
     );
   }
 

@@ -2,7 +2,7 @@
   "title": "Banigoba — App Review Checklist",
   "meeting": "App review meeting, 14 October 2026 (full transcript, parts 1–3)",
   "preparedBy": "Lester",
-  "status": "In progress: Tiers 1 and 2 done except G-4. Tier 3 decisions 1–6 made and built, except B-1 (needs artwork). @usernames live.",
+  "status": "In progress: Tiers 1 and 2 done except G-4. Tier 3: 7 of 13. Privacy and admin fixes built and tested; their rules deploy with Friday's release.",
   "target": "Next app version by the end of next week (about Friday 23 October 2026)",
   "tiers": [
     {
@@ -486,8 +486,8 @@
           "text": "Stop using email as the public identifier. Use a private ID as the key and the username for display.",
           "area": "Profile, identity and social graph",
           "note": "Backend migration, privacy",
-          "done": false,
-          "progress": "Emails are no longer shown or searchable publicly, and @username is the public handle. Still to do: email is stored on the public user record, so it can be read through the API. Moving it to a private record goes with I-2."
+          "done": true,
+          "progress": "Built and tested: emails now live in a private record (owner only) and are no longer on public profiles; a full email can still be searched via a one-way hashed lookup. Every sign-in moves the email; functions/scripts/migrate_private_emails.js moves the rest. Goes live with the Friday rules deploy."
         },
         {
           "id": "W-2",
@@ -708,14 +708,26 @@
     {
       "id": "I-2",
       "text": "Any signed-in user can read every post, including private and friends-only ones. The app only hides them on the phone.",
-      "status": "Open (separate task created)",
-      "action": "Tighten the posts read rule and switch the feeds to queries the rule can check."
+      "status": "Fixed and tested; deploy with Friday's release",
+      "action": "Posts are readable only by their author, by followers or friends as chosen, or by anyone when public; comments follow their post. Feeds now ask only for posts the user may see. 26 rules tests pass in the local emulator (npm --prefix test_rules test). Deploying blocks the old app's feed, so it goes out with the new build."
     },
     {
       "id": "I-3",
       "text": "People search showed everyone's email address and matched partial emails, and other people's profiles showed their email.",
       "status": "Fixed",
       "action": "Emails are no longer shown, only a full email address matches, and your email appears on your own profile only (see U-3)."
+    },
+    {
+      "id": "I-4",
+      "status": "Fixed and tested; deploy with Friday's release",
+      "text": "Any user could make themselves an admin (isAdmin / role) or mark their own shop, designer or salon profile as verified, because a catch-all rule also matched the profile record itself.",
+      "action": "The catch-all now only covers subcollections; users cannot set admin or verified flags on themselves. Covered by the rules tests."
+    },
+    {
+      "id": "I-5",
+      "status": "Fixed and tested; deploy with Friday's release",
+      "text": "The curators' \"verify shop / designer / salon\" buttons wrote to other users' records, which the rules never allowed, so verification could not work from the app.",
+      "action": "Admins may now update only the shop, designer and agent profile sections of other users."
     }
   ],
   "openQuestions": [
@@ -728,5 +740,11 @@
     "Monetization: what commission rate, and what share goes to influencers?",
     "Delivery: do shops deliver themselves, or does the platform provide or partner for delivery?",
     "Content engine: what are the copyright and licensing rules for reposting fashion photos found online? We may need to link to the source, or use only licensed content."
+  ],
+  "releaseSteps": [
+    "Ship the new app build to testers.",
+    "Deploy the rules: firebase deploy --only firestore:rules",
+    "Check on a phone that Home, Community and Daily Dress Up load.",
+    "Run the email cleanup once, with a service-account key: node functions/scripts/migrate_private_emails.js --dry-run, then without --dry-run."
   ]
 }

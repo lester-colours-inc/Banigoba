@@ -2,7 +2,7 @@
 
 **Meeting:** App review meeting, 14 October 2026 (full transcript, parts 1–3)  
 **Prepared by:** Lester  
-**Status:** In progress: Tiers 1 and 2 done except G-4. Tier 3 decisions 1–6 made and built, except B-1 (needs artwork). @usernames live.  
+**Status:** In progress: Tiers 1 and 2 done except G-4. Tier 3: 7 of 13. Privacy and admin fixes built and tested; their rules deploy with Friday's release.  
 **Target:** Next app version by the end of next week (about Friday 23 October 2026)
 
 Tick items off as they ship. Item IDs (e.g. `H-2`) match the Word version (`Banigoba_Review_Checklist.docx`).
@@ -17,9 +17,10 @@ _Generated from `tools/checklist.json`; edit that file and run `npm run build` i
 - [Tier 1 — Quick wins](#tier-1-quick-wins) — 17/17 done
 - [Tier 2 — Clear, medium work](#tier-2-clear-medium-work) — 15/16 done
 - [Tier 3 — Needs a decision first](#tier-3-needs-a-decision-first) — 7/13 done
-- [Tier 4 — Bigger features](#tier-4-bigger-features) — 2/23 done
+- [Tier 4 — Bigger features](#tier-4-bigger-features) — 3/23 done
 - [Tier 5 — Backend, research and go-to-market](#tier-5-backend-research-and-go-to-market) — 0/10 done
 - [Issues found while working](#issues-found-while-working)
+- [Release day (Friday)](#release-day-friday)
 - [Open questions](#open-questions)
 
 ## Principles (apply to all work)
@@ -144,8 +145,8 @@ _Clear, but large: new screens, new data, or migrations._
 - [ ] **F-4** Do not add new timelines. Hairstyle makeovers and posts go into the existing My Fashion Makeover and My Daily Dress Up feeds. — Fashion Twins, Fashion Idols and Hair Stylists _(Keep the number of feeds small)_
 - [x] **U-4** Give every user a unique @username, separate from their display name (which does not need to be unique). — Profile, identity and social graph
   - **Progress:** Built: unique @username (3–20 characters; letters, numbers, dots, underscores), held in a usernames lookup so no two people can have the same one. Anyone without one is asked once, with a suggestion from their name. It shows on profiles and in search, and can be changed in Settings. Database rules deployed 20 October 2026.
-- [ ] **U-5** Stop using email as the public identifier. Use a private ID as the key and the username for display. — Profile, identity and social graph _(Backend migration, privacy)_
-  - **Progress:** Emails are no longer shown or searchable publicly, and @username is the public handle. Still to do: email is stored on the public user record, so it can be read through the API. Moving it to a private record goes with I-2.
+- [x] **U-5** Stop using email as the public identifier. Use a private ID as the key and the username for display. — Profile, identity and social graph _(Backend migration, privacy)_
+  - **Progress:** Built and tested: emails now live in a private record (owner only) and are no longer on public profiles; a full email can still be searched via a one-way hashed lookup. Every sign-in moves the email; functions/scripts/migrate_private_emails.js moves the rest. Goes live with the Friday rules deploy.
 - [x] **W-2** The wardrobe holds my clothes, the shops I am connected to and the designers I am connected to. — Smart Wardrobe module
   - **Progress:** The wardrobe's Shops & Designers tab now opens with My Circle (your salons, shops and designers, removable), then the directories.
 - [ ] **W-3** Add item: take a photo of the piece, and the app detects the colour. Do not ask for colour by hand. — Smart Wardrobe module
@@ -184,10 +185,21 @@ _Not raised in the meeting; found while building._
 
 - [x] **I-1** Smart Wardrobe items are stored in a top-level user_products collection, but firestore.rules only covered users/{uid}/user_products. On the phone, My Clothes fails with PERMISSION_DENIED and new uploads are refused. _(Fixed and deployed (20 October 2026))_
   - **Action:** A user_products rule was added and deployed: owners read all their items, others only public ones, and only the owner can write.
-- [ ] **I-2** Any signed-in user can read every post, including private and friends-only ones. The app only hides them on the phone. _(Open (separate task created))_
-  - **Action:** Tighten the posts read rule and switch the feeds to queries the rule can check.
+- [x] **I-2** Any signed-in user can read every post, including private and friends-only ones. The app only hides them on the phone. _(Fixed and tested; deploy with Friday's release)_
+  - **Action:** Posts are readable only by their author, by followers or friends as chosen, or by anyone when public; comments follow their post. Feeds now ask only for posts the user may see. 26 rules tests pass in the local emulator (npm --prefix test_rules test). Deploying blocks the old app's feed, so it goes out with the new build.
 - [x] **I-3** People search showed everyone's email address and matched partial emails, and other people's profiles showed their email. _(Fixed)_
   - **Action:** Emails are no longer shown, only a full email address matches, and your email appears on your own profile only (see U-3).
+- [x] **I-4** Any user could make themselves an admin (isAdmin / role) or mark their own shop, designer or salon profile as verified, because a catch-all rule also matched the profile record itself. _(Fixed and tested; deploy with Friday's release)_
+  - **Action:** The catch-all now only covers subcollections; users cannot set admin or verified flags on themselves. Covered by the rules tests.
+- [x] **I-5** The curators' "verify shop / designer / salon" buttons wrote to other users' records, which the rules never allowed, so verification could not work from the app. _(Fixed and tested; deploy with Friday's release)_
+  - **Action:** Admins may now update only the shop, designer and agent profile sections of other users.
+
+## Release day (Friday)
+
+1. Ship the new app build to testers.
+2. Deploy the rules: firebase deploy --only firestore:rules
+3. Check on a phone that Home, Community and Daily Dress Up load.
+4. Run the email cleanup once, with a service-account key: node functions/scripts/migrate_private_emails.js --dry-run, then without --dry-run.
 
 ## Open questions
 
