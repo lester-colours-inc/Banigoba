@@ -79,13 +79,14 @@ class ForwardRecipient {
 /// Lists the verified recipients of [kind]. Returns null when cancelled.
 Future<ForwardRecipient?> showForwardRecipientSheet(
   BuildContext context,
-  ForwardRecipientKind kind,
-) {
+  ForwardRecipientKind kind, {
+  String? title,
+}) {
   return showModalBottomSheet<ForwardRecipient>(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
-    builder: (_) => _ForwardRecipientSheet(kind: kind),
+    builder: (_) => _ForwardRecipientSheet(kind: kind, title: title),
   );
 }
 
@@ -137,9 +138,12 @@ ForwardRecipient _recipientFromDoc(
 }
 
 class _ForwardRecipientSheet extends StatefulWidget {
-  const _ForwardRecipientSheet({required this.kind});
+  const _ForwardRecipientSheet({required this.kind, this.title});
 
   final ForwardRecipientKind kind;
+
+  /// Defaults to "Send to …"; e.g. "Find a salon" when adding to My Circle.
+  final String? title;
 
   @override
   State<_ForwardRecipientSheet> createState() => _ForwardRecipientSheetState();
@@ -293,7 +297,7 @@ class _ForwardRecipientSheetState extends State<_ForwardRecipientSheet> {
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
               child: Text(
-                'Send to ${widget.kind.title.toLowerCase()}',
+                widget.title ?? 'Send to ${widget.kind.title.toLowerCase()}',
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,

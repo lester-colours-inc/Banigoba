@@ -52,8 +52,13 @@ class AuthService {
       'permissionsGranted': false,
       'createdAt': FieldValue.serverTimestamp(),
     });
-    // Private, never on the public profile (U-5).
-    await AccountPrivacyService().secureEmail(userId: user.uid, email: email);
+    // Private, never on the public profile (U-5). Sign-in moves it again if
+    // this fails, so it must never fail the sign-up itself.
+    try {
+      await AccountPrivacyService().secureEmail(userId: user.uid, email: email);
+    } on FirebaseException catch (error) {
+      debugPrint('Unable to secure email at sign-up: ${error.code}');
+    }
   }
 
   /// Sign in with Google

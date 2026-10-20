@@ -58,6 +58,7 @@ class MakeoverPage extends StatefulWidget {
     this.editingPostId,
     this.initialTwinUrl,
     this.initialMethod,
+    this.initialIdolName,
     this.loadBodyProfile,
   });
 
@@ -82,6 +83,10 @@ class MakeoverPage extends StatefulWidget {
 
   /// Starts on this idea source, e.g. Style idol for "My Fashion Idols".
   final LookMethod? initialMethod;
+
+  /// Starts on Style idol with this person filled in ("Style me like …"
+  /// from My Fashion Idols).
+  final String? initialIdolName;
 
   /// Injected in tests; defaults to the signed-in user's profile details.
   final Future<BodyProfile> Function()? loadBodyProfile;
@@ -159,6 +164,10 @@ class _MakeoverPageState extends State<MakeoverPage> {
       }),
     );
     if (widget.initialMethod case final method?) _method = method;
+    if (widget.initialIdolName case final idol? when idol.trim().isNotEmpty) {
+      _idolController.text = idol.trim();
+      _method = LookMethod.idol;
+    }
     if (widget.initialTwinUrl case final url? when url.isNotEmpty) {
       _twinUrl = url;
       _method = LookMethod.twin;

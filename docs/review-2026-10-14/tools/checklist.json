@@ -2,7 +2,7 @@
   "title": "Banigoba — App Review Checklist",
   "meeting": "App review meeting, 14 October 2026 (full transcript, parts 1–3)",
   "preparedBy": "Lester",
-  "status": "In progress: Tiers 1 and 2 done except G-4. Tier 3: 7 of 13. Privacy and admin fixes built and tested; their rules deploy with Friday's release.",
+  "status": "In progress: Tiers 1 and 2 done except G-4. Tier 3: 7 of 13. Fashion Twins, Idols and Hair Stylists pages built. Privacy and admin fixes are built and tested; their rules deploy with Friday's release.",
   "target": "Next app version by the end of next week (about Friday 23 October 2026)",
   "tiers": [
     {
@@ -446,8 +446,8 @@
           "text": "The Fashion Twins page currently reuses the makeover page. Rebuild it: find people (search, including the internet), add them, follow them. Their activity then appears in your feed.",
           "area": "Fashion Twins, Fashion Idols and Hair Stylists",
           "note": "Same page reused several times today",
-          "done": false,
-          "progress": ""
+          "done": true,
+          "progress": "New \"My Fashion Twins\" page: find people by name or @username, add them (this also asks to follow them, so their looks reach your feeds), open their profiles, remove them."
         },
         {
           "id": "F-2",
@@ -455,23 +455,23 @@
           "area": "Fashion Twins, Fashion Idols and Hair Stylists",
           "note": "",
           "done": false,
-          "progress": ""
+          "progress": "New \"My Fashion Idols\" page: keep idols by name; \"Style me like …\" opens the makeover with the idol filled in. Still to do: idols' news and looks in the feed, which needs the fashion-content engine (E-2)."
         },
         {
           "id": "F-3",
           "text": "\"My Hair Stylists\" is a setup page, not a makeover page: follow stylists and salons, and keep the hairstyles you like (uploaded, found online, or your own photos).",
           "area": "Fashion Twins, Fashion Idols and Hair Stylists",
           "note": "",
-          "done": false,
-          "progress": ""
+          "done": true,
+          "progress": "New \"My Hair Stylists\" setup page: your salons (My Circle, with \"Find a salon\"), \"Hairstyles I like\" from your photos or camera, \"Try this on me\" (hair makeover copying that style) and \"Try a new hairstyle\"."
         },
         {
           "id": "F-4",
           "text": "Do not add new timelines. Hairstyle makeovers and posts go into the existing My Fashion Makeover and My Daily Dress Up feeds.",
           "area": "Fashion Twins, Fashion Idols and Hair Stylists",
           "note": "Keep the number of feeds small",
-          "done": false,
-          "progress": ""
+          "done": true,
+          "progress": "The menu no longer opens the old hair flow with its own Mine/Friends/Community timeline. Hair makeovers go through the main makeover and appear in the normal feeds. The old hair page code is still in the app, unused, and can be deleted."
         },
         {
           "id": "U-4",

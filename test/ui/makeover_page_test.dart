@@ -39,6 +39,7 @@ Future<_FakeGenerator> _pumpPage(
   Future<Weather?> Function()? loadWeather,
   String? editingPostId,
   String? initialTwinUrl,
+  String? initialIdolName,
 }) async {
   final generator = _FakeGenerator();
   var uploads = 0;
@@ -55,6 +56,7 @@ Future<_FakeGenerator> _pumpPage(
         loadWeather: loadWeather,
         editingPostId: editingPostId,
         initialTwinUrl: initialTwinUrl,
+        initialIdolName: initialIdolName,
         loadBodyProfile: () async => const BodyProfile(),
         generationService: LookGenerationService(
           generator: generator,
@@ -407,5 +409,14 @@ void main() {
 
     await _tapKey(tester, 'makeover_generate');
     expect(generator.prompts.single, contains('28°C, sunny'));
+  });
+
+  testWidgets('"Style me like" opens on Style idol with the name filled in', (
+    tester,
+  ) async {
+    await _pumpPage(tester, initialIdolName: 'Michelle Obama');
+
+    expect(find.text('Style idol'), findsOneWidget);
+    expect(find.text('Michelle Obama'), findsOneWidget);
   });
 }

@@ -2,7 +2,7 @@
 
 **Meeting:** App review meeting, 14 October 2026 (full transcript, parts 1–3)  
 **Prepared by:** Lester  
-**Status:** In progress: Tiers 1 and 2 done except G-4. Tier 3: 7 of 13. Privacy and admin fixes built and tested; their rules deploy with Friday's release.  
+**Status:** In progress: Tiers 1 and 2 done except G-4. Tier 3: 7 of 13. Fashion Twins, Idols and Hair Stylists pages built. Privacy and admin fixes are built and tested; their rules deploy with Friday's release.  
 **Target:** Next app version by the end of next week (about Friday 23 October 2026)
 
 Tick items off as they ship. Item IDs (e.g. `H-2`) match the Word version (`Banigoba_Review_Checklist.docx`).
@@ -17,7 +17,7 @@ _Generated from `tools/checklist.json`; edit that file and run `npm run build` i
 - [Tier 1 — Quick wins](#tier-1-quick-wins) — 17/17 done
 - [Tier 2 — Clear, medium work](#tier-2-clear-medium-work) — 15/16 done
 - [Tier 3 — Needs a decision first](#tier-3-needs-a-decision-first) — 7/13 done
-- [Tier 4 — Bigger features](#tier-4-bigger-features) — 3/23 done
+- [Tier 4 — Bigger features](#tier-4-bigger-features) — 6/23 done
 - [Tier 5 — Backend, research and go-to-market](#tier-5-backend-research-and-go-to-market) — 0/10 done
 - [Issues found while working](#issues-found-while-working)
 - [Release day (Friday)](#release-day-friday)
@@ -139,10 +139,14 @@ _Clear, but large: new screens, new data, or migrations._
 
 - [ ] **P-9** Bookmark categories, like Facebook's saved collections (for example "Weddings"). The same categories are used in the "look you love" picker. — Post, save and share
 - [ ] **M-10** "See a look you love" picker: add search plus filters for liked, bookmarked, bookmark categories, trending, style idols and people you follow. Show people you follow first. — Makeover generator page
-- [ ] **F-1** The Fashion Twins page currently reuses the makeover page. Rebuild it: find people (search, including the internet), add them, follow them. Their activity then appears in your feed. — Fashion Twins, Fashion Idols and Hair Stylists _(Same page reused several times today)_
+- [x] **F-1** The Fashion Twins page currently reuses the makeover page. Rebuild it: find people (search, including the internet), add them, follow them. Their activity then appears in your feed. — Fashion Twins, Fashion Idols and Hair Stylists _(Same page reused several times today)_
+  - **Progress:** New "My Fashion Twins" page: find people by name or @username, add them (this also asks to follow them, so their looks reach your feeds), open their profiles, remove them.
 - [ ] **F-2** Fashion Idols works the same way: search, follow, and their news comes into your feed. — Fashion Twins, Fashion Idols and Hair Stylists
-- [ ] **F-3** "My Hair Stylists" is a setup page, not a makeover page: follow stylists and salons, and keep the hairstyles you like (uploaded, found online, or your own photos). — Fashion Twins, Fashion Idols and Hair Stylists
-- [ ] **F-4** Do not add new timelines. Hairstyle makeovers and posts go into the existing My Fashion Makeover and My Daily Dress Up feeds. — Fashion Twins, Fashion Idols and Hair Stylists _(Keep the number of feeds small)_
+  - **Progress:** New "My Fashion Idols" page: keep idols by name; "Style me like …" opens the makeover with the idol filled in. Still to do: idols' news and looks in the feed, which needs the fashion-content engine (E-2).
+- [x] **F-3** "My Hair Stylists" is a setup page, not a makeover page: follow stylists and salons, and keep the hairstyles you like (uploaded, found online, or your own photos). — Fashion Twins, Fashion Idols and Hair Stylists
+  - **Progress:** New "My Hair Stylists" setup page: your salons (My Circle, with "Find a salon"), "Hairstyles I like" from your photos or camera, "Try this on me" (hair makeover copying that style) and "Try a new hairstyle".
+- [x] **F-4** Do not add new timelines. Hairstyle makeovers and posts go into the existing My Fashion Makeover and My Daily Dress Up feeds. — Fashion Twins, Fashion Idols and Hair Stylists _(Keep the number of feeds small)_
+  - **Progress:** The menu no longer opens the old hair flow with its own Mine/Friends/Community timeline. Hair makeovers go through the main makeover and appear in the normal feeds. The old hair page code is still in the app, unused, and can be deleted.
 - [x] **U-4** Give every user a unique @username, separate from their display name (which does not need to be unique). — Profile, identity and social graph
   - **Progress:** Built: unique @username (3–20 characters; letters, numbers, dots, underscores), held in a usernames lookup so no two people can have the same one. Anyone without one is asked once, with a suggestion from their name. It shows on profiles and in search, and can be changed in Settings. Database rules deployed 20 October 2026.
 - [x] **U-5** Stop using email as the public identifier. Use a private ID as the key and the username for display. — Profile, identity and social graph _(Backend migration, privacy)_
