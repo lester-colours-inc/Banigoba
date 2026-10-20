@@ -72,7 +72,7 @@ void main() {
   });
 
   group('detailsAdded', () {
-    test('counts the nine requested details, not the extras', () {
+    test('counts the ten requested details, not the extras', () {
       const profile = BodyProfile(
         facePhotoUrl: 'https://example.com/face.jpg',
         clothingSize: 'L',
@@ -84,7 +84,18 @@ void main() {
       );
 
       expect(profile.detailsAdded, 3);
-      expect(BodyProfile.requestedDetailCount, 9);
+      expect(BodyProfile.requestedDetailCount, 10);
+    });
+
+    test('a hand photo counts and survives a save', () {
+      const profile = BodyProfile(handPhotoUrl: 'https://example.com/h.jpg');
+
+      expect(profile.detailsAdded, 1);
+      expect(profile.photoUrl(BodyPhoto.hand), 'https://example.com/h.jpg');
+      expect(
+        BodyProfile.fromMap(profile.toMap()).handPhotoUrl,
+        'https://example.com/h.jpg',
+      );
     });
   });
 

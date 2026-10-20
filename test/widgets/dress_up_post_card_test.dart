@@ -14,7 +14,11 @@ DressUpPostCard _card({
   bool isMineLayout = false,
   List<DressUpCardAction> actions = const [],
   List<DressUpMenuItem> menuItems = const [],
+  DressUpCardAction? trailingAction,
+  VoidCallback? onImageTap,
   Widget? footer,
+  String repostLabel = '',
+  String quote = '',
 }) {
   return DressUpPostCard(
     isMineLayout: isMineLayout,
@@ -29,7 +33,11 @@ DressUpPostCard _card({
     visual: const SizedBox.expand(),
     actions: actions,
     menuItems: menuItems,
+    trailingAction: trailingAction,
+    onImageTap: onImageTap,
     footer: footer,
+    repostLabel: repostLabel,
+    quote: quote,
   );
 }
 
@@ -46,28 +54,149 @@ void main() {
     expect(find.textContaining('Heritage Fusion'), findsNothing);
   });
 
-  testWidgets('Mine layout puts the menu beside the time, off the photo', (
+  testWidgets('action row reads a, edit, save, menu, forward, evenly spaced', (
     tester,
   ) async {
     await tester.pumpWidget(
       _host(
         _card(
           isMineLayout: true,
+          actions: [
+            DressUpCardAction(glyph: 'a', label: 'Affirm', onTap: () {}),
+            DressUpCardAction(
+              icon: Icons.edit_outlined,
+              label: 'Edit my look',
+              onTap: () {},
+            ),
+            DressUpCardAction(
+              icon: Icons.checkroom_outlined,
+              label: 'Save to Smart Wardrobe',
+              onTap: () {},
+            ),
+          ],
           menuItems: [
             DressUpMenuItem(
-              icon: Icons.delete_outline,
-              label: 'Delete',
+              icon: Icons.shopping_bag_outlined,
+              label: 'Place Order',
               onSelected: () {},
+            ),
+          ],
+          trailingAction: DressUpCardAction(
+            icon: Icons.share_outlined,
+            label: 'Forward',
+            onTap: () {},
+          ),
+        ),
+      ),
+    );
+
+    final xs = [
+      'Affirm',
+      'Edit my look',
+      'Save to Smart Wardrobe',
+      'More options',
+      'Forward',
+    ].map((label) => tester.getCenter(find.byTooltip(label)).dx).toList();
+    for (var i = 1; i < xs.length; i++) {
+      expect(xs[i], greaterThan(xs[i - 1]));
+    }
+    expect(find.text('a'), findsOneWidget);
+    // Icons only: labels live in tooltips, not on the row.
+    expect(find.text('Edit my look'), findsNothing);
+    // Evenly spread across the card, with no gap wider than the rest.
+    final gaps = [for (var i = 1; i < xs.length; i++) xs[i] - xs[i - 1]];
+    for (final gap in gaps) {
+      expect(gap, closeTo(gaps.first, 1));
+    }
+  });
+
+  testWidgets('a quote shows who it quotes and the quoter\'s words', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(_card(repostLabel: 'Quoting Rudo', quote: 'This colour!')),
+    );
+
+    expect(find.text('Quoting Rudo'), findsOneWidget);
+    expect(find.byIcon(Icons.repeat), findsOneWidget);
+    expect(find.text('This colour!'), findsOneWidget);
+  });
+
+  testWidgets('an original post has no repost banner', (tester) async {
+    await tester.pumpWidget(_host(_card()));
+
+    expect(find.byIcon(Icons.repeat), findsNothing);
+    expect(find.byKey(const ValueKey('dress_up_post_quote')), findsNothing);
+  });
+
+  testWidgets('tapping the image opens the look', (tester) async {
+    var opened = false;
+    await tester.pumpWidget(_host(_card(onImageTap: () => opened = true)));
+
+    await tester.tap(find.byKey(const ValueKey('dress_up_post_image')));
+    expect(opened, isTrue);
+  });
+
+  testWidgets('tapping the name or caption also opens the look, like X', (
+    tester,
+  ) async {
+    var opens = 0;
+    await tester.pumpWidget(_host(_card(onImageTap: () => opens++)));
+
+    await tester.tap(find.text('Tariro Muzaya'));
+    await tester.tap(find.textContaining('#Ankara', findRichText: true));
+    expect(opens, 2);
+  });
+
+  testWidgets('tapping an action does not open the look', (tester) async {
+    var opened = false;
+    var saved = false;
+    await tester.pumpWidget(
+      _host(
+        _card(
+          onImageTap: () => opened = true,
+          actions: [
+            DressUpCardAction(
+              icon: Icons.checkroom_outlined,
+              label: 'Save to Smart Wardrobe',
+              onTap: () => saved = true,
             ),
           ],
         ),
       ),
     );
 
-    final time = tester.getCenter(find.text('Today'));
-    final menu = tester.getCenter(find.byTooltip('More options'));
-    expect(menu.dx, greaterThan(time.dx));
-    expect((menu.dy - time.dy).abs(), lessThan(4));
+    await tester.ensureVisible(find.byTooltip('Save to Smart Wardrobe'));
+    await tester.tap(find.byTooltip('Save to Smart Wardrobe'));
+    expect(saved, isTrue);
+    expect(opened, isFalse);
+  });
+
+  testWidgets('an active action shows its filled icon, like a liked heart', (
+    tester,
+  ) async {
+    Widget card({required bool saved}) => _host(
+      _card(
+        actions: [
+          DressUpCardAction(
+            icon: Icons.checkroom_outlined,
+            activeIcon: Icons.checkroom,
+            isActive: saved,
+            label: 'Save to Smart Wardrobe',
+            onTap: () {},
+          ),
+        ],
+      ),
+    );
+
+    await tester.pumpWidget(card(saved: false));
+    expect(find.byIcon(Icons.checkroom_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.checkroom), findsNothing);
+
+    await tester.pumpWidget(card(saved: true));
+    await tester.pumpAndSettle();
+    expect(find.byIcon(Icons.checkroom), findsOneWidget);
+    expect(find.byIcon(Icons.checkroom_outlined), findsNothing);
   });
 
   testWidgets('social layout shows author name and caption with lead', (
@@ -91,7 +220,7 @@ void main() {
         _card(
           actions: [
             DressUpCardAction(
-              icon: Icons.shortcut_outlined,
+              icon: Icons.checkroom_outlined,
               label: 'Try On',
               onTap: () => triedOn = true,
             ),
@@ -108,8 +237,8 @@ void main() {
       ),
     );
 
-    await tester.ensureVisible(find.text('Try On'));
-    await tester.tap(find.text('Try On'));
+    await tester.ensureVisible(find.byTooltip('Try On'));
+    await tester.tap(find.byTooltip('Try On'));
     expect(triedOn, isTrue);
 
     await tester.ensureVisible(find.byTooltip('More options'));

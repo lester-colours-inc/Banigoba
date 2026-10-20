@@ -1,4 +1,6 @@
 // Defines application routes and decides which screen a user sees during startup.
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -45,11 +47,33 @@ class _AuthGateState extends State<AuthGate> {
   final Set<String> _permissionPromptHandledThisSession = {};
   final Map<String, Future<_PermissionGateState>> _permissionChecks = {};
 
+  // The splash stays up until the sonic logo's reveal has played, while
+  // onboarding, auth and permission checks carry on underneath it.
+  late bool _holdingSplash;
+  Timer? _splashTimer;
+
   @override
   void initState() {
     super.initState();
+    final splashRemaining = brandSplashTimeRemaining();
+    _holdingSplash = splashRemaining > Duration.zero;
+    if (_holdingSplash) {
+      _splashTimer = Timer(splashRemaining, () {
+        if (mounted) setState(() => _holdingSplash = false);
+      });
+    }
     _checkOnboarding();
   }
+
+  @override
+  void dispose() {
+    _splashTimer?.cancel();
+    super.dispose();
+  }
+
+  /// [screen], or the brand splash while it is still being held.
+  Widget _afterSplash(Widget screen) =>
+      _holdingSplash ? const BrandSplash() : screen;
 
   Future<void> _checkOnboarding() async {
     final prefs = await SharedPreferences.getInstance();
@@ -157,7 +181,7 @@ class _AuthGateState extends State<AuthGate> {
     }
 
     if (!_onboardingDone!) {
-      return const OnboardingScreen();
+      return _afterSplash(const OnboardingScreen());
     }
 
     return StreamBuilder<User?>(
@@ -183,10 +207,12 @@ class _AuthGateState extends State<AuthGate> {
               }
 
               if (permissionSnapshot.hasError) {
-                return Scaffold(
-                  body: Center(
-                    child: Text(
-                      'Unable to check app permissions: ${permissionSnapshot.error}',
+                return _afterSplash(
+                  Scaffold(
+                    body: Center(
+                      child: Text(
+                        'Unable to check app permissions: ${permissionSnapshot.error}',
+                      ),
                     ),
                   ),
                 );
@@ -198,10 +224,12 @@ class _AuthGateState extends State<AuthGate> {
 
               if (gateState?.missingPermissions.isNotEmpty == true &&
                   !promptHandled) {
-                return PermissionsRequestScreen(
-                  requiredPermissions: gateState!.missingPermissions,
-                  onPermissionsComplete: (statuses) =>
-                      _completePermissionPrompt(user, statuses),
+                return _afterSplash(
+                  PermissionsRequestScreen(
+                    requiredPermissions: gateState!.missingPermissions,
+                    onPermissionsComplete: (statuses) =>
+                        _completePermissionPrompt(user, statuses),
+                  ),
                 );
               }
 
@@ -219,21 +247,26 @@ class _AuthGateState extends State<AuthGate> {
                   final isAdmin =
                       userData['isAdmin'] == true ||
                       userData['role'] == 'admin';
-                  if (isAdmin) return const CuratorsWorkspacePage();
+                  if (isAdmin) {
+                    return _afterSplash(const CuratorsWorkspacePage());
+                  }
                   if (userData['sellerMode'] == true) {
-                    return const SellerDashboardPage();
+                    return _afterSplash(const SellerDashboardPage());
                   }
                   // Asked once, after the account exists; the user document
                   // stream rebuilds into Home as soon as it is answered or
                   // skipped.
                   if (StylePreferencesService.needsPrompt(userData)) {
                     final preferences = StylePreferencesService();
-                    return StylePreferencesScreen(
-                      onSave: (answers) => preferences.save(user.uid, answers),
-                      onSkip: () => preferences.skip(user.uid),
+                    return _afterSplash(
+                      StylePreferencesScreen(
+                        onSave: (answers) =>
+                            preferences.save(user.uid, answers),
+                        onSkip: () => preferences.skip(user.uid),
+                      ),
                     );
                   }
-                  return const MainScreen();
+                  return _afterSplash(const MainScreen());
                 },
               );
             },
@@ -246,7 +279,7 @@ class _AuthGateState extends State<AuthGate> {
           _lastUser = null;
         }
 
-        return const CustomLoginScreen();
+        return _afterSplash(const CustomLoginScreen());
       },
     );
   }

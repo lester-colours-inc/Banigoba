@@ -33,22 +33,17 @@ class MakeoverPhotoCard extends StatelessWidget {
     if (isLoading) {
       preview = const Center(child: CircularProgressIndicator());
     } else if (photoUrl.isEmpty) {
-      // Scales down rather than overflowing with large system text sizes.
-      preview = Padding(
-        padding: const EdgeInsets.all(10),
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.person_outline, size: 40, color: colors.outline),
-              const SizedBox(height: 6),
-              Text(
-                'Add a\nfull-length\nphoto',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: colors.onSurfaceVariant),
-              ),
-            ],
+      preview = Semantics(
+        button: onUpload != null,
+        label: 'Upload your photo',
+        child: InkWell(
+          onTap: onUpload,
+          child: const Center(
+            child: Icon(
+              Icons.upload_file_rounded,
+              size: 72,
+              color: kMakeoverNavy,
+            ),
           ),
         ),
       );
@@ -62,18 +57,20 @@ class MakeoverPhotoCard extends StatelessWidget {
     }
 
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(18),
-          child: Container(
-            width: 120,
-            height: 160,
-            color: colors.surfaceContainerHigh,
-            child: preview,
+        Container(
+          width: 140,
+          height: 164,
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            color: colors.surface,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: colors.outlineVariant),
           ),
+          child: preview,
         ),
-        const SizedBox(width: 16),
+        const SizedBox(width: 20),
         Expanded(
           child: isEditingLook
               ? _EditingNote(colors: colors)
@@ -81,31 +78,31 @@ class MakeoverPhotoCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      photoUrl.isEmpty
-                          ? 'Start with a full-length photo of you.'
-                          : 'Looking good. Use this photo or pick another.',
+                      photoUrl.isEmpty ? 'Add Your Photo' : 'Your Photo',
                       style: TextStyle(
-                        color: colors.onSurfaceVariant,
-                        fontSize: 13.5,
+                        color: colors.onSurface,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w500,
+                        height: 1.4,
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 16),
                     Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
+                      spacing: 10,
+                      runSpacing: 10,
                       children: [
-                        MakeoverPill(
+                        _PhotoButton(
                           key: const ValueKey('makeover_upload_photo'),
-                          icon: Icons.photo_library_outlined,
+                          icon: Icons.add_photo_alternate_outlined,
                           label: 'Upload',
-                          selected: false,
+                          filled: true,
                           onTap: onUpload,
                         ),
-                        MakeoverPill(
+                        _PhotoButton(
                           key: const ValueKey('makeover_take_photo'),
-                          icon: Icons.photo_camera_outlined,
+                          icon: Icons.add_circle_outline,
                           label: 'Camera',
-                          selected: false,
+                          filled: false,
                           onTap: onTakePhoto,
                         ),
                       ],
@@ -114,6 +111,41 @@ class MakeoverPhotoCard extends StatelessWidget {
                 ),
         ),
       ],
+    );
+  }
+}
+
+/// Upload (solid navy) or Camera (soft lavender) beside the photo.
+class _PhotoButton extends StatelessWidget {
+  const _PhotoButton({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.filled,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool filled;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final foreground = filled ? Colors.white : kMakeoverNavy;
+
+    return FilledButton.icon(
+      onPressed: onTap,
+      style: FilledButton.styleFrom(
+        backgroundColor: filled ? kMakeoverNavy : const Color(0xFFE6E1F0),
+        foregroundColor: foreground,
+        minimumSize: const Size(0, 40),
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+        textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+      ),
+      icon: Icon(icon, size: 20),
+      label: Text(label),
     );
   }
 }

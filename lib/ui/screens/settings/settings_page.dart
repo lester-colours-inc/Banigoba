@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../data/services/storage_service.dart';
 import '../../../data/services/style_preferences_service.dart';
 import '../onboarding/style_preferences_screen.dart';
+import '../../widgets/profile_photo_changer.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -151,30 +152,14 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _pickProfilePicture() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-    final image = await _picker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 85,
-      maxWidth: 1000,
-    );
-    if (image == null) return;
-
     setState(() => _saving = true);
     try {
-      final url = await _storage.uploadProfileImageBytes(
-        await image.readAsBytes(),
-        user.uid,
+      final url = await changeProfilePhoto(
+        context,
+        picker: _picker,
+        storage: _storage,
       );
-      await Future.wait([
-        user.updatePhotoURL(url),
-        FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-          'profileImageURL': url,
-          'profileImageUrl': url,
-          'profileImageUpdatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true)),
-      ]);
-      if (mounted) setState(() => _profileImageUrl = url);
+      if (url != null && mounted) setState(() => _profileImageUrl = url);
     } finally {
       if (mounted) setState(() => _saving = false);
     }

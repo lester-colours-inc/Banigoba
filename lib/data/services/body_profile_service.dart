@@ -109,6 +109,7 @@ class FirebaseBodyProfileStore implements BodyProfileStore {
       switch (photo) {
         BodyPhoto.face => _storage.uploadSelfieImageBytes(bytes, _userId),
         BodyPhoto.fullBody => _storage.uploadFullBodyImageBytes(bytes, _userId),
+        BodyPhoto.hand => _storage.uploadHandImageBytes(bytes, _userId),
       };
 
   @override

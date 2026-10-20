@@ -131,6 +131,21 @@ service cloud.firestore {
 
     // ── posts ──────────────────────────────────────────────────────────────
 
+    // ── user_products (Smart Wardrobe items) ───────────────────────────────
+    // Items a user uploads to their wardrobe. Owners see all of theirs;
+    // others only the ones marked public.
+    match /user_products/{productId} {
+      allow read: if isSignedIn() && (
+        resource.data.get('userId', '') == request.auth.uid ||
+        resource.data.get('visibility', 'private') == 'public'
+      );
+      allow create: if isSignedIn() &&
+        request.resource.data.get('userId', '') == request.auth.uid;
+      allow update: if ownsDoc(resource.data) &&
+        request.resource.data.get('userId', '') == request.auth.uid;
+      allow delete: if ownsDoc(resource.data);
+    }
+
     match /posts/{postId} {
       allow read: if isSignedIn();
       allow create: if ownsDoc(request.resource.data) && hasNoReactionCounters();

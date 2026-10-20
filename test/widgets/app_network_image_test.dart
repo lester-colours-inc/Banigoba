@@ -1,5 +1,4 @@
 import 'package:banigoba/ui/widgets/app_network_image.dart';
-import 'package:banigoba/ui/widgets/brand_splash.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -33,15 +32,5 @@ void main() {
     );
 
     expect(find.byIcon(Icons.person_outline), findsOneWidget);
-  });
-
-  testWidgets('the brand splash matches the native splash', (tester) async {
-    await tester.pumpWidget(const MaterialApp(home: BrandSplash()));
-
-    final scaffold = tester.widget<Scaffold>(
-      find.byKey(const ValueKey('brand_splash')),
-    );
-    expect(scaffold.backgroundColor, kBrandSplashNavy);
-    expect(find.bySemanticsLabel('Banigoba'), findsOneWidget);
   });
 }

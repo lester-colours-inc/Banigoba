@@ -79,10 +79,11 @@ class LookSession {
     return _copy(results: [...results, pendingUrl], pendingUrl: '');
   }
 
-  /// Leaves the current item as it is and moves on.
+  /// Moves on without styling the current item. A result already made for it
+  /// is kept, never thrown away; Back or Try again are how to replace one.
   LookSession skip() {
     if (isFinished) return this;
-    return _copy(results: [...results, ''], pendingUrl: '');
+    return _copy(results: [...results, pendingUrl], pendingUrl: '');
   }
 
   /// Steps back to the previous item, showing what it produced so it can be
@@ -92,6 +93,30 @@ class LookSession {
     return _copy(
       results: results.sublist(0, results.length - 1),
       pendingUrl: results.last,
+    );
+  }
+
+  /// Moves straight to the step at [index].
+  ///
+  /// Forward: a result already showing for the current step is kept, and
+  /// every other step passed over is skipped. Back: as if undoing to that
+  /// step, so its result comes back pending.
+  LookSession jumpTo(int index) {
+    if (index < 0 || index >= parts.length || index == stepIndex) return this;
+    if (index < stepIndex) {
+      var session = this;
+      while (session.stepIndex > index) {
+        session = session.undo();
+      }
+      return session;
+    }
+    return _copy(
+      results: [
+        ...results,
+        hasPending ? pendingUrl : '',
+        for (var skipped = stepIndex + 1; skipped < index; skipped++) '',
+      ],
+      pendingUrl: '',
     );
   }
 

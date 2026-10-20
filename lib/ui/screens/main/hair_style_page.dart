@@ -21,6 +21,7 @@ import '../../widgets/cart_badge_button.dart';
 import 'main_screen.dart';
 import 'notifications_page.dart';
 import '../../widgets/app_network_image.dart';
+import '../../widgets/menu_or_back_button.dart';
 
 const _hairNavy = Color(0xFF17008A);
 const _hairOrange = Color(0xFFFFB51B);
@@ -3252,11 +3253,7 @@ class _HairHeader extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(4, 4, 20, 4),
         child: Row(
           children: [
-            IconButton(
-              tooltip: 'Menu',
-              onPressed: onMenu,
-              icon: Icon(Icons.menu, color: colors.onSurface),
-            ),
+            MenuOrBackButton(color: colors.onSurface),
             Expanded(
               child: Text(
                 title,
@@ -3283,6 +3280,7 @@ class _HairHeader extends StatelessWidget {
         children: [
           Row(
             children: [
+              // Back (or Cancel) sits top-left, where users expect it.
               if (leadingCancel)
                 TextButton.icon(
                   onPressed: onBack,
@@ -3290,23 +3288,18 @@ class _HairHeader extends StatelessWidget {
                   label: const Text('Cancel'),
                   style: TextButton.styleFrom(foregroundColor: _hairNavy),
                 )
-              else if (!backOnly)
+              else
+                IconButton(
+                  tooltip: 'Back',
+                  onPressed: onBack,
+                  icon: const Icon(Icons.arrow_back),
+                ),
+              const Spacer(),
+              if (!leadingCancel && !backOnly)
                 IconButton(
                   tooltip: 'Menu',
                   onPressed: onMenu,
                   icon: const Icon(Icons.menu_rounded),
-                ),
-              const Spacer(),
-              if (!leadingCancel)
-                IconButton.filledTonal(
-                  tooltip: 'Back',
-                  onPressed: onBack,
-                  style: IconButton.styleFrom(
-                    backgroundColor: Theme.of(
-                      context,
-                    ).colorScheme.surfaceContainerHighest,
-                  ),
-                  icon: const Icon(Icons.chevron_left_rounded),
                 ),
             ],
           ),

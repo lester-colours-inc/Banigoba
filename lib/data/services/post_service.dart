@@ -38,6 +38,7 @@ class PostService {
     String? outfitId,
     List<Map<String, dynamic>> products = const [],
     PostVisibility visibility = PostVisibility.private,
+    PostKind kind = PostKind.look,
   }) async {
     if (_currentUserId.isEmpty) {
       throw const SignInRequiredException();
@@ -52,6 +53,7 @@ class PostService {
       'imageURL': imageURL,
       'isPublic': visibility == PostVisibility.public,
       'visibility': visibility.value,
+      if (kind == PostKind.dressUp) 'kind': kind.value,
       if (visibility != PostVisibility.private)
         'publishedAt': FieldValue.serverTimestamp(),
       if (outfitId?.isNotEmpty == true) 'outfitId': outfitId,
@@ -92,6 +94,53 @@ class PostService {
   /// or on the author's public profile grid.
   Future<void> shareWithFriends(String postId) =>
       _setVisibility(postId, PostVisibility.friends, action: 'share');
+
+  /// Shares one of the user's own posts with [audience].
+  Future<void> sharePost(String postId, PostVisibility audience) {
+    if (audience == PostVisibility.private) return makePostPrivate(postId);
+    return _setVisibility(postId, audience, action: 'share');
+  }
+
+  /// Reposts [original] to [audience] as a new post by the current user.
+  ///
+  /// With [quote] it is a quote: the user's words above the original look.
+  /// A repost of a repost points at the first post, so chains stay flat.
+  Future<String> repost(
+    Post original, {
+    String quote = '',
+    PostVisibility audience = PostVisibility.public,
+  }) async {
+    if (_currentUserId.isEmpty) throw const SignInRequiredException();
+    final sourceId = original.isRepost ? original.repostOfId : original.id;
+    final sourceAuthorId = original.isRepost
+        ? original.repostOfAuthorId
+        : original.authorId;
+    final ref = await _db.collection('posts').add({
+      'authorID': _currentUserId,
+      'authorId': _currentUserId,
+      'caption': original.caption,
+      'commentCount': 0,
+      'createdAt': FieldValue.serverTimestamp(),
+      'publishedAt': FieldValue.serverTimestamp(),
+      'imageURL': original.imageURL,
+      'isPublic': audience == PostVisibility.public,
+      'visibility': audience.value,
+      'repostOfId': sourceId,
+      'repostOfAuthorId': sourceAuthorId,
+      if (quote.trim().isNotEmpty) 'quoteText': quote.trim(),
+      if (original.products.isNotEmpty) 'products': original.products,
+      if (original.productIds.isNotEmpty) 'productIds': original.productIds,
+    });
+    await _notifyPostAuthor(
+      postData: {'authorId': sourceAuthorId},
+      postId: sourceId,
+      type: quote.trim().isEmpty ? 'repost' : 'quote',
+      body: quote.trim().isEmpty
+          ? 'reposted your look.'
+          : 'quoted your look: "${quote.trim()}"',
+    );
+    return ref.id;
+  }
 
   Future<void> makePostPrivate(String postId) async {
     if (_currentUserId.isEmpty) return;
@@ -314,6 +363,8 @@ class PostService {
         title: switch (type) {
           'comment' => 'New Comment',
           'try_on' => 'Look Tried On',
+          'repost' => 'Look Reposted',
+          'quote' => 'Look Quoted',
           _ => 'Daily Dress Up',
         },
         body: '$senderName $body',

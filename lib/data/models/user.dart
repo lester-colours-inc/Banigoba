@@ -41,7 +41,9 @@ class UserModel {
       'stylePreference': stylePreference,
       'role': role,
       'isAdmin': isAdmin,
-      'lastSeen': lastSeen != null ? Timestamp.fromDate(lastSeen!) : FieldValue.serverTimestamp(),
+      'lastSeen': lastSeen != null
+          ? Timestamp.fromDate(lastSeen!)
+          : FieldValue.serverTimestamp(),
     };
   }
 }

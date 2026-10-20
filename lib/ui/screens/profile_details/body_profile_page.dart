@@ -387,7 +387,8 @@ class _BodyProfilePageState extends State<BodyProfilePage> {
   }
 
   Widget _buildPhotos() {
-    return Row(
+    // Two tiles per row so each stays large enough to read on a phone.
+    final firstRow = Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
@@ -412,6 +413,30 @@ class _BodyProfilePageState extends State<BodyProfilePage> {
             isUploading: _uploading.contains(BodyPhoto.fullBody),
             onTap: () => _changePhoto(BodyPhoto.fullBody),
           ),
+        ),
+      ],
+    );
+    return Column(
+      children: [
+        firstRow,
+        const SizedBox(height: 12),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: ProfilePhotoTile(
+                key: const ValueKey('photo_hand'),
+                label: 'Hand',
+                hint: 'Back of your hand, fingers apart',
+                icon: Icons.back_hand_outlined,
+                imageUrl: _saved.handPhotoUrl,
+                isUploading: _uploading.contains(BodyPhoto.hand),
+                onTap: () => _changePhoto(BodyPhoto.hand),
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(child: SizedBox.shrink()),
+          ],
         ),
       ],
     );

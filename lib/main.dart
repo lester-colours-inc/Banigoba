@@ -14,6 +14,7 @@ import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import 'firebase_options.dart';
 import 'core/app_routes.dart';
 import 'core/theme_provider.dart';
+import 'ui/widgets/brand_splash.dart';
 import 'data/services/push_notification_service.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -22,7 +23,10 @@ final rootScaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  await Future.wait([
+    Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform),
+    precacheBrandSplash(),
+  ]);
   await themeProvider.initialize();
 
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
@@ -80,6 +84,8 @@ class MyApp extends StatelessWidget {
     final isDark = brightness == Brightness.dark;
 
     return ThemeData(
+      // The typeface in the Figma designs.
+      fontFamily: 'PlusJakartaSans',
       colorScheme: colorScheme,
       useMaterial3: true,
       brightness: brightness,
@@ -140,6 +146,7 @@ class MyApp extends StatelessWidget {
         ),
       ),
       textTheme: ThemeData(brightness: brightness).textTheme.apply(
+        fontFamily: 'PlusJakartaSans',
         bodyColor: colorScheme.onSurface,
         displayColor: colorScheme.onSurface,
       ),

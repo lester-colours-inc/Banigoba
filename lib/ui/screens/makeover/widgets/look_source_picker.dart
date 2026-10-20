@@ -1,8 +1,7 @@
-// The "How?" step of the Makeover flow: five ways to get an idea for a look,
-// and the input for whichever is selected.
-//
-// Describe · Style idol · Style twin · Weather · Trending, per the September
-// 2026 meeting and follow-up.
+// The "How?" step of the Makeover flow, as a clear either-or (October 2026
+// review, M-4): describe the look in your own words, OR use a look you love
+// (a style twin, a style idol, a trend, or today's weather), then the input
+// for whichever is selected.
 import 'package:flutter/material.dart';
 
 import '../../../../data/models/look_request.dart';
@@ -22,6 +21,12 @@ enum LookMethod {
 
   final String label;
   final IconData icon;
+
+  /// Describe is option A; every other source is "a look you love".
+  bool get isDescribe => this == describe;
+
+  /// Option B's sources, in display order.
+  static const List<LookMethod> lookYouLove = [twin, idol, trending, weather];
 }
 
 /// Weather lookup state, owned by the page (it needs location access).
@@ -94,18 +99,51 @@ class LookSourcePicker extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            for (final option in LookMethod.values)
-              Expanded(
-                child: _MethodTile(
-                  method: option,
-                  isSelected: option == method,
-                  onTap: enabled ? () => onMethodChanged(option) : null,
-                ),
+            Expanded(
+              child: _OptionCard(
+                key: const ValueKey('look_option_describe'),
+                icon: Icons.edit_note,
+                title: 'Describe it',
+                subtitle: 'Say what you want in your own words',
+                isSelected: method.isDescribe,
+                onTap: enabled
+                    ? () => onMethodChanged(LookMethod.describe)
+                    : null,
               ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _OptionCard(
+                key: const ValueKey('look_option_love'),
+                icon: Icons.favorite_border,
+                title: 'Use a look you love',
+                subtitle: 'A style twin, idol, trend or the weather',
+                isSelected: !method.isDescribe,
+                onTap: enabled && method.isDescribe
+                    ? () => onMethodChanged(LookMethod.lookYouLove.first)
+                    : null,
+              ),
+            ),
           ],
         ),
-        const SizedBox(height: 18),
+        if (!method.isDescribe) ...[
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              for (final option in LookMethod.lookYouLove)
+                Expanded(
+                  child: _MethodTile(
+                    method: option,
+                    isSelected: option == method,
+                    onTap: enabled ? () => onMethodChanged(option) : null,
+                  ),
+                ),
+            ],
+          ),
+        ],
+        const SizedBox(height: 20),
         AnimatedSwitcher(
           duration: const Duration(milliseconds: 180),
           child: KeyedSubtree(
@@ -147,7 +185,73 @@ class LookSourcePicker extends StatelessWidget {
   }
 }
 
-/// Icon in a circle over a short label. Five fit across a phone.
+/// One side of the either-or: a large card with an icon, title and a line
+/// saying what it does.
+class _OptionCard extends StatelessWidget {
+  const _OptionCard({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool isSelected;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final foreground = isSelected ? Colors.white : colors.onSurface;
+    return Semantics(
+      button: true,
+      selected: isSelected,
+      child: Material(
+        color: isSelected ? kMakeoverNavy : colors.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(icon, color: foreground),
+                const SizedBox(height: 10),
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: foreground,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    color: isSelected
+                        ? Colors.white.withValues(alpha: 0.85)
+                        : colors.onSurfaceVariant,
+                    fontSize: 12,
+                    height: 1.25,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Icon in a circle over a short label. Four fit across a phone.
 class _MethodTile extends StatelessWidget {
   const _MethodTile({
     required this.method,
@@ -179,8 +283,8 @@ class _MethodTile extends StatelessWidget {
             children: [
               AnimatedContainer(
                 duration: const Duration(milliseconds: 160),
-                width: 50,
-                height: 50,
+                width: 48,
+                height: 48,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: isSelected
@@ -192,18 +296,24 @@ class _MethodTile extends StatelessWidget {
                   color: isSelected ? Colors.white : colors.onSurface,
                 ),
               ),
-              const SizedBox(height: 6),
-              Text(
-                method.label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
-                  color: isSelected
-                      ? colors.onSurface
-                      : colors.onSurfaceVariant,
+              const SizedBox(height: 8),
+              // Two-line slot so "Style idol" can wrap on narrow phones
+              // instead of being cut off, and every tile stays aligned.
+              SizedBox(
+                height: 32,
+                child: Text(
+                  method.label,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 12,
+                    height: 1.2,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                    color: isSelected
+                        ? colors.onSurface
+                        : colors.onSurfaceVariant,
+                  ),
                 ),
               ),
             ],
@@ -227,21 +337,34 @@ class _DescribeInput extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hint = scope.changesClothing
+    final colors = Theme.of(context).colorScheme;
+    final example = scope.changesClothing
         ? 'e.g. A white linen shirt and wide-leg trousers'
         : 'e.g. I want a low haircut';
+    OutlineInputBorder border(Color color) => OutlineInputBorder(
+      borderRadius: BorderRadius.circular(16),
+      borderSide: BorderSide(color: color, width: 1.2),
+    );
 
     return TextField(
       key: const ValueKey('look_describe_field'),
       controller: controller,
       enabled: enabled,
-      minLines: 2,
+      minLines: 3,
       maxLines: 4,
       maxLength: 200,
       textCapitalization: TextCapitalization.sentences,
+      style: const TextStyle(fontSize: 16),
       decoration: InputDecoration(
-        labelText: 'Describe the look you want',
-        hintText: hint,
+        hintText: 'Describe the look you want',
+        hintStyle: TextStyle(color: colors.onSurfaceVariant, fontSize: 17),
+        helperText: example,
+        filled: true,
+        fillColor: colors.surfaceContainerLowest,
+        contentPadding: const EdgeInsets.fromLTRB(22, 22, 22, 16),
+        enabledBorder: border(colors.outlineVariant),
+        disabledBorder: border(colors.outlineVariant),
+        focusedBorder: border(kMakeoverNavy),
       ),
     );
   }
@@ -488,7 +611,7 @@ class _WeatherPanel extends StatelessWidget {
             child: CircularProgressIndicator(strokeWidth: 2),
           ),
           SizedBox(width: 12),
-          Text('Checking the weather where you are...'),
+          Expanded(child: Text('Checking the weather where you are...')),
         ],
       );
     } else if (state.weather case final weather?) {

@@ -131,6 +131,120 @@ class ShopChatService {
     return chatId;
   }
 
+  String salonConversationId({
+    required String salonId,
+    required String customerId,
+  }) {
+    return 'salon_${salonId}_$customerId';
+  }
+
+  /// A conversation with a hair salon (a verified hair agent). The salon sits
+  /// in the seller slot, so the inbox, rules and unread counters work as-is.
+  Future<String> ensureSalonConversation({
+    required String salonId,
+    required String customerId,
+    required String salonName,
+  }) async {
+    final chatId = salonConversationId(
+      salonId: salonId,
+      customerId: customerId,
+    );
+    final customer = await _db.collection('users').doc(customerId).get();
+    final customerData = customer.data() ?? const <String, dynamic>{};
+    final customerName =
+        (customerData['displayName'] ??
+                _auth.currentUser?.displayName ??
+                _auth.currentUser?.email?.split('@').first ??
+                'Customer')
+            .toString();
+    final customerImage =
+        (customerData['profileImageURL'] ??
+                customerData['profileImageUrl'] ??
+                _auth.currentUser?.photoURL ??
+                '')
+            .toString();
+
+    await _db.collection('shop_chats').doc(chatId).set({
+      'sellerId': salonId,
+      'customerId': customerId,
+      'participantIds': [salonId, customerId],
+      'conversationType': 'salon',
+      'shopName': salonName,
+      'customerName': customerName,
+      'customerImageUrl': customerImage,
+      'updatedAt': FieldValue.serverTimestamp(),
+      'createdAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+    return chatId;
+  }
+
+  /// Sends a forwarded look (its picture and caption) into a conversation and
+  /// lets the other side know.
+  Future<void> addLookReference({
+    required String chatId,
+    required String imageUrl,
+    String caption = '',
+  }) async {
+    final senderId = _auth.currentUser?.uid ?? '';
+    if (senderId.isEmpty) throw Exception('Sign in to forward looks.');
+    if (imageUrl.trim().isEmpty) throw Exception('This look has no picture.');
+
+    final chatRef = _db.collection('shop_chats').doc(chatId);
+    final chat = await chatRef.get();
+    final data = chat.data();
+    if (data == null ||
+        !(List<String>.from(data['participantIds'] ?? []).contains(senderId))) {
+      throw Exception('You do not have access to this conversation.');
+    }
+
+    final sellerId = (data['sellerId'] ?? '').toString();
+    final customerId = (data['customerId'] ?? '').toString();
+    final conversationType = (data['conversationType'] ?? 'shop').toString();
+    final receiverId = senderId == sellerId ? customerId : sellerId;
+    final text = caption.trim().isEmpty
+        ? 'Forwarded a look'
+        : 'Forwarded a look: ${caption.trim()}';
+    final batch = _db.batch();
+    batch.set(chatRef.collection('messages').doc(), {
+      'senderId': senderId,
+      'senderType': 'look_reference',
+      'text': text,
+      'lookImageUrl': imageUrl.trim(),
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+    batch.set(chatRef, {
+      'lastMessage': text,
+      'lastMessageAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+      senderId == sellerId ? 'unreadByCustomer' : 'unreadBySeller':
+          FieldValue.increment(1),
+    }, SetOptions(merge: true));
+    await batch.commit();
+
+    final sender = await _db.collection('users').doc(senderId).get();
+    final senderName =
+        (sender.data()?['displayName'] ??
+                _auth.currentUser?.displayName ??
+                'Someone')
+            .toString();
+    await _notifications.addNotification(
+      receiverId: receiverId,
+      title: 'New Message',
+      body: '$senderName forwarded you a look.',
+      type: conversationType == 'designer'
+          ? 'designer_message'
+          : 'shop_message',
+      extraData: {
+        'fromId': senderId,
+        'fromName': senderName,
+        'conversationType': conversationType,
+        'sellerId': sellerId,
+        'customerId': customerId,
+        'chatId': chatId,
+      },
+    );
+  }
+
   Future<void> addProductReference({
     required String chatId,
     required String productId,

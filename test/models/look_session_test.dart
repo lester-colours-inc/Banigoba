@@ -33,12 +33,16 @@ void main() {
     expect(session.keep().stepIndex, 0);
   });
 
+  test('skipping an item with a result keeps that result', () {
+    final session = _fullLook().withPending('hair.jpg').skip();
+
+    expect(session.currentPart, LookPart.outfit);
+    expect(session.baseUrl, 'hair.jpg');
+    expect(session.stateOf(0), LookStepState.kept);
+  });
+
   test('a skipped item leaves the base unchanged', () {
-    final session = _fullLook()
-        .withPending('hair.jpg')
-        .keep()
-        .withPending('clothes.jpg')
-        .skip();
+    final session = _fullLook().withPending('hair.jpg').keep().skip();
 
     expect(session.currentPart, LookPart.shoes);
     expect(session.baseUrl, 'hair.jpg');
@@ -99,5 +103,46 @@ void main() {
 
     expect(session.changedParts, isEmpty);
     expect(session.baseUrl, _original);
+  });
+
+  group('jumpTo', () {
+    test('forward skips the steps in between', () {
+      final session = _fullLook().jumpTo(2);
+
+      expect(session.currentPart, LookPart.shoes);
+      expect(session.stateOf(0), LookStepState.skipped);
+      expect(session.stateOf(1), LookStepState.skipped);
+      expect(session.baseUrl, _original);
+    });
+
+    test('forward keeps a result already showing for the current step', () {
+      final session = _fullLook().withPending('hair.jpg').jumpTo(3);
+
+      expect(session.currentPart, LookPart.accessories);
+      expect(session.stateOf(0), LookStepState.kept);
+      expect(session.stateOf(1), LookStepState.skipped);
+      expect(session.baseUrl, 'hair.jpg');
+    });
+
+    test('back returns to an earlier step with its result pending', () {
+      final session = _fullLook()
+          .withPending('hair.jpg')
+          .keep()
+          .withPending('clothes.jpg')
+          .keep()
+          .jumpTo(0);
+
+      expect(session.currentPart, LookPart.hair);
+      expect(session.pendingUrl, 'hair.jpg');
+      expect(session.baseUrl, _original);
+    });
+
+    test('ignores the current step and out-of-range steps', () {
+      final session = _fullLook().withPending('hair.jpg');
+
+      expect(session.jumpTo(0), same(session));
+      expect(session.jumpTo(4), same(session));
+      expect(session.jumpTo(-1), same(session));
+    });
   });
 }

@@ -10,6 +10,7 @@ class StorageService {
   static const String _fullBodyDir = 'fullBody';
   static const String _selfieDir = 'selfie';
   static const String _profileDir = 'profile';
+  static const String _handDir = 'hand';
   static const String _tryOnResultsDir = 'tryOnResults';
   static const String _styleReferencesDir = 'styleReferences';
   static const String _productImagesDir = 'productImages';
@@ -134,6 +135,12 @@ class StorageService {
       _selfieDir,
       filename: filename,
     );
+  }
+
+  /// Uploads a hand photo (for jewellery and nail try-ons) to
+  /// userImages/{userId}/hand/.
+  Future<String> uploadHandImageBytes(Uint8List imageBytes, String userId) {
+    return _uploadUserImageBytes(imageBytes, userId, _handDir);
   }
 
   Future<String> uploadProfileImageBytes(Uint8List imageBytes, String userId) {

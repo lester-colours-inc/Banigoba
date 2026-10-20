@@ -8,6 +8,7 @@ import '../../../core/app_routes.dart';
 import '../../widgets/cart_badge_button.dart';
 import '../events/events_page.dart';
 import '../social/profile_page.dart';
+import '../../widgets/menu_or_back_button.dart';
 
 class SearchPage extends StatefulWidget {
   const SearchPage({super.key});
@@ -30,15 +31,13 @@ class _SearchPageState extends State<SearchPage> {
       appBar: AppBar(
         backgroundColor: colors.surface,
         elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.menu, color: colors.onSurface),
-          onPressed: () => Scaffold.of(context).openDrawer(),
-        ),
+        leading: MenuOrBackButton(color: colors.onSurface),
         title: Row(
           children: [
             Expanded(
+              // Matches the bottom bar's "Discover" tab (G-1).
               child: Text(
-                'Search',
+                'Discover',
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
@@ -115,7 +114,7 @@ class _SearchPageState extends State<SearchPage> {
           Expanded(
             child: TextField(
               decoration: InputDecoration(
-                hintText: 'Search people by name or email',
+                hintText: 'Search people by name',
                 hintStyle: TextStyle(
                   color: Theme.of(context).colorScheme.outline,
                   fontSize: 16,
@@ -184,7 +183,7 @@ class _SearchPageState extends State<SearchPage> {
       return _buildEmptyState(
         icon: Icons.people_outline,
         title: 'Find people in the community',
-        message: 'Search by their name or email address.',
+        message: 'Search by name, or type their full email address.',
       );
     }
 
@@ -204,13 +203,7 @@ class _SearchPageState extends State<SearchPage> {
         final people =
             (snapshot.data?.docs ?? []).where((doc) {
               if (doc.id == currentUserId) return false;
-              final data = doc.data();
-              final name = (data['displayName'] ?? data['name'] ?? '')
-                  .toString()
-                  .toLowerCase();
-              final email = (data['email'] ?? '').toString().toLowerCase();
-              return name.contains(_searchQuery) ||
-                  email.contains(_searchQuery);
+              return matchesPersonSearch(doc.data(), _searchQuery);
             }).toList()..sort((a, b) {
               final aName = (a.data()['displayName'] ?? '').toString();
               final bName = (b.data()['displayName'] ?? '').toString();
@@ -221,7 +214,7 @@ class _SearchPageState extends State<SearchPage> {
           return _buildEmptyState(
             icon: Icons.person_search_outlined,
             title: 'No people found',
-            message: 'Try another name or email address.',
+            message: 'Try another name, or their full email address.',
           );
         }
 
@@ -235,7 +228,6 @@ class _SearchPageState extends State<SearchPage> {
             final name = (data['displayName'] ?? data['name'] ?? 'User')
                 .toString()
                 .trim();
-            final email = (data['email'] ?? '').toString();
             final imageUrl = _profileImageUrl(data);
             final initial = name.isEmpty ? 'U' : name[0].toUpperCase();
 
@@ -290,17 +282,6 @@ class _SearchPageState extends State<SearchPage> {
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            if (email.isNotEmpty) ...[
-                              const SizedBox(height: 3),
-                              Text(
-                                email,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: colors.onSurfaceVariant,
-                                ),
-                              ),
-                            ],
                           ],
                         ),
                       ),
@@ -355,4 +336,17 @@ class _SearchPageState extends State<SearchPage> {
       ),
     );
   }
+}
+
+/// Whether a user record matches a people search. Names match on any part;
+/// an email only on the whole address, so emails stay private and cannot be
+/// fished for (October 2026 review: "you don't want people using people's
+/// emails"). [query] is already trimmed and lower-case.
+bool matchesPersonSearch(Map<String, dynamic> data, String query) {
+  if (query.isEmpty) return false;
+  final name = (data['displayName'] ?? data['name'] ?? '')
+      .toString()
+      .toLowerCase();
+  final email = (data['email'] ?? '').toString().trim().toLowerCase();
+  return name.contains(query) || (email.isNotEmpty && email == query);
 }

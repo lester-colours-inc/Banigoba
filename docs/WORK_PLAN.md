@@ -199,6 +199,42 @@ Durations are estimates for review. Phases 1 and 2 can run side by side. Each ph
 
 ---
 
+## 4a. Backlog (October 2026 review)
+
+These came out of the 12 October 2026 review. Each needs its own design and
+scoping before building. Smaller items from the same review are already done
+(see section 7).
+
+### Feeds
+
+| Item | Detail |
+|---|---|
+| Location trending timeline | An algorithm that picks out affirmation lingo, praise songs, *mitupo* and other cultural expressions trending in the user's location, and builds a trending timeline from them. It can include local events. |
+| Extra locations | Users add other places (e.g. New York) whose trending fashion feeds into their trending timeline and their Community feed. |
+| Community: events and location | Community already shows friends, followers and public looks. Still to add: events, people around the user's location, and the far-away places they choose. Needs a location on each post. |
+| Daily Dress Up sources | Daily Dress Up currently shows Smart Wardrobe looks. Still to add: Smart Wardrobe AI suggestions, and looks from the Fashion Twins and Fashion Idols the user picks (there is no way to pick them yet). |
+| eFitting Room | A virtual fitting room inside the Daily Dress Up feed. |
+
+### Shops and demand
+
+| Item | Detail |
+|---|---|
+| Smart Wardrobe ↔ shop stock (AI) | Match the user's wardrobe against shop and boutique stock, so the Smart Wardrobe can suggest pieces that work with what they own. |
+| Makeover ↔ shops (AI) | Suggest shops whose pieces fit a makeover. If nothing is in stock, the user can pre-order or queue the request with their preferred shops, or any shop. |
+| Demand from fantasies | Makeovers stay based on what the user imagines (colours, descriptions), not on what is in stock. Each makeover becomes product demand that is queued with shops. When stock appears, Banigoba links the user and the shop with notifications. |
+| Smart Wardrobe input window | A proper screen for adding items to the Smart Wardrobe. |
+| Shop stock input window | A screen for shops and boutiques to enter their stock. |
+| Financial management | Bookkeeping for shops, boutiques and flea-market sellers, simple enough for the informal market. Part of the value proposition for them. |
+
+### Hardware
+
+| Item | Detail |
+|---|---|
+| Shop stock sensors | Tags on shop pieces so shops can track stock. Removed when a customer buys. |
+| Wardrobe sensors | User-owned tags so the Smart Wardrobe knows whether each piece is in the wardrobe, out for washing, or lost (outside a geofence). Extends "Physical wardrobe tracking" in Phase 8. |
+
+---
+
 ## 5. How we'll work
 
 - **Demo at the end of every phase.** You approve before the next phase starts.
@@ -225,3 +261,9 @@ Durations are estimates for review. Phases 1 and 2 can run side by side. Each ph
 - Tweet-style post card with user name and verified mark
 - Preset quick-reply comments instead of free-text comments
 - Gemini added for faster generation
+- Home feeds renamed: **My Fashion Makeover** (was My Timeline), **My Daily Dress Up** (replaces Friends; fed from the Smart Wardrobe), **Community** (now includes friends, followers and public looks)
+- Affirming and commenting merged into one action; the comment travels with the affirmation
+- Followers: posts can be shared with Only me, Friends, Followers or Public
+- Repost and Quote on shared looks
+- Post actions spaced evenly under each look
+- Every saved makeover is also saved to the Smart Wardrobe

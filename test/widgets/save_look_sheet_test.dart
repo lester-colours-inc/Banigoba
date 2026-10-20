@@ -16,7 +16,7 @@ void main() {
     await _pumpSheet(tester, canReplace: false);
 
     expect(find.byKey(const ValueKey('save_look_replace')), findsNothing);
-    expect(find.text('Save to My Timeline'), findsOneWidget);
+    expect(find.text('Save to My Fashion Makeover'), findsOneWidget);
     expect(find.byKey(const ValueKey('save_look_wardrobe')), findsOneWidget);
     expect(find.byKey(const ValueKey('save_look_friends')), findsOneWidget);
     expect(find.byKey(const ValueKey('save_look_community')), findsOneWidget);

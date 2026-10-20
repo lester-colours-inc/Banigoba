@@ -1,10 +1,92 @@
-// Small controls shared by the Makeover screens, styled after X: navy pills,
-// thin outlines, bold titles and quiet secondary text.
+// Small controls shared by the Makeover screens: navy rounded-square pills
+// with thin outlines, bold titles and quiet secondary text.
 import 'package:flutter/material.dart';
+
+import '../../../widgets/cart_badge_button.dart';
 
 const Color kMakeoverNavy = Color(0xFF0D0140);
 
-/// A selectable pill. Filled navy when selected, outlined otherwise.
+/// The top of every Makeover stage: the menu and a round back button, then a
+/// large title beside the cart.
+class MakeoverHeader extends StatelessWidget {
+  const MakeoverHeader({
+    super.key,
+    required this.title,
+    required this.onBack,
+    this.trailing,
+  });
+
+  final String title;
+  final VoidCallback onBack;
+
+  /// Shown before the cart, e.g. a Done action while styling.
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+
+    return SafeArea(
+      bottom: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(8, 8, 16, 4),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                // Back sits top-left, where users expect it on every app.
+                IconButton(
+                  key: const ValueKey('makeover_back'),
+                  tooltip: 'Back',
+                  onPressed: onBack,
+                  icon: Icon(
+                    Icons.arrow_back,
+                    size: 26,
+                    color: colors.onSurface,
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  key: const ValueKey('makeover_menu'),
+                  tooltip: 'Menu',
+                  onPressed: () => Scaffold.of(context).openDrawer(),
+                  icon: Icon(Icons.menu, size: 28, color: colors.onSurface),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.only(left: 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: colors.onSurface,
+                        fontSize: 28,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: -0.3,
+                      ),
+                    ),
+                  ),
+                  ?trailing,
+                  CartBadgeButton(color: colors.onSurface),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A selectable rounded-square pill. Filled navy when selected, outlined
+/// otherwise.
 class MakeoverPill extends StatelessWidget {
   const MakeoverPill({
     super.key,
@@ -23,8 +105,12 @@ class MakeoverPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final foreground = selected ? Colors.white : colors.onSurface;
-    final shape = StadiumBorder(
-      side: BorderSide(color: selected ? kMakeoverNavy : colors.outlineVariant),
+    final shape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(10),
+      side: BorderSide(
+        color: selected ? kMakeoverNavy : colors.outline,
+        width: 1.2,
+      ),
     );
 
     return Semantics(
@@ -37,7 +123,7 @@ class MakeoverPill extends StatelessWidget {
           customBorder: shape,
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -50,7 +136,7 @@ class MakeoverPill extends StatelessWidget {
                   style: TextStyle(
                     color: foreground,
                     fontSize: 14,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ],
@@ -96,7 +182,7 @@ class MakeoverSectionTitle extends StatelessWidget {
   }
 }
 
-/// The main action of a screen: a full-width navy pill.
+/// The main action of a screen: a centred navy button, sized to its label.
 class MakeoverPrimaryButton extends StatelessWidget {
   const MakeoverPrimaryButton({
     super.key,
@@ -114,23 +200,33 @@ class MakeoverPrimaryButton extends StatelessWidget {
     final style = FilledButton.styleFrom(
       backgroundColor: kMakeoverNavy,
       foregroundColor: Colors.white,
-      minimumSize: const Size.fromHeight(52),
-      shape: const StadiumBorder(),
-      textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+      disabledBackgroundColor: kMakeoverNavy.withValues(alpha: 0.35),
+      disabledForegroundColor: Colors.white,
+      minimumSize: const Size(240, 54),
+      padding: const EdgeInsets.symmetric(horizontal: 32),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
     );
+    final Widget button;
     if (icon case final iconData?) {
-      return FilledButton.icon(
+      button = FilledButton.icon(
         style: style,
         onPressed: onPressed,
         icon: Icon(iconData, size: 20),
         label: Text(label),
       );
+    } else {
+      button = FilledButton(
+        style: style,
+        onPressed: onPressed,
+        child: Text(label),
+      );
     }
-    return FilledButton(style: style, onPressed: onPressed, child: Text(label));
+    return Center(child: button);
   }
 }
 
-/// A compact icon-over-label action, like the row under a post on X.
+/// An icon on a soft square tile over a label.
 class MakeoverIconAction extends StatelessWidget {
   const MakeoverIconAction({
     super.key,
@@ -149,6 +245,9 @@ class MakeoverIconAction extends StatelessWidget {
     final color = onTap == null
         ? colors.onSurface.withValues(alpha: 0.38)
         : colors.onSurface;
+    final labelColor = onTap == null
+        ? colors.onSurfaceVariant.withValues(alpha: 0.5)
+        : colors.onSurfaceVariant;
 
     return Semantics(
       button: true,
@@ -161,17 +260,21 @@ class MakeoverIconAction extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 22, color: color),
-              const SizedBox(height: 4),
+              Container(
+                width: 46,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: colors.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Icon(icon, size: 24, color: color),
+              ),
+              const SizedBox(height: 8),
               Text(
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: color,
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w600,
-                ),
+                style: TextStyle(color: labelColor, fontSize: 15),
               ),
             ],
           ),

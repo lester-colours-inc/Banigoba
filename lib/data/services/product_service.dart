@@ -7,6 +7,7 @@ import 'notification_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import '../models/piece_details.dart';
 
 /// Service handling all product-related operations with Firestore and Storage.
 class ProductService {
@@ -418,6 +419,8 @@ class ProductService {
     String? gender,
     List<String>? weatherTags,
     List<String>? functionalTags,
+    String size = '',
+    PieceDetails details = const PieceDetails(),
   }) async {
     // Flatten colours into a single list
     List<String> finalColours = [];
@@ -439,6 +442,8 @@ class ProductService {
       'gender': gender,
       'weatherTags': weatherTags ?? [],
       'functionalTags': functionalTags ?? [],
+      if (size.trim().isNotEmpty) 'size': size.trim(),
+      ...details.toMap(),
       'createdAt': FieldValue.serverTimestamp(),
       'visibility': visibility,
     };

@@ -29,6 +29,7 @@ dependencies:
   url_launcher: ^6.3.1
   cached_network_image: ^4.0.2
   audioplayers: ^6.8.1
+  share_plus: ^13.3.1
 
 dev_dependencies:
   flutter_test:
@@ -44,3 +45,18 @@ flutter:
     - assets/images/
     - assets/branding/splash_logo.png
     - assets/sounds/
+
+  # Plus Jakarta Sans, the typeface in the Figma designs (SIL OFL, see
+  # assets/fonts/OFL.txt).
+  fonts:
+    - family: PlusJakartaSans
+      fonts:
+        - asset: assets/fonts/PlusJakartaSans-Regular.ttf
+        - asset: assets/fonts/PlusJakartaSans-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/PlusJakartaSans-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/PlusJakartaSans-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/PlusJakartaSans-ExtraBold.ttf
+          weight: 800

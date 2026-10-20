@@ -35,7 +35,7 @@ class _FakeGenerator implements LookImageGenerator {
 Future<_FakeGenerator> _pumpPage(
   WidgetTester tester, {
   String photoUrl = _photo,
-  LookScope scope = LookScope.fullLook,
+  LookScope? scope = LookScope.fullLook,
   Future<Weather?> Function()? loadWeather,
   String? editingPostId,
   String? initialTwinUrl,
@@ -88,31 +88,73 @@ Future<void> _describeAndCreate(WidgetTester tester, String text) async {
   await tester.pumpAndSettle();
 }
 
+/// Option B, then one of its sources.
+Future<void> _chooseLookYouLove(WidgetTester tester, String key) async {
+  await _tapKey(tester, 'look_option_love');
+  await _tapKey(tester, key);
+}
+
 Future<void> _tapKey(WidgetTester tester, String key) async {
   await tester.tap(find.byKey(ValueKey(key)));
   await tester.pumpAndSettle();
 }
 
 void main() {
-  testWidgets('shows the photo first, five ways to style, and no catalogue', (
+  testWidgets('photo, then describe-or-a-look-you-love, then what changes', (
     tester,
   ) async {
     await _pumpPage(tester);
 
-    final photoTop = tester.getTopLeft(find.text('Your photo')).dy;
-    final howTop = tester.getTopLeft(find.text('How?')).dy;
+    double top(Finder finder) => tester.getTopLeft(finder).dy;
+    final photoTop = top(find.byKey(const ValueKey('makeover_upload_photo')));
+    final howTop = top(find.text('How do you want to create your look?'));
+    final describeTop = top(find.byKey(const ValueKey('look_describe_field')));
+    final changeTop = top(find.text('What should change?'));
     expect(photoTop, lessThan(howTop));
+    expect(howTop, lessThan(describeTop));
+    expect(describeTop, lessThan(changeTop));
+
+    expect(find.text('Describe it'), findsOneWidget);
+    expect(find.text('Use a look you love'), findsOneWidget);
+    // Option B's sources only show once it is chosen.
+    expect(find.text('Style idol'), findsNothing);
     expect(find.textContaining('Choose items'), findsNothing);
-    for (final method in [
-      'Describe',
-      'Style idol',
-      'Style twin',
-      'Weather',
-      'Trending',
-    ]) {
+    expect(find.textContaining('One item at a time'), findsOneWidget);
+    expect(find.text('My New Look'), findsOneWidget);
+    expect(find.text('Generate my look'), findsOneWidget);
+    expect(find.byKey(const ValueKey('makeover_menu')), findsOneWidget);
+    expect(find.byKey(const ValueKey('makeover_back')), findsOneWidget);
+  });
+
+  testWidgets('a look you love offers twin, idol, trending and weather', (
+    tester,
+  ) async {
+    await _pumpPage(tester);
+    await _tapKey(tester, 'look_option_love');
+
+    for (final method in ['Style twin', 'Style idol', 'Trending', 'Weather']) {
       expect(find.text(method), findsOneWidget, reason: method);
     }
-    expect(find.textContaining('One item at a time'), findsOneWidget);
+    expect(find.byKey(const ValueKey('look_describe_field')), findsNothing);
+    // Style twin is the first choice.
+    expect(find.text('Seen a look you love?'), findsOneWidget);
+  });
+
+  testWidgets('nothing is pre-selected: generate waits for what changes', (
+    tester,
+  ) async {
+    await _pumpPage(tester, scope: null);
+    await tester.enterText(
+      find.byKey(const ValueKey('look_describe_field')),
+      'A white linen shirt',
+    );
+    await tester.pump();
+
+    expect(_generateButton(tester).onPressed, isNull);
+    expect(find.text('Choose what should change'), findsOneWidget);
+
+    await _tapKey(tester, 'look_scope_outfit');
+    expect(_generateButton(tester).onPressed, isNotNull);
   });
 
   testWidgets('Create my look stays disabled until the idea is complete', (
@@ -153,14 +195,20 @@ void main() {
 
     await _tapKey(tester, 'look_step_keep');
 
-    // The next item starts straight away, on top of the kept hair.
+    // The next item waits until the user asks for it.
+    expect(generator.prompts, hasLength(1));
+    expect(find.text('Style my clothes'), findsOneWidget);
+
+    await _tapKey(tester, 'look_step_generate');
+
+    // It builds on top of the kept hair.
     expect(generator.prompts, hasLength(2));
     expect(generator.prompts.last, contains('Change only the clothes'));
     expect(generator.photoUrls.last, 'https://example.com/look-1.jpg');
     expect(find.text('Keep & next: Shoes'), findsOneWidget);
   });
 
-  testWidgets('skip moves on without keeping, try again redoes the item', (
+  testWidgets('skip moves on keeping any result, try again redoes the item', (
     tester,
   ) async {
     final generator = await _pumpPage(tester);
@@ -171,9 +219,40 @@ void main() {
     expect(generator.photoUrls, [_photo, _photo]);
 
     await _tapKey(tester, 'look_step_skip');
+    // Skipping does not start the next item by itself.
+    expect(generator.prompts, hasLength(2));
+
+    await _tapKey(tester, 'look_step_generate');
     expect(generator.prompts.last, contains('Change only the clothes'));
-    // Hair was skipped, so clothes build on the original photo.
-    expect(generator.photoUrls.last, _photo);
+    // The hair result made before skipping is kept, so clothes build on it.
+    expect(generator.photoUrls.last, 'https://example.com/look-2.jpg');
+    expect(
+      find.byKey(const ValueKey('look_progress_hair_kept')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('tapping a later step skips straight to it', (tester) async {
+    final generator = await _pumpPage(tester);
+    await _describeAndCreate(tester, 'Smart casual');
+
+    await _tapKey(tester, 'look_progress_shoes_upcoming');
+
+    expect(find.text('Step 3 of 4'), findsOneWidget);
+    expect(generator.prompts, hasLength(1));
+
+    await _tapKey(tester, 'look_step_generate');
+    expect(generator.prompts.last, contains('Change only the shoes'));
+    // The hair result that was showing is kept; clothes were skipped.
+    expect(generator.photoUrls.last, 'https://example.com/look-1.jpg');
+    expect(
+      find.byKey(const ValueKey('look_progress_outfit_skipped')),
+      findsOneWidget,
+    );
+
+    await _tapKey(tester, 'look_progress_hair_kept');
+    expect(find.text('Step 1 of 4'), findsOneWidget);
+    expect(generator.prompts, hasLength(2));
   });
 
   testWidgets('back returns to the previous item and its result', (
@@ -188,8 +267,8 @@ void main() {
 
     expect(find.text('Step 1 of 4'), findsOneWidget);
     expect(find.text('Keep & next: Clothes'), findsOneWidget);
-    // Going back does not generate anything new.
-    expect(generator.prompts, hasLength(2));
+    // Only the hair was generated; going back adds nothing new.
+    expect(generator.prompts, hasLength(1));
   });
 
   testWidgets('Done finishes early and offers save, find pieces and edit', (
@@ -247,7 +326,7 @@ void main() {
   testWidgets('style idol styles after the person named', (tester) async {
     final generator = await _pumpPage(tester, scope: LookScope.outfit);
 
-    await _tapKey(tester, 'look_method_idol');
+    await _chooseLookYouLove(tester, 'look_method_idol');
     await tester.enterText(
       find.byKey(const ValueKey('look_idol_field')),
       'Winky D',
@@ -264,7 +343,7 @@ void main() {
     final generator = await _pumpPage(tester);
     final archetype = styleArchetypes.first;
 
-    await _tapKey(tester, 'look_method_idol');
+    await _chooseLookYouLove(tester, 'look_method_idol');
     await _tapKey(tester, 'look_option_${archetype.name}');
     await _tapKey(tester, 'makeover_generate');
 
@@ -301,7 +380,7 @@ void main() {
   ) async {
     await _pumpPage(tester, scope: LookScope.outfit);
 
-    await _tapKey(tester, 'look_method_trending');
+    await _chooseLookYouLove(tester, 'look_method_trending');
 
     for (final trend in curatedTrends) {
       expect(
@@ -323,7 +402,7 @@ void main() {
       ),
     );
 
-    await _tapKey(tester, 'look_method_weather');
+    await _chooseLookYouLove(tester, 'look_method_weather');
     expect(find.textContaining('Harare'), findsOneWidget);
 
     await _tapKey(tester, 'makeover_generate');

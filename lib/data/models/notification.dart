@@ -44,7 +44,9 @@ class AppNotification {
       'senderId': senderId,
       'extraData': extraData,
       'isRead': isRead,
-      'timestamp': timestamp != null ? Timestamp.fromDate(timestamp!) : FieldValue.serverTimestamp(),
+      'timestamp': timestamp != null
+          ? Timestamp.fromDate(timestamp!)
+          : FieldValue.serverTimestamp(),
     };
   }
 }

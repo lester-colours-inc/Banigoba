@@ -5,16 +5,17 @@
 // the post, so nothing here can be rendered as a popularity total.
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-/// Who can see a post beyond its owner.
+/// Who can see a post beyond its owner, narrowest first.
 ///
-/// A friends-only share is only ever shown in a friend's Friends tab; a
-/// community share also appears in Community and on the author's public
-/// profile grid (BNG SRS 001: Home's Friends tab shows a friend's community
-/// shares too, the way it always has — this only adds the narrower option).
+/// Friends are mutual follows; followers are everyone who follows the author
+/// (friends included). Friends and followers shares appear in those people's
+/// Community feed; a public share appears for everyone and on the author's
+/// public profile grid.
 enum PostVisibility {
   private('private', 'Only me'),
   friends('friends', 'Friends'),
-  public('public', 'Community');
+  followers('followers', 'Followers'),
+  public('public', 'Public');
 
   const PostVisibility(this.value, this.label);
 
@@ -33,6 +34,23 @@ enum PostVisibility {
   }
 }
 
+/// What a post is. A daily dress-up is someone sharing what they are
+/// wearing today; it shows in My Daily Dress Up, not in the makeover feeds
+/// (October 2026 review, D-2).
+enum PostKind {
+  look('look'),
+  dressUp('dressUp');
+
+  const PostKind(this.value);
+
+  final String value;
+
+  static PostKind fromValue(Object? value) => PostKind.values.firstWhere(
+    (kind) => kind.value == value,
+    orElse: () => PostKind.look,
+  );
+}
+
 class Post {
   final String id;
   final String authorId;
@@ -44,6 +62,14 @@ class Post {
   final List<String> productIds;
   final List<Map<String, dynamic>> products;
   final PostVisibility visibility;
+  final PostKind kind;
+
+  /// Set when this post is a repost or quote of another post.
+  final String repostOfId;
+  final String repostOfAuthorId;
+
+  /// The reposter's own words on a quote. Empty on a plain repost.
+  final String quoteText;
 
   Post({
     required this.id,
@@ -56,7 +82,14 @@ class Post {
     this.productIds = const [],
     this.products = const [],
     this.visibility = PostVisibility.private,
+    this.kind = PostKind.look,
+    this.repostOfId = '',
+    this.repostOfAuthorId = '',
+    this.quoteText = '',
   });
+
+  bool get isRepost => repostOfId.isNotEmpty;
+  bool get isQuote => isRepost && quoteText.trim().isNotEmpty;
 
   /// Visible to everyone: Community tab, and the author's public profile.
   bool get isPublic => visibility == PostVisibility.public;
@@ -65,6 +98,24 @@ class Post {
   /// Gates comments and quick replies, which make no sense on a post nobody
   /// else can see.
   bool get isShared => visibility != PostVisibility.private;
+
+  bool get isDressUp => kind == PostKind.dressUp;
+
+  /// Whether [viewerId] may see this post, given who they follow and who
+  /// their friends (mutual follows) are. Owners always see their own posts.
+  bool isVisibleTo(
+    String viewerId, {
+    required Set<String> following,
+    required Set<String> friends,
+  }) {
+    if (authorId == viewerId) return true;
+    return switch (visibility) {
+      PostVisibility.public => true,
+      PostVisibility.followers => following.contains(authorId),
+      PostVisibility.friends => friends.contains(authorId),
+      PostVisibility.private => false,
+    };
+  }
 
   factory Post.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>? ?? const {};
@@ -100,6 +151,10 @@ class Post {
         data['visibility'],
         legacyIsPublic: data['isPublic'] == true,
       ),
+      kind: PostKind.fromValue(data['kind']),
+      repostOfId: (data['repostOfId'] ?? '').toString(),
+      repostOfAuthorId: (data['repostOfAuthorId'] ?? '').toString(),
+      quoteText: (data['quoteText'] ?? '').toString(),
     );
   }
 
@@ -116,6 +171,12 @@ class Post {
       if (products.isNotEmpty) 'products': products,
       'isPublic': isPublic,
       'visibility': visibility.value,
+      if (isDressUp) 'kind': kind.value,
+      if (isRepost) ...{
+        'repostOfId': repostOfId,
+        'repostOfAuthorId': repostOfAuthorId,
+      },
+      if (quoteText.isNotEmpty) 'quoteText': quoteText,
     };
   }
 

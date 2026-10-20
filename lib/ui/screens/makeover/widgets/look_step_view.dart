@@ -1,16 +1,19 @@
 // One step of the step-by-step makeover: the item being changed now, the
 // result as soon as it exists, and what to do with it.
 //
-// Keep moves on to the next item straight away. Try again and Tweak redo this
-// item; Skip leaves it as it is; Undo steps back to the previous item.
+// Keep moves on to the next item. Try again and Tweak redo this item; Skip
+// moves on, keeping any result already made; Undo steps back to the previous
+// item. Once a result exists, a slider compares it with the photo before
+// this step.
 import 'package:flutter/material.dart';
 
 import '../../../../data/models/look_request.dart';
 import '../../../../data/models/look_session.dart';
 import 'makeover_controls.dart';
 import '../../../widgets/app_network_image.dart';
+import '../../../widgets/before_after_view.dart';
 
-class LookStepView extends StatefulWidget {
+class LookStepView extends StatelessWidget {
   const LookStepView({
     super.key,
     required this.session,
@@ -22,6 +25,7 @@ class LookStepView extends StatefulWidget {
     required this.onSkip,
     required this.onUndo,
     required this.onGenerate,
+    this.onJumpTo,
     this.errorMessage = '',
   });
 
@@ -37,19 +41,13 @@ class LookStepView extends StatefulWidget {
   /// Styles the current item when nothing is pending (after an undo to a
   /// skipped item, or a failure).
   final VoidCallback onGenerate;
+
+  /// Moves straight to the step tapped in the progress strip.
+  final ValueChanged<int>? onJumpTo;
   final String errorMessage;
 
   @override
-  State<LookStepView> createState() => _LookStepViewState();
-}
-
-class _LookStepViewState extends State<LookStepView> {
-  /// True while the user holds the image to see it before this step.
-  bool _isComparing = false;
-
-  @override
   Widget build(BuildContext context) {
-    final session = widget.session;
     final part = session.currentPart;
     if (part == null) return const SizedBox.shrink();
 
@@ -58,24 +56,25 @@ class _LookStepViewState extends State<LookStepView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (session.parts.length > 1) LookProgressStrip(session: session),
+          if (session.parts.length > 1)
+            LookProgressStrip(session: session, onStepTap: onJumpTo),
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-              child: Center(child: _buildImage(context, part)),
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+              child: _buildImage(context, part),
             ),
           ),
-          if (widget.errorMessage.isNotEmpty)
+          if (errorMessage.isNotEmpty)
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-              child: MakeoverErrorBanner(message: widget.errorMessage),
+              child: MakeoverErrorBanner(message: errorMessage),
             ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
             child: _buildActionRow(),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
+            padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
             child: _buildPrimary(part),
           ),
         ],
@@ -83,59 +82,48 @@ class _LookStepViewState extends State<LookStepView> {
     );
   }
 
+  /// Fills the space between the steps and the actions, showing the whole
+  /// photo on navy so nothing is cropped.
   Widget _buildImage(BuildContext context, LookPart part) {
-    final session = widget.session;
-    final showBefore = _isComparing && session.hasPending;
-    final imageUrl = showBefore ? session.baseUrl : session.currentUrl;
-
-    return AspectRatio(
-      aspectRatio: 3 / 4,
-      child: GestureDetector(
-        key: const ValueKey('look_step_image'),
-        onLongPressStart: (_) => setState(() => _isComparing = true),
-        onLongPressEnd: (_) => setState(() => _isComparing = false),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(24),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              ColoredBox(color: Theme.of(context).colorScheme.surfaceContainer),
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 280),
-                child: AppNetworkImage(
-                  imageUrl,
-                  key: ValueKey(imageUrl),
-                  fit: BoxFit.cover,
-                  alignment: Alignment.topCenter,
-                  fallback: const Center(
-                    child: Icon(Icons.broken_image_outlined),
-                  ),
-                ),
-              ),
-              if (widget.isGenerating)
-                _GeneratingOverlay(
-                  label: part.progressLabel,
-                  elapsedSeconds: widget.elapsedSeconds,
-                )
-              else if (session.hasPending)
-                Positioned(
-                  left: 12,
-                  bottom: 12,
-                  child: _ImageTag(
-                    label: showBefore ? 'Before' : 'Hold to compare',
-                    icon: showBefore ? Icons.history : Icons.touch_app,
-                  ),
-                ),
-            ],
-          ),
+    if (session.hasPending && !isGenerating) {
+      return LayoutBuilder(
+        builder: (context, constraints) => BeforeAfterView(
+          key: const ValueKey('look_step_compare'),
+          beforeImageUrl: session.baseUrl,
+          afterImageUrl: session.currentUrl,
+          aspectRatio: constraints.maxWidth / constraints.maxHeight,
+          borderRadius: 16,
+          fit: BoxFit.contain,
+          background: kMakeoverNavy,
         ),
+      );
+    }
+
+    return ClipRRect(
+      key: const ValueKey('look_step_image'),
+      borderRadius: BorderRadius.circular(16),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          const ColoredBox(color: kMakeoverNavy),
+          AppNetworkImage(
+            session.currentUrl,
+            key: ValueKey(session.currentUrl),
+            fit: BoxFit.contain,
+            fallback: const Center(child: Icon(Icons.broken_image_outlined)),
+          ),
+          if (isGenerating)
+            _GeneratingOverlay(
+              label: part.progressLabel,
+              elapsedSeconds: elapsedSeconds,
+            ),
+        ],
       ),
     );
   }
 
   Widget _buildActionRow() {
-    final session = widget.session;
-    final busy = widget.isGenerating;
+    final busy = isGenerating;
 
     return Row(
       children: [
@@ -144,7 +132,7 @@ class _LookStepViewState extends State<LookStepView> {
             key: const ValueKey('look_step_undo'),
             icon: Icons.undo,
             label: 'Back',
-            onTap: session.canUndo ? widget.onUndo : null,
+            onTap: session.canUndo ? onUndo : null,
           ),
         ),
         Expanded(
@@ -152,7 +140,7 @@ class _LookStepViewState extends State<LookStepView> {
             key: const ValueKey('look_step_try_again'),
             icon: Icons.refresh,
             label: 'Try again',
-            onTap: !busy && session.hasPending ? widget.onTryAgain : null,
+            onTap: !busy && session.hasPending ? onTryAgain : null,
           ),
         ),
         Expanded(
@@ -160,15 +148,15 @@ class _LookStepViewState extends State<LookStepView> {
             key: const ValueKey('look_step_tweak'),
             icon: Icons.tune,
             label: 'Tweak',
-            onTap: busy ? null : widget.onTweak,
+            onTap: busy ? null : onTweak,
           ),
         ),
         Expanded(
           child: MakeoverIconAction(
             key: const ValueKey('look_step_skip'),
-            icon: Icons.skip_next_outlined,
+            icon: Icons.skip_next_rounded,
             label: 'Skip',
-            onTap: widget.onSkip,
+            onTap: onSkip,
           ),
         ),
       ],
@@ -176,80 +164,120 @@ class _LookStepViewState extends State<LookStepView> {
   }
 
   Widget _buildPrimary(LookPart part) {
-    final session = widget.session;
-
-    if (!session.hasPending && !widget.isGenerating) {
+    if (!session.hasPending && !isGenerating) {
       return MakeoverPrimaryButton(
         key: const ValueKey('look_step_generate'),
-        icon: Icons.auto_awesome,
         label: 'Style my ${part.label.toLowerCase()}',
-        onPressed: widget.onGenerate,
+        onPressed: onGenerate,
       );
     }
 
     final next = session.nextPart;
     return MakeoverPrimaryButton(
       key: const ValueKey('look_step_keep'),
-      icon: next == null ? Icons.check : Icons.arrow_forward,
       label: next == null ? 'Keep & finish' : 'Keep & next: ${next.label}',
-      onPressed: widget.isGenerating ? null : widget.onKeep,
+      onPressed: isGenerating ? null : onKeep,
     );
   }
 }
 
 /// Where the user is in the run: kept, skipped, current and upcoming items.
+/// The steps share the width so they always fit; tapping one jumps to it.
 class LookProgressStrip extends StatelessWidget {
-  const LookProgressStrip({super.key, required this.session});
+  const LookProgressStrip({super.key, required this.session, this.onStepTap});
 
   final LookSession session;
+  final ValueChanged<int>? onStepTap;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
 
-    return SizedBox(
-      height: 44,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-        itemCount: session.parts.length,
-        separatorBuilder: (_, _) =>
-            Icon(Icons.chevron_right, size: 16, color: colors.outline),
-        itemBuilder: (context, index) {
-          final part = session.parts[index];
-          final state = session.stateOf(index);
-          final isCurrent = state == LookStepState.current;
-
-          return Center(
-            child: Container(
-              key: ValueKey('look_progress_${part.name}_${state.name}'),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: ShapeDecoration(
-                color: isCurrent ? kMakeoverNavy : Colors.transparent,
-                shape: StadiumBorder(
-                  side: BorderSide(
-                    color: isCurrent ? kMakeoverNavy : colors.outlineVariant,
-                  ),
-                ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+      child: Row(
+        children: [
+          for (var index = 0; index < session.parts.length; index++) ...[
+            if (index > 0) const SizedBox(width: 8),
+            Expanded(
+              child: _ProgressPill(
+                part: session.parts[index],
+                state: session.stateOf(index),
+                colors: colors,
+                onTap: onStepTap == null ? null : () => onStepTap!(index),
               ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ProgressPill extends StatelessWidget {
+  const _ProgressPill({
+    required this.part,
+    required this.state,
+    required this.colors,
+    required this.onTap,
+  });
+
+  final LookPart part;
+  final LookStepState state;
+  final ColorScheme colors;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final isCurrent = state == LookStepState.current;
+    final foreground = switch (state) {
+      LookStepState.current => Colors.white,
+      LookStepState.kept => colors.onSurface,
+      LookStepState.skipped ||
+      LookStepState.upcoming => colors.onSurfaceVariant,
+    };
+    final shape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(10),
+      side: BorderSide(
+        color: isCurrent ? kMakeoverNavy : colors.outline,
+        width: 1.2,
+      ),
+    );
+
+    return Semantics(
+      button: !isCurrent,
+      selected: isCurrent,
+      label: switch (state) {
+        LookStepState.current => '${part.label}, current step',
+        LookStepState.kept => '${part.label}, kept. Go back to it',
+        LookStepState.skipped => '${part.label}, skipped. Go back to it',
+        LookStepState.upcoming => '${part.label}. Skip to it',
+      },
+      excludeSemantics: true,
+      child: Material(
+        key: ValueKey('look_progress_${part.name}_${state.name}'),
+        color: isCurrent ? kMakeoverNavy : Colors.transparent,
+        shape: shape,
+        child: InkWell(
+          customBorder: shape,
+          onTap: isCurrent ? null : onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (state == LookStepState.kept) ...[
-                    Icon(Icons.check, size: 14, color: colors.onSurface),
+                    Icon(Icons.check, size: 14, color: foreground),
                     const SizedBox(width: 4),
                   ],
                   Text(
                     part.label,
                     style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w500,
-                      color: switch (state) {
-                        LookStepState.current => Colors.white,
-                        LookStepState.kept => colors.onSurface,
-                        LookStepState.skipped ||
-                        LookStepState.upcoming => colors.onSurfaceVariant,
-                      },
+                      fontSize: 14,
+                      fontWeight: isCurrent ? FontWeight.w600 : FontWeight.w400,
+                      color: foreground,
                       decoration: state == LookStepState.skipped
                           ? TextDecoration.lineThrough
                           : null,
@@ -258,8 +286,8 @@ class LookProgressStrip extends StatelessWidget {
                 ],
               ),
             ),
-          );
-        },
+          ),
+        ),
       ),
     );
   }
@@ -298,39 +326,6 @@ class _GeneratingOverlay extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _ImageTag extends StatelessWidget {
-  const _ImageTag({required this.label, required this.icon});
-
-  final String label;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: ShapeDecoration(
-        color: Colors.black.withValues(alpha: 0.55),
-        shape: const StadiumBorder(),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: Colors.white),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
       ),
     );
   }

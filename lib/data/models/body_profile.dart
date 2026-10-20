@@ -1,4 +1,4 @@
-// A user's personal profile details: two photos, their sizes and their body
+// A user's personal profile details: three photos (face, full body, hand), their sizes and their body
 // measurements.
 //
 // Used by the eFitting Room (trying clothes on while shopping) so items are
@@ -114,7 +114,8 @@ enum BodyMeasurement {
 }
 
 /// Which of the two profile photos.
-enum BodyPhoto { face, fullBody }
+/// Hand: for trying on rings, bracelets, watches and nail looks.
+enum BodyPhoto { face, fullBody, hand }
 
 /// "80" rather than "80.0"; keeps a real decimal such as "80.5".
 String formatNumber(double value) => value == value.roundToDouble()
@@ -126,6 +127,7 @@ class BodyProfile {
   const BodyProfile({
     this.facePhotoUrl = '',
     this.fullBodyPhotoUrl = '',
+    this.handPhotoUrl = '',
     this.clothingSize = '',
     this.shoeSize = '',
     this.measurements = const {},
@@ -144,9 +146,9 @@ class BodyProfile {
     'XXXL',
   ];
 
-  /// The details asked for by name: two photos, height, weight, clothing
+  /// The details asked for by name: three photos (face, full body, hand), height, weight, clothing
   /// size, shoe size, shoulders, waist and tummy.
-  static const int requestedDetailCount = 9;
+  static const int requestedDetailCount = 10;
 
   /// An error for a typed UK shoe size, or null when blank or valid.
   static String? validateShoeSize(String input) {
@@ -164,6 +166,7 @@ class BodyProfile {
 
   final String facePhotoUrl;
   final String fullBodyPhotoUrl;
+  final String handPhotoUrl;
   final String clothingSize;
 
   /// UK size, e.g. "8" or "8.5".
@@ -190,6 +193,7 @@ class BodyProfile {
     return BodyProfile(
       facePhotoUrl: _asString(data['facePhotoUrl']),
       fullBodyPhotoUrl: _asString(data['fullBodyPhotoUrl']),
+      handPhotoUrl: _asString(data['handPhotoUrl']),
       clothingSize: _asString(data['clothingSize']).toUpperCase(),
       shoeSize: _asString(data['shoeSize']),
       measurements: Map.unmodifiable(measurements),
@@ -200,6 +204,7 @@ class BodyProfile {
   Map<String, dynamic> toMap() => {
     'facePhotoUrl': facePhotoUrl,
     'fullBodyPhotoUrl': fullBodyPhotoUrl,
+    'handPhotoUrl': handPhotoUrl,
     'clothingSize': clothingSize,
     'shoeSize': shoeSize,
     'measurements': {
@@ -211,6 +216,7 @@ class BodyProfile {
   BodyProfile copyWith({
     String? facePhotoUrl,
     String? fullBodyPhotoUrl,
+    String? handPhotoUrl,
     String? clothingSize,
     String? shoeSize,
     Map<BodyMeasurement, double>? measurements,
@@ -218,6 +224,7 @@ class BodyProfile {
   }) => BodyProfile(
     facePhotoUrl: facePhotoUrl ?? this.facePhotoUrl,
     fullBodyPhotoUrl: fullBodyPhotoUrl ?? this.fullBodyPhotoUrl,
+    handPhotoUrl: handPhotoUrl ?? this.handPhotoUrl,
     clothingSize: clothingSize ?? this.clothingSize,
     shoeSize: shoeSize ?? this.shoeSize,
     measurements: measurements == null
@@ -229,16 +236,19 @@ class BodyProfile {
   String photoUrl(BodyPhoto photo) => switch (photo) {
     BodyPhoto.face => facePhotoUrl,
     BodyPhoto.fullBody => fullBodyPhotoUrl,
+    BodyPhoto.hand => handPhotoUrl,
   };
 
   BodyProfile withPhoto(BodyPhoto photo, String url) => switch (photo) {
     BodyPhoto.face => copyWith(facePhotoUrl: url),
     BodyPhoto.fullBody => copyWith(fullBodyPhotoUrl: url),
+    BodyPhoto.hand => copyWith(handPhotoUrl: url),
   };
 
   bool get isEmpty =>
       facePhotoUrl.isEmpty &&
       fullBodyPhotoUrl.isEmpty &&
+      handPhotoUrl.isEmpty &&
       clothingSize.isEmpty &&
       shoeSize.isEmpty &&
       measurements.isEmpty &&
@@ -248,6 +258,7 @@ class BodyProfile {
   int get detailsAdded => [
     facePhotoUrl.isNotEmpty,
     fullBodyPhotoUrl.isNotEmpty,
+    handPhotoUrl.isNotEmpty,
     clothingSize.isNotEmpty,
     shoeSize.isNotEmpty,
     for (final measurement in BodyMeasurement.requested)

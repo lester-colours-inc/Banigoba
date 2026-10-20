@@ -13,6 +13,7 @@ import '../../../data/services/post_service.dart';
 import '../../widgets/affirmation_row.dart';
 import '../../widgets/bottom_navigation.dart';
 import '../../widgets/post_comments_sheet.dart';
+import '../../widgets/profile_photo_changer.dart';
 import '../../widgets/try_on_product_picker.dart';
 import '../main/main_screen.dart';
 import '../../widgets/app_network_image.dart';
@@ -64,6 +65,21 @@ class ProfilePage extends StatelessWidget {
           builder: (context, followingSnapshot) {
             final isFollowing = followingSnapshot.data ?? false;
             final bool canSeeContent = isMe || isFollowing;
+            final avatar = CircleAvatar(
+              radius: 50,
+              backgroundColor: const Color(0xFF0D0140),
+              backgroundImage: profileImageUrl.isEmpty
+                  ? null
+                  : CachedNetworkImageProvider(profileImageUrl),
+              child: profileImageUrl.isEmpty
+                  ? Text(
+                      userName.toString().isEmpty
+                          ? 'U'
+                          : userName.toString().substring(0, 1).toUpperCase(),
+                      style: const TextStyle(fontSize: 40, color: Colors.white),
+                    )
+                  : null,
+            );
 
             return Scaffold(
               backgroundColor: Theme.of(context).colorScheme.surface,
@@ -91,28 +107,47 @@ class ProfilePage extends StatelessWidget {
                 child: Column(
                   children: [
                     const SizedBox(height: 20),
-                    // Profile Avatar
-                    CircleAvatar(
-                      radius: 50,
-                      backgroundColor: const Color(0xFF0D0140),
-                      backgroundImage: profileImageUrl.isEmpty
-                          ? null
-                          : CachedNetworkImageProvider(profileImageUrl),
-                      child: profileImageUrl.isEmpty
-                          ? Text(
-                              userName.toString().isEmpty
-                                  ? 'U'
-                                  : userName
-                                        .toString()
-                                        .substring(0, 1)
-                                        .toUpperCase(),
-                              style: TextStyle(
-                                fontSize: 40,
-                                color: Colors.white,
+                    // Profile Avatar: your own can be changed by tapping it.
+                    if (isMe)
+                      Semantics(
+                        button: true,
+                        label: 'Change profile photo',
+                        child: GestureDetector(
+                          key: const ValueKey('profile_change_photo'),
+                          onTap: () => changeProfilePhoto(context),
+                          child: Stack(
+                            children: [
+                              avatar,
+                              Positioned(
+                                right: 0,
+                                bottom: 0,
+                                child: Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
+                                    border: Border.all(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.surface,
+                                      width: 2,
+                                    ),
+                                  ),
+                                  child: const Icon(
+                                    Icons.camera_alt_outlined,
+                                    size: 18,
+                                    color: Colors.white,
+                                  ),
+                                ),
                               ),
-                            )
-                          : null,
-                    ),
+                            ],
+                          ),
+                        ),
+                      )
+                    else
+                      avatar,
                     const SizedBox(height: 10),
                     // User Name and Email
                     Text(
@@ -122,7 +157,9 @@ class ProfilePage extends StatelessWidget {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    Text(userEmail, style: TextStyle(color: Colors.grey)),
+                    // Your email is shown to you only, never to others.
+                    if (isMe)
+                      Text(userEmail, style: TextStyle(color: Colors.grey)),
                     // Follow/Unfollow Button (if not viewing own profile)
                     if (!isMe) ...[
                       const SizedBox(height: 20),
@@ -187,6 +224,17 @@ class ProfilePage extends StatelessWidget {
                         ),
                       ],
                     ),
+                    // Follow starts with finding people (U-3).
+                    if (isMe) ...[
+                      const SizedBox(height: 16),
+                      OutlinedButton.icon(
+                        key: const ValueKey('profile_find_people'),
+                        onPressed: () =>
+                            Navigator.pushNamed(context, AppRoutes.search),
+                        icon: const Icon(Icons.person_search_outlined),
+                        label: const Text('Find people to follow'),
+                      ),
+                    ],
                     const SizedBox(height: 30),
                     const Divider(),
                     _buildPublicDailyDressUps(

@@ -12,6 +12,7 @@ import '../designers/fashion_designers_page.dart';
 import '../social/profile_page.dart';
 import '../shop/shop_products_page.dart';
 import '../../widgets/app_network_image.dart';
+import '../../widgets/menu_or_back_button.dart';
 
 /// Screen displaying a list of user notifications, matching the provided designs
 class NotificationsPage extends StatefulWidget {
@@ -69,13 +70,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.surface,
         elevation: 0,
-        leading: IconButton(
-          icon: Icon(
-            Icons.menu,
-            color: Theme.of(context).colorScheme.onSurface,
-          ),
-          onPressed: () => Scaffold.of(context).openDrawer(),
-        ),
+        leading: const MenuOrBackButton(),
         title: Text(
           'Notifications',
           style: TextStyle(

@@ -1,7 +1,7 @@
-// Where a finished look goes: a post on the timeline (kept private, shared
-// with friends, or shared with the whole community), or straight to the
-// Wardrobe to wear again later — no post, no audience. Sharing is the user's
-// choice, never the default.
+// Where a finished look goes: a post on My Fashion Makeover (kept private, or
+// shared with friends, followers or the public), or straight to the Wardrobe
+// to wear again later — no post, no audience. Sharing is the user's choice,
+// never the default. Every saved look also lands in the Smart Wardrobe.
 //
 // When the look is an edit of a saved post, the user can also update that
 // post in place instead of adding a second one.
@@ -15,7 +15,23 @@ import '../../data/services/outfit_service.dart';
 import '../../data/services/post_service.dart';
 import '../screens/main/main_screen.dart';
 
-enum SaveLookVisibility { replace, private, wardrobe, friends, community }
+enum SaveLookVisibility {
+  replace,
+  private,
+  wardrobe,
+  friends,
+  followers,
+  community;
+
+  PostVisibility get audience => switch (this) {
+    SaveLookVisibility.friends => PostVisibility.friends,
+    SaveLookVisibility.followers => PostVisibility.followers,
+    SaveLookVisibility.community => PostVisibility.public,
+    SaveLookVisibility.replace ||
+    SaveLookVisibility.private ||
+    SaveLookVisibility.wardrobe => PostVisibility.private,
+  };
+}
 
 /// Asks where the look goes, saves it, and returns to Home (or the Wardrobe)
 /// on success.
@@ -40,6 +56,7 @@ Future<bool> saveLookToTimeline(
   final visibility = await showModalBottomSheet<SaveLookVisibility>(
     context: context,
     showDragHandle: true,
+    isScrollControlled: true,
     builder: (_) => SaveLookSheet(canReplace: replacePostId != null),
   );
   if (visibility == null || !context.mounted) return false;
@@ -48,52 +65,49 @@ Future<bool> saveLookToTimeline(
   final navigator = Navigator.of(context);
 
   try {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) throw const SignInRequiredException();
+    final postService = posts ?? PostService();
+    final outfitService = outfits ?? OutfitService();
     switch (visibility) {
-      case SaveLookVisibility.replace:
-        if (replacePostId != null) {
-          await (posts ?? PostService()).updatePostImage(
-            replacePostId,
-            imageUrl,
-          );
-        } else {
-          // The sheet only offers this when a post is being edited; this is
-          // just a safe fallback if it is ever reached without one.
-          await (posts ?? PostService()).createPost(
-            caption: caption,
-            imageURL: imageUrl,
-          );
-        }
-      case SaveLookVisibility.private:
-        await (posts ?? PostService()).createPost(
-          caption: caption,
-          imageURL: imageUrl,
-        );
-      case SaveLookVisibility.friends:
-        await (posts ?? PostService()).createPost(
-          caption: caption,
-          imageURL: imageUrl,
-          visibility: PostVisibility.friends,
-        );
-      case SaveLookVisibility.community:
-        await (posts ?? PostService()).createPost(
-          caption: caption,
-          imageURL: imageUrl,
-          visibility: PostVisibility.public,
-        );
-        // Only a community share goes out to everyone who follows the user;
-        // a friends-only share stays quiet.
-        await (notifications ?? NotificationService()).notifyFollowersNewPost(
-          caption,
+      case SaveLookVisibility.replace when replacePostId != null:
+        await postService.updatePostImage(replacePostId, imageUrl);
+        await outfitService.saveLookToWardrobe(
+          userId: userId,
+          postId: replacePostId,
+          imageUrl: imageUrl,
+          name: caption,
         );
       case SaveLookVisibility.wardrobe:
-        final userId = FirebaseAuth.instance.currentUser?.uid;
-        if (userId == null) throw const SignInRequiredException();
-        await (outfits ?? OutfitService()).saveOutfit(
+        await outfitService.saveOutfit(
           userId: userId,
           avatarImageUrl: avatarImageUrl ?? imageUrl,
           resultImageUrl: imageUrl,
           products: const [],
         );
+      case SaveLookVisibility.replace ||
+          SaveLookVisibility.private ||
+          SaveLookVisibility.friends ||
+          SaveLookVisibility.followers ||
+          SaveLookVisibility.community:
+        final postId = await postService.createPost(
+          caption: caption,
+          imageURL: imageUrl,
+          visibility: visibility.audience,
+        );
+        // A saved makeover is always findable in the Smart Wardrobe too.
+        await outfitService.saveLookToWardrobe(
+          userId: userId,
+          postId: postId,
+          imageUrl: imageUrl,
+          name: caption,
+        );
+        // Only a public share goes out to everyone who follows the user.
+        if (visibility == SaveLookVisibility.community) {
+          await (notifications ?? NotificationService()).notifyFollowersNewPost(
+            caption,
+          );
+        }
     }
   } on SignInRequiredException catch (error) {
     messenger.showSnackBar(SnackBar(content: Text(error.message)));
@@ -109,10 +123,14 @@ Future<bool> saveLookToTimeline(
     SnackBar(
       content: Text(switch (visibility) {
         SaveLookVisibility.replace => 'Your look has been updated.',
-        SaveLookVisibility.friends => 'Your look is shared with friends.',
+        SaveLookVisibility.friends =>
+          'Your look is shared with friends and saved to your wardrobe.',
+        SaveLookVisibility.followers =>
+          'Your look is shared with your followers and saved to your wardrobe.',
         SaveLookVisibility.community =>
-          'Your look is on your timeline and shared with the community.',
-        SaveLookVisibility.private => 'Your look is saved to My Timeline.',
+          'Your look is public and saved to your wardrobe.',
+        SaveLookVisibility.private =>
+          'Your look is saved to My Fashion Makeover and your wardrobe.',
         SaveLookVisibility.wardrobe => 'Your look is saved to your wardrobe.',
       }),
     ),
@@ -135,7 +153,7 @@ class SaveLookSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -160,7 +178,9 @@ class SaveLookSheet extends StatelessWidget {
               key: const ValueKey('save_look_private'),
               leading: const Icon(Icons.lock_outline),
               title: Text(
-                canReplace ? 'Save as a new look' : 'Save to My Timeline',
+                canReplace
+                    ? 'Save as a new look'
+                    : 'Save to My Fashion Makeover',
               ),
               subtitle: const Text('Only you can see it. Share it later.'),
               onTap: () => Navigator.pop(context, SaveLookVisibility.private),
@@ -176,13 +196,20 @@ class SaveLookSheet extends StatelessWidget {
               key: const ValueKey('save_look_friends'),
               leading: const Icon(Icons.people_alt_outlined),
               title: const Text('Share with friends'),
-              subtitle: const Text('Only your friends can see it.'),
+              subtitle: const Text('Only people you follow who follow you.'),
               onTap: () => Navigator.pop(context, SaveLookVisibility.friends),
+            ),
+            ListTile(
+              key: const ValueKey('save_look_followers'),
+              leading: const Icon(Icons.group_outlined),
+              title: const Text('Share with followers'),
+              subtitle: const Text('Everyone who follows you can see it.'),
+              onTap: () => Navigator.pop(context, SaveLookVisibility.followers),
             ),
             ListTile(
               key: const ValueKey('save_look_community'),
               leading: const Icon(Icons.public),
-              title: const Text('Share with community'),
+              title: const Text('Share with everyone'),
               subtitle: const Text('Everyone can see it.'),
               onTap: () => Navigator.pop(context, SaveLookVisibility.community),
             ),
