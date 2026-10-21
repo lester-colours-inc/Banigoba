@@ -2,7 +2,7 @@
   "title": "Banigoba — App Review Checklist",
   "meeting": "App review meeting, 14 October 2026 (full transcript, parts 1–3)",
   "preparedBy": "Lester",
-  "status": "In progress: Tiers 1 and 2 done except G-4. Tier 3: 7 of 13. Before-Friday items done. Privacy and admin fixes are built and tested; their rules deploy with Friday's release.",
+  "status": "Tiers 1 and 2 done except G-4; Tier 3: 7 of 13; Tier 4: 9 of 23. Privacy and admin rules ready, deploying with Friday's release.",
   "target": "Next app version by the end of next week (about Friday 23 October 2026)",
   "tiers": [
     {
@@ -45,7 +45,8 @@
           "area": "Home — My Fashion Makeover tab",
           "note": "Already done in the latest build. Check it.",
           "done": true,
-          "progress": "Checked: the tab reads \"My Fashion Makeover\"."
+          "progress": "Checked: the tab reads \"My Fashion Makeover\".",
+          "highlight": "done"
         },
         {
           "id": "H-7",
@@ -53,7 +54,8 @@
           "area": "Home — My Fashion Makeover tab",
           "note": "Already fixed in the developer's latest build. Check it.",
           "done": true,
-          "progress": "Checked in code: the name shows once in the card header."
+          "progress": "Checked in code: the name shows once in the card header.",
+          "highlight": "done"
         },
         {
           "id": "M-11",
@@ -61,7 +63,8 @@
           "area": "Makeover generator page",
           "note": "Already done. Check it.",
           "done": true,
-          "progress": "Checked: the makeover runs one step per item."
+          "progress": "Checked: the makeover runs one step per item.",
+          "highlight": "done"
         },
         {
           "id": "P-1",
@@ -69,7 +72,8 @@
           "area": "Post, save and share",
           "note": "Agreed. Keep it as it is.",
           "done": true,
-          "progress": "Checked: the share sheet asks Friends / Followers / Public each time."
+          "progress": "Checked: the share sheet asks Friends / Followers / Public each time.",
+          "highlight": "done"
         },
         {
           "id": "D-1",
@@ -77,7 +81,8 @@
           "area": "My Daily Dress Up",
           "note": "",
           "done": true,
-          "progress": "Checked: the feed shows looks saved to the Smart Wardrobe. AI suggestions and Twins/Idols looks are not built yet (see D-4, F-1)."
+          "progress": "Checked: the feed shows looks saved to the Smart Wardrobe. AI suggestions and Twins/Idols looks are not built yet (see D-4, F-1).",
+          "highlight": "done"
         },
         {
           "id": "U-6",
@@ -85,7 +90,8 @@
           "area": "Profile, identity and social graph",
           "note": "",
           "done": true,
-          "progress": "My Profile Details now has face, full-body and hand photos, plus height, weight, shoulders, waist, tummy, chest, hips, inside leg and sizes."
+          "progress": "My Profile Details now has face, full-body and hand photos, plus height, weight, shoulders, waist, tummy, chest, hips, inside leg and sizes.",
+          "highlight": "done"
         },
         {
           "id": "H-2",
@@ -93,7 +99,8 @@
           "area": "Home — My Fashion Makeover tab",
           "note": "Reverses the recent change to an icon-only button with a tooltip",
           "done": true,
-          "progress": "Large labelled button \"Create My Fashion Makeover\"."
+          "progress": "Large labelled button \"Create My Fashion Makeover\".",
+          "highlight": "done"
         },
         {
           "id": "H-3",
@@ -101,7 +108,8 @@
           "area": "Home — My Fashion Makeover tab",
           "note": "",
           "done": true,
-          "progress": "The button pulses three times when Home opens; this is skipped when the phone asks for reduced motion."
+          "progress": "The button pulses three times when Home opens; this is skipped when the phone asks for reduced motion.",
+          "highlight": "done"
         },
         {
           "id": "M-2",
@@ -109,7 +117,8 @@
           "area": "Makeover generator page",
           "note": "",
           "done": true,
-          "progress": "\"Add Your Photo\" / \"Your Photo\"."
+          "progress": "\"Add Your Photo\" / \"Your Photo\".",
+          "highlight": "done"
         },
         {
           "id": "M-3",
@@ -117,7 +126,8 @@
           "area": "Makeover generator page",
           "note": "Exact wording to be confirmed",
           "done": true,
-          "progress": "Heading is now \"My New Look\". The wording can still change."
+          "progress": "Heading is now \"My New Look\". The wording can still change.",
+          "highlight": "done"
         },
         {
           "id": "M-9",
@@ -125,7 +135,8 @@
           "area": "Makeover generator page",
           "note": "",
           "done": true,
-          "progress": "Method labels wrap onto two lines instead of being cut off."
+          "progress": "Method labels wrap onto two lines instead of being cut off.",
+          "highlight": "done"
         },
         {
           "id": "M-12",
@@ -133,7 +144,8 @@
           "area": "Makeover generator page",
           "note": "",
           "done": true,
-          "progress": "Back arrow moved to the top left, where people expect it. It was on the right, next to the cart."
+          "progress": "Back arrow moved to the top left, where people expect it. It was on the right, next to the cart.",
+          "highlight": "done"
         },
         {
           "id": "W-5",
@@ -141,7 +153,8 @@
           "area": "Smart Wardrobe module",
           "note": "",
           "done": true,
-          "progress": "Back arrow added to the \"Upload to Wardrobe\" sheet."
+          "progress": "Back arrow added to the \"Upload to Wardrobe\" sheet.",
+          "highlight": "done"
         },
         {
           "id": "G-3",
@@ -149,7 +162,8 @@
           "area": "Global UI rules (every screen)",
           "note": "Missing on the makeover generator and on Add wardrobe item",
           "done": true,
-          "progress": "Screens that can be a tab or a pushed page (Home, Wardrobe, Search, Notifications, My Hair Style) show a back arrow when opened from somewhere else and the menu otherwise. Makeover and Add item are fixed too."
+          "progress": "Screens that can be a tab or a pushed page (Home, Wardrobe, Search, Notifications, My Hair Style) show a back arrow when opened from somewhere else and the menu otherwise. Makeover and Add item are fixed too.",
+          "highlight": "done"
         },
         {
           "id": "P-2",
@@ -157,7 +171,8 @@
           "area": "Post, save and share",
           "note": "",
           "done": true,
-          "progress": "The icon fills and turns gold once saved. Tap again to remove it from the wardrobe."
+          "progress": "The icon fills and turns gold once saved. Tap again to remove it from the wardrobe.",
+          "highlight": "done"
         },
         {
           "id": "H-6",
@@ -165,7 +180,8 @@
           "area": "Home — My Fashion Makeover tab",
           "note": "",
           "done": true,
-          "progress": "Tapping the name, words or picture opens the look. The action buttons still do their own thing."
+          "progress": "Tapping the name, words or picture opens the look. The action buttons still do their own thing.",
+          "highlight": "done"
         },
         {
           "id": "U-1",
@@ -173,7 +189,8 @@
           "area": "Profile, identity and social graph",
           "note": "Bug",
           "done": true,
-          "progress": "Tap your own photo on My Profile to take or choose a new one. Settings uses the same code."
+          "progress": "Tap your own photo on My Profile to take or choose a new one. Settings uses the same code.",
+          "highlight": "done"
         }
       ]
     },
@@ -187,7 +204,8 @@
           "area": "Global UI rules (every screen)",
           "note": "",
           "done": true,
-          "progress": "Wardrobe heading is \"My Smart Wardrobe\"; the Discover tab heading now matches the bottom bar; Home's tabs name each feed."
+          "progress": "Wardrobe heading is \"My Smart Wardrobe\"; the Discover tab heading now matches the bottom bar; Home's tabs name each feed.",
+          "highlight": "done"
         },
         {
           "id": "G-4",
@@ -195,7 +213,8 @@
           "area": "Global UI rules (every screen)",
           "note": "",
           "done": false,
-          "progress": "Fixed where found (makeover method labels, profile photo tiles). Still needs a check on a real phone."
+          "progress": "Fixed where found (makeover method labels, profile photo tiles). Still needs a check on a real phone.",
+          "highlight": "partial"
         },
         {
           "id": "M-4",
@@ -203,7 +222,8 @@
           "area": "Makeover generator page",
           "note": "The current screen is cluttered",
           "done": true,
-          "progress": "Two large choices: \"Describe it\" or \"Use a look you love\". The second shows Style twin, Style idol, Trending and Weather."
+          "progress": "Two large choices: \"Describe it\" or \"Use a look you love\". The second shows Style twin, Style idol, Trending and Weather.",
+          "highlight": "done"
         },
         {
           "id": "M-5",
@@ -211,7 +231,8 @@
           "area": "Makeover generator page",
           "note": "Reverses the current order",
           "done": true,
-          "progress": "The description box sits under \"How do you want to create your look?\", with \"What should change?\" below it."
+          "progress": "The description box sits under \"How do you want to create your look?\", with \"What should change?\" below it.",
+          "highlight": "done"
         },
         {
           "id": "M-6",
@@ -219,7 +240,8 @@
           "area": "Makeover generator page",
           "note": "",
           "done": true,
-          "progress": "Nothing is pre-selected. Generate stays off until there is a description (or a chosen look) and a \"What should change\" choice."
+          "progress": "Nothing is pre-selected. Generate stays off until there is a description (or a chosen look) and a \"What should change\" choice.",
+          "highlight": "done"
         },
         {
           "id": "M-7",
@@ -227,7 +249,8 @@
           "area": "Makeover generator page",
           "note": "",
           "done": true,
-          "progress": "The chips are the same for every photo: Full look, Outfit only, Hair only, Top only, Bottom only."
+          "progress": "The chips are the same for every photo: Full look, Outfit only, Hair only, Top only, Bottom only.",
+          "highlight": "done"
         },
         {
           "id": "M-8",
@@ -235,7 +258,8 @@
           "area": "Makeover generator page",
           "note": "",
           "done": true,
-          "progress": "The same \"What should change?\" chips apply to a look you love."
+          "progress": "The same \"What should change?\" chips apply to a look you love.",
+          "highlight": "done"
         },
         {
           "id": "D-3",
@@ -243,7 +267,8 @@
           "area": "My Daily Dress Up",
           "note": "",
           "done": true,
-          "progress": "An empty feed shows \"Set up my Smart Wardrobe\" and \"Add my measurements\" buttons."
+          "progress": "An empty feed shows \"Set up my Smart Wardrobe\" and \"Add my measurements\" buttons.",
+          "highlight": "done"
         },
         {
           "id": "D-2",
@@ -251,7 +276,8 @@
           "area": "My Daily Dress Up",
           "note": "",
           "done": true,
-          "progress": "Forward a dress-up to Friends or Community to share it as today's look. Friends' shared dress-ups from the last 36 hours show at the top of the feed."
+          "progress": "Forward a dress-up to Friends or Community to share it as today's look. Friends' shared dress-ups from the last 36 hours show at the top of the feed.",
+          "highlight": "done"
         },
         {
           "id": "H-5",
@@ -259,7 +285,8 @@
           "area": "Home — My Fashion Makeover tab",
           "note": "",
           "done": true,
-          "progress": "My Fashion Makeover shows your looks plus everyone else's you are allowed to see. Community shows only other people's."
+          "progress": "My Fashion Makeover shows your looks plus everyone else's you are allowed to see. Community shows only other people's.",
+          "highlight": "done"
         },
         {
           "id": "P-3",
@@ -267,7 +294,8 @@
           "area": "Post, save and share",
           "note": "",
           "done": true,
-          "progress": "After saving, a sheet says \"Saved to My Smart Wardrobe\", offers categories (or a new one) and a \"View in wardrobe\" button."
+          "progress": "After saving, a sheet says \"Saved to My Smart Wardrobe\", offers categories (or a new one) and a \"View in wardrobe\" button.",
+          "highlight": "done"
         },
         {
           "id": "W-1",
@@ -275,7 +303,8 @@
           "area": "Smart Wardrobe module",
           "note": "Bug",
           "done": true,
-          "progress": "Tabs are now My Clothes, Saved Looks (grouped by category) and Shops & Designers. The Friends and Community tabs are gone. My Clothes stays empty until the user_products rule (issue I-1) is deployed."
+          "progress": "Tabs are now My Clothes, Saved Looks (grouped by category) and Shops & Designers. The Friends and Community tabs are gone. My Clothes stays empty until the user_products rule (issue I-1) is deployed.",
+          "highlight": "done"
         },
         {
           "id": "W-4",
@@ -283,7 +312,8 @@
           "area": "Smart Wardrobe module",
           "note": "Missing today",
           "done": true,
-          "progress": "Add item asks for size (XXS–XXXL), shoulders and length. These are stored in the same fields shops use. Uploading only works once the user_products rule (issue I-1) is deployed."
+          "progress": "Add item asks for size (XXS–XXXL), shoulders and length. These are stored in the same fields shops use. Uploading only works once the user_products rule (issue I-1) is deployed.",
+          "highlight": "done"
         },
         {
           "id": "U-3",
@@ -291,7 +321,8 @@
           "area": "Profile, identity and social graph",
           "note": "",
           "done": true,
-          "progress": "Search was on Discover; there is now a search icon on Home and a \"Find people to follow\" button on your profile. Search no longer shows emails and matches an email only when the full address is typed. Your email is shown only to you."
+          "progress": "Search was on Discover; there is now a search icon on Home and a \"Find people to follow\" button on your profile. Search no longer shows emails and matches an email only when the full address is typed. Your email is shown only to you.",
+          "highlight": "done"
         },
         {
           "id": "C-1",
@@ -299,7 +330,8 @@
           "area": "Community",
           "note": "",
           "done": true,
-          "progress": "An \"Upcoming events\" strip sits at the top of the Community feed."
+          "progress": "An \"Upcoming events\" strip sits at the top of the Community feed.",
+          "highlight": "done"
         },
         {
           "id": "C-2",
@@ -307,7 +339,8 @@
           "area": "Community",
           "note": "Not built yet",
           "done": true,
-          "progress": "There is an \"Add event\" button on the Community feed. It uses the existing event form, which goes to curators for approval."
+          "progress": "There is an \"Add event\" button on the Community feed. It uses the existing event form, which goes to curators for approval.",
+          "highlight": "done"
         }
       ]
     },
@@ -321,7 +354,8 @@
           "area": "Branding",
           "note": "Confirm exact wording",
           "done": false,
-          "progress": "Decided: \"G for Good\" (not God). Waiting for the designer's new logo file with the line; then swap it in and regenerate the splash screens (dart run flutter_native_splash:create)."
+          "progress": "Decided: \"G for Good\" (not God). Waiting for the designer's new logo file with the line; then swap it in and regenerate the splash screens (dart run flutter_native_splash:create).",
+          "highlight": "partial"
         },
         {
           "id": "H-4",
@@ -329,7 +363,8 @@
           "area": "Home — My Fashion Makeover tab",
           "note": "Open question 1: this clashes with the work plan's \"no counters\" rule",
           "done": true,
-          "progress": "Decided: owner-only count. \"No affirmations yet\" is gone. The look's owner sees the total; everyone else sees which affirmations were given, never a number (fits BNG SRS 001)."
+          "progress": "Decided: owner-only count. \"No affirmations yet\" is gone. The look's owner sees the total; everyone else sees which affirmations were given, never a number (fits BNG SRS 001).",
+          "highlight": "done"
         },
         {
           "id": "U-2",
@@ -337,7 +372,8 @@
           "area": "Profile, identity and social graph",
           "note": "Open question 1 (counts)",
           "done": true,
-          "progress": "Follow already existed on other people's profiles and is now reachable through people search. Follower and following numbers show only to the profile owner; others see the lists without totals."
+          "progress": "Follow already existed on other people's profiles and is now reachable through people search. Follower and following numbers show only to the profile owner; others see the lists without totals.",
+          "highlight": "done"
         },
         {
           "id": "P-4",
@@ -345,7 +381,8 @@
           "area": "Post, save and share",
           "note": "",
           "done": true,
-          "progress": "Decided: keep both, renamed. \"Post\" (in the ⋮ menu) decides who sees the look in the feeds; \"Send to\" (share icon) sends it to a salon, shop, designer, WhatsApp or other apps. Community and Friends are no longer in Send to. Daily Dress Up has its own \"Post as today's dress-up\" action."
+          "progress": "Decided: keep both, renamed. \"Post\" (in the ⋮ menu) decides who sees the look in the feeds; \"Send to\" (share icon) sends it to a salon, shop, designer, WhatsApp or other apps. Community and Friends are no longer in Send to. Daily Dress Up has its own \"Post as today's dress-up\" action.",
+          "highlight": "done"
         },
         {
           "id": "P-8",
@@ -353,7 +390,8 @@
           "area": "Post, save and share",
           "note": "Today quoting is only possible on public looks. Open question 3.",
           "done": true,
-          "progress": "Decided: always shown. On a private look, Repost or Quote first asks \"Share this look first?\", then carries on."
+          "progress": "Decided: always shown. On a private look, Repost or Quote first asks \"Share this look first?\", then carries on.",
+          "highlight": "done"
         },
         {
           "id": "M-1",
@@ -361,7 +399,8 @@
           "area": "Makeover generator page",
           "note": "Open question 6: two buttons or one button that asks",
           "done": true,
-          "progress": "Decided: one button, then a choice. \"Create My Fashion Makeover\" (and the menu item) asks Hairstyle or Outfit & more first."
+          "progress": "Decided: one button, then a choice. \"Create My Fashion Makeover\" (and the menu item) asks Hairstyle or Outfit & more first.",
+          "highlight": "done"
         },
         {
           "id": "P-7",
@@ -369,7 +408,8 @@
           "area": "Post, save and share",
           "note": "Open question 2",
           "done": true,
-          "progress": "Decided: \"My Circle\". Add or remove any salon, shop or designer from the Send to list; kept privately per user."
+          "progress": "Decided: \"My Circle\". Add or remove any salon, shop or designer from the Send to list; kept privately per user.",
+          "highlight": "done"
         },
         {
           "id": "P-6",
@@ -377,7 +417,8 @@
           "area": "Post, save and share",
           "note": "",
           "done": true,
-          "progress": "Send to shows your Circle as a one-tap row above the search, then everyone else."
+          "progress": "Send to shows your Circle as a one-tap row above the search, then everyone else.",
+          "highlight": "done"
         },
         {
           "id": "K-5",
@@ -385,7 +426,8 @@
           "area": "Marketplace, e-fitting room and monetization",
           "note": "Open question 7 (rates)",
           "done": false,
-          "progress": ""
+          "progress": "",
+          "highlight": "planned"
         },
         {
           "id": "K-6",
@@ -393,7 +435,8 @@
           "area": "Marketplace, e-fitting room and monetization",
           "note": "",
           "done": false,
-          "progress": ""
+          "progress": "",
+          "highlight": "planned"
         },
         {
           "id": "K-3",
@@ -401,7 +444,8 @@
           "area": "Marketplace, e-fitting room and monetization",
           "note": "Open question 8 (delivery)",
           "done": false,
-          "progress": ""
+          "progress": "",
+          "highlight": "planned"
         },
         {
           "id": "E-2",
@@ -409,7 +453,8 @@
           "area": "Engagement and go-to-market",
           "note": "Backend. Open question 9 (image rights)",
           "done": false,
-          "progress": ""
+          "progress": "",
+          "highlight": "planned"
         },
         {
           "id": "E-3",
@@ -417,7 +462,8 @@
           "area": "Engagement and go-to-market",
           "note": "Links to C-1",
           "done": false,
-          "progress": ""
+          "progress": "",
+          "highlight": "planned"
         }
       ]
     },
@@ -431,7 +477,8 @@
           "area": "Post, save and share",
           "note": "",
           "done": true,
-          "progress": "Saved looks already carry the category chosen when saving (P-3); they can now be browsed by category in Smart Wardrobe › Saved Looks and in the look picker."
+          "progress": "Saved looks already carry the category chosen when saving (P-3); they can now be browsed by category in Smart Wardrobe › Saved Looks and in the look picker.",
+          "highlight": "done"
         },
         {
           "id": "M-10",
@@ -439,7 +486,8 @@
           "area": "Makeover generator page",
           "note": "",
           "done": true,
-          "progress": "\"Find a look you love\" picker: Following (first), Fashion Twins, Saved (by category), Affirmed and Community, with search by words, category, name or @username. Still to do: Trending and Style idols sources, which need the content engine (E-2)."
+          "progress": "\"Find a look you love\" picker: Following (first), Fashion Twins, Saved (by category), Affirmed and Community, with search by words, category, name or @username. Still to do: Trending and Style idols sources, which need the content engine (E-2).",
+          "highlight": "done"
         },
         {
           "id": "F-1",
@@ -447,7 +495,8 @@
           "area": "Fashion Twins, Fashion Idols and Hair Stylists",
           "note": "Same page reused several times today",
           "done": true,
-          "progress": "New \"My Fashion Twins\" page: find people by name or @username, add them (this also asks to follow them, so their looks reach your feeds), open their profiles, remove them."
+          "progress": "New \"My Fashion Twins\" page: find people by name or @username, add them (this also asks to follow them, so their looks reach your feeds), open their profiles, remove them.",
+          "highlight": "done"
         },
         {
           "id": "F-2",
@@ -455,7 +504,8 @@
           "area": "Fashion Twins, Fashion Idols and Hair Stylists",
           "note": "",
           "done": false,
-          "progress": "New \"My Fashion Idols\" page: keep idols by name; \"Style me like …\" opens the makeover with the idol filled in. Still to do: idols' news and looks in the feed, which needs the fashion-content engine (E-2)."
+          "progress": "New \"My Fashion Idols\" page: keep idols by name; \"Style me like …\" opens the makeover with the idol filled in. Still to do: idols' news and looks in the feed, which needs the fashion-content engine (E-2).",
+          "highlight": "partial"
         },
         {
           "id": "F-3",
@@ -463,7 +513,8 @@
           "area": "Fashion Twins, Fashion Idols and Hair Stylists",
           "note": "",
           "done": true,
-          "progress": "New \"My Hair Stylists\" setup page: your salons (My Circle, with \"Find a salon\"), \"Hairstyles I like\" from your photos or camera, \"Try this on me\" (hair makeover copying that style) and \"Try a new hairstyle\"."
+          "progress": "New \"My Hair Stylists\" setup page: your salons (My Circle, with \"Find a salon\"), \"Hairstyles I like\" from your photos or camera, \"Try this on me\" (hair makeover copying that style) and \"Try a new hairstyle\".",
+          "highlight": "done"
         },
         {
           "id": "F-4",
@@ -471,7 +522,8 @@
           "area": "Fashion Twins, Fashion Idols and Hair Stylists",
           "note": "Keep the number of feeds small",
           "done": true,
-          "progress": "The menu no longer opens the old hair flow. Its code (and the unreachable My Fashion Style page) has been deleted, about 5,400 lines; the curators' hairstyle catalogue upload moved to the admin area. Hair makeovers go through the main makeover and appear in the normal feeds. Hair looks saved in the old flow are still in the database but no longer shown."
+          "progress": "The menu no longer opens the old hair flow. Its code (and the unreachable My Fashion Style page) has been deleted, about 5,400 lines; the curators' hairstyle catalogue upload moved to the admin area. Hair makeovers go through the main makeover and appear in the normal feeds. Hair looks saved in the old flow are still in the database but no longer shown.",
+          "highlight": "done"
         },
         {
           "id": "U-4",
@@ -479,7 +531,8 @@
           "area": "Profile, identity and social graph",
           "note": "",
           "done": true,
-          "progress": "Built: unique @username (3–20 characters; letters, numbers, dots, underscores), held in a usernames lookup so no two people can have the same one. Anyone without one is asked once, with a suggestion from their name. It shows on profiles and in search, and can be changed in Settings. Database rules deployed 20 October 2026."
+          "progress": "Built: unique @username (3–20 characters; letters, numbers, dots, underscores), held in a usernames lookup so no two people can have the same one. Anyone without one is asked once, with a suggestion from their name. It shows on profiles and in search, and can be changed in Settings. Database rules deployed 20 October 2026.",
+          "highlight": "done"
         },
         {
           "id": "U-5",
@@ -487,7 +540,8 @@
           "area": "Profile, identity and social graph",
           "note": "Backend migration, privacy",
           "done": true,
-          "progress": "Built and tested: emails now live in a private record (owner only) and are no longer on public profiles; a full email can still be searched via a one-way hashed lookup. Every sign-in moves the email; functions/scripts/migrate_private_emails.js moves the rest. Goes live with the Friday rules deploy."
+          "progress": "Built and tested: emails now live in a private record (owner only) and are no longer on public profiles; a full email can still be searched via a one-way hashed lookup. Every sign-in moves the email; functions/scripts/migrate_private_emails.js moves the rest. Goes live with the Friday rules deploy.",
+          "highlight": "done"
         },
         {
           "id": "W-2",
@@ -495,7 +549,8 @@
           "area": "Smart Wardrobe module",
           "note": "",
           "done": true,
-          "progress": "The wardrobe's Shops & Designers tab now opens with My Circle (your salons, shops and designers, removable), then the directories."
+          "progress": "The wardrobe's Shops & Designers tab now opens with My Circle (your salons, shops and designers, removable), then the directories.",
+          "highlight": "done"
         },
         {
           "id": "W-3",
@@ -519,7 +574,8 @@
           "area": "Smart Wardrobe module",
           "note": "",
           "done": true,
-          "progress": "Clothes in My Clothes have \"I wore this today\" and show \"Worn 3 weeks ago\" / \"Not worn in 10 months\" (highlighted after 6 months, or when never worn after a month). Saved Looks show when each was last worn, from \"Wear today\"."
+          "progress": "Clothes in My Clothes have \"I wore this today\" and show \"Worn 3 weeks ago\" / \"Not worn in 10 months\" (highlighted after 6 months, or when never worn after a month). Saved Looks show when each was last worn, from \"Wear today\".",
+          "highlight": "done"
         },
         {
           "id": "D-4",
@@ -703,31 +759,36 @@
       "id": "I-1",
       "text": "Smart Wardrobe items are stored in a top-level user_products collection, but firestore.rules only covered users/{uid}/user_products. On the phone, My Clothes fails with PERMISSION_DENIED and new uploads are refused.",
       "status": "Fixed and deployed (20 October 2026)",
-      "action": "A user_products rule was added and deployed: owners read all their items, others only public ones, and only the owner can write."
+      "action": "A user_products rule was added and deployed: owners read all their items, others only public ones, and only the owner can write.",
+      "highlight": "done"
     },
     {
       "id": "I-2",
       "text": "Any signed-in user can read every post, including private and friends-only ones. The app only hides them on the phone.",
       "status": "Fixed and tested; deploy with Friday's release",
-      "action": "Posts are readable only by their author, by followers or friends as chosen, or by anyone when public; comments follow their post. Feeds now ask only for posts the user may see. 26 rules tests pass in the local emulator (npm --prefix test_rules test). Deploying blocks the old app's feed, so it goes out with the new build."
+      "action": "Posts are readable only by their author, by followers or friends as chosen, or by anyone when public; comments follow their post. Feeds now ask only for posts the user may see. 26 rules tests pass in the local emulator (npm --prefix test_rules test). Deploying blocks the old app's feed, so it goes out with the new build.",
+      "highlight": "planned"
     },
     {
       "id": "I-3",
       "text": "People search showed everyone's email address and matched partial emails, and other people's profiles showed their email.",
       "status": "Fixed",
-      "action": "Emails are no longer shown, only a full email address matches, and your email appears on your own profile only (see U-3)."
+      "action": "Emails are no longer shown, only a full email address matches, and your email appears on your own profile only (see U-3).",
+      "highlight": "done"
     },
     {
       "id": "I-4",
       "status": "Fixed and tested; deploy with Friday's release",
       "text": "Any user could make themselves an admin (isAdmin / role) or mark their own shop, designer or salon profile as verified, because a catch-all rule also matched the profile record itself.",
-      "action": "The catch-all now only covers subcollections; users cannot set admin or verified flags on themselves. Covered by the rules tests."
+      "action": "The catch-all now only covers subcollections; users cannot set admin or verified flags on themselves. Covered by the rules tests.",
+      "highlight": "planned"
     },
     {
       "id": "I-5",
       "status": "Fixed and tested; deploy with Friday's release",
       "text": "The curators' \"verify shop / designer / salon\" buttons wrote to other users' records, which the rules never allowed, so verification could not work from the app.",
-      "action": "Admins may now update only the shop, designer and agent profile sections of other users."
+      "action": "Admins may now update only the shop, designer and agent profile sections of other users.",
+      "highlight": "planned"
     }
   ],
   "openQuestions": [
@@ -746,5 +807,18 @@
     "Deploy the rules: firebase deploy --only firestore:rules",
     "Check on a phone that Home, Community and Daily Dress Up load.",
     "Run the email cleanup once, with a service-account key: node functions/scripts/migrate_private_emails.js --dry-run, then without --dry-run."
-  ]
+  ],
+  "highlights": {
+    "doneLabel": "Done 20 Oct",
+    "doneTitle": "Done in the 20 October session",
+    "plannedLabel": "Planned 22 Oct",
+    "plannedTitle": "Planned for 22 October",
+    "plannedTasks": [
+      "Release prep for Friday 23 October: get the build ready for testers, and line up the rules deploy, the feed check on a phone and the email cleanup script (see \"Release day\").",
+      "Open question 7: commission rate and the influencers' share of sales (unblocks K-5, K-6).",
+      "Open question 8: who handles delivery (unblocks K-3).",
+      "Open question 9: rules for reposting fashion photos found online (unblocks E-2, E-3)."
+    ],
+    "partialLabel": "Started 20 Oct"
+  }
 }

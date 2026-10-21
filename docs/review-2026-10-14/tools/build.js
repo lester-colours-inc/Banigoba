@@ -16,6 +16,13 @@ if (dupes.length) throw new Error(`Duplicate ids: ${dupes}`);
 
 const slug = (s) => s.toLowerCase().replace(/[^a-z0-9 -]/g, '').trim().replace(/\s+/g, '-');
 const isPrinciples = (t) => t.name.startsWith('Principles');
+const hl = data.highlights;
+const LABELS = { done: ['✅', 'doneLabel'], partial: ['🔶', 'partialLabel'], planned: ['📅', 'plannedLabel'] };
+const badge = (x) => {
+  const [icon, key] = (hl && LABELS[x.highlight]) || [];
+  return icon ? ` ${icon} **${hl[key]}**` : '';
+};
+const allItems = data.tiers.flatMap((t) => t.items);
 const findingDone = (f) => f.status.startsWith('Fixed') && !/needs deploy/i.test(f.status);
 
 // ---------- Markdown ----------
@@ -25,25 +32,44 @@ md.push(`**Meeting:** ${data.meeting}  `, `**Prepared by:** ${data.preparedBy}  
 md.push('Tick items off as they ship. Item IDs (e.g. `H-2`) match the Word version (`Banigoba_Review_Checklist.docx`).', '');
 md.push('Items are ordered easiest and clearest first. The ID prefix shows the app area (H = Home, M = Makeover, W = Wardrobe, …).', '');
 md.push('_Generated from `tools/checklist.json`; edit that file and run `npm run build` in `tools/`._', '');
+if (hl) {
+  const done = allItems.filter((i) => i.highlight === 'done');
+  const doneIssues = data.findings.filter((f) => f.highlight === 'done');
+  md.push('## Highlights', '');
+  md.push(`### ✅ ${hl.doneTitle} (${done.length} items, ${doneIssues.length} issues fixed)`, '');
+  done.forEach((i) => md.push(`- **${i.id}** ${i.text}`));
+  doneIssues.forEach((f) => md.push(`- **${f.id}** ${f.text}`));
+  const started = allItems.filter((i) => i.highlight === 'partial');
+  if (started.length) {
+    md.push('', `**🔶 ${hl.partialLabel}, not finished:**`, '');
+    started.forEach((i) => md.push(`- **${i.id}** ${i.text}${i.progress ? ` — ${i.progress}` : ''}`));
+  }
+  md.push('', `### 📅 ${hl.plannedTitle}`, '');
+  hl.plannedTasks.forEach((task) => md.push(`- [ ] ${task}`));
+  const waiting = data.findings.filter((f) => f.highlight === 'planned');
+  if (waiting.length) md.push(`- [ ] Ready to deploy with the release: ${waiting.map((f) => f.id).join(', ')}.`);
+  md.push('');
+}
 md.push('## Contents', '');
 data.tiers.forEach((t) => {
   const done = t.items.filter((i) => i.done).length;
   md.push(`- [${t.name}](#${slug(t.name)})${isPrinciples(t) ? '' : ` — ${done}/${t.items.length} done`}`);
 });
 md.push('- [Issues found while working](#issues-found-while-working)');
+if (hl) md.splice(md.indexOf('## Contents') + 2, 0, '- [Highlights](#highlights)');
 if (data.releaseSteps?.length) md.push('- [Release day (Friday)](#release-day-friday)');
 md.push('- [Open questions](#open-questions)', '');
 data.tiers.forEach((t) => {
   md.push(`## ${t.name}`, '', `_${t.blurb}_`, '');
   t.items.forEach((i) => {
-    md.push(`- [${i.done ? 'x' : ' '}] **${i.id}** ${i.text} — ${i.area}${i.note ? ` _(${i.note})_` : ''}`);
+    md.push(`- [${i.done ? 'x' : ' '}] **${i.id}**${badge(i)} ${i.text} — ${i.area}${i.note ? ` _(${i.note})_` : ''}`);
     if (i.progress) md.push(`  - **Progress:** ${i.progress}`);
   });
   md.push('');
 });
 md.push('## Issues found while working', '', '_Not raised in the meeting; found while building._', '');
 data.findings.forEach((f) => {
-  md.push(`- [${findingDone(f) ? 'x' : ' '}] **${f.id}** ${f.text} _(${f.status})_`);
+  md.push(`- [${findingDone(f) ? 'x' : ' '}] **${f.id}**${badge(f)} ${f.text} _(${f.status})_`);
   md.push(`  - **Action:** ${f.action}`);
 });
 if (data.releaseSteps?.length) {
@@ -79,12 +105,17 @@ const headerRow = (labels) => new TableRow({
 const table = (labels, rows) => new Table({
   width: { size: PAGE_W, type: WidthType.DXA }, columnWidths: COLS, rows: [headerRow(labels), ...rows],
 });
-const row = (done, id, text, notes) => new TableRow({ children: [
-  cell(done ? '☑' : '☐', COLS[0], { center: true, size: 24 }),
-  cell(id, COLS[1], { center: true, bold: true }),
-  cell(text, COLS[2]),
-  cell(notes, COLS[3], { italics: true, color: '5A6273', size: 18 }),
-] });
+const FILL = { done: 'E3F4E6', partial: 'E4EEFB', planned: 'FFF1D6' };
+const row = (done, id, text, notes, highlight) => {
+  const fill = FILL[highlight];
+  return new TableRow({ children: [
+    cell(done ? '☑' : '☐', COLS[0], { center: true, size: 24, fill }),
+    cell(id, COLS[1], { center: true, bold: true, fill }),
+    cell(text, COLS[2], { fill }),
+    cell(notes, COLS[3], { italics: true, color: '5A6273', size: 18, fill }),
+  ] });
+};
+const tagOf = (x) => (hl && LABELS[x.highlight] ? hl[LABELS[x.highlight][1]] : '');
 const h1 = (text) => new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun(text)] });
 const blurb = (text) => new Paragraph({ spacing: { after: 100 }, children: [new TextRun({ text, italics: true, color: '5A6273' })] });
 
@@ -98,12 +129,27 @@ const children = [
     children: [new TextRun({ text: 'Ordered easiest and clearest first. Tick items off as they ship. IDs match the README in the repo.', italics: true })],
   }),
 ];
+if (hl) {
+  const done = allItems.filter((i) => i.highlight === 'done');
+  const doneIssues = data.findings.filter((f) => f.highlight === 'done');
+  const swatch = (fill, label) => new Paragraph({ spacing: { after: 60 }, children: [
+    new TextRun({ text: '      ', shading: { type: ShadingType.CLEAR, color: 'auto', fill } }),
+    new TextRun({ text: `  ${label}` }),
+  ] });
+  children.push(h1('Highlights'), swatch(FILL.done, `Green rows: ${hl.doneLabel}`), swatch(FILL.partial, `Blue rows: ${hl.partialLabel}, not finished`), swatch(FILL.planned, `Amber rows: ${hl.plannedLabel}`));
+  children.push(new Paragraph({ spacing: { before: 120, after: 60 }, children: [new TextRun({ text: `${hl.doneTitle}: ${done.length} items, ${doneIssues.length} issues fixed`, bold: true })] }));
+  children.push(new Paragraph({ children: [new TextRun([...done, ...doneIssues].map((x) => x.id).join(', '))] }));
+  children.push(new Paragraph({ spacing: { before: 160, after: 60 }, children: [new TextRun({ text: hl.plannedTitle, bold: true })] }));
+  const waiting = data.findings.filter((f) => f.highlight === 'planned');
+  [...hl.plannedTasks, ...(waiting.length ? [`Ready to deploy with the release: ${waiting.map((f) => f.id).join(', ')}.`] : [])]
+    .forEach((task) => children.push(new Paragraph({ numbering: { reference: 'p', level: 0 }, children: [new TextRun(task)] })));
+}
 data.tiers.forEach((t) => {
   children.push(h1(t.name), blurb(t.blurb), table(['Done', 'ID', 'Item', 'Area · Notes'], t.items.map((i) =>
-    row(i.done, i.id, i.text, [i.area, i.note, i.progress && `Progress: ${i.progress}`].filter(Boolean).join(' · ')))));
+    row(i.done, i.id, i.text, [tagOf(i), i.area, i.note, i.progress && `Progress: ${i.progress}`].filter(Boolean).join(' · '), i.highlight))));
 });
 children.push(h1('Issues found while working'), blurb('Not raised in the meeting; found while building.'),
-  table(['Done', 'ID', 'Issue', 'Status · Action'], data.findings.map((f) => row(findingDone(f), f.id, f.text, `${f.status} · ${f.action}`))));
+  table(['Done', 'ID', 'Issue', 'Status · Action'], data.findings.map((f) => row(findingDone(f), f.id, f.text, [tagOf(f), f.status, f.action].filter(Boolean).join(' · '), f.highlight))));
 if (data.releaseSteps?.length) {
   children.push(h1('Release day (Friday)'));
   data.releaseSteps.forEach((step) => children.push(new Paragraph({ numbering: { reference: 'r', level: 0 }, children: [new TextRun(step)] })));
@@ -120,7 +166,7 @@ const doc = new Document({
         run: { size: 26, bold: true, color: NAVY }, paragraph: { spacing: { before: 320, after: 120 }, outlineLevel: 0 } },
     ],
   },
-  numbering: { config: ['q', 'r'].map((reference) => ({ reference, levels: [{ level: 0, format: LevelFormat.DECIMAL, text: '%1.', alignment: AlignmentType.LEFT,
+  numbering: { config: ['q', 'r', 'p'].map((reference) => ({ reference, levels: [{ level: 0, format: LevelFormat.DECIMAL, text: '%1.', alignment: AlignmentType.LEFT,
     style: { paragraph: { indent: { left: 500, hanging: 300 }, spacing: { after: 80 } } } }] })) },
   sections: [{ properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 1134, bottom: 1134, left: 1134, right: 1134 } } }, children }],
 });

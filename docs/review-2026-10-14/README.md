@@ -2,7 +2,7 @@
 
 **Meeting:** App review meeting, 14 October 2026 (full transcript, parts 1–3)  
 **Prepared by:** Lester  
-**Status:** In progress: Tiers 1 and 2 done except G-4. Tier 3: 7 of 13. Before-Friday items done. Privacy and admin fixes are built and tested; their rules deploy with Friday's release.  
+**Status:** Tiers 1 and 2 done except G-4; Tier 3: 7 of 13; Tier 4: 9 of 23. Privacy and admin rules ready, deploying with Friday's release.  
 **Target:** Next app version by the end of next week (about Friday 23 October 2026)
 
 Tick items off as they ship. Item IDs (e.g. `H-2`) match the Word version (`Banigoba_Review_Checklist.docx`).
@@ -11,8 +11,78 @@ Items are ordered easiest and clearest first. The ID prefix shows the app area (
 
 _Generated from `tools/checklist.json`; edit that file and run `npm run build` in `tools/`._
 
+## Highlights
+
+### ✅ Done in the 20 October session (48 items, 2 issues fixed)
+
+- **H-1** Tab label reads "My Makeover" / "My Fashion Makeover", not "My Timeline". Page heading: "My Fashion Makeover".
+- **H-7** Remove the duplicated name on post cards. Show the name once, with "The look" as the label.
+- **M-11** Keep generating one item at a time.
+- **P-1** Post audience (Friends / Followers / Public) is chosen every time, with no default.
+- **D-1** The feed comes from Smart Wardrobe suggestions. Check what currently fills it.
+- **U-6** The profile collects body data: height, measurements, a full-body photo, a hand photo and similar.
+- **H-2** Makeover button is large and always shows its label: "Create My Fashion Makeover". Make the font smaller if needed so it fits.
+- **H-3** The makeover button has a little movement, like the WhatsApp "Ask Meta AI" button.
+- **M-2** Say "your photo", not "your full body photo". People may only want to try a hairstyle or sunglasses.
+- **M-3** Use a personal, instructional heading such as "My New Look" or "My New Makeover".
+- **M-9** Fix the clashing "Describe style twin…" text.
+- **M-12** Add a back button so the user can leave without generating.
+- **W-5** Add item: add a back button.
+- **G-3** Every sub-page has a visible back button. Do not rely on Android gesture navigation.
+- **P-2** "Save to My Smart Wardrobe": the icon changes colour once saved, like a like button.
+- **H-6** Tapping anywhere on a post card opens it, like X does. At the moment you have to tap the picture itself.
+- **U-1** The profile picture can be changed. Today it cannot be edited and shows a placeholder picture.
+- **G-1** Every page has a clear heading at the top. Move the top bar up and put the page title in it.
+- **M-4** Make the layout a clear either-or: Option A, describe the look; or Option B, use a look you love (style idol, style twin, community).
+- **M-5** Option A: the "Describe the look you want" box sits at the top, with the "What should change" chips (hair, outfit, shoes and so on) below it.
+- **M-6** The user must write a description AND pick at least one change chip before Generate is enabled. These chips label our backend data sets.
+- **M-7** The chips are generic. They do not try to adapt to what is in the uploaded photo.
+- **M-8** Option B also asks the user what should change (outfit only, hair, and so on).
+- **D-3** If the Smart Wardrobe is not set up, show "Set up your Smart Wardrobe" with a button that opens the setup.
+- **D-2** Friends' shared daily dress-ups also appear here, not only yours.
+- **H-5** The feed shows everyone's looks (yours, friends, followers, community and public), not only yours. People want engagement.
+- **P-3** After saving, show a sheet that says where the look went and lets the user pick or create a category. Today it just says "Saved", which feels like a dark hole.
+- **W-1** The Smart Wardrobe page currently shows the wrong content (friends and community). Give it its own wardrobe interface.
+- **W-4** Add item: add size fields (size, shoulders and other key measurements).
+- **U-3** Add search for people and friends.
+- **C-1** The Community feed includes events.
+- **C-2** Add a "Create event" entry point and form (for example to announce a fashion show) that posts into Community.
+- **H-4** Remove the "No affirmations yet" text. Show a number instead.
+- **U-2** Add a way to follow people. "Following" and "Followers" appear on the profile, but nothing lets you follow anyone.
+- **P-4** Make Post and Share clearly different, or merge them. Remove the duplication and settle the wording.
+- **P-8** Repost and Quote are always visible in the share sheet. Today they only appear after you share to Community.
+- **M-1** Starting a makeover offers two choices: "Hairstyle" and "Other" (outfit, shoes, accessories). People think about their hair and face every morning more than about their full outfit.
+- **P-7** New feature: users connect with their own salons, shops and designers. We need a name for this kind of connection.
+- **P-6** Share to salon, shop or designer: show a row of the ones you are already connected to above the search box.
+- **P-9** Bookmark categories, like Facebook's saved collections (for example "Weddings"). The same categories are used in the "look you love" picker.
+- **M-10** "See a look you love" picker: add search plus filters for liked, bookmarked, bookmark categories, trending, style idols and people you follow. Show people you follow first.
+- **F-1** The Fashion Twins page currently reuses the makeover page. Rebuild it: find people (search, including the internet), add them, follow them. Their activity then appears in your feed.
+- **F-3** "My Hair Stylists" is a setup page, not a makeover page: follow stylists and salons, and keep the hairstyles you like (uploaded, found online, or your own photos).
+- **F-4** Do not add new timelines. Hairstyle makeovers and posts go into the existing My Fashion Makeover and My Daily Dress Up feeds.
+- **U-4** Give every user a unique @username, separate from their display name (which does not need to be unique).
+- **U-5** Stop using email as the public identifier. Use a private ID as the key and the username for display.
+- **W-2** The wardrobe holds my clothes, the shops I am connected to and the designers I am connected to.
+- **W-7** Track wear: for example "You haven't worn this shirt in 10 months".
+- **I-1** Smart Wardrobe items are stored in a top-level user_products collection, but firestore.rules only covered users/{uid}/user_products. On the phone, My Clothes fails with PERMISSION_DENIED and new uploads are refused.
+- **I-3** People search showed everyone's email address and matched partial emails, and other people's profiles showed their email.
+
+**🔶 Started 20 Oct, not finished:**
+
+- **G-4** Fix text that overlaps or clashes, on every screen. — Fixed where found (makeover method labels, profile photo tiles). Still needs a check on a real phone.
+- **B-1** Change the payoff line (tagline) to "G for God", tied to the G in the logo. — Decided: "G for Good" (not God). Waiting for the designer's new logo file with the line; then swap it in and regenerate the splash screens (dart run flutter_native_splash:create).
+- **F-2** Fashion Idols works the same way: search, follow, and their news comes into your feed. — New "My Fashion Idols" page: keep idols by name; "Style me like …" opens the makeover with the idol filled in. Still to do: idols' news and looks in the feed, which needs the fashion-content engine (E-2).
+
+### 📅 Planned for 22 October
+
+- [ ] Release prep for Friday 23 October: get the build ready for testers, and line up the rules deploy, the feed check on a phone and the email cleanup script (see "Release day").
+- [ ] Open question 7: commission rate and the influencers' share of sales (unblocks K-5, K-6).
+- [ ] Open question 8: who handles delivery (unblocks K-3).
+- [ ] Open question 9: rules for reposting fashion photos found online (unblocks E-2, E-3).
+- [ ] Ready to deploy with the release: I-2, I-4, I-5.
+
 ## Contents
 
+- [Highlights](#highlights)
 - [Principles (apply to all work)](#principles-apply-to-all-work)
 - [Tier 1 — Quick wins](#tier-1-quick-wins) — 17/17 done
 - [Tier 2 — Clear, medium work](#tier-2-clear-medium-work) — 15/16 done
@@ -35,129 +105,129 @@ _Not tasks. Keep these in mind on every change._
 
 _Small, clear UI changes, or checks of work that is already done. Start here._
 
-- [x] **H-1** Tab label reads "My Makeover" / "My Fashion Makeover", not "My Timeline". Page heading: "My Fashion Makeover". — Home — My Fashion Makeover tab _(Already done in the latest build. Check it.)_
+- [x] **H-1** ✅ **Done 20 Oct** Tab label reads "My Makeover" / "My Fashion Makeover", not "My Timeline". Page heading: "My Fashion Makeover". — Home — My Fashion Makeover tab _(Already done in the latest build. Check it.)_
   - **Progress:** Checked: the tab reads "My Fashion Makeover".
-- [x] **H-7** Remove the duplicated name on post cards. Show the name once, with "The look" as the label. — Home — My Fashion Makeover tab _(Already fixed in the developer's latest build. Check it.)_
+- [x] **H-7** ✅ **Done 20 Oct** Remove the duplicated name on post cards. Show the name once, with "The look" as the label. — Home — My Fashion Makeover tab _(Already fixed in the developer's latest build. Check it.)_
   - **Progress:** Checked in code: the name shows once in the card header.
-- [x] **M-11** Keep generating one item at a time. — Makeover generator page _(Already done. Check it.)_
+- [x] **M-11** ✅ **Done 20 Oct** Keep generating one item at a time. — Makeover generator page _(Already done. Check it.)_
   - **Progress:** Checked: the makeover runs one step per item.
-- [x] **P-1** Post audience (Friends / Followers / Public) is chosen every time, with no default. — Post, save and share _(Agreed. Keep it as it is.)_
+- [x] **P-1** ✅ **Done 20 Oct** Post audience (Friends / Followers / Public) is chosen every time, with no default. — Post, save and share _(Agreed. Keep it as it is.)_
   - **Progress:** Checked: the share sheet asks Friends / Followers / Public each time.
-- [x] **D-1** The feed comes from Smart Wardrobe suggestions. Check what currently fills it. — My Daily Dress Up
+- [x] **D-1** ✅ **Done 20 Oct** The feed comes from Smart Wardrobe suggestions. Check what currently fills it. — My Daily Dress Up
   - **Progress:** Checked: the feed shows looks saved to the Smart Wardrobe. AI suggestions and Twins/Idols looks are not built yet (see D-4, F-1).
-- [x] **U-6** The profile collects body data: height, measurements, a full-body photo, a hand photo and similar. — Profile, identity and social graph
+- [x] **U-6** ✅ **Done 20 Oct** The profile collects body data: height, measurements, a full-body photo, a hand photo and similar. — Profile, identity and social graph
   - **Progress:** My Profile Details now has face, full-body and hand photos, plus height, weight, shoulders, waist, tummy, chest, hips, inside leg and sizes.
-- [x] **H-2** Makeover button is large and always shows its label: "Create My Fashion Makeover". Make the font smaller if needed so it fits. — Home — My Fashion Makeover tab _(Reverses the recent change to an icon-only button with a tooltip)_
+- [x] **H-2** ✅ **Done 20 Oct** Makeover button is large and always shows its label: "Create My Fashion Makeover". Make the font smaller if needed so it fits. — Home — My Fashion Makeover tab _(Reverses the recent change to an icon-only button with a tooltip)_
   - **Progress:** Large labelled button "Create My Fashion Makeover".
-- [x] **H-3** The makeover button has a little movement, like the WhatsApp "Ask Meta AI" button. — Home — My Fashion Makeover tab
+- [x] **H-3** ✅ **Done 20 Oct** The makeover button has a little movement, like the WhatsApp "Ask Meta AI" button. — Home — My Fashion Makeover tab
   - **Progress:** The button pulses three times when Home opens; this is skipped when the phone asks for reduced motion.
-- [x] **M-2** Say "your photo", not "your full body photo". People may only want to try a hairstyle or sunglasses. — Makeover generator page
+- [x] **M-2** ✅ **Done 20 Oct** Say "your photo", not "your full body photo". People may only want to try a hairstyle or sunglasses. — Makeover generator page
   - **Progress:** "Add Your Photo" / "Your Photo".
-- [x] **M-3** Use a personal, instructional heading such as "My New Look" or "My New Makeover". — Makeover generator page _(Exact wording to be confirmed)_
+- [x] **M-3** ✅ **Done 20 Oct** Use a personal, instructional heading such as "My New Look" or "My New Makeover". — Makeover generator page _(Exact wording to be confirmed)_
   - **Progress:** Heading is now "My New Look". The wording can still change.
-- [x] **M-9** Fix the clashing "Describe style twin…" text. — Makeover generator page
+- [x] **M-9** ✅ **Done 20 Oct** Fix the clashing "Describe style twin…" text. — Makeover generator page
   - **Progress:** Method labels wrap onto two lines instead of being cut off.
-- [x] **M-12** Add a back button so the user can leave without generating. — Makeover generator page
+- [x] **M-12** ✅ **Done 20 Oct** Add a back button so the user can leave without generating. — Makeover generator page
   - **Progress:** Back arrow moved to the top left, where people expect it. It was on the right, next to the cart.
-- [x] **W-5** Add item: add a back button. — Smart Wardrobe module
+- [x] **W-5** ✅ **Done 20 Oct** Add item: add a back button. — Smart Wardrobe module
   - **Progress:** Back arrow added to the "Upload to Wardrobe" sheet.
-- [x] **G-3** Every sub-page has a visible back button. Do not rely on Android gesture navigation. — Global UI rules (every screen) _(Missing on the makeover generator and on Add wardrobe item)_
+- [x] **G-3** ✅ **Done 20 Oct** Every sub-page has a visible back button. Do not rely on Android gesture navigation. — Global UI rules (every screen) _(Missing on the makeover generator and on Add wardrobe item)_
   - **Progress:** Screens that can be a tab or a pushed page (Home, Wardrobe, Search, Notifications, My Hair Style) show a back arrow when opened from somewhere else and the menu otherwise. Makeover and Add item are fixed too.
-- [x] **P-2** "Save to My Smart Wardrobe": the icon changes colour once saved, like a like button. — Post, save and share
+- [x] **P-2** ✅ **Done 20 Oct** "Save to My Smart Wardrobe": the icon changes colour once saved, like a like button. — Post, save and share
   - **Progress:** The icon fills and turns gold once saved. Tap again to remove it from the wardrobe.
-- [x] **H-6** Tapping anywhere on a post card opens it, like X does. At the moment you have to tap the picture itself. — Home — My Fashion Makeover tab
+- [x] **H-6** ✅ **Done 20 Oct** Tapping anywhere on a post card opens it, like X does. At the moment you have to tap the picture itself. — Home — My Fashion Makeover tab
   - **Progress:** Tapping the name, words or picture opens the look. The action buttons still do their own thing.
-- [x] **U-1** The profile picture can be changed. Today it cannot be edited and shows a placeholder picture. — Profile, identity and social graph _(Bug)_
+- [x] **U-1** ✅ **Done 20 Oct** The profile picture can be changed. Today it cannot be edited and shows a placeholder picture. — Profile, identity and social graph _(Bug)_
   - **Progress:** Tap your own photo on My Profile to take or choose a new one. Settings uses the same code.
 
 ## Tier 2 — Clear, medium work
 
 _The requirement is clear. These need more than a one-line change._
 
-- [x] **G-1** Every page has a clear heading at the top. Move the top bar up and put the page title in it. — Global UI rules (every screen)
+- [x] **G-1** ✅ **Done 20 Oct** Every page has a clear heading at the top. Move the top bar up and put the page title in it. — Global UI rules (every screen)
   - **Progress:** Wardrobe heading is "My Smart Wardrobe"; the Discover tab heading now matches the bottom bar; Home's tabs name each feed.
-- [ ] **G-4** Fix text that overlaps or clashes, on every screen. — Global UI rules (every screen)
+- [ ] **G-4** 🔶 **Started 20 Oct** Fix text that overlaps or clashes, on every screen. — Global UI rules (every screen)
   - **Progress:** Fixed where found (makeover method labels, profile photo tiles). Still needs a check on a real phone.
-- [x] **M-4** Make the layout a clear either-or: Option A, describe the look; or Option B, use a look you love (style idol, style twin, community). — Makeover generator page _(The current screen is cluttered)_
+- [x] **M-4** ✅ **Done 20 Oct** Make the layout a clear either-or: Option A, describe the look; or Option B, use a look you love (style idol, style twin, community). — Makeover generator page _(The current screen is cluttered)_
   - **Progress:** Two large choices: "Describe it" or "Use a look you love". The second shows Style twin, Style idol, Trending and Weather.
-- [x] **M-5** Option A: the "Describe the look you want" box sits at the top, with the "What should change" chips (hair, outfit, shoes and so on) below it. — Makeover generator page _(Reverses the current order)_
+- [x] **M-5** ✅ **Done 20 Oct** Option A: the "Describe the look you want" box sits at the top, with the "What should change" chips (hair, outfit, shoes and so on) below it. — Makeover generator page _(Reverses the current order)_
   - **Progress:** The description box sits under "How do you want to create your look?", with "What should change?" below it.
-- [x] **M-6** The user must write a description AND pick at least one change chip before Generate is enabled. These chips label our backend data sets. — Makeover generator page
+- [x] **M-6** ✅ **Done 20 Oct** The user must write a description AND pick at least one change chip before Generate is enabled. These chips label our backend data sets. — Makeover generator page
   - **Progress:** Nothing is pre-selected. Generate stays off until there is a description (or a chosen look) and a "What should change" choice.
-- [x] **M-7** The chips are generic. They do not try to adapt to what is in the uploaded photo. — Makeover generator page
+- [x] **M-7** ✅ **Done 20 Oct** The chips are generic. They do not try to adapt to what is in the uploaded photo. — Makeover generator page
   - **Progress:** The chips are the same for every photo: Full look, Outfit only, Hair only, Top only, Bottom only.
-- [x] **M-8** Option B also asks the user what should change (outfit only, hair, and so on). — Makeover generator page
+- [x] **M-8** ✅ **Done 20 Oct** Option B also asks the user what should change (outfit only, hair, and so on). — Makeover generator page
   - **Progress:** The same "What should change?" chips apply to a look you love.
-- [x] **D-3** If the Smart Wardrobe is not set up, show "Set up your Smart Wardrobe" with a button that opens the setup. — My Daily Dress Up
+- [x] **D-3** ✅ **Done 20 Oct** If the Smart Wardrobe is not set up, show "Set up your Smart Wardrobe" with a button that opens the setup. — My Daily Dress Up
   - **Progress:** An empty feed shows "Set up my Smart Wardrobe" and "Add my measurements" buttons.
-- [x] **D-2** Friends' shared daily dress-ups also appear here, not only yours. — My Daily Dress Up
+- [x] **D-2** ✅ **Done 20 Oct** Friends' shared daily dress-ups also appear here, not only yours. — My Daily Dress Up
   - **Progress:** Forward a dress-up to Friends or Community to share it as today's look. Friends' shared dress-ups from the last 36 hours show at the top of the feed.
-- [x] **H-5** The feed shows everyone's looks (yours, friends, followers, community and public), not only yours. People want engagement. — Home — My Fashion Makeover tab
+- [x] **H-5** ✅ **Done 20 Oct** The feed shows everyone's looks (yours, friends, followers, community and public), not only yours. People want engagement. — Home — My Fashion Makeover tab
   - **Progress:** My Fashion Makeover shows your looks plus everyone else's you are allowed to see. Community shows only other people's.
-- [x] **P-3** After saving, show a sheet that says where the look went and lets the user pick or create a category. Today it just says "Saved", which feels like a dark hole. — Post, save and share
+- [x] **P-3** ✅ **Done 20 Oct** After saving, show a sheet that says where the look went and lets the user pick or create a category. Today it just says "Saved", which feels like a dark hole. — Post, save and share
   - **Progress:** After saving, a sheet says "Saved to My Smart Wardrobe", offers categories (or a new one) and a "View in wardrobe" button.
-- [x] **W-1** The Smart Wardrobe page currently shows the wrong content (friends and community). Give it its own wardrobe interface. — Smart Wardrobe module _(Bug)_
+- [x] **W-1** ✅ **Done 20 Oct** The Smart Wardrobe page currently shows the wrong content (friends and community). Give it its own wardrobe interface. — Smart Wardrobe module _(Bug)_
   - **Progress:** Tabs are now My Clothes, Saved Looks (grouped by category) and Shops & Designers. The Friends and Community tabs are gone. My Clothes stays empty until the user_products rule (issue I-1) is deployed.
-- [x] **W-4** Add item: add size fields (size, shoulders and other key measurements). — Smart Wardrobe module _(Missing today)_
+- [x] **W-4** ✅ **Done 20 Oct** Add item: add size fields (size, shoulders and other key measurements). — Smart Wardrobe module _(Missing today)_
   - **Progress:** Add item asks for size (XXS–XXXL), shoulders and length. These are stored in the same fields shops use. Uploading only works once the user_products rule (issue I-1) is deployed.
-- [x] **U-3** Add search for people and friends. — Profile, identity and social graph
+- [x] **U-3** ✅ **Done 20 Oct** Add search for people and friends. — Profile, identity and social graph
   - **Progress:** Search was on Discover; there is now a search icon on Home and a "Find people to follow" button on your profile. Search no longer shows emails and matches an email only when the full address is typed. Your email is shown only to you.
-- [x] **C-1** The Community feed includes events. — Community
+- [x] **C-1** ✅ **Done 20 Oct** The Community feed includes events. — Community
   - **Progress:** An "Upcoming events" strip sits at the top of the Community feed.
-- [x] **C-2** Add a "Create event" entry point and form (for example to announce a fashion show) that posts into Community. — Community _(Not built yet)_
+- [x] **C-2** ✅ **Done 20 Oct** Add a "Create event" entry point and form (for example to announce a fashion show) that posts into Community. — Community _(Not built yet)_
   - **Progress:** There is an "Add event" button on the Community feed. It uses the existing event form, which goes to curators for approval.
 
 ## Tier 3 — Needs a decision first
 
 _Blocked on an open question at the end of this document. Quick to build once decided._
 
-- [ ] **B-1** Change the payoff line (tagline) to "G for God", tied to the G in the logo. — Branding _(Confirm exact wording)_
+- [ ] **B-1** 🔶 **Started 20 Oct** Change the payoff line (tagline) to "G for God", tied to the G in the logo. — Branding _(Confirm exact wording)_
   - **Progress:** Decided: "G for Good" (not God). Waiting for the designer's new logo file with the line; then swap it in and regenerate the splash screens (dart run flutter_native_splash:create).
-- [x] **H-4** Remove the "No affirmations yet" text. Show a number instead. — Home — My Fashion Makeover tab _(Open question 1: this clashes with the work plan's "no counters" rule)_
+- [x] **H-4** ✅ **Done 20 Oct** Remove the "No affirmations yet" text. Show a number instead. — Home — My Fashion Makeover tab _(Open question 1: this clashes with the work plan's "no counters" rule)_
   - **Progress:** Decided: owner-only count. "No affirmations yet" is gone. The look's owner sees the total; everyone else sees which affirmations were given, never a number (fits BNG SRS 001).
-- [x] **U-2** Add a way to follow people. "Following" and "Followers" appear on the profile, but nothing lets you follow anyone. — Profile, identity and social graph _(Open question 1 (counts))_
+- [x] **U-2** ✅ **Done 20 Oct** Add a way to follow people. "Following" and "Followers" appear on the profile, but nothing lets you follow anyone. — Profile, identity and social graph _(Open question 1 (counts))_
   - **Progress:** Follow already existed on other people's profiles and is now reachable through people search. Follower and following numbers show only to the profile owner; others see the lists without totals.
-- [x] **P-4** Make Post and Share clearly different, or merge them. Remove the duplication and settle the wording. — Post, save and share
+- [x] **P-4** ✅ **Done 20 Oct** Make Post and Share clearly different, or merge them. Remove the duplication and settle the wording. — Post, save and share
   - **Progress:** Decided: keep both, renamed. "Post" (in the ⋮ menu) decides who sees the look in the feeds; "Send to" (share icon) sends it to a salon, shop, designer, WhatsApp or other apps. Community and Friends are no longer in Send to. Daily Dress Up has its own "Post as today's dress-up" action.
-- [x] **P-8** Repost and Quote are always visible in the share sheet. Today they only appear after you share to Community. — Post, save and share _(Today quoting is only possible on public looks. Open question 3.)_
+- [x] **P-8** ✅ **Done 20 Oct** Repost and Quote are always visible in the share sheet. Today they only appear after you share to Community. — Post, save and share _(Today quoting is only possible on public looks. Open question 3.)_
   - **Progress:** Decided: always shown. On a private look, Repost or Quote first asks "Share this look first?", then carries on.
-- [x] **M-1** Starting a makeover offers two choices: "Hairstyle" and "Other" (outfit, shoes, accessories). People think about their hair and face every morning more than about their full outfit. — Makeover generator page _(Open question 6: two buttons or one button that asks)_
+- [x] **M-1** ✅ **Done 20 Oct** Starting a makeover offers two choices: "Hairstyle" and "Other" (outfit, shoes, accessories). People think about their hair and face every morning more than about their full outfit. — Makeover generator page _(Open question 6: two buttons or one button that asks)_
   - **Progress:** Decided: one button, then a choice. "Create My Fashion Makeover" (and the menu item) asks Hairstyle or Outfit & more first.
-- [x] **P-7** New feature: users connect with their own salons, shops and designers. We need a name for this kind of connection. — Post, save and share _(Open question 2)_
+- [x] **P-7** ✅ **Done 20 Oct** New feature: users connect with their own salons, shops and designers. We need a name for this kind of connection. — Post, save and share _(Open question 2)_
   - **Progress:** Decided: "My Circle". Add or remove any salon, shop or designer from the Send to list; kept privately per user.
-- [x] **P-6** Share to salon, shop or designer: show a row of the ones you are already connected to above the search box. — Post, save and share
+- [x] **P-6** ✅ **Done 20 Oct** Share to salon, shop or designer: show a row of the ones you are already connected to above the search box. — Post, save and share
   - **Progress:** Send to shows your Circle as a one-tap row above the search, then everyone else.
-- [ ] **K-5** Platform commission on every sale, like InDrive (for example $1.00 item + $0.20). — Marketplace, e-fitting room and monetization _(Open question 7 (rates))_
-- [ ] **K-6** Influencers share in the revenue from sales they bring in. — Marketplace, e-fitting room and monetization
-- [ ] **K-3** Buy online with delivery, so people do not have to queue or walk around a crowded flea market. — Marketplace, e-fitting room and monetization _(Open question 8 (delivery))_
-- [ ] **E-2** Fashion-content engine: search the internet and the fashion industry for stories and post them to users' feeds, asking "What do you think about this look?" Examples: what is happening in Paris, what Michelle Obama wore 10 days ago, what local Harare socialites are wearing. This works before we have many users. — Engagement and go-to-market _(Backend. Open question 9 (image rights))_
-- [ ] **E-3** Fashion events from the content engine also appear in the feeds. — Engagement and go-to-market _(Links to C-1)_
+- [ ] **K-5** 📅 **Planned 22 Oct** Platform commission on every sale, like InDrive (for example $1.00 item + $0.20). — Marketplace, e-fitting room and monetization _(Open question 7 (rates))_
+- [ ] **K-6** 📅 **Planned 22 Oct** Influencers share in the revenue from sales they bring in. — Marketplace, e-fitting room and monetization
+- [ ] **K-3** 📅 **Planned 22 Oct** Buy online with delivery, so people do not have to queue or walk around a crowded flea market. — Marketplace, e-fitting room and monetization _(Open question 8 (delivery))_
+- [ ] **E-2** 📅 **Planned 22 Oct** Fashion-content engine: search the internet and the fashion industry for stories and post them to users' feeds, asking "What do you think about this look?" Examples: what is happening in Paris, what Michelle Obama wore 10 days ago, what local Harare socialites are wearing. This works before we have many users. — Engagement and go-to-market _(Backend. Open question 9 (image rights))_
+- [ ] **E-3** 📅 **Planned 22 Oct** Fashion events from the content engine also appear in the feeds. — Engagement and go-to-market _(Links to C-1)_
 
 ## Tier 4 — Bigger features
 
 _Clear, but large: new screens, new data, or migrations._
 
-- [x] **P-9** Bookmark categories, like Facebook's saved collections (for example "Weddings"). The same categories are used in the "look you love" picker. — Post, save and share
+- [x] **P-9** ✅ **Done 20 Oct** Bookmark categories, like Facebook's saved collections (for example "Weddings"). The same categories are used in the "look you love" picker. — Post, save and share
   - **Progress:** Saved looks already carry the category chosen when saving (P-3); they can now be browsed by category in Smart Wardrobe › Saved Looks and in the look picker.
-- [x] **M-10** "See a look you love" picker: add search plus filters for liked, bookmarked, bookmark categories, trending, style idols and people you follow. Show people you follow first. — Makeover generator page
+- [x] **M-10** ✅ **Done 20 Oct** "See a look you love" picker: add search plus filters for liked, bookmarked, bookmark categories, trending, style idols and people you follow. Show people you follow first. — Makeover generator page
   - **Progress:** "Find a look you love" picker: Following (first), Fashion Twins, Saved (by category), Affirmed and Community, with search by words, category, name or @username. Still to do: Trending and Style idols sources, which need the content engine (E-2).
-- [x] **F-1** The Fashion Twins page currently reuses the makeover page. Rebuild it: find people (search, including the internet), add them, follow them. Their activity then appears in your feed. — Fashion Twins, Fashion Idols and Hair Stylists _(Same page reused several times today)_
+- [x] **F-1** ✅ **Done 20 Oct** The Fashion Twins page currently reuses the makeover page. Rebuild it: find people (search, including the internet), add them, follow them. Their activity then appears in your feed. — Fashion Twins, Fashion Idols and Hair Stylists _(Same page reused several times today)_
   - **Progress:** New "My Fashion Twins" page: find people by name or @username, add them (this also asks to follow them, so their looks reach your feeds), open their profiles, remove them.
-- [ ] **F-2** Fashion Idols works the same way: search, follow, and their news comes into your feed. — Fashion Twins, Fashion Idols and Hair Stylists
+- [ ] **F-2** 🔶 **Started 20 Oct** Fashion Idols works the same way: search, follow, and their news comes into your feed. — Fashion Twins, Fashion Idols and Hair Stylists
   - **Progress:** New "My Fashion Idols" page: keep idols by name; "Style me like …" opens the makeover with the idol filled in. Still to do: idols' news and looks in the feed, which needs the fashion-content engine (E-2).
-- [x] **F-3** "My Hair Stylists" is a setup page, not a makeover page: follow stylists and salons, and keep the hairstyles you like (uploaded, found online, or your own photos). — Fashion Twins, Fashion Idols and Hair Stylists
+- [x] **F-3** ✅ **Done 20 Oct** "My Hair Stylists" is a setup page, not a makeover page: follow stylists and salons, and keep the hairstyles you like (uploaded, found online, or your own photos). — Fashion Twins, Fashion Idols and Hair Stylists
   - **Progress:** New "My Hair Stylists" setup page: your salons (My Circle, with "Find a salon"), "Hairstyles I like" from your photos or camera, "Try this on me" (hair makeover copying that style) and "Try a new hairstyle".
-- [x] **F-4** Do not add new timelines. Hairstyle makeovers and posts go into the existing My Fashion Makeover and My Daily Dress Up feeds. — Fashion Twins, Fashion Idols and Hair Stylists _(Keep the number of feeds small)_
+- [x] **F-4** ✅ **Done 20 Oct** Do not add new timelines. Hairstyle makeovers and posts go into the existing My Fashion Makeover and My Daily Dress Up feeds. — Fashion Twins, Fashion Idols and Hair Stylists _(Keep the number of feeds small)_
   - **Progress:** The menu no longer opens the old hair flow. Its code (and the unreachable My Fashion Style page) has been deleted, about 5,400 lines; the curators' hairstyle catalogue upload moved to the admin area. Hair makeovers go through the main makeover and appear in the normal feeds. Hair looks saved in the old flow are still in the database but no longer shown.
-- [x] **U-4** Give every user a unique @username, separate from their display name (which does not need to be unique). — Profile, identity and social graph
+- [x] **U-4** ✅ **Done 20 Oct** Give every user a unique @username, separate from their display name (which does not need to be unique). — Profile, identity and social graph
   - **Progress:** Built: unique @username (3–20 characters; letters, numbers, dots, underscores), held in a usernames lookup so no two people can have the same one. Anyone without one is asked once, with a suggestion from their name. It shows on profiles and in search, and can be changed in Settings. Database rules deployed 20 October 2026.
-- [x] **U-5** Stop using email as the public identifier. Use a private ID as the key and the username for display. — Profile, identity and social graph _(Backend migration, privacy)_
+- [x] **U-5** ✅ **Done 20 Oct** Stop using email as the public identifier. Use a private ID as the key and the username for display. — Profile, identity and social graph _(Backend migration, privacy)_
   - **Progress:** Built and tested: emails now live in a private record (owner only) and are no longer on public profiles; a full email can still be searched via a one-way hashed lookup. Every sign-in moves the email; functions/scripts/migrate_private_emails.js moves the rest. Goes live with the Friday rules deploy.
-- [x] **W-2** The wardrobe holds my clothes, the shops I am connected to and the designers I am connected to. — Smart Wardrobe module
+- [x] **W-2** ✅ **Done 20 Oct** The wardrobe holds my clothes, the shops I am connected to and the designers I am connected to. — Smart Wardrobe module
   - **Progress:** The wardrobe's Shops & Designers tab now opens with My Circle (your salons, shops and designers, removable), then the directories.
 - [ ] **W-3** Add item: take a photo of the piece, and the app detects the colour. Do not ask for colour by hand. — Smart Wardrobe module
 - [ ] **W-6** Saved items and looks can be put into categories and are interactive. They should not feel dead. — Smart Wardrobe module
-- [x] **W-7** Track wear: for example "You haven't worn this shirt in 10 months". — Smart Wardrobe module
+- [x] **W-7** ✅ **Done 20 Oct** Track wear: for example "You haven't worn this shirt in 10 months". — Smart Wardrobe module
   - **Progress:** Clothes in My Clothes have "I wore this today" and show "Worn 3 weeks ago" / "Not worn in 10 months" (highlighted after 6 months, or when never worn after a month). Saved Looks show when each was last worn, from "Wear today".
 - [ ] **D-4** Shops and designers you follow add new stock that matches your profile and wardrobe to this feed ("New look from <shop>"). — My Daily Dress Up _(Backend matching engine)_
 - [ ] **S-1** Any user can switch between Customer mode and Service-provider mode, like switching between passenger and driver in InDrive. One person can be both. — Service-provider mode
@@ -190,15 +260,15 @@ _Open-ended. Needs design or research before building._
 
 _Not raised in the meeting; found while building._
 
-- [x] **I-1** Smart Wardrobe items are stored in a top-level user_products collection, but firestore.rules only covered users/{uid}/user_products. On the phone, My Clothes fails with PERMISSION_DENIED and new uploads are refused. _(Fixed and deployed (20 October 2026))_
+- [x] **I-1** ✅ **Done 20 Oct** Smart Wardrobe items are stored in a top-level user_products collection, but firestore.rules only covered users/{uid}/user_products. On the phone, My Clothes fails with PERMISSION_DENIED and new uploads are refused. _(Fixed and deployed (20 October 2026))_
   - **Action:** A user_products rule was added and deployed: owners read all their items, others only public ones, and only the owner can write.
-- [x] **I-2** Any signed-in user can read every post, including private and friends-only ones. The app only hides them on the phone. _(Fixed and tested; deploy with Friday's release)_
+- [x] **I-2** 📅 **Planned 22 Oct** Any signed-in user can read every post, including private and friends-only ones. The app only hides them on the phone. _(Fixed and tested; deploy with Friday's release)_
   - **Action:** Posts are readable only by their author, by followers or friends as chosen, or by anyone when public; comments follow their post. Feeds now ask only for posts the user may see. 26 rules tests pass in the local emulator (npm --prefix test_rules test). Deploying blocks the old app's feed, so it goes out with the new build.
-- [x] **I-3** People search showed everyone's email address and matched partial emails, and other people's profiles showed their email. _(Fixed)_
+- [x] **I-3** ✅ **Done 20 Oct** People search showed everyone's email address and matched partial emails, and other people's profiles showed their email. _(Fixed)_
   - **Action:** Emails are no longer shown, only a full email address matches, and your email appears on your own profile only (see U-3).
-- [x] **I-4** Any user could make themselves an admin (isAdmin / role) or mark their own shop, designer or salon profile as verified, because a catch-all rule also matched the profile record itself. _(Fixed and tested; deploy with Friday's release)_
+- [x] **I-4** 📅 **Planned 22 Oct** Any user could make themselves an admin (isAdmin / role) or mark their own shop, designer or salon profile as verified, because a catch-all rule also matched the profile record itself. _(Fixed and tested; deploy with Friday's release)_
   - **Action:** The catch-all now only covers subcollections; users cannot set admin or verified flags on themselves. Covered by the rules tests.
-- [x] **I-5** The curators' "verify shop / designer / salon" buttons wrote to other users' records, which the rules never allowed, so verification could not work from the app. _(Fixed and tested; deploy with Friday's release)_
+- [x] **I-5** 📅 **Planned 22 Oct** The curators' "verify shop / designer / salon" buttons wrote to other users' records, which the rules never allowed, so verification could not work from the app. _(Fixed and tested; deploy with Friday's release)_
   - **Action:** Admins may now update only the shop, designer and agent profile sections of other users.
 
 ## Release day (Friday)
