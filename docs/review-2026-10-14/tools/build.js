@@ -17,7 +17,7 @@ if (dupes.length) throw new Error(`Duplicate ids: ${dupes}`);
 const slug = (s) => s.toLowerCase().replace(/[^a-z0-9 -]/g, '').trim().replace(/\s+/g, '-');
 const isPrinciples = (t) => t.name.startsWith('Principles');
 const hl = data.highlights;
-const LABELS = { done: ['✅', 'doneLabel'], partial: ['🔶', 'partialLabel'], planned: ['📅', 'plannedLabel'] };
+const LABELS = { done: ['✅', 'doneLabel'], partial: ['🔶', 'partialLabel'], planned: ['📅', 'plannedLabel'], decided: ['🗳️', 'decidedLabel'] };
 const badge = (x) => {
   const [icon, key] = (hl && LABELS[x.highlight]) || [];
   return icon ? ` ${icon} **${hl[key]}**` : '';
@@ -45,9 +45,11 @@ if (hl) {
     started.forEach((i) => md.push(`- **${i.id}** ${i.text}${i.progress ? ` — ${i.progress}` : ''}`));
   }
   md.push('', `### 📅 ${hl.plannedTitle}`, '');
-  hl.plannedTasks.forEach((task) => md.push(`- [ ] ${task}`));
-  const waiting = data.findings.filter((f) => f.highlight === 'planned');
-  if (waiting.length) md.push(`- [ ] Ready to deploy with the release: ${waiting.map((f) => f.id).join(', ')}.`);
+  hl.plannedTasks.forEach((task) => md.push(`- [${task.startsWith('DONE') ? 'x' : ' '}] ${task}`));
+  if (hl.nextTasks?.length) {
+    md.push('', `### 🚀 ${hl.nextTitle}`, '');
+    hl.nextTasks.forEach((task) => md.push(`- [ ] ${task}`));
+  }
   md.push('');
 }
 md.push('## Contents', '');
@@ -105,7 +107,7 @@ const headerRow = (labels) => new TableRow({
 const table = (labels, rows) => new Table({
   width: { size: PAGE_W, type: WidthType.DXA }, columnWidths: COLS, rows: [headerRow(labels), ...rows],
 });
-const FILL = { done: 'E3F4E6', partial: 'E4EEFB', planned: 'FFF1D6' };
+const FILL = { done: 'E3F4E6', partial: 'E4EEFB', planned: 'FFF1D6', decided: 'F1E8FB' };
 const row = (done, id, text, notes, highlight) => {
   const fill = FILL[highlight];
   return new TableRow({ children: [
@@ -136,13 +138,15 @@ if (hl) {
     new TextRun({ text: '      ', shading: { type: ShadingType.CLEAR, color: 'auto', fill } }),
     new TextRun({ text: `  ${label}` }),
   ] });
-  children.push(h1('Highlights'), swatch(FILL.done, `Green rows: ${hl.doneLabel}`), swatch(FILL.partial, `Blue rows: ${hl.partialLabel}, not finished`), swatch(FILL.planned, `Amber rows: ${hl.plannedLabel}`));
+  children.push(h1('Highlights'), swatch(FILL.done, `Green rows: ${hl.doneLabel}`), swatch(FILL.partial, `Blue rows: ${hl.partialLabel}, not finished`), swatch(FILL.planned, `Amber rows: ${hl.plannedLabel}`), swatch(FILL.decided, `Purple rows: ${hl.decidedLabel}, ready to build`));
   children.push(new Paragraph({ spacing: { before: 120, after: 60 }, children: [new TextRun({ text: `${hl.doneTitle}: ${done.length} items, ${doneIssues.length} issues fixed`, bold: true })] }));
   children.push(new Paragraph({ children: [new TextRun([...done, ...doneIssues].map((x) => x.id).join(', '))] }));
   children.push(new Paragraph({ spacing: { before: 160, after: 60 }, children: [new TextRun({ text: hl.plannedTitle, bold: true })] }));
-  const waiting = data.findings.filter((f) => f.highlight === 'planned');
-  [...hl.plannedTasks, ...(waiting.length ? [`Ready to deploy with the release: ${waiting.map((f) => f.id).join(', ')}.`] : [])]
-    .forEach((task) => children.push(new Paragraph({ numbering: { reference: 'p', level: 0 }, children: [new TextRun(task)] })));
+  hl.plannedTasks.forEach((task) => children.push(new Paragraph({ numbering: { reference: 'p', level: 0 }, children: [new TextRun(task)] })));
+  if (hl.nextTasks?.length) {
+    children.push(new Paragraph({ spacing: { before: 160, after: 60 }, children: [new TextRun({ text: hl.nextTitle, bold: true })] }));
+    hl.nextTasks.forEach((task) => children.push(new Paragraph({ numbering: { reference: 'n', level: 0 }, children: [new TextRun(task)] })));
+  }
 }
 data.tiers.forEach((t) => {
   children.push(h1(t.name), blurb(t.blurb), table(['Done', 'ID', 'Item', 'Area · Notes'], t.items.map((i) =>
@@ -166,7 +170,7 @@ const doc = new Document({
         run: { size: 26, bold: true, color: NAVY }, paragraph: { spacing: { before: 320, after: 120 }, outlineLevel: 0 } },
     ],
   },
-  numbering: { config: ['q', 'r', 'p'].map((reference) => ({ reference, levels: [{ level: 0, format: LevelFormat.DECIMAL, text: '%1.', alignment: AlignmentType.LEFT,
+  numbering: { config: ['q', 'r', 'p', 'n'].map((reference) => ({ reference, levels: [{ level: 0, format: LevelFormat.DECIMAL, text: '%1.', alignment: AlignmentType.LEFT,
     style: { paragraph: { indent: { left: 500, hanging: 300 }, spacing: { after: 80 } } } }] })) },
   sections: [{ properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 1134, bottom: 1134, left: 1134, right: 1134 } } }, children }],
 });

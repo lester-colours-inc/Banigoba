@@ -2,7 +2,7 @@
   "title": "Banigoba — App Review Checklist",
   "meeting": "App review meeting, 14 October 2026 (full transcript, parts 1–3)",
   "preparedBy": "Lester",
-  "status": "Tiers 1 and 2 done except G-4; Tier 3: 7 of 13; Tier 4: 9 of 23. Privacy and admin rules ready, deploying with Friday's release.",
+  "status": "Release 1.1.0 ready for Friday 23 October. Tiers 1 and 2 done except G-4; Tier 3: 7 of 13 built, the rest decided except B-1 (logo); Tier 4: 9 of 23.",
   "target": "Next app version by the end of next week (about Friday 23 October 2026)",
   "tiers": [
     {
@@ -426,8 +426,8 @@
           "area": "Marketplace, e-fitting room and monetization",
           "note": "Open question 7 (rates)",
           "done": false,
-          "progress": "",
-          "highlight": "planned"
+          "progress": "Decided 22 Oct: 20% added on top of the seller's price (a $1.00 item costs the buyer $1.20); the seller gets their full price. Not built yet.",
+          "highlight": "decided"
         },
         {
           "id": "K-6",
@@ -435,8 +435,8 @@
           "area": "Marketplace, e-fitting room and monetization",
           "note": "",
           "done": false,
-          "progress": "",
-          "highlight": "planned"
+          "progress": "Decided 22 Oct: the influencer whose post or link brought the sale gets 25% of the commission (5c on a $1.00 item). Not built yet.",
+          "highlight": "decided"
         },
         {
           "id": "K-3",
@@ -444,8 +444,8 @@
           "area": "Marketplace, e-fitting room and monetization",
           "note": "Open question 8 (delivery)",
           "done": false,
-          "progress": "",
-          "highlight": "planned"
+          "progress": "Decided 22 Oct: shops deliver themselves (they set whether they deliver, the fee and the areas) or the buyer collects; the app tracks the status. Not built yet.",
+          "highlight": "decided"
         },
         {
           "id": "E-2",
@@ -453,8 +453,8 @@
           "area": "Engagement and go-to-market",
           "note": "Backend. Open question 9 (image rights)",
           "done": false,
-          "progress": "",
-          "highlight": "planned"
+          "progress": "Decided 22 Oct: show a credited link preview (title, small image and site name from the source) that opens the source; never copy images to our servers. Not built yet.",
+          "highlight": "decided"
         },
         {
           "id": "E-3",
@@ -462,8 +462,8 @@
           "area": "Engagement and go-to-market",
           "note": "Links to C-1",
           "done": false,
-          "progress": "",
-          "highlight": "planned"
+          "progress": "Decided 22 Oct: same rule as E-2 for events found online. Not built yet.",
+          "highlight": "decided"
         }
       ]
     },
@@ -798,9 +798,9 @@
     "DECIDED 20 Oct: keep both, renamed: \"Post\" (who sees it in the feeds) and \"Send to\" (salon, shop, designer, WhatsApp, other apps).",
     "DECIDED 20 Oct: \"G for Good\". Needs new logo artwork with the line.",
     "DECIDED 20 Oct: one large \"Create My Fashion Makeover\" button that then asks Hairstyle or Outfit & more.",
-    "Monetization: what commission rate, and what share goes to influencers?",
-    "Delivery: do shops deliver themselves, or does the platform provide or partner for delivery?",
-    "Content engine: what are the copyright and licensing rules for reposting fashion photos found online? We may need to link to the source, or use only licensed content."
+    "DECIDED 22 Oct: commission 20% added on top of the seller's price; the influencer who brought the sale gets 25% of it.",
+    "DECIDED 22 Oct: shops deliver themselves (fee and areas set per shop) or the buyer collects; the app tracks the status.",
+    "DECIDED 22 Oct: credited link previews that open the source; no copying of images."
   ],
   "releaseSteps": [
     "Ship the new app build to testers.",
@@ -811,14 +811,20 @@
   "highlights": {
     "doneLabel": "Done 20 Oct",
     "doneTitle": "Done in the 20 October session",
-    "plannedLabel": "Planned 22 Oct",
-    "plannedTitle": "Planned for 22 October",
+    "plannedLabel": "Deploys 23 Oct",
+    "plannedTitle": "22 October",
     "plannedTasks": [
-      "Release prep for Friday 23 October: get the build ready for testers, and line up the rules deploy, the feed check on a phone and the email cleanup script (see \"Release day\").",
-      "Open question 7: commission rate and the influencers' share of sales (unblocks K-5, K-6).",
-      "Open question 8: who handles delivery (unblocks K-3).",
-      "Open question 9: rules for reposting fashion photos found online (unblocks E-2, E-3)."
+      "DONE: Release prep. Version 1.1.0 (build 2); release APK builds (67 MB); 26 rules tests and all app tests pass; tester notes and release-day runbook in docs/release/2026-10-23-release.md.",
+      "DONE: Open questions 7, 8 and 9 decided (see K-3, K-5, K-6, E-2, E-3)."
     ],
-    "partialLabel": "Started 20 Oct"
+    "partialLabel": "Started 20 Oct",
+    "decidedLabel": "Decided 22 Oct",
+    "nextTitle": "Planned for Friday 23 October (release day)",
+    "nextTasks": [
+      "Ship build 1.1.0 to testers.",
+      "Deploy the database rules (I-2, I-4, I-5, U-5), then check the feeds on a phone.",
+      "Run the email clean-up script with a service-account key.",
+      "Testers: check screens for overlapping text (G-4)."
+    ]
   }
 }

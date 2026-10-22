@@ -2,7 +2,7 @@
 
 **Meeting:** App review meeting, 14 October 2026 (full transcript, parts 1–3)  
 **Prepared by:** Lester  
-**Status:** Tiers 1 and 2 done except G-4; Tier 3: 7 of 13; Tier 4: 9 of 23. Privacy and admin rules ready, deploying with Friday's release.  
+**Status:** Release 1.1.0 ready for Friday 23 October. Tiers 1 and 2 done except G-4; Tier 3: 7 of 13 built, the rest decided except B-1 (logo); Tier 4: 9 of 23.  
 **Target:** Next app version by the end of next week (about Friday 23 October 2026)
 
 Tick items off as they ship. Item IDs (e.g. `H-2`) match the Word version (`Banigoba_Review_Checklist.docx`).
@@ -72,13 +72,17 @@ _Generated from `tools/checklist.json`; edit that file and run `npm run build` i
 - **B-1** Change the payoff line (tagline) to "G for God", tied to the G in the logo. — Decided: "G for Good" (not God). Waiting for the designer's new logo file with the line; then swap it in and regenerate the splash screens (dart run flutter_native_splash:create).
 - **F-2** Fashion Idols works the same way: search, follow, and their news comes into your feed. — New "My Fashion Idols" page: keep idols by name; "Style me like …" opens the makeover with the idol filled in. Still to do: idols' news and looks in the feed, which needs the fashion-content engine (E-2).
 
-### 📅 Planned for 22 October
+### 📅 22 October
 
-- [ ] Release prep for Friday 23 October: get the build ready for testers, and line up the rules deploy, the feed check on a phone and the email cleanup script (see "Release day").
-- [ ] Open question 7: commission rate and the influencers' share of sales (unblocks K-5, K-6).
-- [ ] Open question 8: who handles delivery (unblocks K-3).
-- [ ] Open question 9: rules for reposting fashion photos found online (unblocks E-2, E-3).
-- [ ] Ready to deploy with the release: I-2, I-4, I-5.
+- [x] DONE: Release prep. Version 1.1.0 (build 2); release APK builds (67 MB); 26 rules tests and all app tests pass; tester notes and release-day runbook in docs/release/2026-10-23-release.md.
+- [x] DONE: Open questions 7, 8 and 9 decided (see K-3, K-5, K-6, E-2, E-3).
+
+### 🚀 Planned for Friday 23 October (release day)
+
+- [ ] Ship build 1.1.0 to testers.
+- [ ] Deploy the database rules (I-2, I-4, I-5, U-5), then check the feeds on a phone.
+- [ ] Run the email clean-up script with a service-account key.
+- [ ] Testers: check screens for overlapping text (G-4).
 
 ## Contents
 
@@ -197,11 +201,16 @@ _Blocked on an open question at the end of this document. Quick to build once de
   - **Progress:** Decided: "My Circle". Add or remove any salon, shop or designer from the Send to list; kept privately per user.
 - [x] **P-6** ✅ **Done 20 Oct** Share to salon, shop or designer: show a row of the ones you are already connected to above the search box. — Post, save and share
   - **Progress:** Send to shows your Circle as a one-tap row above the search, then everyone else.
-- [ ] **K-5** 📅 **Planned 22 Oct** Platform commission on every sale, like InDrive (for example $1.00 item + $0.20). — Marketplace, e-fitting room and monetization _(Open question 7 (rates))_
-- [ ] **K-6** 📅 **Planned 22 Oct** Influencers share in the revenue from sales they bring in. — Marketplace, e-fitting room and monetization
-- [ ] **K-3** 📅 **Planned 22 Oct** Buy online with delivery, so people do not have to queue or walk around a crowded flea market. — Marketplace, e-fitting room and monetization _(Open question 8 (delivery))_
-- [ ] **E-2** 📅 **Planned 22 Oct** Fashion-content engine: search the internet and the fashion industry for stories and post them to users' feeds, asking "What do you think about this look?" Examples: what is happening in Paris, what Michelle Obama wore 10 days ago, what local Harare socialites are wearing. This works before we have many users. — Engagement and go-to-market _(Backend. Open question 9 (image rights))_
-- [ ] **E-3** 📅 **Planned 22 Oct** Fashion events from the content engine also appear in the feeds. — Engagement and go-to-market _(Links to C-1)_
+- [ ] **K-5** 🗳️ **Decided 22 Oct** Platform commission on every sale, like InDrive (for example $1.00 item + $0.20). — Marketplace, e-fitting room and monetization _(Open question 7 (rates))_
+  - **Progress:** Decided 22 Oct: 20% added on top of the seller's price (a $1.00 item costs the buyer $1.20); the seller gets their full price. Not built yet.
+- [ ] **K-6** 🗳️ **Decided 22 Oct** Influencers share in the revenue from sales they bring in. — Marketplace, e-fitting room and monetization
+  - **Progress:** Decided 22 Oct: the influencer whose post or link brought the sale gets 25% of the commission (5c on a $1.00 item). Not built yet.
+- [ ] **K-3** 🗳️ **Decided 22 Oct** Buy online with delivery, so people do not have to queue or walk around a crowded flea market. — Marketplace, e-fitting room and monetization _(Open question 8 (delivery))_
+  - **Progress:** Decided 22 Oct: shops deliver themselves (they set whether they deliver, the fee and the areas) or the buyer collects; the app tracks the status. Not built yet.
+- [ ] **E-2** 🗳️ **Decided 22 Oct** Fashion-content engine: search the internet and the fashion industry for stories and post them to users' feeds, asking "What do you think about this look?" Examples: what is happening in Paris, what Michelle Obama wore 10 days ago, what local Harare socialites are wearing. This works before we have many users. — Engagement and go-to-market _(Backend. Open question 9 (image rights))_
+  - **Progress:** Decided 22 Oct: show a credited link preview (title, small image and site name from the source) that opens the source; never copy images to our servers. Not built yet.
+- [ ] **E-3** 🗳️ **Decided 22 Oct** Fashion events from the content engine also appear in the feeds. — Engagement and go-to-market _(Links to C-1)_
+  - **Progress:** Decided 22 Oct: same rule as E-2 for events found online. Not built yet.
 
 ## Tier 4 — Bigger features
 
@@ -262,13 +271,13 @@ _Not raised in the meeting; found while building._
 
 - [x] **I-1** ✅ **Done 20 Oct** Smart Wardrobe items are stored in a top-level user_products collection, but firestore.rules only covered users/{uid}/user_products. On the phone, My Clothes fails with PERMISSION_DENIED and new uploads are refused. _(Fixed and deployed (20 October 2026))_
   - **Action:** A user_products rule was added and deployed: owners read all their items, others only public ones, and only the owner can write.
-- [x] **I-2** 📅 **Planned 22 Oct** Any signed-in user can read every post, including private and friends-only ones. The app only hides them on the phone. _(Fixed and tested; deploy with Friday's release)_
+- [x] **I-2** 📅 **Deploys 23 Oct** Any signed-in user can read every post, including private and friends-only ones. The app only hides them on the phone. _(Fixed and tested; deploy with Friday's release)_
   - **Action:** Posts are readable only by their author, by followers or friends as chosen, or by anyone when public; comments follow their post. Feeds now ask only for posts the user may see. 26 rules tests pass in the local emulator (npm --prefix test_rules test). Deploying blocks the old app's feed, so it goes out with the new build.
 - [x] **I-3** ✅ **Done 20 Oct** People search showed everyone's email address and matched partial emails, and other people's profiles showed their email. _(Fixed)_
   - **Action:** Emails are no longer shown, only a full email address matches, and your email appears on your own profile only (see U-3).
-- [x] **I-4** 📅 **Planned 22 Oct** Any user could make themselves an admin (isAdmin / role) or mark their own shop, designer or salon profile as verified, because a catch-all rule also matched the profile record itself. _(Fixed and tested; deploy with Friday's release)_
+- [x] **I-4** 📅 **Deploys 23 Oct** Any user could make themselves an admin (isAdmin / role) or mark their own shop, designer or salon profile as verified, because a catch-all rule also matched the profile record itself. _(Fixed and tested; deploy with Friday's release)_
   - **Action:** The catch-all now only covers subcollections; users cannot set admin or verified flags on themselves. Covered by the rules tests.
-- [x] **I-5** 📅 **Planned 22 Oct** The curators' "verify shop / designer / salon" buttons wrote to other users' records, which the rules never allowed, so verification could not work from the app. _(Fixed and tested; deploy with Friday's release)_
+- [x] **I-5** 📅 **Deploys 23 Oct** The curators' "verify shop / designer / salon" buttons wrote to other users' records, which the rules never allowed, so verification could not work from the app. _(Fixed and tested; deploy with Friday's release)_
   - **Action:** Admins may now update only the shop, designer and agent profile sections of other users.
 
 ## Release day (Friday)
@@ -286,6 +295,6 @@ _Not raised in the meeting; found while building._
 4. DECIDED 20 Oct: keep both, renamed: "Post" (who sees it in the feeds) and "Send to" (salon, shop, designer, WhatsApp, other apps).
 5. DECIDED 20 Oct: "G for Good". Needs new logo artwork with the line.
 6. DECIDED 20 Oct: one large "Create My Fashion Makeover" button that then asks Hairstyle or Outfit & more.
-7. Monetization: what commission rate, and what share goes to influencers?
-8. Delivery: do shops deliver themselves, or does the platform provide or partner for delivery?
-9. Content engine: what are the copyright and licensing rules for reposting fashion photos found online? We may need to link to the source, or use only licensed content.
+7. DECIDED 22 Oct: commission 20% added on top of the seller's price; the influencer who brought the sale gets 25% of it.
+8. DECIDED 22 Oct: shops deliver themselves (fee and areas set per shop) or the buyer collects; the app tracks the status.
+9. DECIDED 22 Oct: credited link previews that open the source; no copying of images.
