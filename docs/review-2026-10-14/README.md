@@ -2,7 +2,7 @@
 
 **Meeting:** App review meeting, 14 October 2026 (full transcript, parts 1–3)  
 **Prepared by:** Lester  
-**Status:** Release 1.1.0 ready for Friday 23 October. Tiers 1 and 2 done except G-4; Tier 3: 7 of 13 built, the rest decided except B-1 (logo); Tier 4: 9 of 23.  
+**Status:** Release 1.1.0 ready and on the test phone; ships Friday 23 October. Tiers 1 and 2 done except G-4; Tier 3: 7 of 13 built, the rest decided except B-1 (logo); Tier 4: 9 of 23.  
 **Target:** Next app version by the end of next week (about Friday 23 October 2026)
 
 Tick items off as they ship. Item IDs (e.g. `H-2`) match the Word version (`Banigoba_Review_Checklist.docx`).
@@ -72,17 +72,21 @@ _Generated from `tools/checklist.json`; edit that file and run `npm run build` i
 - **B-1** Change the payoff line (tagline) to "G for God", tied to the G in the logo. — Decided: "G for Good" (not God). Waiting for the designer's new logo file with the line; then swap it in and regenerate the splash screens (dart run flutter_native_splash:create).
 - **F-2** Fashion Idols works the same way: search, follow, and their news comes into your feed. — New "My Fashion Idols" page: keep idols by name; "Style me like …" opens the makeover with the idol filled in. Still to do: idols' news and looks in the feed, which needs the fashion-content engine (E-2).
 
-### 📅 22 October
+### 📅 Done on 22 October
 
-- [x] DONE: Release prep. Version 1.1.0 (build 2); release APK builds (67 MB); 26 rules tests and all app tests pass; tester notes and release-day runbook in docs/release/2026-10-23-release.md.
+- [x] DONE: Release prep. Version 1.1.0 (build 2); the release APK builds (67 MB); all 26 rules tests and 337 app tests pass; tester notes and release-day runbook in docs/release/2026-10-23-release.md.
 - [x] DONE: Open questions 7, 8 and 9 decided (see K-3, K-5, K-6, E-2, E-3).
+- [x] DONE: Build 1.1.0 installed on the test phone (RMX3840) via adb; it opens and runs.
+- [x] DONE: Backend decision: stay on Firebase. Fix scale pain points in place (search, feed fan-out). Decide on a Postgres database for marketplace money when K-1 to K-7 start.
 
 ### 🚀 Planned for Friday 23 October (release day)
 
-- [ ] Ship build 1.1.0 to testers.
-- [ ] Deploy the database rules (I-2, I-4, I-5, U-5), then check the feeds on a phone.
-- [ ] Run the email clean-up script with a service-account key.
-- [ ] Testers: check screens for overlapping text (G-4).
+- [ ] G-4: walk the screens on the installed build and note any overlapping or cut-off text (screenshots).
+- [ ] Ship build 1.1.0 to testers (local APK, or merge to main so CI builds it).
+- [ ] Deploy the database rules (I-2, I-4, I-5, U-5): firebase deploy --only firestore:rules.
+- [ ] Check on a phone with 1.1.0: Home, Community and My Daily Dress Up load; friends-only looks stay private; username search works.
+- [ ] Run the email clean-up script (dry run first) with a service-account key.
+- [ ] B-1: chase the designer for the "G for Good" logo file.
 
 ## Contents
 
@@ -246,7 +250,8 @@ _Clear, but large: new screens, new data, or migrations._
 - [ ] **K-1** Shops, including flea-market traders, upload their stock with photos, sizes, measurements and prices. — Marketplace, e-fitting room and monetization _(Uses provider mode (S))_
 - [ ] **K-2** Electronic fitting room: try a shop's item on your own body, using your saved measurements. You can turn around and see a fit check (for example "tight around the waist"). The goal is to beat the physical fitting room. — Marketplace, e-fitting room and monetization _(Core value. Depends on U-6 measurements.)_
 - [ ] **K-4** From look to purchase: after a makeover, check whether the items are already in your wardrobe. If they are not, suggest shops that have them. — Marketplace, e-fitting room and monetization _(Backend matching)_
-- [ ] **K-7** Design the monetization module: track users, transactions, who sold what, commission and payouts. — Marketplace, e-fitting room and monetization _(Not designed yet)_
+- [ ] **K-7** 🗳️ **Decided 22 Oct** Design the monetization module: track users, transactions, who sold what, commission and payouts. — Marketplace, e-fitting room and monetization _(Not designed yet)_
+  - **Progress:** 22 Oct: when this starts, decide whether money records (orders, commission, influencer share, payouts) live in a Postgres database (Supabase or Cloud SQL) next to Firebase.
 - [ ] **E-4** Push notifications for trending looks and styles, once there are enough users to create trends. — Engagement and go-to-market
 - [ ] **E-5** Opt-in access to the photo gallery: suggest "Check out this look" makeovers made from the user's own photos, as Google Photos does. — Engagement and go-to-market _(Needs clear consent)_
 

@@ -2,7 +2,7 @@
   "title": "Banigoba — App Review Checklist",
   "meeting": "App review meeting, 14 October 2026 (full transcript, parts 1–3)",
   "preparedBy": "Lester",
-  "status": "Release 1.1.0 ready for Friday 23 October. Tiers 1 and 2 done except G-4; Tier 3: 7 of 13 built, the rest decided except B-1 (logo); Tier 4: 9 of 23.",
+  "status": "Release 1.1.0 ready and on the test phone; ships Friday 23 October. Tiers 1 and 2 done except G-4; Tier 3: 7 of 13 built, the rest decided except B-1 (logo); Tier 4: 9 of 23.",
   "target": "Next app version by the end of next week (about Friday 23 October 2026)",
   "tiers": [
     {
@@ -647,7 +647,8 @@
           "area": "Marketplace, e-fitting room and monetization",
           "note": "Not designed yet",
           "done": false,
-          "progress": ""
+          "progress": "22 Oct: when this starts, decide whether money records (orders, commission, influencer share, payouts) live in a Postgres database (Supabase or Cloud SQL) next to Firebase.",
+          "highlight": "decided"
         },
         {
           "id": "E-4",
@@ -812,19 +813,23 @@
     "doneLabel": "Done 20 Oct",
     "doneTitle": "Done in the 20 October session",
     "plannedLabel": "Deploys 23 Oct",
-    "plannedTitle": "22 October",
+    "plannedTitle": "Done on 22 October",
     "plannedTasks": [
-      "DONE: Release prep. Version 1.1.0 (build 2); release APK builds (67 MB); 26 rules tests and all app tests pass; tester notes and release-day runbook in docs/release/2026-10-23-release.md.",
-      "DONE: Open questions 7, 8 and 9 decided (see K-3, K-5, K-6, E-2, E-3)."
+      "DONE: Release prep. Version 1.1.0 (build 2); the release APK builds (67 MB); all 26 rules tests and 337 app tests pass; tester notes and release-day runbook in docs/release/2026-10-23-release.md.",
+      "DONE: Open questions 7, 8 and 9 decided (see K-3, K-5, K-6, E-2, E-3).",
+      "DONE: Build 1.1.0 installed on the test phone (RMX3840) via adb; it opens and runs.",
+      "DONE: Backend decision: stay on Firebase. Fix scale pain points in place (search, feed fan-out). Decide on a Postgres database for marketplace money when K-1 to K-7 start."
     ],
     "partialLabel": "Started 20 Oct",
     "decidedLabel": "Decided 22 Oct",
     "nextTitle": "Planned for Friday 23 October (release day)",
     "nextTasks": [
-      "Ship build 1.1.0 to testers.",
-      "Deploy the database rules (I-2, I-4, I-5, U-5), then check the feeds on a phone.",
-      "Run the email clean-up script with a service-account key.",
-      "Testers: check screens for overlapping text (G-4)."
+      "G-4: walk the screens on the installed build and note any overlapping or cut-off text (screenshots).",
+      "Ship build 1.1.0 to testers (local APK, or merge to main so CI builds it).",
+      "Deploy the database rules (I-2, I-4, I-5, U-5): firebase deploy --only firestore:rules.",
+      "Check on a phone with 1.1.0: Home, Community and My Daily Dress Up load; friends-only looks stay private; username search works.",
+      "Run the email clean-up script (dry run first) with a service-account key.",
+      "B-1: chase the designer for the \"G for Good\" logo file."
     ]
   }
 }
