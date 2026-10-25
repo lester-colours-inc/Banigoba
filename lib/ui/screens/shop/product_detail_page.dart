@@ -7,11 +7,15 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/app_routes.dart';
+import '../../../data/models/body_profile.dart';
+import '../../../data/models/fit_check.dart';
 import '../../../data/models/piece_details.dart';
+import '../../../data/services/body_profile_service.dart';
 import '../../../data/services/cart_service.dart';
 import '../../../data/services/product_service.dart';
 import '../../../data/services/shop_chat_service.dart';
 import '../../../data/utils/size_inventory.dart';
+import '../../widgets/fit_check_card.dart';
 import '../../widgets/safe_product_image.dart';
 import '../makeover/avatar_try_on_page.dart';
 import 'shop_chat_page.dart';
@@ -21,10 +25,14 @@ class ProductDetailPage extends StatefulWidget {
   final String? productId;
   final Map<String, dynamic> productData;
 
+  /// Injected in tests; defaults to the signed-in user's saved measurements.
+  final Future<BodyProfile> Function()? loadBodyProfile;
+
   const ProductDetailPage({
     super.key,
     this.productId,
     required this.productData,
+    this.loadBodyProfile,
   });
 
   @override
@@ -37,12 +45,28 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
   final CartService _cartService = CartService();
   String? _selectedSize;
 
+  /// The shopper's saved measurements, for the fit check and the try-on.
+  BodyProfile _body = const BodyProfile();
+
   @override
   void initState() {
     super.initState();
+    _loadBodyProfile();
     _currentProductData = Map<String, dynamic>.from(widget.productData);
     if (widget.productId != null) {
       _currentProductData['id'] = widget.productId;
+    }
+  }
+
+  Future<void> _loadBodyProfile() async {
+    try {
+      final body =
+          await (widget.loadBodyProfile ??
+              BodyProfileService().loadForCurrentUser)();
+      if (mounted) setState(() => _body = body);
+    } on Exception catch (error) {
+      // No fit check without measurements; the page still works.
+      debugPrint('Unable to load measurements: $error');
     }
   }
 
@@ -244,6 +268,21 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                       stock > 0 ? '$stock in stock' : 'Out of stock',
                     ),
                   if (hasSizes) _buildSizeSelector(availableSizes),
+                  if (!isMe && _isClothing(category))
+                    FitCheckCard(
+                      chart: SizeChart.fromProduct(_currentProductData),
+                      body: _body,
+                      selectedSize: _selectedSize ?? '',
+                      availableSizes: [
+                        for (final entry in availableSizes) entry.key,
+                      ],
+                      onChooseSize: (size) =>
+                          setState(() => _selectedSize = size),
+                      onAddMeasurements: () => Navigator.pushNamed(
+                        context,
+                        AppRoutes.bodyProfile,
+                      ).then((_) => _loadBodyProfile()),
+                    ),
                   _buildDetailRow("Category", category),
                   _buildDetailRow("Subcategory", subcategory),
                   _buildDetailRow("Style", styleTag),
@@ -282,6 +321,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                               garmentImageUrl: imageUrl,
                               garmentName: name,
                               category: category,
+                              fitNote: _fitNoteForTryOn(),
                             ),
                           ),
                         );
@@ -476,6 +516,29 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
             ShopChatPage(chatId: chatId, title: shopName, asSeller: false),
       ),
     );
+  }
+
+  static bool _isClothing(String category) => const {
+    'tops',
+    'bottoms',
+    'dresses',
+    'outerwear',
+  }.contains(category.toLowerCase());
+
+  /// How this item really fits the shopper, for the try-on picture: their
+  /// size and build, plus the fit check's findings when the shop gave a
+  /// size chart.
+  String _fitNoteForTryOn() {
+    final size = _selectedSize ?? '';
+    final check = FitCheck.of(
+      SizeChart.fromProduct(_currentProductData),
+      _body,
+      selectedSize: size,
+    );
+    return [
+      _body.tryOnFitNote(selectedSize: size),
+      check.tryOnNote,
+    ].where((part) => part.isNotEmpty).join(' ');
   }
 
   Future<void> _addToCartWithShopGuard({

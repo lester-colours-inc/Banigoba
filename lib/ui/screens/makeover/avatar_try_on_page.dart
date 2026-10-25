@@ -34,11 +34,17 @@ class AvatarTryOnPage extends StatefulWidget {
   final String? garmentName;
   final String? category;
 
+  /// How the item really fits the shopper (their size and the fit check's
+  /// findings), passed to the engine that accepts instructions (Gemini).
+  /// FASHN's clothing try-on takes no free-text instructions.
+  final String fitNote;
+
   const AvatarTryOnPage({
     super.key,
     this.garmentImageUrl,
     this.garmentName,
     this.category,
+    this.fitNote = '',
   });
 
   @override
@@ -374,7 +380,8 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
         'image. Preserve the person\'s face, skin tone, hair, body shape, pose '
         'and the background from the first image. Replace any existing '
         'clothing that an item covers. Natural lighting, sharp detail, no '
-        'text or watermarks.';
+        'text or watermarks.'
+        '${widget.fitNote.isEmpty ? '' : ' ${widget.fitNote}'}';
   }
 
   String _geminiItemDescription(Map<String, dynamic> product) {

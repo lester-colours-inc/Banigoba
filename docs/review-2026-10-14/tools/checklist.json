@@ -2,7 +2,7 @@
   "title": "Banigoba — App Review Checklist",
   "meeting": "App review meeting, 14 October 2026 (full transcript, parts 1–3)",
   "preparedBy": "Lester",
-  "status": "Release 1.1.0 ready and on the test phone; ships Friday 23 October. Tiers 1 and 2 done except G-4; Tier 3: 7 of 13 built, the rest decided except B-1 (logo); Tier 4: 9 of 23.",
+  "status": "Release 1.1.0 ready; ships Friday 23 October. Fitting room (K-2) first version built, not yet released. Tiers 1 and 2 done except G-4.",
   "target": "Next app version by the end of next week (about Friday 23 October 2026)",
   "tiers": [
     {
@@ -632,8 +632,8 @@
           "area": "Marketplace, e-fitting room and monetization",
           "note": "Core value. Depends on U-6 measurements.",
           "done": false,
-          "progress": "Planned 25 Oct: see docs/plans/service-provider-mode.md (shopping phases).",
-          "highlight": "planned"
+          "progress": "Built 25 Oct (first version): a \"Fit check\" card on clothing product pages compares the shop's garment measurements with your saved ones and says where it is tight, snug or loose (\"Size M: tight around the waist\"), shows the numbers, and suggests the best size in stock. Shops can enter an optional size chart (shoulders, chest, waist, hips, inseam per size) in the stock form; where there is none it compares size labels (\"a size bigger than you usually wear\"). The fit also goes to the Gemini try-on picture. Not yet: FASHN's try-on cannot take fit instructions, so the picture only reflects fit on the Gemini engine; existing shop products have no size charts until shops add them; stretchy fabric is not accounted for.",
+          "highlight": "partial"
         },
         {
           "id": "K-4",

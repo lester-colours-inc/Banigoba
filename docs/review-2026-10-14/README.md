@@ -2,7 +2,7 @@
 
 **Meeting:** App review meeting, 14 October 2026 (full transcript, parts 1–3)  
 **Prepared by:** Lester  
-**Status:** Release 1.1.0 ready and on the test phone; ships Friday 23 October. Tiers 1 and 2 done except G-4; Tier 3: 7 of 13 built, the rest decided except B-1 (logo); Tier 4: 9 of 23.  
+**Status:** Release 1.1.0 ready; ships Friday 23 October. Fitting room (K-2) first version built, not yet released. Tiers 1 and 2 done except G-4.  
 **Target:** Next app version by the end of next week (about Friday 23 October 2026)
 
 Tick items off as they ship. Item IDs (e.g. `H-2`) match the Word version (`Banigoba_Review_Checklist.docx`).
@@ -71,6 +71,7 @@ _Generated from `tools/checklist.json`; edit that file and run `npm run build` i
 - **G-4** Fix text that overlaps or clashes, on every screen. — Fixed where found (makeover method labels, profile photo tiles). Still needs a check on a real phone.
 - **B-1** Change the payoff line (tagline) to "G for God", tied to the G in the logo. — Decided: "G for Good" (not God). Waiting for the designer's new logo file with the line; then swap it in and regenerate the splash screens (dart run flutter_native_splash:create).
 - **F-2** Fashion Idols works the same way: search, follow, and their news comes into your feed. — New "My Fashion Idols" page: keep idols by name; "Style me like …" opens the makeover with the idol filled in. Still to do: idols' news and looks in the feed, which needs the fashion-content engine (E-2). Planned 25 Oct: see docs/plans/service-provider-mode.md (shopping phases).
+- **K-2** Electronic fitting room: try a shop's item on your own body, using your saved measurements. You can turn around and see a fit check (for example "tight around the waist"). The goal is to beat the physical fitting room. — Built 25 Oct (first version): a "Fit check" card on clothing product pages compares the shop's garment measurements with your saved ones and says where it is tight, snug or loose ("Size M: tight around the waist"), shows the numbers, and suggests the best size in stock. Shops can enter an optional size chart (shoulders, chest, waist, hips, inseam per size) in the stock form; where there is none it compares size labels ("a size bigger than you usually wear"). The fit also goes to the Gemini try-on picture. Not yet: FASHN's try-on cannot take fit instructions, so the picture only reflects fit on the Gemini engine; existing shop products have no size charts until shops add them; stretchy fabric is not accounted for.
 
 ### 📅 Done on 22 October
 
@@ -249,8 +250,8 @@ _Clear, but large: new screens, new data, or migrations._
 - [ ] **S-3** Provider mode has its own screens: my shop, my designs, my salon, with forms to enter stock and services. — Service-provider mode _(Not built yet)_
 - [ ] **S-4** Shops and designers sign up as normal users, then switch on provider mode. No separate business sign-up. — Service-provider mode
 - [ ] **K-1** Shops, including flea-market traders, upload their stock with photos, sizes, measurements and prices. — Marketplace, e-fitting room and monetization _(Uses provider mode (S))_
-- [ ] **K-2** 📅 **Deploys 23 Oct** Electronic fitting room: try a shop's item on your own body, using your saved measurements. You can turn around and see a fit check (for example "tight around the waist"). The goal is to beat the physical fitting room. — Marketplace, e-fitting room and monetization _(Core value. Depends on U-6 measurements.)_
-  - **Progress:** Planned 25 Oct: see docs/plans/service-provider-mode.md (shopping phases).
+- [ ] **K-2** 🔶 **Started 20 Oct** Electronic fitting room: try a shop's item on your own body, using your saved measurements. You can turn around and see a fit check (for example "tight around the waist"). The goal is to beat the physical fitting room. — Marketplace, e-fitting room and monetization _(Core value. Depends on U-6 measurements.)_
+  - **Progress:** Built 25 Oct (first version): a "Fit check" card on clothing product pages compares the shop's garment measurements with your saved ones and says where it is tight, snug or loose ("Size M: tight around the waist"), shows the numbers, and suggests the best size in stock. Shops can enter an optional size chart (shoulders, chest, waist, hips, inseam per size) in the stock form; where there is none it compares size labels ("a size bigger than you usually wear"). The fit also goes to the Gemini try-on picture. Not yet: FASHN's try-on cannot take fit instructions, so the picture only reflects fit on the Gemini engine; existing shop products have no size charts until shops add them; stretchy fabric is not accounted for.
 - [ ] **K-4** 📅 **Deploys 23 Oct** From look to purchase: after a makeover, check whether the items are already in your wardrobe. If they are not, suggest shops that have them. — Marketplace, e-fitting room and monetization _(Backend matching)_
   - **Progress:** Planned 25 Oct: see docs/plans/service-provider-mode.md (shopping phases).
 - [ ] **K-7** 🗳️ **Decided 22 Oct** Design the monetization module: track users, transactions, who sold what, commission and payouts. — Marketplace, e-fitting room and monetization _(Not designed yet)_
