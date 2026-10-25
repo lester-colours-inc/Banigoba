@@ -70,7 +70,7 @@ _Generated from `tools/checklist.json`; edit that file and run `npm run build` i
 
 - **G-4** Fix text that overlaps or clashes, on every screen. — Fixed where found (makeover method labels, profile photo tiles). Still needs a check on a real phone.
 - **B-1** Change the payoff line (tagline) to "G for God", tied to the G in the logo. — Decided: "G for Good" (not God). Waiting for the designer's new logo file with the line; then swap it in and regenerate the splash screens (dart run flutter_native_splash:create).
-- **F-2** Fashion Idols works the same way: search, follow, and their news comes into your feed. — New "My Fashion Idols" page: keep idols by name; "Style me like …" opens the makeover with the idol filled in. Still to do: idols' news and looks in the feed, which needs the fashion-content engine (E-2).
+- **F-2** Fashion Idols works the same way: search, follow, and their news comes into your feed. — New "My Fashion Idols" page: keep idols by name; "Style me like …" opens the makeover with the idol filled in. Still to do: idols' news and looks in the feed, which needs the fashion-content engine (E-2). Planned 25 Oct: see docs/plans/service-provider-mode.md (shopping phases).
 
 ### 📅 Done on 22 October
 
@@ -212,9 +212,9 @@ _Blocked on an open question at the end of this document. Quick to build once de
 - [ ] **K-3** 🗳️ **Decided 22 Oct** Buy online with delivery, so people do not have to queue or walk around a crowded flea market. — Marketplace, e-fitting room and monetization _(Open question 8 (delivery))_
   - **Progress:** Decided 22 Oct: shops deliver themselves (they set whether they deliver, the fee and the areas) or the buyer collects; the app tracks the status. Not built yet.
 - [ ] **E-2** 🗳️ **Decided 22 Oct** Fashion-content engine: search the internet and the fashion industry for stories and post them to users' feeds, asking "What do you think about this look?" Examples: what is happening in Paris, what Michelle Obama wore 10 days ago, what local Harare socialites are wearing. This works before we have many users. — Engagement and go-to-market _(Backend. Open question 9 (image rights))_
-  - **Progress:** Decided 22 Oct: show a credited link preview (title, small image and site name from the source) that opens the source; never copy images to our servers. Not built yet.
+  - **Progress:** Decided 22 Oct: show a credited link preview (title, small image and site name from the source) that opens the source; never copy images to our servers. Not built yet. Planned 25 Oct: see docs/plans/service-provider-mode.md (shopping phases).
 - [ ] **E-3** 🗳️ **Decided 22 Oct** Fashion events from the content engine also appear in the feeds. — Engagement and go-to-market _(Links to C-1)_
-  - **Progress:** Decided 22 Oct: same rule as E-2 for events found online. Not built yet.
+  - **Progress:** Decided 22 Oct: same rule as E-2 for events found online. Not built yet. Planned 25 Oct: see docs/plans/service-provider-mode.md (shopping phases).
 
 ## Tier 4 — Bigger features
 
@@ -227,7 +227,7 @@ _Clear, but large: new screens, new data, or migrations._
 - [x] **F-1** ✅ **Done 20 Oct** The Fashion Twins page currently reuses the makeover page. Rebuild it: find people (search, including the internet), add them, follow them. Their activity then appears in your feed. — Fashion Twins, Fashion Idols and Hair Stylists _(Same page reused several times today)_
   - **Progress:** New "My Fashion Twins" page: find people by name or @username, add them (this also asks to follow them, so their looks reach your feeds), open their profiles, remove them.
 - [ ] **F-2** 🔶 **Started 20 Oct** Fashion Idols works the same way: search, follow, and their news comes into your feed. — Fashion Twins, Fashion Idols and Hair Stylists
-  - **Progress:** New "My Fashion Idols" page: keep idols by name; "Style me like …" opens the makeover with the idol filled in. Still to do: idols' news and looks in the feed, which needs the fashion-content engine (E-2).
+  - **Progress:** New "My Fashion Idols" page: keep idols by name; "Style me like …" opens the makeover with the idol filled in. Still to do: idols' news and looks in the feed, which needs the fashion-content engine (E-2). Planned 25 Oct: see docs/plans/service-provider-mode.md (shopping phases).
 - [x] **F-3** ✅ **Done 20 Oct** "My Hair Stylists" is a setup page, not a makeover page: follow stylists and salons, and keep the hairstyles you like (uploaded, found online, or your own photos). — Fashion Twins, Fashion Idols and Hair Stylists
   - **Progress:** New "My Hair Stylists" setup page: your salons (My Circle, with "Find a salon"), "Hairstyles I like" from your photos or camera, "Try this on me" (hair makeover copying that style) and "Try a new hairstyle".
 - [x] **F-4** ✅ **Done 20 Oct** Do not add new timelines. Hairstyle makeovers and posts go into the existing My Fashion Makeover and My Daily Dress Up feeds. — Fashion Twins, Fashion Idols and Hair Stylists _(Keep the number of feeds small)_
@@ -242,17 +242,21 @@ _Clear, but large: new screens, new data, or migrations._
 - [ ] **W-6** Saved items and looks can be put into categories and are interactive. They should not feel dead. — Smart Wardrobe module
 - [x] **W-7** ✅ **Done 20 Oct** Track wear: for example "You haven't worn this shirt in 10 months". — Smart Wardrobe module
   - **Progress:** Clothes in My Clothes have "I wore this today" and show "Worn 3 weeks ago" / "Not worn in 10 months" (highlighted after 6 months, or when never worn after a month). Saved Looks show when each was last worn, from "Wear today".
-- [ ] **D-4** Shops and designers you follow add new stock that matches your profile and wardrobe to this feed ("New look from <shop>"). — My Daily Dress Up _(Backend matching engine)_
+- [ ] **D-4** 📅 **Deploys 23 Oct** Shops and designers you follow add new stock that matches your profile and wardrobe to this feed ("New look from <shop>"). — My Daily Dress Up _(Backend matching engine)_
+  - **Progress:** Planned 25 Oct: see docs/plans/service-provider-mode.md (shopping phases).
 - [ ] **S-1** Any user can switch between Customer mode and Service-provider mode, like switching between passenger and driver in InDrive. One person can be both. — Service-provider mode
 - [ ] **S-2** A provider can be a shop, a designer, a hair stylist or salon, or several of these at once. — Service-provider mode
 - [ ] **S-3** Provider mode has its own screens: my shop, my designs, my salon, with forms to enter stock and services. — Service-provider mode _(Not built yet)_
 - [ ] **S-4** Shops and designers sign up as normal users, then switch on provider mode. No separate business sign-up. — Service-provider mode
 - [ ] **K-1** Shops, including flea-market traders, upload their stock with photos, sizes, measurements and prices. — Marketplace, e-fitting room and monetization _(Uses provider mode (S))_
-- [ ] **K-2** Electronic fitting room: try a shop's item on your own body, using your saved measurements. You can turn around and see a fit check (for example "tight around the waist"). The goal is to beat the physical fitting room. — Marketplace, e-fitting room and monetization _(Core value. Depends on U-6 measurements.)_
-- [ ] **K-4** From look to purchase: after a makeover, check whether the items are already in your wardrobe. If they are not, suggest shops that have them. — Marketplace, e-fitting room and monetization _(Backend matching)_
+- [ ] **K-2** 📅 **Deploys 23 Oct** Electronic fitting room: try a shop's item on your own body, using your saved measurements. You can turn around and see a fit check (for example "tight around the waist"). The goal is to beat the physical fitting room. — Marketplace, e-fitting room and monetization _(Core value. Depends on U-6 measurements.)_
+  - **Progress:** Planned 25 Oct: see docs/plans/service-provider-mode.md (shopping phases).
+- [ ] **K-4** 📅 **Deploys 23 Oct** From look to purchase: after a makeover, check whether the items are already in your wardrobe. If they are not, suggest shops that have them. — Marketplace, e-fitting room and monetization _(Backend matching)_
+  - **Progress:** Planned 25 Oct: see docs/plans/service-provider-mode.md (shopping phases).
 - [ ] **K-7** 🗳️ **Decided 22 Oct** Design the monetization module: track users, transactions, who sold what, commission and payouts. — Marketplace, e-fitting room and monetization _(Not designed yet)_
   - **Progress:** 22 Oct: when this starts, decide whether money records (orders, commission, influencer share, payouts) live in a Postgres database (Supabase or Cloud SQL) next to Firebase.
-- [ ] **E-4** Push notifications for trending looks and styles, once there are enough users to create trends. — Engagement and go-to-market
+- [ ] **E-4** 📅 **Deploys 23 Oct** Push notifications for trending looks and styles, once there are enough users to create trends. — Engagement and go-to-market
+  - **Progress:** Planned 25 Oct: see docs/plans/service-provider-mode.md (shopping phases).
 - [ ] **E-5** Opt-in access to the photo gallery: suggest "Check out this look" makeovers made from the user's own photos, as Google Photos does. — Engagement and go-to-market _(Needs clear consent)_
 
 ## Tier 5 — Backend, research and go-to-market
@@ -263,8 +267,10 @@ _Open-ended. Needs design or research before building._
 - [ ] **A-3** Build the algorithms in that specification on the backend. — Backend, algorithms and research _(Depends on the item above)_
 - [ ] **A-4** Community engine based on location (see the Post, save and share section). — Backend, algorithms and research
 - [ ] **A-5** Feed ranking: people you follow first, then wider. — Backend, algorithms and research
-- [ ] **A-6** Match shop and designer stock to user profiles (see the Daily Dress Up section). — Backend, algorithms and research
-- [ ] **A-7** Shops and smart wardrobes talk to each other: a saved look goes into the wardrobe and is matched against shop stock (see K-4). — Backend, algorithms and research
+- [ ] **A-6** 📅 **Deploys 23 Oct** Match shop and designer stock to user profiles (see the Daily Dress Up section). — Backend, algorithms and research
+  - **Progress:** Planned 25 Oct: see docs/plans/service-provider-mode.md (shopping phases).
+- [ ] **A-7** 📅 **Deploys 23 Oct** Shops and smart wardrobes talk to each other: a saved look goes into the wardrobe and is matched against shop stock (see K-4). — Backend, algorithms and research
+  - **Progress:** Planned 25 Oct: see docs/plans/service-provider-mode.md (shopping phases).
 - [ ] **A-8** Fashion-content engine (see E-2) and monetization tracking (see K-7). — Backend, algorithms and research
 - [ ] **P-5** Define "Community" (people near your location) and "Public" (anyone), and build the backend logic that decides who is in each. — Post, save and share _(Backend)_
 - [ ] **W-8** Research: physical clothing tags (AirTag-style button tags, RFID) to show what is in or out of the wardrobe, what is at the wash, and to alert when an item leaves the yard (geofence). Include a way to switch a tag off while the owner wears it, and cost per tag. — Smart Wardrobe module _(Long term, hardware. Privacy concerns.)_
