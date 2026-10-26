@@ -72,6 +72,7 @@ _Generated from `tools/checklist.json`; edit that file and run `npm run build` i
 - **B-1** Change the payoff line (tagline) to "g for looking good", as in the designer's animation. — 26 Oct: the designer's video shows the final line is "g for looking good" (not God or Good). Rebuilt in the app: white splash, wordmark, then the "g" fades in and "for looking good" types in (about 3.2 s, instead of the video's 7.8 s); native launch screens regenerated to match; reduced-motion phones see the finished line. Waiting on: the new sound file from you (the old sound still plays), and a check on a real phone (the phone was not reachable, so I only checked rendered frames). Dark-mode phones also get the white splash.
 - **F-2** Fashion Idols works the same way: search, follow, and their news comes into your feed. — New "My Fashion Idols" page: keep idols by name; "Style me like …" opens the makeover with the idol filled in. Still to do: idols' news and looks in the feed, which needs the fashion-content engine (E-2). Planned 25 Oct: see docs/plans/service-provider-mode.md (shopping phases).
 - **K-2** Electronic fitting room: try a shop's item on your own body, using your saved measurements. You can turn around and see a fit check (for example "tight around the waist"). The goal is to beat the physical fitting room. — Built 25 Oct (first version): a "Fit check" card on clothing product pages compares the shop's garment measurements with your saved ones and says where it is tight, snug or loose ("Size M: tight around the waist"), shows the numbers, and suggests the best size in stock. Shops can enter an optional size chart (shoulders, chest, waist, hips, inseam per size) in the stock form; where there is none it compares size labels ("a size bigger than you usually wear"). The fit also goes to the Gemini try-on picture. Not yet: FASHN's try-on cannot take fit instructions, so the picture only reflects fit on the Gemini engine; existing shop products have no size charts until shops add them; stretchy fabric is not accounted for.
+- **K-8** Turn-around (3D-style) view in the fitting room: turn the try-on around to see the sides and back. — First version built 26 Oct: "Turn me around" on the try-on makes right side, back and left views with AI (one at a time, shown as they arrive); drag left or right, or use the arrows, to turn like a turntable. Sides and back are estimates and are labelled so. Costs three more AI image calls per try-on. Not tried on a phone yet. Later options: a short spin video, optional back photo from shops to improve the back view, and true 3D models once shops can supply them.
 
 ### 📅 Done on 22 October
 
@@ -96,7 +97,7 @@ _Generated from `tools/checklist.json`; edit that file and run `npm run build` i
 - [Tier 1 — Quick wins](#tier-1-quick-wins) — 17/17 done
 - [Tier 2 — Clear, medium work](#tier-2-clear-medium-work) — 15/16 done
 - [Tier 3 — Needs a decision first](#tier-3-needs-a-decision-first) — 7/13 done
-- [Tier 4 — Bigger features](#tier-4-bigger-features) — 9/23 done
+- [Tier 4 — Bigger features](#tier-4-bigger-features) — 9/24 done
 - [Tier 5 — Backend, research and go-to-market](#tier-5-backend-research-and-go-to-market) — 0/10 done
 - [Issues found while working](#issues-found-while-working)
 - [Release day (Friday)](#release-day-friday)
@@ -259,6 +260,8 @@ _Clear, but large: new screens, new data, or migrations._
 - [ ] **E-4** 📅 **Deploys 23 Oct** Push notifications for trending looks and styles, once there are enough users to create trends. — Engagement and go-to-market
   - **Progress:** Planned 25 Oct: see docs/plans/service-provider-mode.md (shopping phases).
 - [ ] **E-5** Opt-in access to the photo gallery: suggest "Check out this look" makeovers made from the user's own photos, as Google Photos does. — Engagement and go-to-market _(Needs clear consent)_
+- [ ] **K-8** 🔶 **Started 20 Oct** Turn-around (3D-style) view in the fitting room: turn the try-on around to see the sides and back. — Marketplace, e-fitting room and monetization _(Added 26 Oct)_
+  - **Progress:** First version built 26 Oct: "Turn me around" on the try-on makes right side, back and left views with AI (one at a time, shown as they arrive); drag left or right, or use the arrows, to turn like a turntable. Sides and back are estimates and are labelled so. Costs three more AI image calls per try-on. Not tried on a phone yet. Later options: a short spin video, optional back photo from shops to improve the back view, and true 3D models once shops can supply them.
 
 ## Tier 5 — Backend, research and go-to-market
 
