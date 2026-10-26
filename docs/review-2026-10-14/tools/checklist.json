@@ -350,11 +350,11 @@
       "items": [
         {
           "id": "B-1",
-          "text": "Change the payoff line (tagline) to \"G for God\", tied to the G in the logo.",
+          "text": "Change the payoff line (tagline) to \"g for looking good\", as in the designer's animation.",
           "area": "Branding",
           "note": "Confirm exact wording",
           "done": false,
-          "progress": "Decided: \"G for Good\" (not God). Waiting for the designer's new logo file with the line; then swap it in and regenerate the splash screens (dart run flutter_native_splash:create).",
+          "progress": "26 Oct: the designer's video shows the final line is \"g for looking good\" (not God or Good). Rebuilt in the app: white splash, wordmark, then the \"g\" fades in and \"for looking good\" types in (about 3.2 s, instead of the video's 7.8 s); native launch screens regenerated to match; reduced-motion phones see the finished line. Waiting on: the new sound file from you (the old sound still plays), and a check on a real phone (the phone was not reachable, so I only checked rendered frames). Dark-mode phones also get the white splash.",
           "highlight": "partial"
         },
         {
@@ -803,7 +803,7 @@
     "DECIDED 20 Oct: \"My Circle\".",
     "DECIDED 20 Oct: Repost and Quote always shown; a private look asks to be shared first.",
     "DECIDED 20 Oct: keep both, renamed: \"Post\" (who sees it in the feeds) and \"Send to\" (salon, shop, designer, WhatsApp, other apps).",
-    "DECIDED 20 Oct: \"G for Good\". Needs new logo artwork with the line.",
+    "DECIDED 26 Oct: \"g for looking good\", from the designer's animation.",
     "DECIDED 20 Oct: one large \"Create My Fashion Makeover\" button that then asks Hairstyle or Outfit & more.",
     "DECIDED 22 Oct: commission 20% added on top of the seller's price; the influencer who brought the sale gets 25% of it.",
     "DECIDED 22 Oct: shops deliver themselves (fee and areas set per shop) or the buyer collects; the app tracks the status.",

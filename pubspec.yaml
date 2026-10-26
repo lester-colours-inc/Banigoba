@@ -45,6 +45,7 @@ flutter:
   assets:
     - assets/images/
     - assets/branding/splash_logo.png
+    - assets/branding/g_mark.png
     - assets/sounds/
 
   # Plus Jakarta Sans, the typeface in the Figma designs (SIL OFL, see

@@ -1,16 +1,22 @@
-# Native splash: the logo with its payoff line on brand navy. BrandSplash
-# draws the same image at the same size, so the hand-off is seamless.
+# Native splash: the wordmark on white, matching the designer's animation
+# (October 2026: "g for looking good"). BrandSplash draws the same image at
+# the same size, then types in the payoff line, so the hand-off is seamless.
 #
-# splash_logo.png is 1152 px (288 dp at 4x). Android 12+ clips its splash
-# icon to the centre 768 px (192 dp) circle, so the logo is sized to fit
-# inside it. Regenerate with:
+# splash_logo.png is 1152 px (288 dp at 4x) with the wordmark centred. Android
+# 12+ clips its splash icon to the centre 768 px (192 dp) circle; the wordmark
+# fits inside it. Dark mode keeps the same white splash, as in the design.
+# Regenerate with:
 #   dart run flutter_native_splash:create
 flutter_native_splash:
-  color: "#05105F"
+  color: "#FFFFFF"
+  color_dark: "#FFFFFF"
   image: "assets/branding/splash_logo.png"
+  image_dark: "assets/branding/splash_logo.png"
   android_12:
-    color: "#05105F"
+    color: "#FFFFFF"
+    color_dark: "#FFFFFF"
     image: "assets/branding/splash_logo.png"
+    image_dark: "assets/branding/splash_logo.png"
   android: true
   ios: true
   web: false

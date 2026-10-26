@@ -69,7 +69,7 @@ _Generated from `tools/checklist.json`; edit that file and run `npm run build` i
 **🔶 Started 20 Oct, not finished:**
 
 - **G-4** Fix text that overlaps or clashes, on every screen. — Fixed where found (makeover method labels, profile photo tiles). Still needs a check on a real phone.
-- **B-1** Change the payoff line (tagline) to "G for God", tied to the G in the logo. — Decided: "G for Good" (not God). Waiting for the designer's new logo file with the line; then swap it in and regenerate the splash screens (dart run flutter_native_splash:create).
+- **B-1** Change the payoff line (tagline) to "g for looking good", as in the designer's animation. — 26 Oct: the designer's video shows the final line is "g for looking good" (not God or Good). Rebuilt in the app: white splash, wordmark, then the "g" fades in and "for looking good" types in (about 3.2 s, instead of the video's 7.8 s); native launch screens regenerated to match; reduced-motion phones see the finished line. Waiting on: the new sound file from you (the old sound still plays), and a check on a real phone (the phone was not reachable, so I only checked rendered frames). Dark-mode phones also get the white splash.
 - **F-2** Fashion Idols works the same way: search, follow, and their news comes into your feed. — New "My Fashion Idols" page: keep idols by name; "Style me like …" opens the makeover with the idol filled in. Still to do: idols' news and looks in the feed, which needs the fashion-content engine (E-2). Planned 25 Oct: see docs/plans/service-provider-mode.md (shopping phases).
 - **K-2** Electronic fitting room: try a shop's item on your own body, using your saved measurements. You can turn around and see a fit check (for example "tight around the waist"). The goal is to beat the physical fitting room. — Built 25 Oct (first version): a "Fit check" card on clothing product pages compares the shop's garment measurements with your saved ones and says where it is tight, snug or loose ("Size M: tight around the waist"), shows the numbers, and suggests the best size in stock. Shops can enter an optional size chart (shoulders, chest, waist, hips, inseam per size) in the stock form; where there is none it compares size labels ("a size bigger than you usually wear"). The fit also goes to the Gemini try-on picture. Not yet: FASHN's try-on cannot take fit instructions, so the picture only reflects fit on the Gemini engine; existing shop products have no size charts until shops add them; stretchy fabric is not accounted for.
 
@@ -190,8 +190,8 @@ _The requirement is clear. These need more than a one-line change._
 
 _Blocked on an open question at the end of this document. Quick to build once decided._
 
-- [ ] **B-1** 🔶 **Started 20 Oct** Change the payoff line (tagline) to "G for God", tied to the G in the logo. — Branding _(Confirm exact wording)_
-  - **Progress:** Decided: "G for Good" (not God). Waiting for the designer's new logo file with the line; then swap it in and regenerate the splash screens (dart run flutter_native_splash:create).
+- [ ] **B-1** 🔶 **Started 20 Oct** Change the payoff line (tagline) to "g for looking good", as in the designer's animation. — Branding _(Confirm exact wording)_
+  - **Progress:** 26 Oct: the designer's video shows the final line is "g for looking good" (not God or Good). Rebuilt in the app: white splash, wordmark, then the "g" fades in and "for looking good" types in (about 3.2 s, instead of the video's 7.8 s); native launch screens regenerated to match; reduced-motion phones see the finished line. Waiting on: the new sound file from you (the old sound still plays), and a check on a real phone (the phone was not reachable, so I only checked rendered frames). Dark-mode phones also get the white splash.
 - [x] **H-4** ✅ **Done 20 Oct** Remove the "No affirmations yet" text. Show a number instead. — Home — My Fashion Makeover tab _(Open question 1: this clashes with the work plan's "no counters" rule)_
   - **Progress:** Decided: owner-only count. "No affirmations yet" is gone. The look's owner sees the total; everyone else sees which affirmations were given, never a number (fits BNG SRS 001).
 - [x] **U-2** ✅ **Done 20 Oct** Add a way to follow people. "Following" and "Followers" appear on the profile, but nothing lets you follow anyone. — Profile, identity and social graph _(Open question 1 (counts))_
@@ -305,7 +305,7 @@ _Not raised in the meeting; found while building._
 2. DECIDED 20 Oct: "My Circle".
 3. DECIDED 20 Oct: Repost and Quote always shown; a private look asks to be shared first.
 4. DECIDED 20 Oct: keep both, renamed: "Post" (who sees it in the feeds) and "Send to" (salon, shop, designer, WhatsApp, other apps).
-5. DECIDED 20 Oct: "G for Good". Needs new logo artwork with the line.
+5. DECIDED 26 Oct: "g for looking good", from the designer's animation.
 6. DECIDED 20 Oct: one large "Create My Fashion Makeover" button that then asks Hairstyle or Outfit & more.
 7. DECIDED 22 Oct: commission 20% added on top of the seller's price; the influencer who brought the sale gets 25% of it.
 8. DECIDED 22 Oct: shops deliver themselves (fee and areas set per shop) or the buyer collects; the app tracks the status.
