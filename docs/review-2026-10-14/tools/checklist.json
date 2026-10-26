@@ -584,8 +584,8 @@
           "area": "My Daily Dress Up",
           "note": "Backend matching engine",
           "done": false,
-          "progress": "Planned 25 Oct: see docs/plans/service-provider-mode.md (shopping phases).",
-          "highlight": "planned"
+          "progress": "Step 1 of 3 built 26 Oct: the matching rules (lib/data/models/feed_matching.dart, tested). A piece reaches your feed only if: it is from a shop or designer you follow, it is in stock in your size (or the size the fit check picks), and it suits a style you chose or fills a gap in your wardrobe. Best three a day, never repeats. Still to build: (2) the \"New from Glow Boutique, in your size\" card in My Daily Dress Up, (3) the server job that runs when a shop adds stock. Style names are bridged by a placeholder mapping that needs your OK; gender is not matched yet.",
+          "highlight": "partial"
         },
         {
           "id": "S-1",
@@ -724,8 +724,8 @@
           "area": "Backend, algorithms and research",
           "note": "",
           "done": false,
-          "progress": "Planned 25 Oct: see docs/plans/service-provider-mode.md (shopping phases).",
-          "highlight": "planned"
+          "progress": "Step 1 of 3 built 26 Oct: the matching rules (lib/data/models/feed_matching.dart, tested). A piece reaches your feed only if: it is from a shop or designer you follow, it is in stock in your size (or the size the fit check picks), and it suits a style you chose or fills a gap in your wardrobe. Best three a day, never repeats. Still to build: (2) the \"New from Glow Boutique, in your size\" card in My Daily Dress Up, (3) the server job that runs when a shop adds stock. Style names are bridged by a placeholder mapping that needs your OK; gender is not matched yet.",
+          "highlight": "partial"
         },
         {
           "id": "A-7",
