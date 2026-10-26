@@ -584,7 +584,7 @@
           "area": "My Daily Dress Up",
           "note": "Backend matching engine",
           "done": false,
-          "progress": "Step 1 of 3 built 26 Oct: the matching rules (lib/data/models/feed_matching.dart, tested). A piece reaches your feed only if: it is from a shop or designer you follow, it is in stock in your size (or the size the fit check picks), and it suits a style you chose or fills a gap in your wardrobe. Best three a day, never repeats. Still to build: (2) the \"New from Glow Boutique, in your size\" card in My Daily Dress Up, (3) the server job that runs when a shop adds stock. Style names are bridged by a placeholder mapping that needs your OK; gender is not matched yet.",
+          "progress": "Steps 1 and 2 of 3 built 26 Oct. (1) Matching rules, tested: from a shop or designer you follow, in stock in your size (or the fit-check size), suiting a style you chose or filling a wardrobe gap; best three a day. (2) \"New from shops you follow\" cards at the top of My Daily Dress Up: picture, shop, price and the reasons (\"In your size (M). Suits your Smart style\"), tap to open the item, and \"Not for me\" to hide it for good. Nothing shows when nothing matches. The phone does the matching when the feed opens. Still to build: (3) a server job so the cards are ready before the app opens (needs your OK to deploy). Open: the style-name mapping needs your confirmation, gender is not matched, and no shop has a size chart yet, so most matches will rest on the usual size label. Not yet seen on a phone.",
           "highlight": "partial"
         },
         {
@@ -724,7 +724,7 @@
           "area": "Backend, algorithms and research",
           "note": "",
           "done": false,
-          "progress": "Step 1 of 3 built 26 Oct: the matching rules (lib/data/models/feed_matching.dart, tested). A piece reaches your feed only if: it is from a shop or designer you follow, it is in stock in your size (or the size the fit check picks), and it suits a style you chose or fills a gap in your wardrobe. Best three a day, never repeats. Still to build: (2) the \"New from Glow Boutique, in your size\" card in My Daily Dress Up, (3) the server job that runs when a shop adds stock. Style names are bridged by a placeholder mapping that needs your OK; gender is not matched yet.",
+          "progress": "Steps 1 and 2 of 3 built 26 Oct. (1) Matching rules, tested: from a shop or designer you follow, in stock in your size (or the fit-check size), suiting a style you chose or filling a wardrobe gap; best three a day. (2) \"New from shops you follow\" cards at the top of My Daily Dress Up: picture, shop, price and the reasons (\"In your size (M). Suits your Smart style\"), tap to open the item, and \"Not for me\" to hide it for good. Nothing shows when nothing matches. The phone does the matching when the feed opens. Still to build: (3) a server job so the cards are ready before the app opens (needs your OK to deploy). Open: the style-name mapping needs your confirmation, gender is not matched, and no shop has a size chart yet, so most matches will rest on the usual size label. Not yet seen on a phone.",
           "highlight": "partial"
         },
         {

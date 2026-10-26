@@ -19,6 +19,7 @@ import '../../../widgets/share_audience_sheet.dart';
 import '../../../widgets/look_viewer_page.dart';
 import '../../../../core/app_routes.dart';
 import 'friends_dress_ups.dart';
+import 'new_from_shops.dart';
 
 class DailyDressUpFeed extends StatefulWidget {
   const DailyDressUpFeed({super.key, required this.emptyBuilder});
@@ -74,6 +75,7 @@ class _DailyDressUpFeedState extends State<DailyDressUpFeed> {
         if (looks.isEmpty) {
           return Column(
             children: [
+              NewFromShops(userId: _userId),
               FriendsDressUps(viewerId: _userId),
               widget.emptyBuilder(
                 Icons.checkroom_outlined,
@@ -89,6 +91,7 @@ class _DailyDressUpFeedState extends State<DailyDressUpFeed> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            NewFromShops(userId: _userId),
             FriendsDressUps(viewerId: _userId),
             for (var index = 0; index < looks.length; index++) ...[
               _buildLook(looks[index], index),
