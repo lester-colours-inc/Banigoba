@@ -2,7 +2,7 @@
 
 **Meeting:** App review meeting, 14 October 2026 (full transcript, parts 1–3)  
 **Prepared by:** Lester  
-**Status:** Release 1.1.0 ready; ships Friday 23 October. Fitting room (K-2) first version built, not yet released. Tiers 1 and 2 done except G-4.  
+**Status:** 1.1.0 built for release; release-day steps not confirmed. Since then: fitting room (K-2), turn-around (K-8) and the new splash (B-1) built, untested on a phone. Next: phone check, then daily feed matching.  
 **Target:** Next app version by the end of next week (about Friday 23 October 2026)
 
 Tick items off as they ship. Item IDs (e.g. `H-2`) match the Word version (`Banigoba_Review_Checklist.docx`).
@@ -71,24 +71,25 @@ _Generated from `tools/checklist.json`; edit that file and run `npm run build` i
 - **G-4** Fix text that overlaps or clashes, on every screen. — Fixed where found (makeover method labels, profile photo tiles). Still needs a check on a real phone.
 - **B-1** Change the payoff line (tagline) to "g for looking good", as in the designer's animation. — 26 Oct: the designer's video shows the final line is "g for looking good" (not God or Good). Rebuilt in the app: white splash, wordmark, then the "g" fades in and "for looking good" types in (about 3.2 s, instead of the video's 7.8 s); native launch screens regenerated to match; reduced-motion phones see the finished line. Waiting on: the new sound file from you (the old sound still plays), and a check on a real phone (the phone was not reachable, so I only checked rendered frames). Dark-mode phones also get the white splash.
 - **F-2** Fashion Idols works the same way: search, follow, and their news comes into your feed. — New "My Fashion Idols" page: keep idols by name; "Style me like …" opens the makeover with the idol filled in. Still to do: idols' news and looks in the feed, which needs the fashion-content engine (E-2). Planned 25 Oct: see docs/plans/service-provider-mode.md (shopping phases).
-- **K-2** Electronic fitting room: try a shop's item on your own body, using your saved measurements. You can turn around and see a fit check (for example "tight around the waist"). The goal is to beat the physical fitting room. — Built 25 Oct (first version): a "Fit check" card on clothing product pages compares the shop's garment measurements with your saved ones and says where it is tight, snug or loose ("Size M: tight around the waist"), shows the numbers, and suggests the best size in stock. Shops can enter an optional size chart (shoulders, chest, waist, hips, inseam per size) in the stock form; where there is none it compares size labels ("a size bigger than you usually wear"). The fit also goes to the Gemini try-on picture. Not yet: FASHN's try-on cannot take fit instructions, so the picture only reflects fit on the Gemini engine; existing shop products have no size charts until shops add them; stretchy fabric is not accounted for.
+- **W-6** Saved items and looks can be put into categories and are interactive. They should not feel dead. — Partly done (20 Oct): saved looks are filed under categories you choose, grouped in Saved Looks, open full screen and show when last worn. Still missing: changing a look's category later, and categories for clothes in My Clothes.
+- **K-2** Electronic fitting room: try a shop's item on your own body, using your saved measurements. You can turn around and see a fit check (for example "tight around the waist"). The goal is to beat the physical fitting room. — Built 25 Oct (committed a641605) (first version): a "Fit check" card on clothing product pages compares the shop's garment measurements with your saved ones and says where it is tight, snug or loose ("Size M: tight around the waist"), shows the numbers, and suggests the best size in stock. Shops can enter an optional size chart (shoulders, chest, waist, hips, inseam per size) in the stock form; where there is none it compares size labels ("a size bigger than you usually wear"). The fit also goes to the Gemini try-on picture. Not yet: FASHN's try-on cannot take fit instructions, so the picture only reflects fit on the Gemini engine; existing shop products have no size charts until shops add them; stretchy fabric is not accounted for.
 - **K-8** Turn-around (3D-style) view in the fitting room: turn the try-on around to see the sides and back. — First version built 26 Oct: "Turn me around" on the try-on makes right side, back and left views with AI (one at a time, shown as they arrive); drag left or right, or use the arrows, to turn like a turntable. Sides and back are estimates and are labelled so. Costs three more AI image calls per try-on. Not tried on a phone yet. Later options: a short spin video, optional back photo from shops to improve the back view, and true 3D models once shops can supply them.
 
-### 📅 Done on 22 October
+### 📅 Done 22 to 26 October
 
-- [x] DONE: Release prep. Version 1.1.0 (build 2); the release APK builds (67 MB); all 26 rules tests and 337 app tests pass; tester notes and release-day runbook in docs/release/2026-10-23-release.md.
-- [x] DONE: Open questions 7, 8 and 9 decided (see K-3, K-5, K-6, E-2, E-3).
-- [x] DONE: Build 1.1.0 installed on the test phone (RMX3840) via adb; it opens and runs.
-- [x] DONE: Backend decision: stay on Firebase. Fix scale pain points in place (search, feed fan-out). Decide on a Postgres database for marketplace money when K-1 to K-7 start.
+- [x] DONE 22 Oct: release 1.1.0 prepared (APK, notes, runbook); open questions 7, 8, 9 decided; build installed on the test phone; backend decision (stay on Firebase).
+- [x] DONE 25 Oct: plan for service-provider mode and the shopping phases (docs/plans/service-provider-mode.md).
+- [x] DONE 25 Oct: virtual fitting room, first version (K-2): fit check card, shop size charts, fit sent to the try-on.
+- [x] DONE 26 Oct: new white splash with "g for looking good" (B-1), built from the designer's video.
+- [x] DONE 26 Oct: turn-around view for the fitting room (K-8), first version.
 
-### 🚀 Planned for Friday 23 October (release day)
+### 🚀 To do next
 
-- [ ] G-4: walk the screens on the installed build and note any overlapping or cut-off text (screenshots).
-- [ ] Ship build 1.1.0 to testers (local APK, or merge to main so CI builds it).
-- [ ] Deploy the database rules (I-2, I-4, I-5, U-5): firebase deploy --only firestore:rules.
-- [ ] Check on a phone with 1.1.0: Home, Community and My Daily Dress Up load; friends-only looks stay private; username search works.
-- [ ] Run the email clean-up script (dry run first) with a service-account key.
-- [ ] B-1: chase the designer for the "G for Good" logo file.
+- [ ] Reconnect the phone, install a new build and check on it: the new splash (B-1), the fit check (K-2), the turn-around (K-8) and overlapping text on every screen (G-4).
+- [ ] Send the new sound file (B-1) so it can replace the old tone.
+- [ ] Release day (1.1.0): ship the build, then deploy the database rules (I-2, I-4, I-5, U-5), check the feeds, and run the email clean-up script. Not marked done: I have not been told it happened.
+- [ ] Daily feed matching (D-4, A-6), then the content engine (E-2, E-3, F-2, E-4).
+- [ ] Decide the four provider-mode questions in the plan (S-1 to S-4).
 
 ## Contents
 
@@ -241,7 +242,8 @@ _Clear, but large: new screens, new data, or migrations._
 - [x] **W-2** ✅ **Done 20 Oct** The wardrobe holds my clothes, the shops I am connected to and the designers I am connected to. — Smart Wardrobe module
   - **Progress:** The wardrobe's Shops & Designers tab now opens with My Circle (your salons, shops and designers, removable), then the directories.
 - [ ] **W-3** Add item: take a photo of the piece, and the app detects the colour. Do not ask for colour by hand. — Smart Wardrobe module
-- [ ] **W-6** Saved items and looks can be put into categories and are interactive. They should not feel dead. — Smart Wardrobe module
+- [ ] **W-6** 🔶 **Started 20 Oct** Saved items and looks can be put into categories and are interactive. They should not feel dead. — Smart Wardrobe module
+  - **Progress:** Partly done (20 Oct): saved looks are filed under categories you choose, grouped in Saved Looks, open full screen and show when last worn. Still missing: changing a look's category later, and categories for clothes in My Clothes.
 - [x] **W-7** ✅ **Done 20 Oct** Track wear: for example "You haven't worn this shirt in 10 months". — Smart Wardrobe module
   - **Progress:** Clothes in My Clothes have "I wore this today" and show "Worn 3 weeks ago" / "Not worn in 10 months" (highlighted after 6 months, or when never worn after a month). Saved Looks show when each was last worn, from "Wear today".
 - [ ] **D-4** 📅 **Deploys 23 Oct** Shops and designers you follow add new stock that matches your profile and wardrobe to this feed ("New look from <shop>"). — My Daily Dress Up _(Backend matching engine)_
@@ -252,7 +254,7 @@ _Clear, but large: new screens, new data, or migrations._
 - [ ] **S-4** Shops and designers sign up as normal users, then switch on provider mode. No separate business sign-up. — Service-provider mode
 - [ ] **K-1** Shops, including flea-market traders, upload their stock with photos, sizes, measurements and prices. — Marketplace, e-fitting room and monetization _(Uses provider mode (S))_
 - [ ] **K-2** 🔶 **Started 20 Oct** Electronic fitting room: try a shop's item on your own body, using your saved measurements. You can turn around and see a fit check (for example "tight around the waist"). The goal is to beat the physical fitting room. — Marketplace, e-fitting room and monetization _(Core value. Depends on U-6 measurements.)_
-  - **Progress:** Built 25 Oct (first version): a "Fit check" card on clothing product pages compares the shop's garment measurements with your saved ones and says where it is tight, snug or loose ("Size M: tight around the waist"), shows the numbers, and suggests the best size in stock. Shops can enter an optional size chart (shoulders, chest, waist, hips, inseam per size) in the stock form; where there is none it compares size labels ("a size bigger than you usually wear"). The fit also goes to the Gemini try-on picture. Not yet: FASHN's try-on cannot take fit instructions, so the picture only reflects fit on the Gemini engine; existing shop products have no size charts until shops add them; stretchy fabric is not accounted for.
+  - **Progress:** Built 25 Oct (committed a641605) (first version): a "Fit check" card on clothing product pages compares the shop's garment measurements with your saved ones and says where it is tight, snug or loose ("Size M: tight around the waist"), shows the numbers, and suggests the best size in stock. Shops can enter an optional size chart (shoulders, chest, waist, hips, inseam per size) in the stock form; where there is none it compares size labels ("a size bigger than you usually wear"). The fit also goes to the Gemini try-on picture. Not yet: FASHN's try-on cannot take fit instructions, so the picture only reflects fit on the Gemini engine; existing shop products have no size charts until shops add them; stretchy fabric is not accounted for.
 - [ ] **K-4** 📅 **Deploys 23 Oct** From look to purchase: after a makeover, check whether the items are already in your wardrobe. If they are not, suggest shops that have them. — Marketplace, e-fitting room and monetization _(Backend matching)_
   - **Progress:** Planned 25 Oct: see docs/plans/service-provider-mode.md (shopping phases).
 - [ ] **K-7** 🗳️ **Decided 22 Oct** Design the monetization module: track users, transactions, who sold what, commission and payouts. — Marketplace, e-fitting room and monetization _(Not designed yet)_
