@@ -39,14 +39,18 @@ double _gOpacity(WidgetTester tester) => tester
     .opacity
     .value;
 
-/// The part of "for looking good" that is visible so far.
-String _typedSoFar(WidgetTester tester) {
+List<TextSpan> _chars(WidgetTester tester) {
   final text = tester.widget<Text>(
     find.byKey(const ValueKey('brand_splash_line')),
   );
   final root = text.textSpan! as TextSpan;
-  return (root.children!.first as TextSpan).text!;
+  return root.children!.cast<TextSpan>();
 }
+
+/// The part of the typed line that is at least partly visible so far.
+String _typedSoFar(WidgetTester tester) => _chars(
+  tester,
+).where((span) => span.style!.color!.a > 0).map((span) => span.text!).join();
 
 void main() {
   setUp(debugResetBrandSplash);
@@ -73,28 +77,53 @@ void main() {
       find.bySemanticsLabel('Banigoba. $kBrandPayoffLine'),
       findsOneWidget,
     );
-    expect(kBrandPayoffLine, 'g for looking good');
+    expect(kBrandPayoffLine, 'g, for "Looking Good!!!"');
+    expect(kBrandPayoffTyped, 'for, "Looking Good!!!"');
   });
 
-  testWidgets('the g appears, then "for looking good" types in', (
-    tester,
-  ) async {
+  testWidgets('the g appears, then the bold line types in', (tester) async {
     await _pumpSplash(tester);
 
     expect(_gOpacity(tester), 0);
     expect(_typedSoFar(tester), isEmpty);
 
-    await tester.pump(const Duration(milliseconds: 1000));
+    // Like the video: nothing typed until the g is in, typing done a
+    // second later.
+    await tester.pump(const Duration(milliseconds: 1500));
+    expect(_gOpacity(tester), 0);
+    expect(_typedSoFar(tester), isEmpty);
+
+    await tester.pump(const Duration(milliseconds: 500));
     expect(_gOpacity(tester), 1);
 
     await tester.pump(const Duration(milliseconds: 500));
     final partway = _typedSoFar(tester);
     expect(partway, isNotEmpty);
-    expect('for looking good'.startsWith(partway), isTrue);
-    expect(partway.length, lessThan('for looking good'.length));
+    expect(kBrandPayoffTyped.startsWith(partway), isTrue);
+    expect(partway.length, lessThan(kBrandPayoffTyped.length));
 
-    await tester.pump(const Duration(milliseconds: 800));
-    expect(_typedSoFar(tester), 'for looking good');
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(_typedSoFar(tester), kBrandPayoffTyped);
+  });
+
+  testWidgets('the newest characters fade in; the line is bold', (
+    tester,
+  ) async {
+    await _pumpSplash(tester);
+    await tester.pump(const Duration(milliseconds: 2500));
+
+    final alphas = [for (final c in _chars(tester)) c.style!.color!.a];
+    final fading = alphas.where((a) => a > 0 && a < 1).length;
+    expect(fading, inInclusiveRange(1, 2));
+    // Solid up to the edge, then fading, then not yet typed.
+    expect(alphas, orderedEquals([...alphas]..sort((a, b) => b.compareTo(a))));
+
+    final text = tester.widget<Text>(
+      find.byKey(const ValueKey('brand_splash_line')),
+    );
+    expect((text.textSpan! as TextSpan).style!.fontWeight, FontWeight.w700);
+    // Every character is laid out from the start, so nothing shifts.
+    expect(_chars(tester), hasLength(kBrandPayoffTyped.length));
   });
 
   testWidgets('the payoff line sits under the wordmark', (tester) async {
@@ -115,7 +144,8 @@ void main() {
     await _pumpSplash(tester, reduceMotion: true);
 
     expect(_gOpacity(tester), 1);
-    expect(_typedSoFar(tester), 'for looking good');
+    expect(_typedSoFar(tester), kBrandPayoffTyped);
+    expect(_chars(tester).last.style!.color!.a, 1);
   });
 
   testWidgets('shows the spinner only once the brand moment has played', (
