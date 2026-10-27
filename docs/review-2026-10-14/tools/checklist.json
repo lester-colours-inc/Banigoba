@@ -566,7 +566,7 @@
           "area": "Smart Wardrobe module",
           "note": "",
           "done": false,
-          "progress": "Partly done (20 Oct): saved looks are filed under categories you choose, grouped in Saved Looks, open full screen and show when last worn. Still missing: changing a look's category later, and categories for clothes in My Clothes.",
+          "progress": "Partly done: saved looks are filed under categories, grouped in Saved Looks, open full screen and show when last worn. 27 Oct: each saved look now has a \"move\" button to change its category later, make a new one, or remove it from its category. Still missing: categories for clothes in My Clothes. The move button is tested only as a sheet, not yet on a phone.",
           "highlight": "partial"
         },
         {

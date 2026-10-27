@@ -391,13 +391,25 @@ class OutfitService {
     required String userId,
     required String postId,
     required String category,
+  }) => setOutfitCategory(
+    userId: userId,
+    outfitId: 'post_$postId',
+    category: category,
+  );
+
+  /// Moves any saved look (from a feed post or a makeover) to [category]; an
+  /// empty one clears it.
+  Future<void> setOutfitCategory({
+    required String userId,
+    required String outfitId,
+    required String category,
   }) {
     final name = category.trim();
     return _db
         .collection('users')
         .doc(userId)
         .collection('outfits')
-        .doc('post_$postId')
+        .doc(outfitId)
         .update({'category': name.isEmpty ? FieldValue.delete() : name});
   }
 

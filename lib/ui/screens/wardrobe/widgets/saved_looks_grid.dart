@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import '../../../../data/models/wear_tracking.dart';
 import '../../../../data/services/outfit_service.dart';
 import '../../../widgets/app_network_image.dart';
+import '../../../widgets/change_look_category_sheet.dart';
 import '../../../widgets/look_viewer_page.dart';
 
 /// Shown for looks saved without a category.
@@ -43,6 +44,44 @@ class _SavedLooksGridState extends State<SavedLooksGrid> {
         ),
       ),
     );
+  }
+
+  /// Asks for a new category and moves the look there.
+  Future<void> _moveLook(
+    Map<String, dynamic> look,
+    Iterable<String> groupNames,
+  ) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final current = (look['category'] ?? '').toString().trim();
+    final category = await showChangeLookCategorySheet(
+      context,
+      existingCategories: [
+        for (final name in groupNames)
+          if (name != kUncategorisedLooks) name,
+      ],
+      currentCategory: current,
+    );
+    if (category == null) return;
+    try {
+      await (widget.outfits ?? OutfitService()).setOutfitCategory(
+        userId: widget.userId,
+        outfitId: look['id'].toString(),
+        category: category,
+      );
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            category.isEmpty
+                ? 'Removed from its category.'
+                : 'Moved to $category.',
+          ),
+        ),
+      );
+    } on FirebaseException catch (error) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('Could not move it: ${error.message}')),
+      );
+    }
   }
 
   Widget _buildLooks(Map<String, DateTime> lastWorn) {
@@ -89,7 +128,11 @@ class _SavedLooksGridState extends State<SavedLooksGrid> {
                 childAspectRatio: 0.75,
                 children: [
                   for (final look in looks)
-                    _LookTile(look: look, lastWorn: lastWorn[look['id']]),
+                    _LookTile(
+                      look: look,
+                      lastWorn: lastWorn[look['id']],
+                      onMove: () => _moveLook(look, groups.keys),
+                    ),
                 ],
               ),
             ],
@@ -137,10 +180,15 @@ DateTime _createdAt(Map<String, dynamic> look) => switch (look['createdAt']) {
 };
 
 class _LookTile extends StatelessWidget {
-  const _LookTile({required this.look, required this.lastWorn});
+  const _LookTile({
+    required this.look,
+    required this.lastWorn,
+    required this.onMove,
+  });
 
   final Map<String, dynamic> look;
   final DateTime? lastWorn;
+  final VoidCallback onMove;
 
   @override
   Widget build(BuildContext context) {
@@ -168,6 +216,18 @@ class _LookTile extends StatelessWidget {
                   fit: BoxFit.cover,
                   alignment: Alignment.topCenter,
                   fallback: const Icon(Icons.broken_image_outlined),
+                ),
+              ),
+              Positioned(
+                top: 2,
+                right: 2,
+                child: IconButton.filledTonal(
+                  key: ValueKey('move_look_${look['id']}'),
+                  tooltip: 'Move to a category',
+                  iconSize: 18,
+                  visualDensity: VisualDensity.compact,
+                  onPressed: onMove,
+                  icon: const Icon(Icons.drive_file_move_outline),
                 ),
               ),
               Positioned(
