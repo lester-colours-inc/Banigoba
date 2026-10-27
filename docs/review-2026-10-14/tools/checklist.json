@@ -2,7 +2,7 @@
   "title": "Banigoba — App Review Checklist",
   "meeting": "App review meeting, 14 October 2026 (full transcript, parts 1–3)",
   "preparedBy": "Lester",
-  "status": "1.1.0 built for release; release-day steps not confirmed. Since then: fitting room (K-2), turn-around (K-8) and the new splash (B-1) built, untested on a phone. Next: phone check, then daily feed matching.",
+  "status": "Splash, turn-around and feed cards built on 26 Oct, not yet seen on a phone. Today: phone check, then the feed server job and content engine.",
   "target": "Next app version by the end of next week (about Friday 23 October 2026)",
   "tiers": [
     {
@@ -829,23 +829,23 @@
     "doneLabel": "Done 20 Oct",
     "doneTitle": "Done in the 20 October session",
     "plannedLabel": "Deploys 23 Oct",
-    "plannedTitle": "Done 22 to 26 October",
+    "plannedTitle": "Done on 26 October",
     "plannedTasks": [
-      "DONE 22 Oct: release 1.1.0 prepared (APK, notes, runbook); open questions 7, 8, 9 decided; build installed on the test phone; backend decision (stay on Firebase).",
-      "DONE 25 Oct: plan for service-provider mode and the shopping phases (docs/plans/service-provider-mode.md).",
-      "DONE 25 Oct: virtual fitting room, first version (K-2): fit check card, shop size charts, fit sent to the try-on.",
-      "DONE 26 Oct: new white splash with \"g for looking good\" (B-1), built from the designer's video.",
-      "DONE 26 Oct: turn-around view for the fitting room (K-8), first version."
+      "DONE: New white splash with \"g for looking good\", built from the designer's video (B-1).",
+      "DONE: Turn-around view in the fitting room: drag to see the sides and back (K-8).",
+      "DONE: Daily feed matching, steps 1 and 2: the matching rules, and \"New from shops you follow\" cards in My Daily Dress Up (D-4, A-6).",
+      "DONE: Checklist refreshed with everything left to do."
     ],
     "partialLabel": "Started 20 Oct",
     "decidedLabel": "Decided 22 Oct",
-    "nextTitle": "To do next",
+    "nextTitle": "To do on Tuesday 27 October",
     "nextTasks": [
-      "Reconnect the phone, install a new build and check on it: the new splash (B-1), the fit check (K-2), the turn-around (K-8) and overlapping text on every screen (G-4).",
-      "Send the new sound file (B-1) so it can replace the old tone.",
-      "Release day (1.1.0): ship the build, then deploy the database rules (I-2, I-4, I-5, U-5), check the feeds, and run the email clean-up script. Not marked done: I have not been told it happened.",
-      "Daily feed matching (D-4, A-6), then the content engine (E-2, E-3, F-2, E-4).",
-      "Decide the four provider-mode questions in the plan (S-1 to S-4)."
+      "Reconnect the phone and install a new build.",
+      "Check on the phone: the new splash, the fit check, the turn-around, the new feed cards, and any overlapping text (G-4).",
+      "Send the new splash sound file (B-1).",
+      "Confirm the style-name mapping for feed matching (Smart = corporate, Traditional = afrochic, Elegant = glamour).",
+      "Tell me whether the 1.1.0 release steps happened (ship build, deploy rules, run email clean-up).",
+      "Decide: build the server job for the feed cards (step 3), then the content engine (send the list of 5-10 source sites)."
     ]
   }
 }

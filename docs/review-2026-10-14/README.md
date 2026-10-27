@@ -2,7 +2,7 @@
 
 **Meeting:** App review meeting, 14 October 2026 (full transcript, parts 1–3)  
 **Prepared by:** Lester  
-**Status:** 1.1.0 built for release; release-day steps not confirmed. Since then: fitting room (K-2), turn-around (K-8) and the new splash (B-1) built, untested on a phone. Next: phone check, then daily feed matching.  
+**Status:** Splash, turn-around and feed cards built on 26 Oct, not yet seen on a phone. Today: phone check, then the feed server job and content engine.  
 **Target:** Next app version by the end of next week (about Friday 23 October 2026)
 
 Tick items off as they ship. Item IDs (e.g. `H-2`) match the Word version (`Banigoba_Review_Checklist.docx`).
@@ -77,21 +77,21 @@ _Generated from `tools/checklist.json`; edit that file and run `npm run build` i
 - **K-8** Turn-around (3D-style) view in the fitting room: turn the try-on around to see the sides and back. — First version built 26 Oct: "Turn me around" on the try-on makes right side, back and left views with AI (one at a time, shown as they arrive); drag left or right, or use the arrows, to turn like a turntable. Sides and back are estimates and are labelled so. Costs three more AI image calls per try-on. Not tried on a phone yet. Later options: a short spin video, optional back photo from shops to improve the back view, and true 3D models once shops can supply them.
 - **A-6** Match shop and designer stock to user profiles (see the Daily Dress Up section). — Steps 1 and 2 of 3 built 26 Oct. (1) Matching rules, tested: from a shop or designer you follow, in stock in your size (or the fit-check size), suiting a style you chose or filling a wardrobe gap; best three a day. (2) "New from shops you follow" cards at the top of My Daily Dress Up: picture, shop, price and the reasons ("In your size (M). Suits your Smart style"), tap to open the item, and "Not for me" to hide it for good. Nothing shows when nothing matches. The phone does the matching when the feed opens. Still to build: (3) a server job so the cards are ready before the app opens (needs your OK to deploy). Open: the style-name mapping needs your confirmation, gender is not matched, and no shop has a size chart yet, so most matches will rest on the usual size label. Not yet seen on a phone.
 
-### 📅 Done 22 to 26 October
+### 📅 Done on 26 October
 
-- [x] DONE 22 Oct: release 1.1.0 prepared (APK, notes, runbook); open questions 7, 8, 9 decided; build installed on the test phone; backend decision (stay on Firebase).
-- [x] DONE 25 Oct: plan for service-provider mode and the shopping phases (docs/plans/service-provider-mode.md).
-- [x] DONE 25 Oct: virtual fitting room, first version (K-2): fit check card, shop size charts, fit sent to the try-on.
-- [x] DONE 26 Oct: new white splash with "g for looking good" (B-1), built from the designer's video.
-- [x] DONE 26 Oct: turn-around view for the fitting room (K-8), first version.
+- [x] DONE: New white splash with "g for looking good", built from the designer's video (B-1).
+- [x] DONE: Turn-around view in the fitting room: drag to see the sides and back (K-8).
+- [x] DONE: Daily feed matching, steps 1 and 2: the matching rules, and "New from shops you follow" cards in My Daily Dress Up (D-4, A-6).
+- [x] DONE: Checklist refreshed with everything left to do.
 
-### 🚀 To do next
+### 🚀 To do on Tuesday 27 October
 
-- [ ] Reconnect the phone, install a new build and check on it: the new splash (B-1), the fit check (K-2), the turn-around (K-8) and overlapping text on every screen (G-4).
-- [ ] Send the new sound file (B-1) so it can replace the old tone.
-- [ ] Release day (1.1.0): ship the build, then deploy the database rules (I-2, I-4, I-5, U-5), check the feeds, and run the email clean-up script. Not marked done: I have not been told it happened.
-- [ ] Daily feed matching (D-4, A-6), then the content engine (E-2, E-3, F-2, E-4).
-- [ ] Decide the four provider-mode questions in the plan (S-1 to S-4).
+- [ ] Reconnect the phone and install a new build.
+- [ ] Check on the phone: the new splash, the fit check, the turn-around, the new feed cards, and any overlapping text (G-4).
+- [ ] Send the new splash sound file (B-1).
+- [ ] Confirm the style-name mapping for feed matching (Smart = corporate, Traditional = afrochic, Elegant = glamour).
+- [ ] Tell me whether the 1.1.0 release steps happened (ship build, deploy rules, run email clean-up).
+- [ ] Decide: build the server job for the feed cards (step 3), then the content engine (send the list of 5-10 source sites).
 
 ## Contents
 
