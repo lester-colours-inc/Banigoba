@@ -176,6 +176,20 @@ class OutfitService {
     await batch.commit();
   }
 
+  /// Keeps the turned-around angles with a saved look ("Turn me around").
+  Future<void> saveTurnViews({
+    required String userId,
+    required String outfitId,
+    required Map<String, String> views,
+  }) {
+    return _db
+        .collection('users')
+        .doc(userId)
+        .collection('outfits')
+        .doc(outfitId)
+        .update({'turnViews': views});
+  }
+
   Future<String> saveOutfitForDate({
     required String userId,
     required String avatarImageUrl,
@@ -185,6 +199,7 @@ class OutfitService {
     required DateTime date,
     String? eventId,
     String? eventName,
+    Map<String, String> turnViews = const {},
   }) async {
     final outfitRef = _db
         .collection('users')
@@ -217,6 +232,7 @@ class OutfitService {
       'plannedDate': Timestamp.fromDate(normalizedDate),
       'eventId': ?eventId,
       'eventName': ?eventName,
+      if (turnViews.isNotEmpty) 'turnViews': turnViews,
       'createdAt': FieldValue.serverTimestamp(),
     };
 
@@ -291,6 +307,7 @@ class OutfitService {
     required List<Map<String, dynamic>> products,
     required String previewType,
     String caption = 'My completed try-on look',
+    Map<String, String> turnViews = const {},
   }) async {
     final outfitRef = _db
         .collection('users')
@@ -316,6 +333,7 @@ class OutfitService {
           ? 'pending_replacement'
           : 'generated',
       'dailyDressUpPostId': postRef.id,
+      if (turnViews.isNotEmpty) 'turnViews': turnViews,
       'createdAt': FieldValue.serverTimestamp(),
     });
     batch.set(postRef, {

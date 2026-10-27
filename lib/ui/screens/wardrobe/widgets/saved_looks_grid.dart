@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../data/models/wear_tracking.dart';
+import '../../../../data/services/turn_around_service.dart';
 import '../../../../data/services/outfit_service.dart';
 import '../../../widgets/app_network_image.dart';
 import '../../../widgets/change_look_category_sheet.dart';
@@ -203,6 +204,7 @@ class _LookTile extends StatelessWidget {
           imageUrl: imageUrl,
           title: name.isEmpty ? 'Saved look' : name,
           caption: '',
+          turnViews: parseTurnViews(look['turnViews'], frontUrl: imageUrl),
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(12),

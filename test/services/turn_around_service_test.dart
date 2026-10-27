@@ -11,6 +11,7 @@ GeminiImage _image(String url) => GeminiImage(
 );
 
 void main() {
+  keepingAngles();
   group('turnAroundPrompt', () {
     test('describes each angle and the attached images', () {
       final back = turnAroundPrompt(TurnView.back, garmentCount: 2);
@@ -99,6 +100,41 @@ void main() {
         throwsException,
       );
       expect(seen, [TurnView.right]);
+    });
+  });
+}
+
+void keepingAngles() {
+  group('keeping the angles with a saved look', () {
+    test('only the generated angles are stored, by name', () {
+      expect(
+        turnViewsToMap({
+          TurnView.front: 'front',
+          TurnView.right: 'r',
+          TurnView.back: 'b',
+        }),
+        {'right': 'r', 'back': 'b'},
+      );
+      expect(turnViewsToMap({TurnView.front: 'front'}), isEmpty);
+    });
+
+    test('reads them back with the look as the front', () {
+      final views = parseTurnViews({
+        'right': 'r',
+        'back': 'b',
+        'left': '',
+        'up': 'x',
+      }, frontUrl: 'front');
+      expect(views, {
+        TurnView.front: 'front',
+        TurnView.right: 'r',
+        TurnView.back: 'b',
+      });
+    });
+
+    test('a look with nothing stored is just the front', () {
+      expect(parseTurnViews(null, frontUrl: 'f'), {TurnView.front: 'f'});
+      expect(parseTurnViews('junk', frontUrl: 'f'), {TurnView.front: 'f'});
     });
   });
 }

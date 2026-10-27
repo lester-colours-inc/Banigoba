@@ -77,6 +77,10 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
   Map<TryOnProvider, Map<TurnView, String>> _turns = const {};
   TryOnProvider? _turningProvider;
 
+  /// The saved outfit each saved look became, so angles made after saving
+  /// can still be attached to it.
+  Map<TryOnProvider, String> _savedOutfitIds = const {};
+
   List<Map<String, dynamic>> get _selectedProducts {
     final arguments = ModalRoute.of(context)?.settings.arguments;
     if (arguments is Map && arguments['products'] is Iterable) {
@@ -238,6 +242,7 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
       _results = {..._results}..remove(provider);
       _savedResults = {..._savedResults}..remove(provider);
       _turns = {..._turns}..remove(provider);
+      _savedOutfitIds = {..._savedOutfitIds}..remove(provider);
       _visibleResult = _remainingResult(provider);
     });
 
@@ -344,6 +349,23 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
       }
     } finally {
       if (mounted) setState(() => _turningProvider = null);
+      await _keepTurnViews(provider, user.uid);
+    }
+  }
+
+  /// If the look is already saved, attaches the angles made so far to it.
+  Future<void> _keepTurnViews(TryOnProvider provider, String userId) async {
+    final outfitId = _savedOutfitIds[provider];
+    final views = turnViewsToMap(_turns[provider] ?? const {});
+    if (outfitId == null || views.isEmpty) return;
+    try {
+      await _outfitService.saveTurnViews(
+        userId: userId,
+        outfitId: outfitId,
+        views: views,
+      );
+    } on FirebaseException catch (error) {
+      debugPrint('Could not keep the angles: ${error.message}');
     }
   }
 
@@ -647,17 +669,20 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
 
     setState(() => _savingProvider = provider);
     try {
+      final String outfitId;
+      final turnViews = turnViewsToMap(_turns[provider] ?? const {});
       if (plannedDate == null) {
-        await _outfitService.saveOutfitToDailyDressUp(
+        outfitId = await _outfitService.saveOutfitToDailyDressUp(
           userId: user.uid,
           avatarImageUrl: avatarUrl,
           resultImageUrl: resultUrl,
           products: _selectedProducts,
           previewType: provider.previewType,
           caption: caption,
+          turnViews: turnViews,
         );
       } else {
-        await _outfitService.saveOutfitForDate(
+        outfitId = await _outfitService.saveOutfitForDate(
           userId: user.uid,
           avatarImageUrl: avatarUrl,
           resultImageUrl: resultUrl,
@@ -666,10 +691,14 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
           date: plannedDate,
           eventId: _eventId,
           eventName: _eventName,
+          turnViews: turnViews,
         );
       }
       if (!mounted) return;
-      setState(() => _savedResults = {..._savedResults, provider});
+      setState(() {
+        _savedResults = {..._savedResults, provider};
+        _savedOutfitIds = {..._savedOutfitIds, provider: outfitId};
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(

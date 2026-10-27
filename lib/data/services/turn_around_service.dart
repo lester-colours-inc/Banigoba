@@ -50,6 +50,30 @@ String turnAroundPrompt(TurnView view, {required int garmentCount}) {
       'or watermarks.';
 }
 
+/// The angles to store with a saved look: only the generated ones, by name.
+/// The front is the look's own picture.
+Map<String, String> turnViewsToMap(Map<TurnView, String> views) => {
+  for (final view in TurnView.generated)
+    if (views[view] case final url? when url.isNotEmpty) view.name: url,
+};
+
+/// The angles of a saved look, with [frontUrl] as the front. Unknown or empty
+/// entries are ignored; with none stored, just the front.
+Map<TurnView, String> parseTurnViews(
+  Object? stored, {
+  required String frontUrl,
+}) {
+  final views = <TurnView, String>{TurnView.front: frontUrl};
+  if (stored is Map) {
+    for (final view in TurnView.generated) {
+      if (stored[view.name] case final String url when url.isNotEmpty) {
+        views[view] = url;
+      }
+    }
+  }
+  return Map.unmodifiable(views);
+}
+
 typedef TurnImageGenerator =
     Future<Uint8List> Function(List<GeminiImage> images, String prompt);
 typedef TurnImageUploader = Future<String> Function(Uint8List bytes);

@@ -12,6 +12,7 @@ import 'package:flutter/material.dart';
 import '../../../../data/models/post.dart';
 import '../../../../data/services/outfit_service.dart';
 import '../../../../data/services/post_service.dart';
+import '../../../../data/services/turn_around_service.dart';
 import '../../../widgets/app_network_image.dart';
 import '../../../widgets/dress_up_post_card.dart';
 import '../../../widgets/forward_look_sheet.dart';
@@ -127,8 +128,12 @@ class _DailyDressUpFeedState extends State<DailyDressUpFeed> {
         fit: BoxFit.cover,
         alignment: Alignment.topCenter,
       ),
-      onImageTap: () =>
-          openLookViewer(context, imageUrl: imageUrl, title: title),
+      onImageTap: () => openLookViewer(
+        context,
+        imageUrl: imageUrl,
+        title: title,
+        turnViews: parseTurnViews(data['turnViews'], frontUrl: imageUrl),
+      ),
       actions: [
         DressUpCardAction(
           icon: Icons.event_available_outlined,
