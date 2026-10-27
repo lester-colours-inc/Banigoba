@@ -12,6 +12,8 @@ import '../../../data/models/body_profile.dart';
 import '../../../data/models/fit_check.dart';
 import '../../../data/models/piece_details.dart';
 import '../../../data/services/product_service.dart';
+import '../../../data/services/storage_service.dart';
+import '../../widgets/back_photo_field.dart';
 import '../../widgets/piece_extra_details_fields.dart';
 import '../../widgets/safe_product_image.dart';
 
@@ -233,6 +235,9 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
     File? selectedImage;
     String existingImageUrl = existingData?['imageUrl'] ?? '';
     String existingRawImageUrl = existingData?['rawImageUrl'] ?? '';
+    File? selectedBackImage;
+    String existingBackImageUrl = (existingData?['backImageUrl'] ?? '')
+        .toString();
 
     final Map<String, List<String>> categoryData = {
       'accessories': ['none', 'caps', 'glasses', 'hats'],
@@ -379,6 +384,21 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                                 ],
                               )),
                 ),
+              ),
+              const SizedBox(height: 10),
+              BackPhotoField(
+                picked: selectedBackImage,
+                existingUrl: existingBackImageUrl,
+                onPick: () async {
+                  final File? image = await _pickImageSource();
+                  if (image != null) {
+                    setModalState(() => selectedBackImage = image);
+                  }
+                },
+                onRemove: () => setModalState(() {
+                  selectedBackImage = null;
+                  existingBackImageUrl = '';
+                }),
               ),
               const SizedBox(height: 15),
               // Form Fields
@@ -807,6 +827,20 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                         }
                       }
 
+                      // The optional back photo goes up as it is (no
+                      // background removal): it is only a reference for the
+                      // turn-around view.
+                      var backImageUrl = existingBackImageUrl;
+                      if (selectedBackImage != null) {
+                        backImageUrl = await StorageService()
+                            .uploadProductImageBytes(
+                              await selectedBackImage!.readAsBytes(),
+                              _currentUserId,
+                              filename:
+                                  'back_${DateTime.now().millisecondsSinceEpoch}.jpg',
+                            );
+                      }
+
                       final productUpdateData = {
                         'uploaderId': _currentUserId,
                         'name': nameController.text,
@@ -814,6 +848,10 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                         'stock': stock,
                         'imageUrl': imageUrl,
                         'rawImageUrl': rawImageUrl,
+                        if (backImageUrl.isNotEmpty)
+                          'backImageUrl': backImageUrl
+                        else if (isEditing)
+                          'backImageUrl': FieldValue.delete(),
                         'category': category,
                         'subcategory': subcategory == 'none'
                             ? null

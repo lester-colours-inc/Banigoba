@@ -678,7 +678,7 @@
           "note": "Added 26 Oct",
           "done": false,
           "highlight": "partial",
-          "progress": "First version built 26 Oct: \"Turn me around\" on the try-on makes right side, back and left views with AI (one at a time, shown as they arrive); drag left or right, or use the arrows, to turn like a turntable. Sides and back are estimates and are labelled so. Costs three more AI image calls per try-on.  Later options: a short spin video, optional back photo from shops to improve the back view, and true 3D models once shops can supply them. 27 Oct: the angles are now kept with the saved look (also if you turn around after saving), and a saved look that has angles opens in the turn-around viewer from Saved Looks and My Daily Dress Up. Not tried on a phone yet."
+          "progress": "First version built 26 Oct: \"Turn me around\" on the try-on makes right side, back and left views with AI (one at a time, shown as they arrive); drag left or right, or use the arrows, to turn like a turntable. Sides and back are estimates and are labelled so. Costs three more AI image calls per try-on.  Later options: a short spin video, optional back photo from shops to improve the back view, and true 3D models once shops can supply them. 27 Oct: the angles are now kept with the saved look (also if you turn around after saving), and a saved look that has angles opens in the turn-around viewer from Saved Looks and My Daily Dress Up. Not tried on a phone yet. 27 Oct: shops can add an optional back photo for each item in the stock form; when there is one, the turn-around uses it for the back view instead of guessing. Needs a shop to add the photo, and has not been seen on a phone."
         }
       ]
     },

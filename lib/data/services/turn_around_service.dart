@@ -35,12 +35,19 @@ const int kMaxGarmentImages = 3;
 
 /// The instruction for one angle. The images are attached in this order:
 /// the front try-on, the person's own photo, then the garments.
-String turnAroundPrompt(TurnView view, {required int garmentCount}) {
+String turnAroundPrompt(
+  TurnView view, {
+  required int garmentCount,
+  int backCount = 0,
+}) {
   assert(view != TurnView.front, 'The front is the try-on itself.');
   return 'The first image is a photo of a person wearing an outfit, seen from '
       'the front. The second image is an original photo of the same person.'
-      '${garmentCount > 0 ? ' The remaining $garmentCount image(s) are the '
-                'garments in the outfit.' : ''} '
+      '${garmentCount > 0 ? ' The next $garmentCount image(s) are the '
+                'garments in the outfit.' : ''}'
+      '${backCount > 0 ? ' The last $backCount image(s) show the BACK of '
+                'those garments: use them exactly for the back view, and to '
+                'continue the design around the sides.' : ''} '
       'Generate one photorealistic full-body image of exactly this person '
       'wearing exactly this outfit, seen ${view.promptPhrase}. Keep the same '
       'person, hair, skin tone, body shape, clothing colours, patterns, '
@@ -97,9 +104,15 @@ class TurnAroundService {
     required String frontUrl,
     required String avatarUrl,
     List<String> garmentUrls = const [],
+    List<String> garmentBackUrls = const [],
     void Function(TurnView view, String url)? onView,
   }) async {
     final garments = garmentUrls
+        .where((url) => url.isNotEmpty)
+        .take(kMaxGarmentImages)
+        .toList();
+    // Back photos the shops added, so the back is real rather than guessed.
+    final backs = garmentBackUrls
         .where((url) => url.isNotEmpty)
         .take(kMaxGarmentImages)
         .toList();
@@ -107,13 +120,18 @@ class TurnAroundService {
       await fetch(frontUrl),
       await fetch(avatarUrl),
       for (final url in garments) await fetch(url),
+      for (final url in backs) await fetch(url),
     ];
 
     final views = <TurnView, String>{TurnView.front: frontUrl};
     for (final view in TurnView.generated) {
       final bytes = await generate(
         images,
-        turnAroundPrompt(view, garmentCount: garments.length),
+        turnAroundPrompt(
+          view,
+          garmentCount: garments.length,
+          backCount: backs.length,
+        ),
       );
       final url = await upload(bytes);
       views[view] = url;

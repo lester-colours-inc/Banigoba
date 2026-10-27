@@ -333,6 +333,10 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
         garmentUrls: [
           for (final product in _selectedProducts) _productImageUrl(product),
         ],
+        garmentBackUrls: [
+          for (final product in _selectedProducts)
+            (product['backImageUrl'] ?? '').toString(),
+        ],
         onView: (view, url) {
           if (!mounted) return;
           setState(() {

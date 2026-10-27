@@ -16,14 +16,28 @@ void main() {
     test('describes each angle and the attached images', () {
       final back = turnAroundPrompt(TurnView.back, garmentCount: 2);
       expect(back, contains('from directly behind'));
-      expect(back, contains('The remaining 2 image(s)'));
+      expect(back, contains('The next 2 image(s)'));
       expect(
         turnAroundPrompt(TurnView.right, garmentCount: 0),
-        isNot(contains('remaining')),
+        isNot(contains('image(s) are the garments')),
       );
       expect(
         turnAroundPrompt(TurnView.left, garmentCount: 1),
         contains('left side'),
+      );
+    });
+
+    test('a shop\'s back photo is used for the back instead of guessing', () {
+      final prompt = turnAroundPrompt(
+        TurnView.back,
+        garmentCount: 1,
+        backCount: 1,
+      );
+      expect(prompt, contains('show the BACK of those garments'));
+      expect(prompt, contains('use them exactly'));
+      expect(
+        turnAroundPrompt(TurnView.back, garmentCount: 1),
+        isNot(contains('BACK')),
       );
     });
 
@@ -87,6 +101,20 @@ void main() {
           .map((image) => String.fromCharCodes(image.bytes))
           .toList();
       expect(names, ['front', 'avatar', 'a', 'b', 'c']);
+    });
+
+    test('sends the shops\' back photos after the garments', () async {
+      await service().run(
+        frontUrl: 'front',
+        avatarUrl: 'avatar',
+        garmentUrls: ['a'],
+        garmentBackUrls: ['', 'a-back'],
+      );
+      final names = sentImages.first
+          .map((image) => String.fromCharCodes(image.bytes))
+          .toList();
+      expect(names, ['front', 'avatar', 'a', 'a-back']);
+      expect(prompts.first, contains('The last 1 image(s) show the BACK'));
     });
 
     test('keeps the angles already made when a later one fails', () async {
