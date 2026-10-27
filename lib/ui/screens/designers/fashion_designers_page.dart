@@ -1661,9 +1661,8 @@ class _DesignerSummary {
     final profile = Map<String, dynamic>.from(
       data['designerProfile'] as Map? ?? const {},
     );
-    final name =
-        (profile['name'] ?? data['displayName'] ?? data['email'] ?? 'Designer')
-            .toString();
+    final name = (profile['name'] ?? data['displayName'] ?? 'Designer')
+        .toString();
     final portfolioPieces = PortfolioPiece.listFromProfile(profile);
     final avatar =
         (profile['avatarUrl'] ??

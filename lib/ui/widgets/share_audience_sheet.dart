@@ -1,20 +1,25 @@
-// Where an already-saved, private post is shared: to friends only, or to the
-// whole community. Used from an existing post's Share action on Home.
+// Who a post goes out to: friends, followers or the public. Used when sharing
+// an already-saved private post, and when reposting or quoting a look.
 import 'package:flutter/material.dart';
 
 import '../../data/models/post.dart';
 
-/// Asks which audience should see the post now. Returns null when cancelled.
-Future<PostVisibility?> showShareAudienceSheet(BuildContext context) {
+/// Asks which audience should see the post. Returns null when cancelled.
+Future<PostVisibility?> showShareAudienceSheet(
+  BuildContext context, {
+  String title = 'Share your look',
+}) {
   return showModalBottomSheet<PostVisibility>(
     context: context,
     showDragHandle: true,
-    builder: (_) => const _ShareAudienceSheet(),
+    builder: (_) => _ShareAudienceSheet(title: title),
   );
 }
 
 class _ShareAudienceSheet extends StatelessWidget {
-  const _ShareAudienceSheet();
+  const _ShareAudienceSheet({required this.title});
+
+  final String title;
 
   @override
   Widget build(BuildContext context) {
@@ -25,29 +30,35 @@ class _ShareAudienceSheet extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
               child: Text(
-                'Share your look',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                title,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
             ListTile(
               key: const ValueKey('share_audience_friends'),
               leading: const Icon(Icons.people_alt_outlined),
               title: const Text('Friends'),
-              subtitle: const Text(
-                'Only your friends can see it, send affirmations and reply.',
-              ),
+              subtitle: const Text('Only people you follow who follow you.'),
               onTap: () => Navigator.pop(context, PostVisibility.friends),
+            ),
+            ListTile(
+              key: const ValueKey('share_audience_followers'),
+              leading: const Icon(Icons.group_outlined),
+              title: const Text('Followers'),
+              subtitle: const Text('Everyone who follows you.'),
+              onTap: () => Navigator.pop(context, PostVisibility.followers),
             ),
             ListTile(
               key: const ValueKey('share_audience_community'),
               leading: const Icon(Icons.public),
-              title: const Text('Community'),
-              subtitle: const Text(
-                'Everyone can see it, send affirmations and reply.',
-              ),
+              title: const Text('Public'),
+              subtitle: const Text('Everyone on Banigoba can see it.'),
               onTap: () => Navigator.pop(context, PostVisibility.public),
             ),
           ],

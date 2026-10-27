@@ -17,10 +17,7 @@ void main() {
     });
 
     test('Create is not a destination', () {
-      expect(
-        MainTab.values.map((tab) => tab.label),
-        isNot(contains('Create')),
-      );
+      expect(MainTab.values.map((tab) => tab.label), isNot(contains('Create')));
     });
 
     test('position matches declaration order', () {

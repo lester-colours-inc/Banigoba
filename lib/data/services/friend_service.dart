@@ -20,25 +20,28 @@ class FriendService {
         .collection('follow_requests')
         .doc(currentUserId)
         .set({
-      'from': currentUserId,
-      'timestamp': FieldValue.serverTimestamp(),
-      'status': 'pending',
-    });
+          'from': currentUserId,
+          'timestamp': FieldValue.serverTimestamp(),
+          'status': 'pending',
+        });
 
     // Fetch current user's name from Firestore for the notification
-    final userDoc = await _firestore.collection('users').doc(currentUserId).get();
+    final userDoc = await _firestore
+        .collection('users')
+        .doc(currentUserId)
+        .get();
     final userData = userDoc.data() as Map<String, dynamic>?;
-    final senderName = userData?['displayName'] ?? _auth.currentUser?.email?.split('@')[0] ?? 'Someone';
+    final senderName =
+        userData?['displayName'] ??
+        _auth.currentUser?.email?.split('@')[0] ??
+        'Someone';
 
     await _notificationService.addNotification(
       receiverId: targetUserId,
       title: 'New Follow Request',
       body: '$senderName wants to follow you.',
       type: 'follow_request',
-      extraData: {
-        'fromId': currentUserId,
-        'fromName': senderName,
-      },
+      extraData: {'fromId': currentUserId, 'fromName': senderName},
     );
   }
 
@@ -84,19 +87,22 @@ class FriendService {
     await batch.commit();
 
     // Fetch current user's name from Firestore for the notification
-    final userDoc = await _firestore.collection('users').doc(currentUserId).get();
+    final userDoc = await _firestore
+        .collection('users')
+        .doc(currentUserId)
+        .get();
     final userData = userDoc.data() as Map<String, dynamic>?;
-    final myName = userData?['displayName'] ?? _auth.currentUser?.email?.split('@')[0] ?? 'Your friend';
+    final myName =
+        userData?['displayName'] ??
+        _auth.currentUser?.email?.split('@')[0] ??
+        'Your friend';
 
     await _notificationService.addNotification(
       receiverId: requesterId,
       title: 'Follow Request Accepted',
       body: '$myName accepted your follow request.',
       type: 'follow_accepted',
-      extraData: {
-        'fromId': currentUserId,
-        'fromName': myName,
-      },
+      extraData: {'fromId': currentUserId, 'fromName': myName},
     );
   }
 
@@ -201,6 +207,17 @@ class FriendService {
         .map((snapshot) => snapshot.docs.length);
   }
 
+  /// Everyone the current user follows, mutual or not.
+  Stream<List<String>> getFollowingIds() {
+    if (currentUserId.isEmpty) return Stream.value([]);
+    return _firestore
+        .collection('users')
+        .doc(currentUserId)
+        .collection('following')
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map((doc) => doc.id).toList());
+  }
+
   Stream<List<String>> getMutualFriendsIds() {
     if (currentUserId.isEmpty) return Stream.value([]);
 
@@ -210,23 +227,23 @@ class FriendService {
         .collection('following')
         .snapshots()
         .asyncMap((followingSnap) async {
-      final followingIds = followingSnap.docs.map((doc) => doc.id).toList();
-      if (followingIds.isEmpty) return [];
+          final followingIds = followingSnap.docs.map((doc) => doc.id).toList();
+          if (followingIds.isEmpty) return [];
 
-      // Check each followed user to see if they follow current user back
-      final mutualIds = <String>[];
-      for (final id in followingIds) {
-        final doc = await _firestore
-            .collection('users')
-            .doc(currentUserId)
-            .collection('followers')
-            .doc(id)
-            .get();
-        if (doc.exists) {
-          mutualIds.add(id);
-        }
-      }
-      return mutualIds;
-    });
+          // Check each followed user to see if they follow current user back
+          final mutualIds = <String>[];
+          for (final id in followingIds) {
+            final doc = await _firestore
+                .collection('users')
+                .doc(currentUserId)
+                .collection('followers')
+                .doc(id)
+                .get();
+            if (doc.exists) {
+              mutualIds.add(id);
+            }
+          }
+          return mutualIds;
+        });
   }
 }

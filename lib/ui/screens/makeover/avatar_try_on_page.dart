@@ -14,6 +14,8 @@ import 'ai_upload_page.dart';
 import '../../../core/main_tab.dart';
 import '../main/main_screen.dart';
 import '../../widgets/app_network_image.dart';
+import '../../../data/services/turn_around_service.dart';
+import '../../widgets/turn_around_viewer.dart';
 
 /// The engines the page can dress the avatar with. Results are kept per
 /// provider so the same look can be generated twice and compared.
@@ -34,11 +36,17 @@ class AvatarTryOnPage extends StatefulWidget {
   final String? garmentName;
   final String? category;
 
+  /// How the item really fits the shopper (their size and the fit check's
+  /// findings), passed to the engine that accepts instructions (Gemini).
+  /// FASHN's clothing try-on takes no free-text instructions.
+  final String fitNote;
+
   const AvatarTryOnPage({
     super.key,
     this.garmentImageUrl,
     this.garmentName,
     this.category,
+    this.fitNote = '',
   });
 
   @override
@@ -63,6 +71,15 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
   TryOnProvider? _generatingProvider;
   TryOnProvider? _savingProvider;
   String? _generatingLabel;
+
+  /// The turn-around angles made so far for each engine's look (the front is
+  /// always the look itself), and which look is having its angles made.
+  Map<TryOnProvider, Map<TurnView, String>> _turns = const {};
+  TryOnProvider? _turningProvider;
+
+  /// The saved outfit each saved look became, so angles made after saving
+  /// can still be attached to it.
+  Map<TryOnProvider, String> _savedOutfitIds = const {};
 
   List<Map<String, dynamic>> get _selectedProducts {
     final arguments = ModalRoute.of(context)?.settings.arguments;
@@ -224,6 +241,8 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
       _error = null;
       _results = {..._results}..remove(provider);
       _savedResults = {..._savedResults}..remove(provider);
+      _turns = {..._turns}..remove(provider);
+      _savedOutfitIds = {..._savedOutfitIds}..remove(provider);
       _visibleResult = _remainingResult(provider);
     });
 
@@ -269,7 +288,145 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
       _visibleResult = _remainingResult(provider);
       _results = {..._results}..remove(provider);
       _savedResults = {..._savedResults}..remove(provider);
+      _turns = {..._turns}..remove(provider);
     });
+  }
+
+  /// Makes the right side, back and left views of [provider]'s look, showing
+  /// each as soon as it is ready. Uses Gemini, whatever engine made the look.
+  Future<void> _turnAround(TryOnProvider provider) async {
+    final frontUrl = _results[provider];
+    final avatarUrl = _avatarImageUrl;
+    final user = FirebaseAuth.instance.currentUser;
+    if (frontUrl == null || avatarUrl == null || user == null) return;
+    if (_geminiApiKey.isEmpty) {
+      setState(
+        () => _error =
+            'Turning around needs ${TryOnProvider.gemini.label}. Start the '
+            'app with --dart-define=GEMINI_API_KEY=your_key.',
+      );
+      return;
+    }
+
+    setState(() {
+      _turningProvider = provider;
+      _error = null;
+      _turns = {
+        ..._turns,
+        provider: {TurnView.front: frontUrl},
+      };
+    });
+    final service = TurnAroundService(
+      generate: (images, prompt) async {
+        final result = await GeminiImageApi(
+          apiKey: _geminiApiKey,
+        ).editImage(images: images, prompt: prompt);
+        return result.bytes;
+      },
+      upload: (bytes) =>
+          _storageService.uploadTryOnResultBytes(bytes, user.uid),
+    );
+    try {
+      await service.run(
+        frontUrl: frontUrl,
+        avatarUrl: avatarUrl,
+        garmentUrls: [
+          for (final product in _selectedProducts) _productImageUrl(product),
+        ],
+        garmentBackUrls: [
+          for (final product in _selectedProducts)
+            (product['backImageUrl'] ?? '').toString(),
+        ],
+        onView: (view, url) {
+          if (!mounted) return;
+          setState(() {
+            _turns = {
+              ..._turns,
+              provider: {...?_turns[provider], view: url},
+            };
+          });
+        },
+      );
+    } on Exception catch (error) {
+      if (mounted) {
+        setState(() => _error = 'Could not make every angle: $error');
+      }
+    } finally {
+      if (mounted) setState(() => _turningProvider = null);
+      await _keepTurnViews(provider, user.uid);
+    }
+  }
+
+  /// If the look is already saved, attaches the angles made so far to it.
+  Future<void> _keepTurnViews(TryOnProvider provider, String userId) async {
+    final outfitId = _savedOutfitIds[provider];
+    final views = turnViewsToMap(_turns[provider] ?? const {});
+    if (outfitId == null || views.isEmpty) return;
+    try {
+      await _outfitService.saveTurnViews(
+        userId: userId,
+        outfitId: outfitId,
+        views: views,
+      );
+    } on FirebaseException catch (error) {
+      debugPrint('Could not keep the angles: ${error.message}');
+    }
+  }
+
+  Widget _turnAroundSection(TryOnProvider provider) {
+    final colors = Theme.of(context).colorScheme;
+    final views = _turns[provider];
+    final isMaking = _turningProvider == provider;
+    final madeAny = views != null && views.length > 1;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 20),
+        Text(
+          'See every angle',
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            color: colors.onSurface,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          madeAny
+              ? 'Drag left or right to turn around. The sides and back are '
+                    'estimated by AI, because the items are only shown from '
+                    'the front.'
+              : 'Turn around to see the side and back views. The sides and '
+                    'back are estimated by AI.',
+          style: TextStyle(fontSize: 12, color: colors.onSurfaceVariant),
+        ),
+        const SizedBox(height: 12),
+        if (madeAny)
+          TurnAroundViewer(
+            key: ValueKey('turn_${_results[provider]}'),
+            views: views,
+            isMakingMore: isMaking,
+          ),
+        if (!isMaking &&
+            (views == null || views.length < TurnView.values.length))
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: OutlinedButton.icon(
+              key: const ValueKey('turn_me_around'),
+              onPressed: () => _turnAround(provider),
+              icon: const Icon(Icons.threesixty),
+              label: Text(
+                madeAny ? 'Make the missing angles' : 'Turn me around',
+              ),
+            ),
+          ),
+        if (isMaking && !madeAny)
+          const Padding(
+            padding: EdgeInsets.only(top: 8),
+            child: Center(child: CircularProgressIndicator()),
+          ),
+      ],
+    );
   }
 
   /// FASHN dresses the avatar one garment at a time, feeding each result into
@@ -374,7 +531,8 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
         'image. Preserve the person\'s face, skin tone, hair, body shape, pose '
         'and the background from the first image. Replace any existing '
         'clothing that an item covers. Natural lighting, sharp detail, no '
-        'text or watermarks.';
+        'text or watermarks.'
+        '${widget.fitNote.isEmpty ? '' : ' ${widget.fitNote}'}';
   }
 
   String _geminiItemDescription(Map<String, dynamic> product) {
@@ -515,17 +673,20 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
 
     setState(() => _savingProvider = provider);
     try {
+      final String outfitId;
+      final turnViews = turnViewsToMap(_turns[provider] ?? const {});
       if (plannedDate == null) {
-        await _outfitService.saveOutfitToDailyDressUp(
+        outfitId = await _outfitService.saveOutfitToDailyDressUp(
           userId: user.uid,
           avatarImageUrl: avatarUrl,
           resultImageUrl: resultUrl,
           products: _selectedProducts,
           previewType: provider.previewType,
           caption: caption,
+          turnViews: turnViews,
         );
       } else {
-        await _outfitService.saveOutfitForDate(
+        outfitId = await _outfitService.saveOutfitForDate(
           userId: user.uid,
           avatarImageUrl: avatarUrl,
           resultImageUrl: resultUrl,
@@ -534,10 +695,14 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
           date: plannedDate,
           eventId: _eventId,
           eventName: _eventName,
+          turnViews: turnViews,
         );
       }
       if (!mounted) return;
-      setState(() => _savedResults = {..._savedResults, provider});
+      setState(() {
+        _savedResults = {..._savedResults, provider};
+        _savedOutfitIds = {..._savedOutfitIds, provider: outfitId};
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -910,6 +1075,7 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
           afterImageUrl: resultUrl,
           onTapAfter: () => _openFullScreenResult(provider),
         ),
+        _turnAroundSection(provider),
         const SizedBox(height: 16),
         _transformationActions(provider),
       ],

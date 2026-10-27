@@ -69,20 +69,21 @@ void main() {
       tester.widget<ChoiceChip>(_field('clothing_size_M')).selected,
       isTrue,
     );
-    expect(find.text('3 of 9 added'), findsOneWidget);
+    expect(find.text('3 of 10 added'), findsOneWidget);
   });
 
   testWidgets('saves sizes and measurements', (tester) async {
     final store = _FakeStore();
     await _open(tester, store);
 
+    await tester.ensureVisible(_field('clothing_size_L'));
     await tester.tap(_field('clothing_size_L'));
     await tester.enterText(_field('shoe_size'), '9,5');
     await tester.enterText(_field('measurement_height'), '180');
     await tester.enterText(_field('measurement_waist'), '84');
     await tester.enterText(_field('profile_notes'), 'Long arms');
     await tester.pump();
-    expect(find.text('4 of 9 added'), findsOneWidget);
+    expect(find.text('4 of 10 added'), findsOneWidget);
 
     await tester.ensureVisible(_field('save_profile_details'));
     await tester.tap(_field('save_profile_details'));
@@ -126,6 +127,22 @@ void main() {
     expect(saved.facePhotoUrl, 'https://example.com/face-1.jpg');
     expect(saved[BodyMeasurement.height], isNull);
     expect(store.deleted, ['https://example.com/old-face.jpg']);
+  });
+
+  testWidgets('offers a hand photo alongside face and full body', (
+    tester,
+  ) async {
+    await _open(
+      tester,
+      _FakeStore(
+        const BodyProfile(handPhotoUrl: 'https://example.com/hand.jpg'),
+      ),
+    );
+
+    expect(_field('photo_face'), findsOneWidget);
+    expect(_field('photo_full_body'), findsOneWidget);
+    expect(_field('photo_hand'), findsOneWidget);
+    expect(find.text('1 of 10 added'), findsOneWidget);
   });
 
   testWidgets('asks before discarding unsaved changes', (tester) async {

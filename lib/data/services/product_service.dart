@@ -7,6 +7,7 @@ import 'notification_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import '../models/piece_details.dart';
 
 /// Service handling all product-related operations with Firestore and Storage.
 class ProductService {
@@ -418,6 +419,8 @@ class ProductService {
     String? gender,
     List<String>? weatherTags,
     List<String>? functionalTags,
+    String size = '',
+    PieceDetails details = const PieceDetails(),
   }) async {
     // Flatten colours into a single list
     List<String> finalColours = [];
@@ -439,6 +442,8 @@ class ProductService {
       'gender': gender,
       'weatherTags': weatherTags ?? [],
       'functionalTags': functionalTags ?? [],
+      if (size.trim().isNotEmpty) 'size': size.trim(),
+      ...details.toMap(),
       'createdAt': FieldValue.serverTimestamp(),
       'visibility': visibility,
     };
@@ -462,6 +467,14 @@ class ProductService {
         .collection('user_products')
         .where('userId', isEqualTo: userId)
         .snapshots();
+  }
+
+  /// Records that the owner wore this wardrobe item today (W-7).
+  Future<void> markUserProductWorn(String userProductId) {
+    return _db.collection('user_products').doc(userProductId).update({
+      'lastWornAt': FieldValue.serverTimestamp(),
+      'wearCount': FieldValue.increment(1),
+    });
   }
 
   /// Delete a user's uploaded product from both 'user_products' and their wardrobe tracker

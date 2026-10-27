@@ -16,6 +16,9 @@ class BeforeAfterView extends StatefulWidget {
     this.beforeLabel = 'BEFORE',
     this.afterLabel = 'AFTER',
     this.aspectRatio = 3 / 4,
+    this.borderRadius = 24,
+    this.fit = BoxFit.cover,
+    this.background,
     this.onTapAfter,
   });
 
@@ -24,6 +27,12 @@ class BeforeAfterView extends StatefulWidget {
   final String beforeLabel;
   final String afterLabel;
   final double aspectRatio;
+  final double borderRadius;
+
+  /// How both images fill the frame. [BoxFit.contain] shows each photo whole
+  /// on [background].
+  final BoxFit fit;
+  final Color? background;
 
   /// Called when the revealed look is tapped, for a full-screen view.
   final VoidCallback? onTapAfter;
@@ -47,10 +56,11 @@ class _BeforeAfterViewState extends State<BeforeAfterView> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+    final background =
+        widget.background ?? Theme.of(context).colorScheme.surfaceContainerLow;
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: BorderRadius.circular(widget.borderRadius),
       child: AspectRatio(
         aspectRatio: widget.aspectRatio,
         child: LayoutBuilder(
@@ -68,11 +78,25 @@ class _BeforeAfterViewState extends State<BeforeAfterView> {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  ColoredBox(color: colors.surfaceContainerLow),
-                  _ComparisonImage(imageUrl: widget.beforeImageUrl),
+                  ColoredBox(color: background),
+                  _ComparisonImage(
+                    imageUrl: widget.beforeImageUrl,
+                    fit: widget.fit,
+                  ),
                   ClipRect(
                     clipper: _RevealClipper(splitX),
-                    child: _ComparisonImage(imageUrl: widget.afterImageUrl),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        // Hides the before photo wherever the after one is
+                        // narrower, so the two sides never mix.
+                        ColoredBox(color: background),
+                        _ComparisonImage(
+                          imageUrl: widget.afterImageUrl,
+                          fit: widget.fit,
+                        ),
+                      ],
+                    ),
                   ),
                   _ComparisonLabel(
                     text: widget.beforeLabel,
@@ -113,15 +137,16 @@ class _BeforeAfterViewState extends State<BeforeAfterView> {
 }
 
 class _ComparisonImage extends StatelessWidget {
-  const _ComparisonImage({required this.imageUrl});
+  const _ComparisonImage({required this.imageUrl, required this.fit});
 
   final String imageUrl;
+  final BoxFit fit;
 
   @override
   Widget build(BuildContext context) {
     return AppNetworkImage(
       imageUrl,
-      fit: BoxFit.cover,
+      fit: fit,
       fallback: const Center(
         child: Padding(
           padding: EdgeInsets.all(12),

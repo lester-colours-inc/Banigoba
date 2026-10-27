@@ -5,17 +5,29 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../core/app_routes.dart';
+import '../../../data/models/body_profile.dart';
+import '../../../data/models/piece_details.dart';
+import '../../../data/models/wear_tracking.dart';
+import '../../../data/utils/garment_colour.dart';
 import '../../../data/services/product_service.dart';
-import '../../../data/services/friend_service.dart';
 import '../../../data/services/notification_service.dart';
 import '../../widgets/cart_badge_button.dart';
 import '../shop/product_detail_page.dart';
 import '../main/notifications_page.dart';
 import '../../widgets/app_network_image.dart';
+import '../../widgets/menu_or_back_button.dart';
+import 'widgets/saved_looks_grid.dart';
+import 'widgets/wardrobe_connections.dart';
 
-/// Screen representing the "My Daily Dress Up" section, managing the user's wardrobe items
+/// My Smart Wardrobe: the user's clothes, the looks they saved, and the
+/// shops and designers the wardrobe draws on (October 2026 review, W-1).
+/// The wardrobe's sections, in tab order.
+enum WardrobeTab { clothes, savedLooks, shops }
+
 class WardrobePage extends StatefulWidget {
-  const WardrobePage({super.key});
+  const WardrobePage({super.key, this.initialTab = WardrobeTab.clothes});
+
+  final WardrobeTab initialTab;
 
   @override
   State<WardrobePage> createState() => _WardrobePageState();
@@ -23,11 +35,13 @@ class WardrobePage extends StatefulWidget {
 
 class _WardrobePageState extends State<WardrobePage> {
   final ProductService _productService = ProductService();
-  final FriendService _friendService = FriendService();
   final String _currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
-  int _selectedTabIndex = 0; // 0: Mine, 1: My Friends, 2: Community
+  late int _selectedTabIndex = widget.initialTab.index;
   final ImagePicker _picker = ImagePicker();
   static Color primaryColor = Color(0xFF0D0140);
+
+  /// Draws the eye to pieces that have gone unworn a long time.
+  static const Color _nudgeColor = Color(0xFFD9822B);
 
   @override
   Widget build(BuildContext context) {
@@ -36,13 +50,7 @@ class _WardrobePageState extends State<WardrobePage> {
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.surface,
         elevation: 0,
-        leading: IconButton(
-          icon: Icon(
-            Icons.menu,
-            color: Theme.of(context).colorScheme.onSurface,
-          ),
-          onPressed: () => Scaffold.of(context).openDrawer(),
-        ),
+        leading: const MenuOrBackButton(),
         actions: [
           _buildAppBarAction(
             Icons.shopping_bag_outlined,
@@ -64,40 +72,15 @@ class _WardrobePageState extends State<WardrobePage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Page Header
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'My Daily Dress Up',
-                        style: TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.onSurface,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    SizedBox(width: 10),
-                    GestureDetector(
-                      onTap: () => Navigator.of(context).pop(),
-                      child: Container(
-                        padding: EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.surfaceContainerHighest,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.arrow_back_ios_new,
-                          size: 16,
-                          color: Theme.of(context).colorScheme.onSurface,
-                        ),
-                      ),
-                    ),
-                  ],
+                // Page heading (G-1). Back/menu lives in the app bar.
+                Text(
+                  'My Smart Wardrobe',
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
                 SizedBox(height: 25),
                 // Custom Tab Bar
@@ -185,11 +168,11 @@ class _WardrobePageState extends State<WardrobePage> {
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
-          _tabButton("Mine", 0),
-          SizedBox(width: 15),
-          _tabButton("My Friends", 1),
-          SizedBox(width: 15),
-          _tabButton("Community", 2),
+          _tabButton("My Clothes", 0),
+          SizedBox(width: 12),
+          _tabButton("Saved Looks", 1),
+          SizedBox(width: 12),
+          _tabButton("Shops & Designers", 2),
         ],
       ),
     );
@@ -268,100 +251,12 @@ class _WardrobePageState extends State<WardrobePage> {
       case 0:
         return _buildMineTab();
       case 1:
-        return _buildFriendsTab();
+        return SavedLooksGrid(userId: _currentUserId);
       case 2:
-        return _buildCommunityTab();
+        return WardrobeConnections(userId: _currentUserId);
       default:
         return _buildMineTab();
     }
-  }
-
-  /// Tab showing items from followed friends
-  Widget _buildFriendsTab() {
-    return StreamBuilder<List<String>>(
-      stream: _friendService.getMutualFriendsIds(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting)
-          return Center(child: CircularProgressIndicator());
-        final mutualIds = snapshot.data ?? [];
-        if (mutualIds.isEmpty) {
-          return Center(
-            child: Text(
-              "Mutual friends' items will appear here. Follow people back to see them!",
-            ),
-          );
-        }
-
-        return StreamBuilder<QuerySnapshot>(
-          stream: FirebaseFirestore.instance
-              .collection('user_products')
-              .where('userId', whereIn: mutualIds)
-              .where('visibility', isEqualTo: 'public')
-              .snapshots(),
-          builder: (context, prodSnapshot) {
-            if (prodSnapshot.connectionState == ConnectionState.waiting)
-              return Center(child: CircularProgressIndicator());
-            final items = List<QueryDocumentSnapshot>.from(
-              prodSnapshot.data?.docs ?? [],
-            );
-            if (items.isEmpty)
-              return Center(child: Text("No public items from friends."));
-
-            // Sort by creation date in memory to avoid needing complex indexes
-            items.sort((a, b) {
-              final aTime =
-                  (a.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
-              final bTime =
-                  (b.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
-              if (aTime == null) return -1;
-              if (bTime == null) return 1;
-              return bTime.compareTo(aTime);
-            });
-
-            return _buildGroupedProductList(items);
-          },
-        );
-      },
-    );
-  }
-
-  /// Tab showing public items from the whole community
-  Widget _buildCommunityTab() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('user_products')
-          .where('visibility', isEqualTo: 'public')
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting)
-          return Center(child: CircularProgressIndicator());
-        final items = List<QueryDocumentSnapshot>.from(
-          snapshot.data?.docs ?? [],
-        );
-        if (items.isEmpty)
-          return Center(child: Text("No community items found."));
-
-        // Filter out own items and sort by date in memory
-        final communityItems = items
-            .where(
-              (doc) =>
-                  (doc.data() as Map<String, dynamic>)['userId'] !=
-                  _currentUserId,
-            )
-            .toList();
-        communityItems.sort((a, b) {
-          final aTime =
-              (a.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
-          final bTime =
-              (b.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
-          if (aTime == null) return -1;
-          if (bTime == null) return 1;
-          return bTime.compareTo(aTime);
-        });
-
-        return _buildGroupedProductList(communityItems.take(50).toList());
-      },
-    );
   }
 
   /// Shared helper to build a scrollable list of products grouped by category
@@ -402,7 +297,7 @@ class _WardrobePageState extends State<WardrobePage> {
               physics: NeverScrollableScrollPhysics(),
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
-                childAspectRatio: 0.72,
+                childAspectRatio: 0.64,
                 crossAxisSpacing: 20,
                 mainAxisSpacing: 20,
               ),
@@ -560,6 +455,7 @@ class _WardrobePageState extends State<WardrobePage> {
                     )
                   else
                     _buildColorSubtitle(data),
+                  if (uploaderId == _currentUserId) _buildWearRow(data),
                 ],
               ),
             ),
@@ -567,6 +463,58 @@ class _WardrobePageState extends State<WardrobePage> {
         ),
       ),
     );
+  }
+
+  /// "Worn 3 weeks ago" / "Not worn in 10 months", and a tap to record
+  /// wearing it today (W-7).
+  Widget _buildWearRow(Map<String, dynamic> data) {
+    final status = wearStatus(
+      lastWorn: timestampToDate(data['lastWornAt']),
+      addedAt: timestampToDate(data['createdAt']),
+      now: DateTime.now(),
+    );
+    final colors = Theme.of(context).colorScheme;
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            status.label,
+            key: ValueKey('wear_status_${data['id']}'),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: status.isNudge ? FontWeight.w700 : FontWeight.w500,
+              color: status.isNudge ? _nudgeColor : colors.onSurfaceVariant,
+            ),
+          ),
+        ),
+        IconButton(
+          key: ValueKey('wore_today_${data['id']}'),
+          tooltip: 'I wore this today',
+          visualDensity: VisualDensity.compact,
+          iconSize: 20,
+          onPressed: status.label == 'Worn today'
+              ? null
+              : () => _markWorn(data['id'].toString()),
+          icon: const Icon(Icons.check_circle_outline),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _markWorn(String itemId) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await _productService.markUserProductWorn(itemId);
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Noted: worn today.')),
+      );
+    } on FirebaseException catch (error) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('Could not save that: ${error.message}')),
+      );
+    }
   }
 
   /// Helper to build the color subtitle for a product card
@@ -608,7 +556,12 @@ class _WardrobePageState extends State<WardrobePage> {
     List<String> selectedWeatherTags = [];
     List<String> selectedFunctionalTags = [];
     String gender = 'unisex';
+    String size = '';
+    final shoulderController = TextEditingController();
+    final lengthController = TextEditingController();
     File? selectedImage;
+    // Colours picked from the photo, until the user changes them (W-3).
+    bool coloursFromPhoto = false;
 
     final Map<String, List<String>> categoryData = {
       'accessories': ['none', 'caps', 'glasses', 'hats'],
@@ -676,18 +629,45 @@ class _WardrobePageState extends State<WardrobePage> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Center(
-                child: Text(
-                  "Upload to Wardrobe",
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
+              Row(
+                children: [
+                  IconButton(
+                    key: const ValueKey('wardrobe_upload_back'),
+                    tooltip: 'Back',
+                    icon: const Icon(Icons.arrow_back),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                  const Expanded(
+                    child: Text(
+                      "Upload to Wardrobe",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  // Balances the back button so the title stays centred.
+                  const SizedBox(width: 48),
+                ],
               ),
-              SizedBox(height: 20),
+              SizedBox(height: 12),
               // Image Picker Box
               GestureDetector(
                 onTap: () async {
                   final File? image = await _pickImageSource();
-                  if (image != null) setModalState(() => selectedImage = image);
+                  if (image == null) return;
+                  setModalState(() => selectedImage = image);
+                  // Suggest the colours from the photo, unless the user has
+                  // already chosen some.
+                  final found = await coloursFromFile(image);
+                  if (!mounted || found.isEmpty) return;
+                  setModalState(() {
+                    if (selectedColours.isEmpty) {
+                      selectedColours.addAll(found);
+                      coloursFromPhoto = true;
+                    }
+                  });
                 },
                 child: Container(
                   height: 120,
@@ -770,10 +750,76 @@ class _WardrobePageState extends State<WardrobePage> {
                 (val) => setModalState(() => styleTag = val!),
               ),
               SizedBox(height: 15),
+              // Size and key measurements (W-4), so the wardrobe knows what
+              // fits and shops can match like for like.
+              Text(
+                "Size",
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+              SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final option in BodyProfile.clothingSizes)
+                    ChoiceChip(
+                      key: ValueKey('wardrobe_size_$option'),
+                      label: Text(option),
+                      selected: size == option,
+                      onSelected: (selected) =>
+                          setModalState(() => size = selected ? option : ''),
+                    ),
+                ],
+              ),
+              SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      key: const ValueKey('wardrobe_shoulders'),
+                      controller: shoulderController,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      decoration: const InputDecoration(
+                        labelText: 'Shoulders (cm)',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: TextField(
+                      key: const ValueKey('wardrobe_length'),
+                      controller: lengthController,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      decoration: const InputDecoration(
+                        labelText: 'Length (cm)',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 15),
               Text(
                 "Select Colours",
                 style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
               ),
+              if (coloursFromPhoto)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(
+                    'Picked from your photo. Tap to change.',
+                    key: const ValueKey('colours_from_photo'),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
               SizedBox(height: 8),
               Wrap(
                 spacing: 8,
@@ -785,6 +831,7 @@ class _WardrobePageState extends State<WardrobePage> {
                     selected: isSelected,
                     onSelected: (bool selected) {
                       setModalState(() {
+                        coloursFromPhoto = false;
                         if (selected)
                           selectedColours.add(color);
                         else
@@ -947,6 +994,14 @@ class _WardrobePageState extends State<WardrobePage> {
                         visibility: visibility,
                         weatherTags: selectedWeatherTags,
                         functionalTags: selectedFunctionalTags,
+                        size: size,
+                        details: PieceDetails.fromControllerText(
+                          shoulderMeasurement: shoulderController.text,
+                          heightMeasurement: lengthController.text,
+                          linenType: '',
+                          madeWhere: '',
+                          otherDetails: const [],
+                        ),
                       );
                       if (context.mounted) {
                         Navigator.pop(context);

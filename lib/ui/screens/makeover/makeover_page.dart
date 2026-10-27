@@ -5,7 +5,8 @@
 //                  idol · Style twin · Weather · Trending)
 //   2. Styling   — one item at a time (hair, clothes, shoes, accessories).
 //                  Each result shows as soon as it exists; the user keeps it,
-//                  redoes it, tweaks it, skips it or goes back
+//                  redoes it, tweaks it, skips it or goes back. A new step
+//                  only generates when the user presses "Style my ..."
 //   3. Done      — save or share, find the pieces, or edit something
 //
 // Also opened from a saved look on Home to edit it ([editingPostId]), and
@@ -16,7 +17,6 @@
 import 'dart:async';
 import 'dart:typed_data';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
@@ -25,17 +25,20 @@ import 'package:image_picker/image_picker.dart';
 import '../../../data/models/body_profile.dart';
 import '../../../data/models/look_request.dart';
 import '../../../data/models/look_session.dart';
-import '../../../data/models/style_preferences.dart';
 import '../../../data/models/weather.dart';
 import '../../../data/services/body_profile_service.dart';
 import '../../../data/services/look_generation_service.dart';
-import '../../../data/services/post_service.dart';
 import '../../../data/services/storage_service.dart';
 import '../../../data/services/weather_service.dart';
+import '../../../core/main_tab.dart';
+import '../../../core/theme_provider.dart';
 import '../../../data/style/style_catalogue.dart';
+import '../../widgets/app_drawer.dart';
+import '../../widgets/bottom_navigation.dart';
 import '../../widgets/find_pieces_sheet.dart';
 import '../../widgets/save_look_sheet.dart';
-import 'widgets/community_look_picker.dart';
+import '../main/main_screen.dart';
+import 'widgets/look_you_love_picker.dart';
 import 'widgets/look_done_view.dart';
 import 'widgets/look_source_picker.dart';
 import 'widgets/look_step_view.dart';
@@ -54,6 +57,7 @@ class MakeoverPage extends StatefulWidget {
     this.editingPostId,
     this.initialTwinUrl,
     this.initialMethod,
+    this.initialIdolName,
     this.loadBodyProfile,
   });
 
@@ -79,6 +83,10 @@ class MakeoverPage extends StatefulWidget {
   /// Starts on this idea source, e.g. Style idol for "My Fashion Idols".
   final LookMethod? initialMethod;
 
+  /// Starts on Style idol with this person filled in ("Style me like …"
+  /// from My Fashion Idols).
+  final String? initialIdolName;
+
   /// Injected in tests; defaults to the signed-in user's profile details.
   final Future<BodyProfile> Function()? loadBodyProfile;
 
@@ -100,7 +108,9 @@ class _MakeoverPageState extends State<MakeoverPage> {
   String _photoUrl = '';
   bool _isLoadingPhoto = true;
   bool _isUploadingPhoto = false;
-  LookScope _scope = LookScope.fullLook;
+  // What should change. Unset until the user picks it: choosing is a
+  // deliberate step before generating (October 2026 review, M-6).
+  LookScope? _scope;
   LookMethod _method = LookMethod.describe;
   StyleArchetype? _archetype;
   StyleTrend? _trend;
@@ -146,17 +156,17 @@ class _MakeoverPageState extends State<MakeoverPage> {
     } else {
       _loadPhoto();
     }
-    if (widget.initialScope case final scope?) {
-      _scope = scope;
-    } else {
-      _loadDefaultScope();
-    }
+    _scope = widget.initialScope;
     unawaited(
       _bodyProfile.then((profile) {
         if (mounted) setState(() => _body = profile);
       }),
     );
     if (widget.initialMethod case final method?) _method = method;
+    if (widget.initialIdolName case final idol? when idol.trim().isNotEmpty) {
+      _idolController.text = idol.trim();
+      _method = LookMethod.idol;
+    }
     if (widget.initialTwinUrl case final url? when url.isNotEmpty) {
       _twinUrl = url;
       _method = LookMethod.twin;
@@ -192,23 +202,6 @@ class _MakeoverPageState extends State<MakeoverPage> {
       debugPrint('Unable to load existing photo: $error');
     } finally {
       if (mounted) setState(() => _isLoadingPhoto = false);
-    }
-  }
-
-  /// Defaults the scope to the user's saved preference, if any.
-  Future<void> _loadDefaultScope() async {
-    final userId = _userId;
-    if (userId.isEmpty) return;
-    try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(userId)
-          .get();
-      final focus = MakeoverFocus.fromValue(snapshot.data()?['makeoverFocus']);
-      if (!mounted || focus == null) return;
-      setState(() => _scope = LookScope.fromFocus(focus));
-    } on FirebaseException catch (error) {
-      debugPrint('Unable to load makeover preference: ${error.code}');
     }
   }
 
@@ -272,10 +265,7 @@ class _MakeoverPageState extends State<MakeoverPage> {
   }
 
   Future<void> _pickTwinFromCommunity() async {
-    final url = await showCommunityLookPicker(
-      context,
-      posts: PostService().getPosts(),
-    );
+    final url = await showLookYouLovePicker(context);
     if (url == null || !mounted) return;
     setState(() => _twinUrl = url);
   }
@@ -365,18 +355,22 @@ class _MakeoverPageState extends State<MakeoverPage> {
     LookMethod.trending => TrendSource(_trend),
   };
 
-  LookRequest get _request => LookRequest(
-    photoUrl: _photoUrl,
-    scope: _scope,
-    source: _source,
-    body: _body,
-  );
+  /// The request so far; null until the user has chosen what should change.
+  LookRequest? get _request => switch (_scope) {
+    final scope? => LookRequest(
+      photoUrl: _photoUrl,
+      scope: scope,
+      source: _source,
+      body: _body,
+    ),
+    null => null,
+  };
 
   // ── Styling, one item at a time ─────────────────────────────────────────
 
   void _start() {
     final request = _request;
-    if (!request.isReady) return;
+    if (request == null || !request.isReady) return;
     _activeRequest = request;
     _finalUrl = '';
     _changedParts = const [];
@@ -452,14 +446,19 @@ class _MakeoverPageState extends State<MakeoverPage> {
     _advance(session.skip());
   }
 
+  /// Moves to [next]. The new step waits for the user to press its "Style
+  /// my ..." button: nothing is generated, and nothing is charged, until
+  /// they ask.
   void _advance(LookSession next) {
     _stepTweak = '';
     if (next.isFinished) {
       _finish(next);
       return;
     }
-    setState(() => _session = next);
-    _generateCurrent();
+    setState(() {
+      _session = next;
+      _error = '';
+    });
   }
 
   void _undo() {
@@ -468,6 +467,24 @@ class _MakeoverPageState extends State<MakeoverPage> {
     setState(() {
       _cancelGeneration();
       _session = session.undo();
+      _stepTweak = '';
+      _error = '';
+    });
+  }
+
+  /// Jumps to the step tapped in the progress strip.
+  void _jumpTo(int index) {
+    final session = _session;
+    if (session == null || index == session.stepIndex) return;
+    final next = session.jumpTo(index);
+    if (index > session.stepIndex) {
+      _cancelGeneration();
+      _advance(next);
+      return;
+    }
+    setState(() {
+      _cancelGeneration();
+      _session = next;
       _stepTweak = '';
       _error = '';
     });
@@ -559,6 +576,15 @@ class _MakeoverPageState extends State<MakeoverPage> {
     }
   }
 
+  /// Leaves the makeover for a main tab, checking first when a look is in
+  /// progress.
+  Future<void> _openMainTab(int index) async {
+    if (_stage != _Stage.brief && !await _confirmDiscard()) return;
+    if (!mounted) return;
+    MainScreen.selectTab(MainTab.fromIndex(index));
+    Navigator.of(context).popUntil((route) => route.isFirst);
+  }
+
   Future<bool> _confirmDiscard() async {
     final result = await showDialog<bool>(
       context: context,
@@ -592,58 +618,78 @@ class _MakeoverPageState extends State<MakeoverPage> {
         if (!didPop) _handleBack();
       },
       child: Scaffold(
-        appBar: AppBar(
-          title: Text(
-            _title(session),
-            style: const TextStyle(fontWeight: FontWeight.w800),
-          ),
-          actions: [
-            if (_stage == _Stage.styling && session != null)
-              TextButton(
-                key: const ValueKey('makeover_finish_now'),
-                onPressed: session.changedParts.isEmpty
-                    ? null
-                    : () => _finish(session),
-                child: const Text(
-                  'Done',
-                  style: TextStyle(fontWeight: FontWeight.w700),
-                ),
-              ),
+        drawer: AppDrawer(themeProvider: themeProvider),
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            MakeoverHeader(
+              title: _title(session),
+              onBack: _handleBack,
+              trailing: _stage == _Stage.styling && session != null
+                  ? TextButton(
+                      key: const ValueKey('makeover_finish_now'),
+                      onPressed: session.changedParts.isEmpty
+                          ? null
+                          : () => _finish(session),
+                      style: TextButton.styleFrom(
+                        foregroundColor: kMakeoverNavy,
+                      ),
+                      child: const Text(
+                        'Done',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    )
+                  : null,
+            ),
+            Expanded(child: _buildStage(context, session)),
           ],
         ),
-        body: switch (_stage) {
-          _Stage.brief => _buildBrief(context),
-          _Stage.styling when session != null => LookStepView(
-            session: session,
-            isGenerating: _isGenerating,
-            elapsedSeconds: _elapsedSeconds,
-            errorMessage: _error,
-            onKeep: _keep,
-            onTryAgain: _generateCurrent,
-            onTweak: _tweakCurrent,
-            onSkip: _skip,
-            onUndo: _undo,
-            onGenerate: _generateCurrent,
-          ),
-          _Stage.styling => const SizedBox.shrink(),
-          _Stage.done => LookDoneView(
-            beforeUrl: _photoUrl,
-            afterUrl: _finalUrl,
-            changedParts: _changedParts,
-            isEditingSavedLook: _isEditing,
-            onSave: _save,
-            onFindPieces: () =>
-                showFindPiecesSheet(context, parts: _changedParts),
-            onEdit: _editLook,
-            onNewIdea: () => setState(() => _stage = _Stage.brief),
-            onStartAgain: _startAgain,
-          ),
-        },
-        bottomNavigationBar: _stage == _Stage.brief
-            ? _buildGenerateBar()
-            : null,
+        bottomNavigationBar: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_stage == _Stage.brief) _buildGenerateBar(),
+            CustomBottomNavigation(
+              currentIndex: MainTab.home.index,
+              onTap: _openMainTab,
+            ),
+          ],
+        ),
       ),
     );
+  }
+
+  Widget _buildStage(BuildContext context, LookSession? session) {
+    return switch (_stage) {
+      _Stage.brief => _buildBrief(context),
+      _Stage.styling when session != null => LookStepView(
+        session: session,
+        isGenerating: _isGenerating,
+        elapsedSeconds: _elapsedSeconds,
+        errorMessage: _error,
+        onKeep: _keep,
+        onTryAgain: _generateCurrent,
+        onTweak: _tweakCurrent,
+        onSkip: _skip,
+        onUndo: _undo,
+        onJumpTo: _jumpTo,
+        onGenerate: _generateCurrent,
+      ),
+      _Stage.styling => const SizedBox.shrink(),
+      _Stage.done => LookDoneView(
+        beforeUrl: _photoUrl,
+        afterUrl: _finalUrl,
+        changedParts: _changedParts,
+        isEditingSavedLook: _isEditing,
+        onSave: _save,
+        onFindPieces: () => showFindPiecesSheet(context, parts: _changedParts),
+        onEdit: _editLook,
+        onNewIdea: () => setState(() => _stage = _Stage.brief),
+        onStartAgain: _startAgain,
+      ),
+    };
   }
 
   String _title(LookSession? session) {
@@ -652,20 +698,21 @@ class _MakeoverPageState extends State<MakeoverPage> {
       if (session.parts.length == 1) return session.parts.single.label;
       return 'Step ${session.stepIndex + 1} of ${session.parts.length}';
     }
-    return _isEditing ? 'Edit look' : 'Makeover';
+    return _isEditing ? 'Edit look' : 'My New Look';
   }
 
   Widget _buildBrief(BuildContext context) {
+    final scope = _scope;
     final trends = curatedTrends
-        .where((trend) => trend.fitsScope(_scope))
+        .where((trend) => scope == null || trend.fitsScope(scope))
         .toList();
-    final steps = _request.parts;
+    final steps = scope?.parts ?? const <LookPart>[];
 
+    // Photo, then how (describe it, or a look you love), then what should
+    // change: one clear path from top to bottom (October 2026 review, M-4).
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
       children: [
-        MakeoverSectionTitle(_isEditing ? 'Your look' : 'Your photo'),
-        const SizedBox(height: 12),
         MakeoverPhotoCard(
           photoUrl: _photoUrl,
           isLoading: _isLoadingPhoto || _isUploadingPhoto,
@@ -678,34 +725,12 @@ class _MakeoverPageState extends State<MakeoverPage> {
               : () => _pickPhoto(ImageSource.camera),
         ),
         const SizedBox(height: 28),
-        MakeoverSectionTitle(
-          'What should change?',
-          subtitle: steps.length > 1
-              ? 'One item at a time: '
-                    '${steps.map((part) => part.label).join(' › ')}'
-              : '',
-        ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final scope in LookScope.values)
-              MakeoverPill(
-                key: ValueKey('look_scope_${scope.name}'),
-                label: scope.label,
-                selected: scope == _scope,
-                onTap: () => _selectScope(scope),
-              ),
-          ],
-        ),
-        const SizedBox(height: 28),
-        const MakeoverSectionTitle('How?'),
-        const SizedBox(height: 12),
+        const MakeoverSectionTitle('How do you want to create your look?'),
+        const SizedBox(height: 14),
         LookSourcePicker(
           method: _method,
           onMethodChanged: _selectMethod,
-          scope: _scope,
+          scope: scope ?? LookScope.fullLook,
           describeController: _describeController,
           idolController: _idolController,
           archetypes: styleArchetypes,
@@ -724,6 +749,28 @@ class _MakeoverPageState extends State<MakeoverPage> {
           weather: _weather,
           onRetryWeather: _fetchWeather,
         ),
+        const SizedBox(height: 32),
+        MakeoverSectionTitle(
+          'What should change?',
+          subtitle: steps.length > 1
+              ? 'One item at a time: '
+                    '${steps.map((part) => part.label).join(' · ')}'
+              : 'Pick one before you generate.',
+        ),
+        const SizedBox(height: 16),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            for (final option in LookScope.values)
+              MakeoverPill(
+                key: ValueKey('look_scope_${option.name}'),
+                label: option.label,
+                selected: option == scope,
+                onTap: () => _selectScope(option),
+              ),
+          ],
+        ),
         if (_error.isNotEmpty) ...[
           const SizedBox(height: 16),
           MakeoverErrorBanner(message: _error),
@@ -734,20 +781,22 @@ class _MakeoverPageState extends State<MakeoverPage> {
 
   Widget _buildGenerateBar() {
     final request = _request;
-    final hint = request.photoUrl.isEmpty
+    final hint = _photoUrl.isEmpty
         ? 'Add your photo to continue'
-        : request.source.isComplete
-        ? ''
-        : switch (_method) {
+        : !_source.isComplete
+        ? switch (_method) {
             LookMethod.describe => 'Describe the look you want',
             LookMethod.idol => 'Name your style idol or pick a vibe',
             LookMethod.twin => 'Choose a look to copy',
             LookMethod.weather => 'Waiting for the weather',
             LookMethod.trending => 'Pick a trend',
-          };
+          }
+        : request == null
+        ? 'Choose what should change'
+        : '';
 
-    return SafeArea(
-      minimum: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 4, 24, 16),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -763,9 +812,8 @@ class _MakeoverPageState extends State<MakeoverPage> {
             ),
           MakeoverPrimaryButton(
             key: const ValueKey('makeover_generate'),
-            icon: Icons.auto_awesome,
-            label: _isEditing ? 'Edit my look' : 'Create my look',
-            onPressed: request.isReady ? _start : null,
+            label: _isEditing ? 'Edit my look' : 'Generate my look',
+            onPressed: request != null && request.isReady ? _start : null,
           ),
         ],
       ),

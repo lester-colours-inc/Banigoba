@@ -598,10 +598,7 @@ class _FullCalendarDialogState extends State<_FullCalendarDialog> {
   @override
   void initState() {
     super.initState();
-    _visibleMonth = DateTime(
-      widget.initialDate.year,
-      widget.initialDate.month,
-    );
+    _visibleMonth = DateTime(widget.initialDate.year, widget.initialDate.month);
   }
 
   bool get _canGoPrevious {
@@ -617,10 +614,7 @@ class _FullCalendarDialogState extends State<_FullCalendarDialog> {
 
   void _changeMonth(int delta) {
     setState(() {
-      _visibleMonth = DateTime(
-        _visibleMonth.year,
-        _visibleMonth.month + delta,
-      );
+      _visibleMonth = DateTime(_visibleMonth.year, _visibleMonth.month + delta);
     });
   }
 

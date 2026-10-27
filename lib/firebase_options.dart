@@ -17,10 +17,7 @@ import 'package:flutter/foundation.dart'
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
-      throw UnsupportedError(
-        'DefaultFirebaseOptions have not been configured for web - '
-        'you can reconfigure this by running the FlutterFire CLI again.',
-      );
+      return web;
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
@@ -48,6 +45,17 @@ class DefaultFirebaseOptions {
         );
     }
   }
+
+  // The "Banigoba Web" app in the appdemo-b9e3e Firebase project (registered
+  // 27 Oct 2026). Public client settings, like the ones below.
+  static const FirebaseOptions web = FirebaseOptions(
+    apiKey: 'AIzaSyDP3LiDvS1Lynw7poo586djyts-E_yHxOk',
+    appId: '1:379405824371:web:c8f9ffedd17a7e4b685506',
+    messagingSenderId: '379405824371',
+    projectId: 'appdemo-b9e3e',
+    authDomain: 'appdemo-b9e3e.firebaseapp.com',
+    storageBucket: 'appdemo-b9e3e.appspot.com',
+  );
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyC4yKLG2OH4334nXEUii7W90DoyR2kGcZk',

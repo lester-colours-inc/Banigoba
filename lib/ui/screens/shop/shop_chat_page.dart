@@ -226,6 +226,94 @@ class _ProductReferenceMessage extends StatelessWidget {
   }
 }
 
+/// A look forwarded from the Home feed: the picture, then its caption.
+class _LookReferenceMessage extends StatelessWidget {
+  const _LookReferenceMessage({
+    required this.data,
+    required this.mine,
+    required this.timestamp,
+  });
+
+  final Map<String, dynamic> data;
+  final bool mine;
+  final String timestamp;
+
+  @override
+  Widget build(BuildContext context) {
+    final imageUrl = (data['lookImageUrl'] ?? '').toString();
+    final text = (data['text'] ?? 'Forwarded a look').toString();
+    final colorScheme = Theme.of(context).colorScheme;
+    final width = MediaQuery.sizeOf(context).width * 0.62;
+
+    return Align(
+      alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        width: width,
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(
+          color: mine
+              ? const Color(0xFF0D0140)
+              : colorScheme.surfaceContainerLow,
+          borderRadius: _messageBubbleRadius(mine),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: AspectRatio(
+                aspectRatio: 3 / 4,
+                child: imageUrl.isEmpty
+                    ? _ProductReferenceImageFallback(mine: mine)
+                    : AppNetworkImage(
+                        imageUrl,
+                        fit: BoxFit.cover,
+                        fallback: _ProductReferenceImageFallback(mine: mine),
+                      ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(6, 8, 6, 0),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.shortcut_rounded,
+                    size: 16,
+                    color: mine ? Colors.white70 : colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      text,
+                      style: TextStyle(
+                        color: mine ? Colors.white : colorScheme.onSurface,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                child: _MessageTimestamp(
+                  timestamp: timestamp,
+                  mine: mine,
+                  system: false,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _DesignRequestReferenceMessage extends StatelessWidget {
   const _DesignRequestReferenceMessage({
     required this.data,
@@ -671,6 +759,8 @@ class _ShopChatPageState extends State<ShopChatPage> {
                         data['senderType'] == 'product_reference';
                     final isDesignRequestReference =
                         data['senderType'] == 'design_request_reference';
+                    final isLookReference =
+                        data['senderType'] == 'look_reference';
                     final mine = data['senderId'] == currentUserId;
                     final timestamp = _formatMessageTimestamp(data);
                     final nextOlderData = index + 1 < messages.length
@@ -680,7 +770,13 @@ class _ShopChatPageState extends State<ShopChatPage> {
                         nextOlderData == null ||
                         !_isSameMessageDay(data, nextOlderData);
                     late final Widget message;
-                    if (isProductReference) {
+                    if (isLookReference) {
+                      message = _LookReferenceMessage(
+                        data: data,
+                        mine: mine,
+                        timestamp: timestamp,
+                      );
+                    } else if (isProductReference) {
                       message = _ProductReferenceMessage(
                         data: data,
                         mine: mine,

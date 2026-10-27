@@ -12,7 +12,7 @@ import '../../../data/services/auth_service.dart';
 import '../../../data/services/event_service.dart';
 import '../../../data/services/notification_service.dart';
 import '../events/events_page.dart';
-import '../main/hair_style_page.dart';
+import 'hairstyle_catalog_upload_page.dart';
 
 class CuratorsWorkspacePage extends StatelessWidget {
   const CuratorsWorkspacePage({super.key});
@@ -459,7 +459,6 @@ class _ProfileVerificationList extends StatelessWidget {
     return (profile['name'] ??
             profile['shopName'] ??
             user['displayName'] ??
-            user['email'] ??
             fallback)
         .toString();
   }
@@ -474,7 +473,6 @@ class _ProfileVerificationList extends StatelessWidget {
           profile['location'],
           profile['description'],
           profile['bio'],
-          user['email'],
         ].map((value) => value?.toString().trim() ?? '').where((value) {
           return value.isNotEmpty;
         }).toList();

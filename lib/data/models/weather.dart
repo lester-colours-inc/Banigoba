@@ -47,7 +47,8 @@ class Weather {
       tags.add('hot');
     }
 
-    if (condition.toLowerCase().contains('rain') || condition.toLowerCase().contains('drizzle')) {
+    if (condition.toLowerCase().contains('rain') ||
+        condition.toLowerCase().contains('drizzle')) {
       tags.add('rainy');
     }
     return tags;

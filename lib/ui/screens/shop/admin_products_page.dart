@@ -8,8 +8,12 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../../data/models/body_profile.dart';
+import '../../../data/models/fit_check.dart';
 import '../../../data/models/piece_details.dart';
 import '../../../data/services/product_service.dart';
+import '../../../data/services/storage_service.dart';
+import '../../widgets/back_photo_field.dart';
 import '../../widgets/piece_extra_details_fields.dart';
 import '../../widgets/safe_product_image.dart';
 
@@ -231,6 +235,9 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
     File? selectedImage;
     String existingImageUrl = existingData?['imageUrl'] ?? '';
     String existingRawImageUrl = existingData?['rawImageUrl'] ?? '';
+    File? selectedBackImage;
+    String existingBackImageUrl = (existingData?['backImageUrl'] ?? '')
+        .toString();
 
     final Map<String, List<String>> categoryData = {
       'accessories': ['none', 'caps', 'glasses', 'hats'],
@@ -378,6 +385,21 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                               )),
                 ),
               ),
+              const SizedBox(height: 10),
+              BackPhotoField(
+                picked: selectedBackImage,
+                existingUrl: existingBackImageUrl,
+                onPick: () async {
+                  final File? image = await _pickImageSource();
+                  if (image != null) {
+                    setModalState(() => selectedBackImage = image);
+                  }
+                },
+                onRemove: () => setModalState(() {
+                  selectedBackImage = null;
+                  existingBackImageUrl = '';
+                }),
+              ),
               const SizedBox(height: 15),
               // Form Fields
               TextField(
@@ -467,46 +489,93 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                   children: [
                     for (int index = 0; index < sizeEntries.length; index++)
                       Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: Row(
+                        padding: const EdgeInsets.only(bottom: 14),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Expanded(
-                              flex: 2,
-                              child: TextField(
-                                controller: sizeEntries[index].sizeController,
-                                textCapitalization:
-                                    TextCapitalization.characters,
-                                decoration: const InputDecoration(
-                                  labelText: "Size",
-                                  border: OutlineInputBorder(),
+                            Row(
+                              children: [
+                                Expanded(
+                                  flex: 2,
+                                  child: TextField(
+                                    controller:
+                                        sizeEntries[index].sizeController,
+                                    textCapitalization:
+                                        TextCapitalization.characters,
+                                    decoration: const InputDecoration(
+                                      labelText: "Size",
+                                      border: OutlineInputBorder(),
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              flex: 3,
-                              child: TextField(
-                                controller:
-                                    sizeEntries[index].quantityController,
-                                keyboardType: TextInputType.number,
-                                decoration: const InputDecoration(
-                                  labelText: "Quantity",
-                                  border: OutlineInputBorder(),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  flex: 3,
+                                  child: TextField(
+                                    controller:
+                                        sizeEntries[index].quantityController,
+                                    keyboardType: TextInputType.number,
+                                    decoration: const InputDecoration(
+                                      labelText: "Quantity",
+                                      border: OutlineInputBorder(),
+                                    ),
+                                  ),
                                 ),
-                              ),
+                                IconButton(
+                                  tooltip: 'Remove size',
+                                  onPressed: () {
+                                    setModalState(() {
+                                      sizeEntries.removeAt(index);
+                                    });
+                                  },
+                                  icon: const Icon(Icons.delete_outline),
+                                ),
+                              ],
                             ),
-                            IconButton(
-                              tooltip: 'Remove size',
-                              onPressed: () {
-                                setModalState(() {
-                                  sizeEntries.removeAt(index);
-                                });
-                              },
-                              icon: const Icon(Icons.delete_outline),
+                            const SizedBox(height: 8),
+                            // Optional size chart: what the garment measures
+                            // in this size, so buyers get a fit check.
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                for (final part in kChartParts)
+                                  SizedBox(
+                                    width: 104,
+                                    child: TextField(
+                                      key: ValueKey(
+                                        'chart_${index}_${part.key}',
+                                      ),
+                                      controller: sizeEntries[index]
+                                          .measureControllers[part],
+                                      keyboardType:
+                                          const TextInputType.numberWithOptions(
+                                            decimal: true,
+                                          ),
+                                      decoration: InputDecoration(
+                                        labelText:
+                                            part == BodyMeasurement.insideLeg
+                                            ? 'Inseam (cm)'
+                                            : '${_chartLabel(part)} (cm)',
+                                        isDense: true,
+                                        border: const OutlineInputBorder(),
+                                      ),
+                                    ),
+                                  ),
+                              ],
                             ),
                           ],
                         ),
                       ),
+                    Text(
+                      'Optional: measure the garment itself, all the way '
+                      'around for chest, waist and hips. Buyers see a fit '
+                      'check against their own measurements.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
                   ],
                 ),
               const SizedBox(height: 15),
@@ -758,6 +827,20 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                         }
                       }
 
+                      // The optional back photo goes up as it is (no
+                      // background removal): it is only a reference for the
+                      // turn-around view.
+                      var backImageUrl = existingBackImageUrl;
+                      if (selectedBackImage != null) {
+                        backImageUrl = await StorageService()
+                            .uploadProductImageBytes(
+                              await selectedBackImage!.readAsBytes(),
+                              _currentUserId,
+                              filename:
+                                  'back_${DateTime.now().millisecondsSinceEpoch}.jpg',
+                            );
+                      }
+
                       final productUpdateData = {
                         'uploaderId': _currentUserId,
                         'name': nameController.text,
@@ -765,6 +848,10 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                         'stock': stock,
                         'imageUrl': imageUrl,
                         'rawImageUrl': rawImageUrl,
+                        if (backImageUrl.isNotEmpty)
+                          'backImageUrl': backImageUrl
+                        else if (isEditing)
+                          'backImageUrl': FieldValue.delete(),
                         'category': category,
                         'subcategory': subcategory == 'none'
                             ? null
@@ -778,6 +865,11 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                           'sizeInventory': sizeInventory,
                         if (sizeInventory.isEmpty && isEditing)
                           'sizeInventory': FieldValue.delete(),
+                        if (_sizeChartFromEntries(sizeEntries) case final chart
+                            when !chart.isEmpty)
+                          'sizeChart': chart.toMap()
+                        else if (isEditing)
+                          'sizeChart': FieldValue.delete(),
                         ...PieceDetails.fromControllerText(
                           shoulderMeasurement: shoulderController.text,
                           heightMeasurement: heightMeasurementController.text,
@@ -932,13 +1024,46 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
 
   List<_SizeInventoryEntry> _sizeEntriesFor(Map<String, dynamic> data) {
     final inventory = _sizeInventoryFor(data);
+    final chart = SizeChart.fromProduct(data);
     return inventory.entries
         .map(
-          (entry) =>
-              _SizeInventoryEntry(size: entry.key, quantity: entry.value),
+          (entry) => _SizeInventoryEntry(
+            size: entry.key,
+            quantity: entry.value,
+            measures: chart.sizes[entry.key] ?? const {},
+          ),
         )
         .toList();
   }
+
+  /// The size chart typed into the form: only sizes with a valid size label
+  /// and at least one measurement.
+  SizeChart _sizeChartFromEntries(List<_SizeInventoryEntry> entries) {
+    final sizes = <String, Map<BodyMeasurement, double>>{};
+    for (final entry in entries) {
+      final size = entry.sizeController.text.trim().toUpperCase();
+      if (size.isEmpty) continue;
+      final measures = <BodyMeasurement, double>{};
+      for (final part in kChartParts) {
+        final text = entry.measureControllers[part]!.text.trim().replaceAll(
+          ',',
+          '.',
+        );
+        final cm = double.tryParse(text);
+        if (cm != null && cm > 0) measures[part] = cm;
+      }
+      if (measures.isNotEmpty) sizes[size] = measures;
+    }
+    return SizeChart(sizes);
+  }
+
+  String _chartLabel(BodyMeasurement part) => switch (part) {
+    BodyMeasurement.shoulders => 'Shoulders',
+    BodyMeasurement.chest => 'Chest',
+    BodyMeasurement.waist => 'Waist',
+    BodyMeasurement.hips => 'Hips',
+    _ => part.label,
+  };
 
   Map<String, int> _sizeInventoryFor(Map<String, dynamic> data) {
     final raw = data['sizeInventory'];
@@ -968,10 +1093,22 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
 }
 
 class _SizeInventoryEntry {
-  _SizeInventoryEntry({required String size, required int quantity})
-    : sizeController = TextEditingController(text: size),
-      quantityController = TextEditingController(text: quantity.toString());
+  _SizeInventoryEntry({
+    required String size,
+    required int quantity,
+    Map<BodyMeasurement, double> measures = const {},
+  }) : sizeController = TextEditingController(text: size),
+       quantityController = TextEditingController(text: quantity.toString()),
+       measureControllers = {
+         for (final part in kChartParts)
+           part: TextEditingController(
+             text: measures[part] == null ? '' : formatNumber(measures[part]!),
+           ),
+       };
 
   final TextEditingController sizeController;
   final TextEditingController quantityController;
+
+  /// The garment's measurements in this size, by body part (optional).
+  final Map<BodyMeasurement, TextEditingController> measureControllers;
 }

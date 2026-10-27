@@ -1,12 +1,12 @@
 // Defines application routes and decides which screen a user sees during startup.
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../ui/screens/main/main_screen.dart';
 import '../ui/screens/main/notifications_page.dart';
 import '../ui/screens/main/daily_dress_up_page.dart';
-import '../ui/screens/main/my_fashion_style_page.dart';
-import '../ui/screens/main/hair_style_page.dart';
 import '../ui/screens/wardrobe/wardrobe_page.dart';
 import '../ui/screens/shop/cart_page.dart';
 import '../ui/screens/main/search_page.dart';
@@ -31,6 +31,9 @@ import '../ui/widgets/brand_splash.dart';
 import '../data/services/permissions_service.dart';
 import '../data/services/style_preferences_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../data/services/account_privacy_service.dart';
+import '../data/services/username_service.dart';
+import '../ui/screens/onboarding/username_screen.dart';
 
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
@@ -45,11 +48,33 @@ class _AuthGateState extends State<AuthGate> {
   final Set<String> _permissionPromptHandledThisSession = {};
   final Map<String, Future<_PermissionGateState>> _permissionChecks = {};
 
+  // The splash stays up until the sonic logo's reveal has played, while
+  // onboarding, auth and permission checks carry on underneath it.
+  late bool _holdingSplash;
+  Timer? _splashTimer;
+
   @override
   void initState() {
     super.initState();
+    final splashRemaining = brandSplashTimeRemaining();
+    _holdingSplash = splashRemaining > Duration.zero;
+    if (_holdingSplash) {
+      _splashTimer = Timer(splashRemaining, () {
+        if (mounted) setState(() => _holdingSplash = false);
+      });
+    }
     _checkOnboarding();
   }
+
+  @override
+  void dispose() {
+    _splashTimer?.cancel();
+    super.dispose();
+  }
+
+  /// [screen], or the brand splash while it is still being held.
+  Widget _afterSplash(Widget screen) =>
+      _holdingSplash ? const BrandSplash() : screen;
 
   Future<void> _checkOnboarding() async {
     final prefs = await SharedPreferences.getInstance();
@@ -69,7 +94,6 @@ class _AuthGateState extends State<AuthGate> {
 
     await userRef.set({
       'uid': user.uid,
-      'email': user.email,
       'displayName': user.displayName ?? (user.email?.split('@')[0] ?? 'User'),
       if (data == null || !data.containsKey('stylePreference'))
         'stylePreference': 'casual',
@@ -79,6 +103,16 @@ class _AuthGateState extends State<AuthGate> {
         'permissionStatus': PermissionsService.emptyPermissionsSummary,
       'lastSeen': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+    // The email stays off the public profile (U-5). Moving it must never
+    // block signing in, so a failure is only logged.
+    try {
+      await AccountPrivacyService().secureEmail(
+        userId: user.uid,
+        email: user.email ?? '',
+      );
+    } on FirebaseException catch (error) {
+      debugPrint('Unable to secure email: ${error.code}');
+    }
   }
 
   Future<_PermissionGateState> _checkUserPermissions(User user) async {
@@ -157,7 +191,7 @@ class _AuthGateState extends State<AuthGate> {
     }
 
     if (!_onboardingDone!) {
-      return const OnboardingScreen();
+      return _afterSplash(const OnboardingScreen());
     }
 
     return StreamBuilder<User?>(
@@ -183,10 +217,12 @@ class _AuthGateState extends State<AuthGate> {
               }
 
               if (permissionSnapshot.hasError) {
-                return Scaffold(
-                  body: Center(
-                    child: Text(
-                      'Unable to check app permissions: ${permissionSnapshot.error}',
+                return _afterSplash(
+                  Scaffold(
+                    body: Center(
+                      child: Text(
+                        'Unable to check app permissions: ${permissionSnapshot.error}',
+                      ),
                     ),
                   ),
                 );
@@ -198,10 +234,12 @@ class _AuthGateState extends State<AuthGate> {
 
               if (gateState?.missingPermissions.isNotEmpty == true &&
                   !promptHandled) {
-                return PermissionsRequestScreen(
-                  requiredPermissions: gateState!.missingPermissions,
-                  onPermissionsComplete: (statuses) =>
-                      _completePermissionPrompt(user, statuses),
+                return _afterSplash(
+                  PermissionsRequestScreen(
+                    requiredPermissions: gateState!.missingPermissions,
+                    onPermissionsComplete: (statuses) =>
+                        _completePermissionPrompt(user, statuses),
+                  ),
                 );
               }
 
@@ -219,21 +257,40 @@ class _AuthGateState extends State<AuthGate> {
                   final isAdmin =
                       userData['isAdmin'] == true ||
                       userData['role'] == 'admin';
-                  if (isAdmin) return const CuratorsWorkspacePage();
+                  if (isAdmin) {
+                    return _afterSplash(const CuratorsWorkspacePage());
+                  }
                   if (userData['sellerMode'] == true) {
-                    return const SellerDashboardPage();
+                    return _afterSplash(const SellerDashboardPage());
+                  }
+                  // Everyone needs a unique @username (U-4). New and existing
+                  // users get one suggested from their name to confirm.
+                  if ((userData['username'] ?? '').toString().isEmpty) {
+                    final usernames = UsernameService();
+                    final name = (userData['displayName'] ?? '').toString();
+                    return _afterSplash(
+                      UsernameScreen(
+                        suggest: () => usernames.firstAvailableSuggestion(name),
+                        isAvailable: usernames.isAvailable,
+                        onClaim: (username) =>
+                            usernames.claim(userId: user.uid, input: username),
+                      ),
+                    );
                   }
                   // Asked once, after the account exists; the user document
                   // stream rebuilds into Home as soon as it is answered or
                   // skipped.
                   if (StylePreferencesService.needsPrompt(userData)) {
                     final preferences = StylePreferencesService();
-                    return StylePreferencesScreen(
-                      onSave: (answers) => preferences.save(user.uid, answers),
-                      onSkip: () => preferences.skip(user.uid),
+                    return _afterSplash(
+                      StylePreferencesScreen(
+                        onSave: (answers) =>
+                            preferences.save(user.uid, answers),
+                        onSkip: () => preferences.skip(user.uid),
+                      ),
                     );
                   }
-                  return const MainScreen();
+                  return _afterSplash(const MainScreen());
                 },
               );
             },
@@ -246,7 +303,7 @@ class _AuthGateState extends State<AuthGate> {
           _lastUser = null;
         }
 
-        return const CustomLoginScreen();
+        return _afterSplash(const CustomLoginScreen());
       },
     );
   }
@@ -284,8 +341,6 @@ class AppRoutes {
   // coordinated makeover journey. They stay routable because they also host
   // the shop try-on picker and the hairstyle catalogue.
   static const String dailyDressUp = '/daily-dress-up';
-  static const String myFashionStyle = '/my-fashion-style';
-  static const String hairStyle = '/hair-style';
 
   static Map<String, WidgetBuilder> routes = {
     root: (context) => const AuthGate(),
@@ -307,8 +362,6 @@ class AppRoutes {
     makeover: (context) => const MakeoverPage(),
     makeoverWithItems: (context) => const CreateMakeoverPage(),
     dailyDressUp: (context) => const DailyDressUpPage(),
-    myFashionStyle: (context) => const MyFashionStylePage(),
-    hairStyle: (context) => const HairStylePage(),
   };
 }
 

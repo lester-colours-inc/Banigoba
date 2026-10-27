@@ -4,11 +4,15 @@
 // message. There is no rating, no score and no slider: the sender picks an
 // expression and sends it. Where an expression carries cultural meaning, that
 // meaning and its provenance are shown before it can be sent.
+//
+// Affirming and commenting are one action: the optional comment travels with
+// the affirmation, and the quick-reply words fill it in with one tap.
 import 'package:flutter/material.dart';
 
 import '../../data/affirmations/affirmation_library.dart';
 import '../../data/models/affirmation.dart';
 import '../../data/services/affirmation_service.dart';
+import 'quick_reply_bar.dart';
 
 /// Opens the composer. Returns true when an affirmation was sent.
 Future<bool> showAffirmationComposer(
@@ -170,14 +174,23 @@ class _AffirmationComposerSheetState extends State<AffirmationComposerSheet> {
               _buildContextDisclosure(_selected),
 
             const SizedBox(height: 8),
+            QuickReplyBar(
+              replies: [
+                for (final reply in kQuickReplies)
+                  if (reply.runes.length > 2) reply,
+              ],
+              onSelected: (reply) => _messageController.text = reply,
+            ),
+            const SizedBox(height: 12),
             TextField(
+              key: const ValueKey('affirmation_comment_field'),
               controller: _messageController,
               maxLines: 3,
               minLines: 2,
               maxLength: 280,
               textCapitalization: TextCapitalization.sentences,
               decoration: const InputDecoration(
-                labelText: 'Add a personal message (optional)',
+                labelText: 'Add a comment (optional)',
                 border: OutlineInputBorder(),
                 alignLabelWithHint: true,
               ),

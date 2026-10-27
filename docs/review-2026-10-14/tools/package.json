@@ -1,0 +1,7 @@
+{
+  "name": "banigoba-review-checklist",
+  "private": true,
+  "description": "Builds the October 2026 review checklist (README + Word) from checklist.json",
+  "scripts": { "build": "node build.js" },
+  "dependencies": { "docx": "^9.5.1" }
+}

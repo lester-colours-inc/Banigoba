@@ -9,7 +9,9 @@
 import 'package:flutter/material.dart';
 
 import '../../data/models/affirmation.dart';
+import '../../data/models/post.dart';
 import '../../data/services/affirmation_service.dart';
+import '../../data/services/post_service.dart';
 import 'affirmation_composer_sheet.dart';
 
 class AffirmationRow extends StatelessWidget {
@@ -23,7 +25,12 @@ class AffirmationRow extends StatelessWidget {
     this.service,
     this.maxFacets = 4,
     this.onOpenReceived,
+    this.showAction = true,
   });
+
+  /// Shows the Affirm / Received button. Off where the card already has an
+  /// affirm action, so the same thing is never offered twice.
+  final bool showAction;
 
   final AffirmationTargetType targetType;
   final String targetId;
@@ -56,26 +63,33 @@ class AffirmationRow extends StatelessWidget {
 
         return Row(
           children: [
+            // The owner sees nothing until affirmations arrive, then which
+            // ones and, privately, how many (H-4). Others never see a number.
             Expanded(
               child: facets.isEmpty
-                  ? Text(
-                      _isOwner
-                          ? 'No affirmations yet.'
-                          : 'Be the first to affirm this look.',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    )
+                  ? (_isOwner
+                        ? const SizedBox.shrink()
+                        : Text(
+                            'Be the first to affirm this look.',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ))
                   : _buildFacets(context, facets),
             ),
-            const SizedBox(width: 8),
-            if (_isOwner)
+            if (_isOwner && facets.isNotEmpty)
+              _OwnerTotal(total: privateReceivedTotal(facets)),
+            if (!showAction)
+              const SizedBox.shrink()
+            else if (_isOwner) ...[
+              const SizedBox(width: 8),
               TextButton.icon(
                 onPressed: facets.isEmpty ? null : onOpenReceived,
                 icon: const Icon(Icons.favorite_outline, size: 18),
                 label: const Text('Received'),
-              )
-            else
+              ),
+            ] else ...[
+              const SizedBox(width: 8),
               TextButton.icon(
                 onPressed: currentUserId.isEmpty
                     ? null
@@ -83,6 +97,7 @@ class AffirmationRow extends StatelessWidget {
                 icon: const Icon(Icons.add_reaction_outlined, size: 18),
                 label: const Text('Affirm'),
               ),
+            ],
           ],
         );
       },
@@ -136,6 +151,42 @@ class AffirmationRow extends StatelessWidget {
   }
 }
 
+/// The number of affirmations the owner's look received; only ever built for
+/// the owner.
+class _OwnerTotal extends StatelessWidget {
+  const _OwnerTotal({required this.total});
+
+  final int total;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Semantics(
+      label: '$total affirmations received. Only you can see this number.',
+      excludeSemantics: true,
+      child: Tooltip(
+        message: 'Only you can see this number',
+        child: Container(
+          key: const ValueKey('affirmation_owner_total'),
+          margin: const EdgeInsets.only(left: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+          decoration: BoxDecoration(
+            color: colors.primaryContainer,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            '$total',
+            style: TextStyle(
+              color: colors.onPrimaryContainer,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _FacetChip extends StatelessWidget {
   const _FacetChip({required this.emoji, required this.label});
 
@@ -171,10 +222,12 @@ class _FacetChip extends StatelessWidget {
   }
 }
 
-/// The owner's private view of affirmations they received on one look.
+/// The owner's private view of affirmations they received on one look, with
+/// the comments that came with them.
 ///
 /// Per-expression counts are permitted here: this surface is visible only to
-/// the recipient and is not a public ranking.
+/// the recipient and is not a public ranking. On a post, comments sent before
+/// affirming and commenting became one action are listed after them.
 Future<void> showReceivedAffirmations(
   BuildContext context, {
   required AffirmationTargetType targetType,
@@ -205,7 +258,7 @@ Future<void> showReceivedAffirmations(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'Affirmations you received',
+                  'Affirmations & comments',
                   style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -220,34 +273,37 @@ Future<void> showReceivedAffirmations(
                 const SizedBox(height: 16),
                 if (snapshot.connectionState == ConnectionState.waiting)
                   const Center(child: CircularProgressIndicator())
-                else if (received.isEmpty)
-                  Text('Nothing yet.', style: theme.textTheme.bodyMedium)
                 else
                   Flexible(
-                    child: ListView.separated(
+                    child: ListView(
                       shrinkWrap: true,
-                      itemCount: received.length,
-                      separatorBuilder: (_, _) => const Divider(height: 1),
-                      itemBuilder: (context, index) {
-                        final affirmation = received[index];
-                        return ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          leading: Text(
-                            affirmation.emoji,
-                            style: const TextStyle(fontSize: 22),
+                      children: [
+                        if (received.isEmpty)
+                          Text(
+                            'No affirmations yet.',
+                            style: theme.textTheme.bodyMedium,
                           ),
-                          title: Text(affirmation.shortLabel),
-                          subtitle: Text(
-                            [
-                              affirmation.senderName,
-                              if (affirmation.personalMessage.isNotEmpty)
-                                affirmation.personalMessage,
-                              if (affirmation.meaning.isNotEmpty)
-                                affirmation.meaning,
-                            ].join(' · '),
+                        for (final affirmation in received)
+                          ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: Text(
+                              affirmation.emoji,
+                              style: const TextStyle(fontSize: 22),
+                            ),
+                            title: Text(affirmation.shortLabel),
+                            subtitle: Text(
+                              [
+                                affirmation.senderName,
+                                if (affirmation.personalMessage.isNotEmpty)
+                                  affirmation.personalMessage,
+                                if (affirmation.meaning.isNotEmpty)
+                                  affirmation.meaning,
+                              ].join(' · '),
+                            ),
                           ),
-                        );
-                      },
+                        if (targetType == AffirmationTargetType.post)
+                          _EarlierComments(postId: targetId),
+                      ],
                     ),
                   ),
               ],
@@ -257,4 +313,37 @@ Future<void> showReceivedAffirmations(
       );
     },
   );
+}
+
+/// Comments a post received before they were folded into affirmations.
+class _EarlierComments extends StatelessWidget {
+  const _EarlierComments({required this.postId});
+
+  final String postId;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return StreamBuilder<List<PostComment>>(
+      stream: PostService().getComments(postId),
+      builder: (context, snapshot) {
+        final comments = snapshot.data ?? const <PostComment>[];
+        if (comments.isEmpty) return const SizedBox.shrink();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 16),
+            Text('Earlier comments', style: theme.textTheme.titleSmall),
+            for (final comment in comments)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.chat_bubble_outline, size: 20),
+                title: Text(comment.text),
+                subtitle: Text(comment.username),
+              ),
+          ],
+        );
+      },
+    );
+  }
 }

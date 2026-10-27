@@ -176,6 +176,20 @@ class OutfitService {
     await batch.commit();
   }
 
+  /// Keeps the turned-around angles with a saved look ("Turn me around").
+  Future<void> saveTurnViews({
+    required String userId,
+    required String outfitId,
+    required Map<String, String> views,
+  }) {
+    return _db
+        .collection('users')
+        .doc(userId)
+        .collection('outfits')
+        .doc(outfitId)
+        .update({'turnViews': views});
+  }
+
   Future<String> saveOutfitForDate({
     required String userId,
     required String avatarImageUrl,
@@ -185,6 +199,7 @@ class OutfitService {
     required DateTime date,
     String? eventId,
     String? eventName,
+    Map<String, String> turnViews = const {},
   }) async {
     final outfitRef = _db
         .collection('users')
@@ -217,6 +232,7 @@ class OutfitService {
       'plannedDate': Timestamp.fromDate(normalizedDate),
       'eventId': ?eventId,
       'eventName': ?eventName,
+      if (turnViews.isNotEmpty) 'turnViews': turnViews,
       'createdAt': FieldValue.serverTimestamp(),
     };
 
@@ -291,6 +307,7 @@ class OutfitService {
     required List<Map<String, dynamic>> products,
     required String previewType,
     String caption = 'My completed try-on look',
+    Map<String, String> turnViews = const {},
   }) async {
     final outfitRef = _db
         .collection('users')
@@ -316,6 +333,7 @@ class OutfitService {
           ? 'pending_replacement'
           : 'generated',
       'dailyDressUpPostId': postRef.id,
+      if (turnViews.isNotEmpty) 'turnViews': turnViews,
       'createdAt': FieldValue.serverTimestamp(),
     });
     batch.set(postRef, {
@@ -340,6 +358,105 @@ class OutfitService {
 
     await batch.commit();
     return outfitRef.id;
+  }
+
+  /// Saves a feed look into the user's Smart Wardrobe (their saved outfits).
+  /// Keyed by the post, so saving the same look twice keeps one copy.
+  Future<void> saveLookToWardrobe({
+    required String userId,
+    required String postId,
+    required String imageUrl,
+    String name = 'Saved Look',
+    List<Map<String, dynamic>> products = const [],
+  }) async {
+    await _db
+        .collection('users')
+        .doc(userId)
+        .collection('outfits')
+        .doc('post_$postId')
+        .set({
+          'userId': userId,
+          'name': name,
+          'avatarImageUrl': imageUrl,
+          'imageUrl': imageUrl,
+          'products': products.map(_productSnapshot).toList(),
+          'previewType': 'saved_post',
+          'apiIntegrationStatus': 'generated',
+          'sourcePostId': postId,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+  }
+
+  /// Ids of the feed posts this user has saved to their Smart Wardrobe.
+  Stream<Set<String>> watchSavedPostIds(String userId) {
+    return _db
+        .collection('users')
+        .doc(userId)
+        .collection('outfits')
+        .where('previewType', isEqualTo: 'saved_post')
+        .snapshots()
+        .map(
+          (snapshot) => {
+            for (final doc in snapshot.docs)
+              if (doc.data()['sourcePostId'] case final String id) id,
+          },
+        );
+  }
+
+  /// Files a saved feed look under [category] in Smart Wardrobe › Saved
+  /// Looks. An empty category clears it.
+  Future<void> setSavedLookCategory({
+    required String userId,
+    required String postId,
+    required String category,
+  }) => setOutfitCategory(
+    userId: userId,
+    outfitId: 'post_$postId',
+    category: category,
+  );
+
+  /// Moves any saved look (from a feed post or a makeover) to [category]; an
+  /// empty one clears it.
+  Future<void> setOutfitCategory({
+    required String userId,
+    required String outfitId,
+    required String category,
+  }) {
+    final name = category.trim();
+    return _db
+        .collection('users')
+        .doc(userId)
+        .collection('outfits')
+        .doc(outfitId)
+        .update({'category': name.isEmpty ? FieldValue.delete() : name});
+  }
+
+  /// The categories the user has already filed saved looks under, A to Z.
+  Future<List<String>> savedLookCategories(String userId) async {
+    final snapshot = await _db
+        .collection('users')
+        .doc(userId)
+        .collection('outfits')
+        .get();
+    final names = {
+      for (final doc in snapshot.docs)
+        if ((doc.data()['category'] ?? '').toString().trim()
+            case final String name when name.isNotEmpty)
+          name,
+    }.toList()..sort();
+    return List.unmodifiable(names);
+  }
+
+  Future<void> removeLookFromWardrobe({
+    required String userId,
+    required String postId,
+  }) {
+    return _db
+        .collection('users')
+        .doc(userId)
+        .collection('outfits')
+        .doc('post_$postId')
+        .delete();
   }
 
   Future<void> shareOutfitAsPost({

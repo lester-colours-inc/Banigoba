@@ -253,6 +253,25 @@ class AffirmationService {
         );
   }
 
+  /// Ids of the posts the signed-in user has affirmed, for "Looks I
+  /// affirmed" in the look-you-love picker (M-10).
+  Stream<Set<String>> watchAffirmedPostIds() {
+    final senderId = _currentUserId;
+    if (senderId.isEmpty) return Stream.value(const <String>{});
+    return _affirmations
+        .where('senderId', isEqualTo: senderId)
+        .where('targetType', isEqualTo: AffirmationTargetType.post.id)
+        .snapshots()
+        .map(
+          (snapshot) => {
+            for (final doc in snapshot.docs)
+              if ((doc.data()['targetId'] ?? '').toString() case final id
+                  when id.isNotEmpty)
+                id,
+          },
+        );
+  }
+
   /// Private summary for the recipient's own eyes.
   ///
   /// Permitted by the spec as a private, purpose-specific signal. Must never
@@ -339,6 +358,12 @@ class AffirmationFacet {
   final AffirmationCategory category;
   final int senderCount;
 }
+
+/// How many affirmations a look received in all. A private signal: show it
+/// only to the look's owner, never on public surfaces (BNG SRS 001, AFF-003;
+/// October 2026 review, H-4).
+int privateReceivedTotal(List<AffirmationFacet> facets) =>
+    facets.fold(0, (total, facet) => total + facet.senderCount);
 
 /// Collapses affirmations into distinct expressions, preserving the order in
 /// which each expression was first received.

@@ -8,6 +8,9 @@ import 'package:image_picker/image_picker.dart';
 import '../../../data/services/storage_service.dart';
 import '../../../data/services/style_preferences_service.dart';
 import '../onboarding/style_preferences_screen.dart';
+import '../../widgets/profile_photo_changer.dart';
+import '../../../data/services/username_service.dart';
+import '../onboarding/username_screen.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -33,6 +36,7 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _saving = false;
   bool _sellerMode = false;
   String _profileImageUrl = '';
+  String _username = '';
 
   @override
   void initState() {
@@ -112,6 +116,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 user.photoURL ??
                 '')
             .toString();
+    _username = (data['username'] ?? '').toString();
     _streetController.text = (address['street'] ?? '').toString();
     _cityController.text = (address['city'] ?? '').toString();
     _stateController.text = (address['state'] ?? '').toString();
@@ -150,31 +155,36 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  Future<void> _pickProfilePicture() async {
+  Future<void> _changeUsername() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
-    final image = await _picker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 85,
-      maxWidth: 1000,
+    final usernames = UsernameService();
+    final name = _nameController.text;
+    final updated = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => UsernameScreen(
+          current: _username,
+          isFirstRun: false,
+          suggest: () => usernames.firstAvailableSuggestion(name),
+          isAvailable: usernames.isAvailable,
+          onClaim: (username) =>
+              usernames.claim(userId: user.uid, input: username),
+        ),
+      ),
     );
-    if (image == null) return;
+    if (updated != null && mounted) setState(() => _username = updated);
+  }
 
+  Future<void> _pickProfilePicture() async {
     setState(() => _saving = true);
     try {
-      final url = await _storage.uploadProfileImageBytes(
-        await image.readAsBytes(),
-        user.uid,
+      final url = await changeProfilePhoto(
+        context,
+        picker: _picker,
+        storage: _storage,
       );
-      await Future.wait([
-        user.updatePhotoURL(url),
-        FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-          'profileImageURL': url,
-          'profileImageUrl': url,
-          'profileImageUpdatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true)),
-      ]);
-      if (mounted) setState(() => _profileImageUrl = url);
+      if (url != null && mounted) setState(() => _profileImageUrl = url);
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -308,11 +318,28 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                   ),
                   const SizedBox(height: 12),
+                  // The unique @handle (U-4); changed on its own screen so
+                  // availability can be checked as you type.
+                  Card(
+                    margin: EdgeInsets.zero,
+                    child: ListTile(
+                      key: const ValueKey('settings_username'),
+                      leading: const Icon(Icons.alternate_email),
+                      title: Text(
+                        _username.isEmpty ? 'Choose a username' : '@$_username',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: const Text('How people find and mention you'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: _saving ? null : _changeUsername,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   TextFormField(
                     initialValue: user?.email ?? '',
                     readOnly: true,
                     decoration: const InputDecoration(
-                      labelText: 'Email',
+                      labelText: 'Email (private)',
                       border: OutlineInputBorder(),
                     ),
                   ),

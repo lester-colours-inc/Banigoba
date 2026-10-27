@@ -1,5 +1,10 @@
-// Home: an X-style feed of looks — My Timeline, Friends and Community — with a
-// floating Makeover button that starts a new look, like composing a tweet.
+// Home: an X-style feed of looks — My Fashion Makeover, My Daily Dress Up and
+// Community — with a floating Makeover button that starts a new look, like
+// composing a tweet.
+//
+// Under each look sits one evenly spaced row: affirm (affirming and
+// commenting are one action), repost, quote, save to Smart Wardrobe, more,
+// forward.
 //
 // Kept deliberately simple (September 2026 review): no weather or calendar
 // banner here. Style by Occasion, Plan Ahead and Shopping Intelligence live on
@@ -11,6 +16,8 @@
 // UNCLEAR: this class is still called DailyDressUpPage although it is Home.
 // Daily Dress Up is meant to be a separate feature whose role after the
 // review is undecided; rename once that is settled.
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
@@ -18,23 +25,35 @@ import 'package:flutter/material.dart';
 import '../../../data/models/affirmation.dart';
 import '../../../data/models/post.dart';
 import '../../../data/services/notification_service.dart';
+import '../../../data/services/outfit_service.dart';
 import '../../../data/services/post_service.dart';
+import '../../../data/services/visible_posts.dart';
 import '../../../data/services/friend_service.dart';
 import '../../../data/services/product_service.dart';
 import '../../../core/app_routes.dart';
 import '../../../core/theme_provider.dart';
+import '../../widgets/affirmation_composer_sheet.dart';
 import '../../widgets/affirmation_row.dart';
 import '../../widgets/app_drawer.dart';
 import '../../widgets/dress_up_post_card.dart';
 import '../../widgets/find_pieces_sheet.dart';
+import '../../widgets/forward_look_sheet.dart';
+import '../../widgets/look_viewer_page.dart';
 import '../../widgets/home_feed_tabs.dart';
-import '../../widgets/post_comments_sheet.dart';
+import '../../widgets/makeover_fab.dart';
+import '../../widgets/saved_to_wardrobe_sheet.dart';
+import '../wardrobe/wardrobe_page.dart';
+import '../events/community_events_strip.dart';
 import '../../widgets/cart_badge_button.dart';
 import '../../widgets/safe_product_image.dart';
+import '../../widgets/repost_actions.dart';
 import '../../widgets/share_audience_sheet.dart';
 import '../../widgets/try_on_product_picker.dart';
 import '../makeover/makeover_page.dart';
+import '../makeover/makeover_start_sheet.dart';
+import 'widgets/daily_dress_up_feed.dart';
 import '../../widgets/app_network_image.dart';
+import '../../widgets/menu_or_back_button.dart';
 
 /// Home feed of the user's own looks, friends' looks and the community.
 class DailyDressUpPage extends StatefulWidget {
@@ -53,20 +72,52 @@ class DailyDressUpPage extends StatefulWidget {
   State<DailyDressUpPage> createState() => _DailyDressUpPageState();
 }
 
-class _DailyDressUpPageState extends State<DailyDressUpPage> {
-  HomeFeed _selectedFeed = HomeFeed.myTimeline;
+class _DailyDressUpPageState extends State<DailyDressUpPage>
+    with SingleTickerProviderStateMixin {
+  // The shown feed, shared by the tabs and the swipeable feed pages.
+  late final TabController _feeds;
   static Color primaryColor = Color(0xFF0D0140);
 
   @override
   void initState() {
     super.initState();
-    _selectedFeed = _takeFeedRequest() ?? _selectedFeed;
+    _feeds = TabController(
+      length: HomeFeed.values.length,
+      vsync: this,
+      initialIndex: (_takeFeedRequest() ?? HomeFeed.myMakeover).index,
+    );
     DailyDressUpPage._feedRequests.addListener(_handleFeedRequest);
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId != null) {
+      _visiblePostsSub =
+          watchVisiblePosts(
+            viewerId: userId,
+            following: _friendService.getFollowingIds(),
+            friends: _friendService.getMutualFriendsIds(),
+          ).listen(
+            (posts) {
+              if (mounted) setState(() => _visiblePosts = posts);
+            },
+            onError: (Object error) {
+              if (mounted) setState(() => _postsError = error);
+            },
+          );
+      _savedPostsSub = _outfitService.watchSavedPostIds(userId).listen(
+        (ids) {
+          if (mounted) setState(() => _savedPostIds = ids);
+        },
+        onError: (Object error) =>
+            debugPrint('Unable to load saved looks: $error'),
+      );
+    }
   }
 
   @override
   void dispose() {
+    unawaited(_savedPostsSub?.cancel());
+    unawaited(_visiblePostsSub?.cancel());
     DailyDressUpPage._feedRequests.removeListener(_handleFeedRequest);
+    _feeds.dispose();
     super.dispose();
   }
 
@@ -80,15 +131,26 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
   void _handleFeedRequest() {
     if (!mounted) return;
     if (_takeFeedRequest() case final feed?) {
-      setState(() => _selectedFeed = feed);
+      _feeds.animateTo(feed.index);
     }
   }
 
   final PostService _postService = PostService();
+  final OutfitService _outfitService = OutfitService();
   final FriendService _friendService = FriendService();
   final ProductService _productService = ProductService();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final Map<String, Future<_PostAuthor>> _authorProfiles = {};
+
+  // Every post this user may see, for the My Fashion Makeover and Community
+  // feeds (one set of listeners shared by both tabs).
+  StreamSubscription<List<Post>>? _visiblePostsSub;
+  List<Post>? _visiblePosts;
+  Object? _postsError;
+
+  // Posts saved to the Smart Wardrobe, so the save icon can show as on.
+  StreamSubscription<Set<String>>? _savedPostsSub;
+  Set<String> _savedPostIds = const {};
 
   // Kept temporarily for compatibility while all active entry points use the
   // shared Build Your Look picker.
@@ -878,10 +940,7 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
       appBar: AppBar(
         backgroundColor: colors.surface,
         elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.menu, color: colors.onSurface),
-          onPressed: () => Scaffold.of(context).openDrawer(),
-        ),
+        leading: MenuOrBackButton(color: colors.onSurface),
         title: Row(
           children: [
             // The app name, written like the logo wordmark; the bottom bar
@@ -897,6 +956,12 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
                 ),
               ),
             ),
+            IconButton(
+              key: const ValueKey('home_find_people'),
+              tooltip: 'Find people',
+              icon: Icon(Icons.person_search_outlined, color: colors.onSurface),
+              onPressed: () => Navigator.pushNamed(context, AppRoutes.search),
+            ),
             _buildAppBarAction(
               Icons.shopping_bag_outlined,
               () => Navigator.pushNamed(context, AppRoutes.cart),
@@ -904,95 +969,85 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
           ],
         ),
         actions: [SizedBox(width: 20)],
-        bottom: HomeFeedTabs(
-          selected: _selectedFeed,
-          onSelected: (feed) => setState(() => _selectedFeed = feed),
-        ),
+        bottom: HomeFeedTabs(controller: _feeds),
       ),
-      body: SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(20, 16, 20, 0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildPostsFeed(),
-            // Clears the floating Makeover button so it never covers the
-            // last post's actions.
-            SizedBox(height: 96),
-          ],
-        ),
+      body: TabBarView(
+        controller: _feeds,
+        children: [
+          for (final feed in HomeFeed.values)
+            _KeepAlive(
+              child: SingleChildScrollView(
+                key: PageStorageKey(feed),
+                padding: EdgeInsets.fromLTRB(20, 16, 20, 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (feed == HomeFeed.community)
+                      const CommunityEventsStrip(),
+                    _buildPostsFeed(feed),
+                    // Clears the floating Makeover button so it never covers
+                    // the last post's actions.
+                    SizedBox(height: 96),
+                  ],
+                ),
+              ),
+            ),
+        ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        key: const ValueKey('home_makeover_button'),
-        backgroundColor: primaryColor,
-        foregroundColor: Colors.white,
-        icon: Icon(Icons.auto_awesome),
-        label: Text('Makeover', style: TextStyle(fontWeight: FontWeight.bold)),
-        onPressed: () => Navigator.pushNamed(context, AppRoutes.makeover),
+      floatingActionButton: MakeoverFab(
+        color: primaryColor,
+        onPressed: () => startMakeover(context),
       ),
     );
   }
 
-  Widget _buildPostsFeed() {
-    return StreamBuilder<List<Post>>(
-      stream: _postService.getPosts(),
-      builder: (context, postSnapshot) {
-        if (postSnapshot.hasError) {
-          debugPrint('Unable to load posts: ${postSnapshot.error}');
-          return _buildFeedMessage(
-            icon: Icons.cloud_off_outlined,
-            message: 'Posts could not be loaded.',
-          );
-        }
-
-        if (!postSnapshot.hasData) {
-          return Center(child: CircularProgressIndicator());
-        }
-
-        final posts = postSnapshot.data!;
-        if (_selectedFeed == HomeFeed.friends) {
-          return StreamBuilder<List<String>>(
-            stream: _friendService.getMutualFriendsIds(),
-            builder: (context, friendSnapshot) {
-              if (friendSnapshot.hasError) {
-                return _buildFeedMessage(
-                  icon: Icons.people_outline,
-                  message: 'Friend posts could not be loaded.',
-                );
-              }
-              if (!friendSnapshot.hasData) {
-                return Center(child: CircularProgressIndicator());
-              }
-
-              final friendIds = friendSnapshot.data!.toSet();
-              return _buildPostList(
-                posts
-                    .where(
-                      (post) =>
-                          post.isShared && friendIds.contains(post.authorId),
-                    )
-                    .toList(),
-                emptyMessage: 'No posts from your friends yet.',
-              );
-            },
-          );
-        }
-
-        final currentUserId = FirebaseAuth.instance.currentUser?.uid;
-        final filteredPosts = _selectedFeed == HomeFeed.myTimeline
-            ? posts.where((post) => post.authorId == currentUserId).toList()
-            : posts.where((post) => post.isPublic).toList();
-
-        return _buildPostList(
-          filteredPosts,
-          emptyMessage: _selectedFeed == HomeFeed.myTimeline
-              ? 'Your looks will appear here. Tap Makeover to create your first one.'
-              : 'No community posts yet.',
-        );
-      },
+  Widget _buildPostsFeed(HomeFeed feed) {
+    if (feed == HomeFeed.dailyDressUp) {
+      return DailyDressUpFeed(
+        emptyBuilder: (icon, message) =>
+            _buildFeedMessage(icon: icon, message: message),
+      );
+    }
+    final error = _postsError;
+    if (error != null) {
+      debugPrint('Unable to load posts: $error');
+      return _buildFeedMessage(
+        icon: Icons.cloud_off_outlined,
+        message: 'Posts could not be loaded.',
+      );
+    }
+    final visiblePosts = _visiblePosts;
+    if (visiblePosts == null) {
+      return Center(child: CircularProgressIndicator());
+    }
+    // Only posts this user may see arrive here (the rules enforce it).
+    // Daily dress-ups live in My Daily Dress Up, not the makeover feeds.
+    // My Fashion Makeover shows yours and everyone else's (H-5); Community
+    // shows only other people's.
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final isMyMakeover = feed == HomeFeed.myMakeover;
+    final posts = visiblePosts
+        .where(
+          (post) =>
+              !post.isDressUp &&
+              (isMyMakeover || post.authorId != currentUserId),
+        )
+        .toList();
+    return _buildPostList(
+      posts,
+      feed: feed,
+      emptyMessage: isMyMakeover
+          ? 'Your looks and your friends\' looks will appear here. '
+                'Tap "$kMakeoverFabLabel" to make your first one.'
+          : 'No community looks yet. Follow people to see theirs here.',
     );
   }
 
-  Widget _buildPostList(List<Post> posts, {required String emptyMessage}) {
+  Widget _buildPostList(
+    List<Post> posts, {
+    required HomeFeed feed,
+    required String emptyMessage,
+  }) {
     if (posts.isEmpty) {
       return _buildFeedMessage(
         icon: Icons.checkroom_outlined,
@@ -1003,21 +1058,14 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
     return Column(
       children: [
         for (var index = 0; index < posts.length; index++) ...[
-          _buildPostItem(posts[index], index),
+          _buildPostItem(posts[index], index, feed),
           if (index != posts.length - 1) SizedBox(height: 20),
         ],
       ],
     );
   }
 
-  Widget _buildPostItem(Post post, int index) {
-    final cardColors = [
-      Color(0xFFE3A6E6),
-      Color(0xFF7F7FC0),
-      Color(0xFFF3D98B),
-      Color(0xFFA9DDC4),
-    ];
-
+  Widget _buildPostItem(Post post, int index, HomeFeed feed) {
     return FutureBuilder<_PostAuthor>(
       future: _authorProfiles.putIfAbsent(
         post.authorId,
@@ -1028,7 +1076,7 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
             authorSnapshot.data ?? _PostAuthor.fallback(post.authorId);
         final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
         final isOwner = currentUserId == post.authorId;
-        final isMineTab = _selectedFeed == HomeFeed.myTimeline;
+        final isMineTab = feed == HomeFeed.myMakeover;
         final imageUrl = post.imageURL.isNotEmpty
             ? post.imageURL
             : author.fullBodyImageUrl;
@@ -1038,108 +1086,324 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
         final styleLabel = author.stylePreference.isEmpty
             ? 'Styled for your day'
             : '${_titleCase(author.stylePreference)} style';
-        final canComment = post.isShared;
-        final canQuickReply = post.isShared && !isOwner && !isMineTab;
+        final repostedFrom = post.isRepost
+            ? _authorProfiles.putIfAbsent(
+                post.repostOfAuthorId,
+                () => _loadPostAuthor(post.repostOfAuthorId),
+              )
+            : null;
 
-        return DressUpPostCard(
-          key: ValueKey('dress_up_post_${post.id}'),
-          isMineLayout: isMineTab,
-          title: author.displayName,
-          subtitle: isMineTab ? caption : '',
-          detail: isMineTab ? styleLabel : '',
-          captionLead: isOwner ? 'Your look' : "${author.displayName}'s",
-          caption: isMineTab ? '' : caption,
-          avatarUrl: author.profileImageUrl.isNotEmpty
-              ? author.profileImageUrl
-              : author.fullBodyImageUrl,
-          timeLabel: _formatPostTime(post.createdAt),
-          imageBackground: cardColors[index % cardColors.length],
-          visual: _buildPostImage(imageUrl),
-          actions: [
-            if (isOwner)
-              DressUpCardAction(
-                icon: Icons.edit_outlined,
-                label: 'Edit',
-                onTap: () => _editPost(post, imageUrl),
-              ),
-            DressUpCardAction(
-              icon: Icons.shortcut_outlined,
-              label: 'Try On',
-              onTap: () => _tryOnPost(post),
-            ),
-            if (canComment)
-              DressUpCardAction(
-                icon: Icons.chat_bubble_outline,
-                label: post.commentCount > 0
-                    ? '${post.commentCount}'
-                    : 'Comment',
-                onTap: () => showPostCommentsSheet(context, post),
-              ),
-            if (isOwner && !post.isShared)
-              DressUpCardAction(
-                icon: Icons.share_outlined,
-                label: 'Share',
-                onTap: () => _sharePost(post),
-              ),
-          ],
-          menuItems: [
-            DressUpMenuItem(
-              icon: Icons.shopping_bag_outlined,
-              label: 'Place Order',
-              onSelected: () => showFindPiecesSheet(context),
-            ),
-            if (!isOwner && canComment)
-              DressUpMenuItem(
-                icon: Icons.chat_bubble_outline,
-                label: 'Comment',
-                onSelected: () => showPostCommentsSheet(context, post),
-              ),
-            if (isOwner && post.isShared)
-              DressUpMenuItem(
-                icon: Icons.lock_outline,
-                label: 'Make private',
-                onSelected: () => _privatePost(post),
-              ),
-            if (isOwner && !post.isShared)
-              DressUpMenuItem(
-                icon: Icons.share_outlined,
-                label: 'Share',
-                onSelected: () => _sharePost(post),
-              ),
-            if (isOwner)
-              DressUpMenuItem(
-                icon: Icons.delete_outline,
-                label: 'Delete',
-                isDestructive: true,
-                onSelected: () => _deletePost(post),
-              ),
-          ],
-          footer: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Affirmations stand in for the design's like counter: public
-              // reaction totals are prohibited (BNG SRS 001, AFF-003).
-              AffirmationRow(
-                targetType: AffirmationTargetType.post,
-                targetId: post.id,
-                targetOwnerId: post.authorId,
-                currentUserId: currentUserId,
-                ownerName: isOwner ? 'your look' : author.displayName,
-                onOpenReceived: () => showReceivedAffirmations(
-                  context,
-                  targetType: AffirmationTargetType.post,
-                  targetId: post.id,
-                ),
-              ),
-              if (canQuickReply) ...[
-                SizedBox(height: 6),
-                PostQuickReplies(post: post),
-              ],
-            ],
-          ),
+        if (repostedFrom == null) {
+          return _buildPostCard(
+            post,
+            index: index,
+            author: author,
+            isOwner: isOwner,
+            isMineTab: isMineTab,
+            imageUrl: imageUrl,
+            caption: caption,
+            styleLabel: styleLabel,
+            currentUserId: currentUserId,
+          );
+        }
+        return FutureBuilder<_PostAuthor>(
+          future: repostedFrom,
+          builder: (context, sourceSnapshot) {
+            final source =
+                sourceSnapshot.data ??
+                _PostAuthor.fallback(post.repostOfAuthorId);
+            final sourceName = post.repostOfAuthorId == currentUserId
+                ? 'you'
+                : source.displayName;
+            return _buildPostCard(
+              post,
+              index: index,
+              author: author,
+              isOwner: isOwner,
+              isMineTab: isMineTab,
+              imageUrl: imageUrl,
+              caption: caption,
+              styleLabel: styleLabel,
+              currentUserId: currentUserId,
+              repostLabel: post.isQuote
+                  ? 'Quoting $sourceName'
+                  : 'Reposted from $sourceName',
+            );
+          },
         );
       },
     );
+  }
+
+  Widget _buildPostCard(
+    Post post, {
+    required int index,
+    required _PostAuthor author,
+    required bool isOwner,
+    required bool isMineTab,
+    required String imageUrl,
+    required String caption,
+    required String styleLabel,
+    required String currentUserId,
+    String repostLabel = '',
+  }) {
+    const cardColors = [
+      Color(0xFFE3A6E6),
+      Color(0xFF7F7FC0),
+      Color(0xFFF3D98B),
+      Color(0xFFA9DDC4),
+    ];
+    return DressUpPostCard(
+      key: ValueKey('dress_up_post_${post.id}'),
+      isMineLayout: isMineTab,
+      title: author.displayName,
+      subtitle: isMineTab && !post.isQuote ? caption : '',
+      detail: isMineTab ? styleLabel : '',
+      captionLead: isOwner ? 'Your look' : "${author.displayName}'s",
+      caption: isMineTab || post.isQuote ? '' : caption,
+      quote: post.quoteText,
+      repostLabel: repostLabel,
+      avatarUrl: author.profileImageUrl.isNotEmpty
+          ? author.profileImageUrl
+          : author.fullBodyImageUrl,
+      timeLabel: _formatPostTime(post.createdAt),
+      imageBackground: cardColors[index % cardColors.length],
+      visual: _buildPostImage(imageUrl),
+      onImageTap: imageUrl.isEmpty
+          ? null
+          : () => openLookViewer(
+              context,
+              imageUrl: imageUrl,
+              title: author.displayName,
+              caption: caption,
+            ),
+      // One evenly spaced row: affirm (and comment) · repost · quote ·
+      // save to Smart Wardrobe · ⋮ · send to. Reposting a private look
+      // asks to share it first.
+      actions: [
+        DressUpCardAction(
+          glyph: 'a',
+          label: isOwner
+              ? 'Affirmations & comments received'
+              : 'Affirm & comment',
+          onTap: () => _openAffirmations(
+            post,
+            isOwner: isOwner,
+            ownerName: author.displayName,
+          ),
+        ),
+        // Always offered; a private look is shared first (P-8).
+        DressUpCardAction(
+          icon: Icons.repeat,
+          label: 'Repost',
+          onTap: () => _passOn(post, repostLook),
+        ),
+        DressUpCardAction(
+          icon: Icons.format_quote_outlined,
+          label: 'Quote',
+          onTap: () => _passOn(post, quoteLook),
+        ),
+        DressUpCardAction(
+          icon: Icons.checkroom_outlined,
+          activeIcon: Icons.checkroom,
+          isActive: _savedPostIds.contains(post.id),
+          label: _savedPostIds.contains(post.id)
+              ? 'Saved to Smart Wardrobe. Tap to remove'
+              : 'Save to Smart Wardrobe',
+          onTap: () => _savedPostIds.contains(post.id)
+              ? _removeFromWardrobe(post)
+              : _saveToWardrobe(post, imageUrl, caption),
+        ),
+      ],
+      menuItems: [
+        if (isOwner && !post.isRepost)
+          DressUpMenuItem(
+            icon: Icons.edit_outlined,
+            label: 'Edit my look',
+            onSelected: () => _editPost(post, imageUrl),
+          ),
+        DressUpMenuItem(
+          icon: Icons.shopping_bag_outlined,
+          label: 'Place Order',
+          onSelected: () => showFindPiecesSheet(context),
+        ),
+        // Post decides who sees the look in the feeds; Send to (the share
+        // icon) passes it to someone specific (P-4).
+        if (isOwner && !post.isRepost)
+          DressUpMenuItem(
+            icon: Icons.send_outlined,
+            label: post.isShared ? 'Post: change who sees it' : 'Post',
+            onSelected: () => _sharePost(post),
+          ),
+        DressUpMenuItem(
+          icon: Icons.accessibility_new,
+          label: 'Try On',
+          onSelected: () => _tryOnPost(post),
+        ),
+        if (isOwner && post.isShared)
+          DressUpMenuItem(
+            icon: Icons.lock_outline,
+            label: 'Make private',
+            onSelected: () => _privatePost(post),
+          ),
+        if (isOwner)
+          DressUpMenuItem(
+            icon: Icons.delete_outline,
+            label: 'Delete',
+            isDestructive: true,
+            onSelected: () => _deletePost(post),
+          ),
+      ],
+      trailingAction: DressUpCardAction(
+        icon: Icons.share_outlined,
+        label: kSendToLabel,
+        onTap: () => showForwardLookSheet(
+          context,
+          imageUrl: imageUrl,
+          caption: post.caption,
+        ),
+      ),
+      // Which affirmations the look received; never how many (BNG SRS 001,
+      // AFF-003). The affirm action is in the row above, so not repeated.
+      footer: AffirmationRow(
+        targetType: AffirmationTargetType.post,
+        targetId: post.id,
+        targetOwnerId: post.authorId,
+        currentUserId: currentUserId,
+        ownerName: isOwner ? 'your look' : author.displayName,
+        showAction: false,
+      ),
+    );
+  }
+
+  Future<void> _openAffirmations(
+    Post post, {
+    required bool isOwner,
+    required String ownerName,
+  }) async {
+    if (isOwner) {
+      await showReceivedAffirmations(
+        context,
+        targetType: AffirmationTargetType.post,
+        targetId: post.id,
+      );
+      return;
+    }
+    if (FirebaseAuth.instance.currentUser == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Sign in to affirm looks.')));
+      return;
+    }
+    final sent = await showAffirmationComposer(
+      context,
+      targetType: AffirmationTargetType.post,
+      targetId: post.id,
+      targetOwnerId: post.authorId,
+      recipientName: ownerName,
+    );
+    if (!sent || !mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Affirmation sent.')));
+  }
+
+  /// Shows where the look went and files it under the chosen category.
+  Future<void> _fileSavedLook(String userId, String postId) async {
+    var categories = const <String>[];
+    try {
+      categories = await _outfitService.savedLookCategories(userId);
+    } on FirebaseException catch (error) {
+      // Still show the sheet, with the starter categories.
+      debugPrint('Unable to load look categories: ${error.message}');
+    }
+    if (!mounted) return;
+    final category = await showSavedToWardrobeSheet(
+      context,
+      existingCategories: categories,
+      onOpenWardrobe: () => Navigator.push(
+        context,
+        MaterialPageRoute<void>(
+          builder: (_) =>
+              const WardrobePage(initialTab: WardrobeTab.savedLooks),
+        ),
+      ),
+    );
+    if (category == null || category.isEmpty) return;
+    try {
+      await _outfitService.setSavedLookCategory(
+        userId: userId,
+        postId: postId,
+        category: category,
+      );
+    } on FirebaseException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Unable to add to $category: ${error.message}')),
+      );
+    }
+  }
+
+  Future<void> _removeFromWardrobe(Post post) async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) return;
+    final previous = _savedPostIds;
+    setState(
+      () => _savedPostIds = previous.where((id) => id != post.id).toSet(),
+    );
+    try {
+      await _outfitService.removeLookFromWardrobe(
+        userId: userId,
+        postId: post.id,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Removed from your Smart Wardrobe.')),
+      );
+    } on FirebaseException catch (error) {
+      if (!mounted) return;
+      setState(() => _savedPostIds = previous);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Unable to remove look: ${error.message}')),
+      );
+    }
+  }
+
+  Future<void> _saveToWardrobe(
+    Post post,
+    String imageUrl,
+    String caption,
+  ) async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Sign in to save looks.')));
+      return;
+    }
+    if (imageUrl.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('This look has no picture to save.')),
+      );
+      return;
+    }
+    try {
+      await _outfitService.saveLookToWardrobe(
+        userId: userId,
+        postId: post.id,
+        imageUrl: imageUrl,
+        name: caption,
+        products: post.products,
+      );
+      if (!mounted) return;
+      setState(() => _savedPostIds = {..._savedPostIds, post.id});
+      await _fileSavedLook(userId, post.id);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Unable to save look: $error')));
+    }
   }
 
   /// Opens the Makeover on a saved look so it can be changed and saved back.
@@ -1159,18 +1423,32 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
     );
   }
 
+  /// Reposts or quotes [post], sharing it first when it is private.
+  Future<void> _passOn(
+    Post post,
+    Future<void> Function(BuildContext, Post, {PostService? posts}) action,
+  ) async {
+    final shared = await ensureLookShared(
+      context,
+      post,
+      share: (audience) => _shareToAudience(post, audience),
+    );
+    if (!shared || !mounted) return;
+    await action(context, post, posts: _postService);
+  }
+
   Future<void> _sharePost(Post post) async {
     final audience = await showShareAudienceSheet(context);
     if (audience == null || !mounted) return;
+    await _shareToAudience(post, audience);
+  }
 
+  Future<void> _shareToAudience(Post post, PostVisibility audience) async {
     try {
-      if (audience == PostVisibility.friends) {
-        await _postService.shareWithFriends(post.id);
-      } else {
-        await _postService.makePostPublic(post.id);
-        // Only a community share goes out to everyone who follows the
-        // author; a friends-only share stays quiet and simply becomes
-        // visible in their Friends tab.
+      await _postService.sharePost(post.id, audience);
+      // Only a public share goes out to everyone who follows the author;
+      // narrower shares stay quiet and simply appear in Community.
+      if (audience == PostVisibility.public) {
         await NotificationService().notifyFollowersNewPost(
           post.caption.isEmpty ? 'Daily Outfit' : post.caption,
         );
@@ -1178,11 +1456,12 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            audience == PostVisibility.friends
-                ? 'Post shared with friends.'
-                : 'Post is now public.',
-          ),
+          content: Text(switch (audience) {
+            PostVisibility.friends => 'Post shared with friends.',
+            PostVisibility.followers => 'Post shared with your followers.',
+            PostVisibility.public => 'Post is now public.',
+            PostVisibility.private => 'Post is now private.',
+          }),
         ),
       );
     } catch (error) {
@@ -1465,4 +1744,27 @@ class _TryOnSources {
   final List<Map<String, dynamic>> wardrobe;
 
   const _TryOnSources({this.catalog = const [], this.wardrobe = const []});
+}
+
+/// Keeps a feed's scroll position and loaded posts while another feed is
+/// swiped into view.
+class _KeepAlive extends StatefulWidget {
+  const _KeepAlive({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_KeepAlive> createState() => _KeepAliveState();
+}
+
+class _KeepAliveState extends State<_KeepAlive>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
+  }
 }

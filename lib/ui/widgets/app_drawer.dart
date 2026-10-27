@@ -7,8 +7,10 @@ import '../../core/app_routes.dart';
 import '../../core/main_tab.dart';
 import '../screens/main/daily_dress_up_page.dart';
 import '../screens/main/main_screen.dart';
-import '../screens/makeover/makeover_page.dart';
-import '../screens/makeover/widgets/look_source_picker.dart';
+import '../screens/makeover/makeover_start_sheet.dart';
+import '../screens/style_lists/fashion_idols_page.dart';
+import '../screens/style_lists/fashion_twins_page.dart';
+import '../screens/style_lists/my_hair_stylists_page.dart';
 import '../screens/shop/shop_chat_page.dart';
 import 'app_network_image.dart';
 import 'coming_soon_page.dart';
@@ -20,7 +22,7 @@ enum DrawerDestination {
   makeover('Create My Fashion Makeover', Icons.auto_awesome),
   wardrobe('Smart Wardrobe & eFitting Room', Icons.checkroom_outlined),
   fashionTwins('My Fashion Twins', Icons.people_alt_outlined),
-  hairStylist('My Hair Stylist', Icons.content_cut),
+  hairStylist('My Hair Stylists', Icons.content_cut),
   fashionIdols('My Fashion Idols', Icons.star_outline),
   shops('My Shops & Boutiques', Icons.storefront_outlined),
   designers('My Fashion Designers', Icons.design_services_outlined),
@@ -69,15 +71,19 @@ class AppDrawer extends StatelessWidget {
   void _open(BuildContext context, DrawerDestination destination) {
     switch (destination) {
       case DrawerDestination.makeover:
-        _pushNamed(context, AppRoutes.makeover);
+        // Same first question as the Home button: hairstyle, or outfit.
+        final navigator = Navigator.of(context)..pop();
+        startMakeover(navigator.context);
       case DrawerDestination.wardrobe:
         _selectTab(context, MainTab.wardrobe);
+      // Setup pages for who and what inspires you (F-1 to F-3); their looks
+      // and makeovers go to the normal feeds, never a timeline of their own.
       case DrawerDestination.fashionTwins:
-        _push(context, const MakeoverPage(initialMethod: LookMethod.twin));
+        _push(context, const FashionTwinsPage());
       case DrawerDestination.hairStylist:
-        _pushNamed(context, AppRoutes.hairStyle);
+        _push(context, const MyHairStylistsPage());
       case DrawerDestination.fashionIdols:
-        _push(context, const MakeoverPage(initialMethod: LookMethod.idol));
+        _push(context, const FashionIdolsPage());
       case DrawerDestination.shops:
         _pushNamed(context, AppRoutes.shops);
       case DrawerDestination.designers:
