@@ -350,11 +350,11 @@
       "items": [
         {
           "id": "B-1",
-          "text": "Change the payoff line (tagline) to \"g for looking good\", as in the designer's animation.",
+          "text": "Change the payoff line (tagline) to \"g, for \"Looking Good!!!\"\", as in the designer's animation.",
           "area": "Branding",
           "note": "Confirm exact wording",
           "done": false,
-          "progress": "26 Oct: the designer's video shows the final line is \"g for looking good\" (not God or Good). Rebuilt in the app: white splash, wordmark, then the \"g\" fades in and \"for looking good\" types in (about 3.2 s, instead of the video's 7.8 s); native launch screens regenerated to match; reduced-motion phones see the finished line. Waiting on: the new sound file from you (the old sound still plays), and a check on a real phone (the phone was not reachable, so I only checked rendered frames). Dark-mode phones also get the white splash.",
+          "progress": "27 Oct: updated to the designer's final video. The line is now exactly for, \"Looking Good!!!\" in bold, beside the g, sized and spaced as in the video; it types in letter by letter with a soft fade on the newest letters. The sound is now the designer's new sound logo (about 4 s, about 60 KB, made louder so it is easy to hear, with a short fade in and out), lined up so the g appears on its first accent. The splash is held about 3.8 s, instead of the video's 7.8 s. Reduced-motion phones see the finished line at once. Waiting on: a check on a real phone (the phone was not reachable, so I only checked rendered frames against the video), and the designer's font file if you want the text to match the video exactly (the app uses its own bold font, which looks very close)",
           "highlight": "partial"
         },
         {
