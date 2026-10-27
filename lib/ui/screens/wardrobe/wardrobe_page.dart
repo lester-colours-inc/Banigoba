@@ -8,6 +8,7 @@ import '../../../core/app_routes.dart';
 import '../../../data/models/body_profile.dart';
 import '../../../data/models/piece_details.dart';
 import '../../../data/models/wear_tracking.dart';
+import '../../../data/utils/garment_colour.dart';
 import '../../../data/services/product_service.dart';
 import '../../../data/services/notification_service.dart';
 import '../../widgets/cart_badge_button.dart';
@@ -559,6 +560,8 @@ class _WardrobePageState extends State<WardrobePage> {
     final shoulderController = TextEditingController();
     final lengthController = TextEditingController();
     File? selectedImage;
+    // Colours picked from the photo, until the user changes them (W-3).
+    bool coloursFromPhoto = false;
 
     final Map<String, List<String>> categoryData = {
       'accessories': ['none', 'caps', 'glasses', 'hats'],
@@ -653,7 +656,18 @@ class _WardrobePageState extends State<WardrobePage> {
               GestureDetector(
                 onTap: () async {
                   final File? image = await _pickImageSource();
-                  if (image != null) setModalState(() => selectedImage = image);
+                  if (image == null) return;
+                  setModalState(() => selectedImage = image);
+                  // Suggest the colours from the photo, unless the user has
+                  // already chosen some.
+                  final found = await coloursFromFile(image);
+                  if (!mounted || found.isEmpty) return;
+                  setModalState(() {
+                    if (selectedColours.isEmpty) {
+                      selectedColours.addAll(found);
+                      coloursFromPhoto = true;
+                    }
+                  });
                 },
                 child: Container(
                   height: 120,
@@ -794,6 +808,18 @@ class _WardrobePageState extends State<WardrobePage> {
                 "Select Colours",
                 style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
               ),
+              if (coloursFromPhoto)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(
+                    'Picked from your photo. Tap to change.',
+                    key: const ValueKey('colours_from_photo'),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
               SizedBox(height: 8),
               Wrap(
                 spacing: 8,
@@ -805,6 +831,7 @@ class _WardrobePageState extends State<WardrobePage> {
                     selected: isSelected,
                     onSelected: (bool selected) {
                       setModalState(() {
+                        coloursFromPhoto = false;
                         if (selected)
                           selectedColours.add(color);
                         else

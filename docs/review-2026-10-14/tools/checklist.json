@@ -558,7 +558,8 @@
           "area": "Smart Wardrobe module",
           "note": "",
           "done": false,
-          "progress": ""
+          "progress": "First version built 27 Oct: choosing a photo in Add item pre-selects its colours (up to two), with the note \"Picked from your photo. Tap to change.\" Done on the phone from the pixels, with no AI call, so it is free and instant. The middle of the photo counts more than the edges, so a garment against a plain wall comes out right. Limits: it looks at the photo before the background is removed, so a busy or coloured background can fool it; patterned clothes give their main colours only; not yet tried on real photos or a phone. The shop stock form does not have it yet.",
+          "highlight": "partial"
         },
         {
           "id": "W-6",
