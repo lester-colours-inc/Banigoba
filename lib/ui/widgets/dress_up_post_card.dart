@@ -399,15 +399,26 @@ class DressUpPostCard extends StatelessWidget {
     final iconColor = colors.brightness == Brightness.dark
         ? colors.onSurface
         : _primaryColor;
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        for (final action in actions)
-          _ActionIcon(action: action, color: iconColor),
-        if (menuItems.isNotEmpty) _buildMenu(context, iconColor: iconColor),
-        if (trailingAction case final trailing?)
-          _ActionIcon(action: trailing, color: iconColor),
-      ],
+    // Spread evenly when there is room; shrink to fit a narrow card (a
+    // two-column grid on a 320 px phone) instead of overflowing.
+    return LayoutBuilder(
+      builder: (context, constraints) => FittedBox(
+        fit: BoxFit.scaleDown,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minWidth: constraints.maxWidth),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              for (final action in actions)
+                _ActionIcon(action: action, color: iconColor),
+              if (menuItems.isNotEmpty)
+                _buildMenu(context, iconColor: iconColor),
+              if (trailingAction case final trailing?)
+                _ActionIcon(action: trailing, color: iconColor),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
