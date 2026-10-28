@@ -49,7 +49,8 @@ class GeminiImageApi {
   final String model;
   final http.Client _client;
 
-  /// The versatile Nano Banana workhorse. `gemini-3-pro-image` trades cost for
+  /// Nano Banana 2 (Gemini 3.1 Flash Image), the model every makeover, try-on
+  /// and turn-around uses. `gemini-3-pro-image` trades cost for
   /// quality on harder composites; `gemini-3.1-flash-lite-image` is cheapest.
   static const String defaultModel = 'gemini-3.1-flash-image';
 
