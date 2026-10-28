@@ -1,4 +1,5 @@
 import 'package:banigoba/data/models/feed_ranking.dart';
+import 'package:banigoba/data/models/geo_cell.dart';
 import 'package:banigoba/data/models/post.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -173,6 +174,99 @@ void main() {
         following: {'rudo'},
         cityOf: {'tino': 'harare'},
         viewerCity: '',
+      );
+
+      expect(_ids(near), ['followed']);
+    });
+  });
+
+  group('by location (GPS cells)', () {
+    const harare = GeoCell(155, -90);
+    const hararePlus = GeoCell(156, -90); // touching
+    const bulawayo = GeoCell(143, -101);
+
+    test('someone in a touching cell ranks as near', () {
+      final ranked = rankPosts(
+        [
+          _post('far', 'zed', age: const Duration(hours: 1)),
+          _post('near', 'tino', age: const Duration(days: 1)),
+        ],
+        viewerId: 'me',
+        following: const {},
+        cityOf: const {},
+        viewerCity: '',
+        viewerCell: harare,
+        cellOf: {'tino': hararePlus, 'zed': bulawayo},
+        now: _now,
+      );
+
+      expect(_ids(ranked), ['near', 'far']);
+    });
+
+    test('the cell wins over a matching city name when both are known', () {
+      final ranked = rankPosts(
+        [
+          _post('same-name-far', 'zed', age: const Duration(hours: 1)),
+          _post('close', 'tino', age: const Duration(days: 1)),
+        ],
+        viewerId: 'me',
+        following: const {},
+        cityOf: {'zed': 'harare', 'tino': ''},
+        viewerCity: 'harare',
+        viewerCell: harare,
+        cellOf: {'zed': bulawayo, 'tino': hararePlus},
+        now: _now,
+      );
+
+      expect(_ids(ranked), ['close', 'same-name-far']);
+    });
+
+    test('falls back to the city when the author has no location', () {
+      final ranked = rankPosts(
+        [
+          _post('far', 'zed', age: const Duration(hours: 1)),
+          _post('same-city', 'tino', age: const Duration(days: 1)),
+        ],
+        viewerId: 'me',
+        following: const {},
+        cityOf: {'tino': 'harare'},
+        viewerCity: 'harare',
+        viewerCell: harare,
+        cellOf: const {},
+        now: _now,
+      );
+
+      expect(_ids(ranked), ['same-city', 'far']);
+    });
+
+    test('nearMe keeps people in my cells, me and people I follow', () {
+      final near = nearMe(
+        [
+          _post('mine', 'me'),
+          _post('followed', 'rudo'),
+          _post('close', 'tino'),
+          _post('far', 'zed'),
+        ],
+        viewerId: 'me',
+        following: {'rudo'},
+        cityOf: const {},
+        viewerCity: '',
+        viewerCell: harare,
+        cellOf: {'tino': hararePlus, 'zed': bulawayo},
+      );
+
+      expect(_ids(near), ['mine', 'followed', 'close']);
+    });
+
+    test('with no cell and no city only me and people I follow remain', () {
+      final near = nearMe(
+        [_post('followed', 'rudo'), _post('close', 'tino')],
+        viewerId: 'me',
+        following: {'rudo'},
+        cityOf: const {},
+        viewerCity: '',
+        viewerCell: null,
+        cellOf: {'tino': hararePlus},
       );
 
       expect(_ids(near), ['followed']);

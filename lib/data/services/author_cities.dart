@@ -4,6 +4,7 @@
 // asked for again.
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../models/geo_cell.dart';
 import 'feed_matches_service.dart' show batchesOf;
 
 class AuthorCities {
@@ -12,9 +13,13 @@ class AuthorCities {
 
   final FirebaseFirestore _db;
   final Map<String, String> _cities = {};
+  final Map<String, GeoCell> _cells = {};
 
   /// Every city known so far, by author id.
   Map<String, String> get known => Map.unmodifiable(_cities);
+
+  /// The coarse area of every author who shares one, by author id.
+  Map<String, GeoCell> get knownCells => Map.unmodifiable(_cells);
 
   /// Loads the cities of authors not seen before. True when something new
   /// was learned, so the caller knows to rebuild.
@@ -35,6 +40,10 @@ class AuthorCities {
             .get();
         for (final doc in snapshot.docs) {
           _cities[doc.id] = (doc.data()['city'] ?? '').toString();
+          if (GeoCell.tryParse(doc.data()['areaCell']?.toString())
+              case final cell?) {
+            _cells[doc.id] = cell;
+          }
         }
       } on FirebaseException {
         // Leave them as unknown; the feed still works, just without "near".

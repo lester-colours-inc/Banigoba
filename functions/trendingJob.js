@@ -42,10 +42,16 @@ function notifyTrendingJob(db, FieldValue, logger = console) {
       const ownerId = post.data().authorId || look.ownerId;
       const owner = await db.collection('users').doc(ownerId).get();
       const data = owner.exists ? owner.data() : {};
+      const cityKey = data.cityKey || normalizeCity(data.city);
       items.push({
         ...look,
         ownerId,
-        cityKey: data.cityKey || normalizeCity(data.city),
+        // Their phone-location area when they share one, else their city.
+        placeKey: data.areaCell
+          ? `cell:${data.areaCell}`
+          : cityKey
+            ? `city:${cityKey}`
+            : '',
       });
     }
     return items;
@@ -56,10 +62,12 @@ function notifyTrendingJob(db, FieldValue, logger = console) {
     const best = pickPerCity(await candidates(now));
     let notified = 0;
 
-    for (const [cityKey, look] of best) {
+    for (const [placeKey, look] of best) {
+      const isCell = placeKey.startsWith('cell:');
+      const value = placeKey.slice(placeKey.indexOf(':') + 1);
       const people = await db
         .collection('users')
-        .where('cityKey', '==', cityKey)
+        .where(isCell ? 'areaCell' : 'cityKey', '==', value)
         .limit(MAX_PEOPLE_PER_CITY)
         .get();
 
@@ -84,7 +92,7 @@ function notifyTrendingJob(db, FieldValue, logger = console) {
               continue;
             }
             batch.set(db.collection('users').doc(person.id).collection('notifications').doc(), {
-              title: `Trending in ${person.data().city || cityKey}`,
+              title: isCell ? 'Trending near you' : `Trending in ${person.data().city || value}`,
               body: 'A look people near you are talking about.',
               type: 'trending_look',
               senderId: '',
@@ -105,7 +113,7 @@ function notifyTrendingJob(db, FieldValue, logger = console) {
         notified += writes;
       }
     }
-    logger.info(`trending: ${notified} people told about ${best.size} cities`);
+    logger.info(`trending: ${notified} people told about ${best.size} places`);
     return { notified, cities: best.size };
   };
 }

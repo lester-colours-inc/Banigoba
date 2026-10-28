@@ -8,6 +8,8 @@ Future<void> _pump(
   bool nearMe = true,
   ValueChanged<bool>? onChanged,
   VoidCallback? onSetCity,
+  bool hasLocation = false,
+  VoidCallback? onUseLocation,
 }) {
   return tester.pumpWidget(
     MaterialApp(
@@ -17,6 +19,8 @@ Future<void> _pump(
           nearMe: nearMe,
           onChanged: onChanged ?? (_) {},
           onSetCity: onSetCity ?? () {},
+          hasLocation: hasLocation,
+          onUseLocation: onUseLocation ?? () {},
         ),
       ),
     ),
@@ -47,9 +51,47 @@ void main() {
     await _pump(tester, city: '  ', onSetCity: () => asked = true);
 
     expect(find.text('Near me'), findsOneWidget);
-    expect(find.textContaining('Add your city'), findsOneWidget);
+    expect(find.textContaining('where you are'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('add_city')));
 
     expect(asked, isTrue);
+  });
+
+  testWidgets('says it is using the phone\'s location when it is', (
+    tester,
+  ) async {
+    await _pump(tester, city: '', hasLocation: true);
+
+    expect(find.text('Near me · your area'), findsOneWidget);
+    expect(find.byKey(const ValueKey('use_location')), findsNothing);
+    expect(find.byKey(const ValueKey('add_city')), findsNothing);
+  });
+
+  testWidgets('offers both ways to say where you are when neither is set', (
+    tester,
+  ) async {
+    var located = false;
+    var asked = false;
+    await _pump(
+      tester,
+      city: '',
+      onUseLocation: () => located = true,
+      onSetCity: () => asked = true,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('use_location')));
+    await tester.tap(find.byKey(const ValueKey('add_city')));
+
+    expect(located, isTrue);
+    expect(asked, isTrue);
+  });
+
+  testWidgets('with a city but no location, offers the phone\'s location', (
+    tester,
+  ) async {
+    await _pump(tester, city: 'Harare');
+
+    expect(find.byKey(const ValueKey('use_location')), findsOneWidget);
+    expect(find.byKey(const ValueKey('add_city')), findsNothing);
   });
 }

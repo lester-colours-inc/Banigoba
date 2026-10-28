@@ -165,3 +165,47 @@ describe('notifyTrendingJob', () => {
     assert.equal(notifications('zoe').length, 1);
   });
 });
+
+describe('trending by phone location', () => {
+  beforeEach(() => {
+    db = new FakeDb();
+    run = notifyTrendingJob(db, stamp, quiet);
+    db.set('posts/p1', { authorId: 'tariro', visibility: 'public' });
+    // Tariro and Zoe share an area cell; Farai is in another. None has a typed city.
+    db.set('users/tariro', { areaEnabled: true, areaCell: '155:-90' });
+    db.set('users/zoe', { areaEnabled: true, areaCell: '155:-90' });
+    db.set('users/farai', { areaEnabled: true, areaCell: '143:-101' });
+    for (const [i, sender] of ['rudo', 'tino', 'nomsa'].entries()) affirm(`g${i}`, 'p1', sender);
+  });
+
+  test('tells people in the same area, who have no typed city', async () => {
+    const result = await run(NOW);
+
+    const [note] = notifications('zoe');
+    assert.equal(result.notified, 1);
+    assert.equal(note.title, 'Trending near you');
+    assert.deepEqual(note.extraData, { postId: 'p1' });
+  });
+
+  test('does not tell people in another area, or the owner', async () => {
+    await run(NOW);
+
+    assert.equal(notifications('farai').length, 0);
+    assert.equal(notifications('tariro').length, 0);
+  });
+
+  test('a person with both a city and an area is told once a day', async () => {
+    db.set('users/tariro', { city: 'Harare', cityKey: 'harare', areaEnabled: true, areaCell: '155:-90' });
+    db.set('users/zoe', { city: 'Harare', cityKey: 'harare', areaEnabled: true, areaCell: '155:-90' });
+
+    await run(NOW);
+
+    assert.equal(notifications('zoe').length, 1);
+  });
+
+  test('turning location off removes the person from it', async () => {
+    db.set('users/zoe', { areaEnabled: false });
+
+    assert.equal((await run(NOW)).notified, 0);
+  });
+});

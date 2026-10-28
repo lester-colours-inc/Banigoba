@@ -6,10 +6,12 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../data/models/feed_ranking.dart';
+import '../../../data/services/area_service.dart';
 import '../../../data/services/gallery_consent_service.dart';
 import '../../../data/models/provider_roles.dart';
 import '../../../data/services/provider_service.dart';
 import '../../../data/services/storage_service.dart';
+import '../../widgets/consent_sheet.dart';
 import '../../widgets/gallery_consent_sheet.dart';
 import '../provider/become_provider_page.dart';
 import '../../../data/services/style_preferences_service.dart';
@@ -44,6 +46,8 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _notifyTrending = true;
   final GalleryConsentService _galleryConsent = GalleryConsentService();
   bool _gallerySuggestions = false;
+  final AreaService _area = AreaService();
+  bool _useLocation = false;
   String _profileImageUrl = '';
   String _username = '';
 
@@ -133,10 +137,42 @@ class _SettingsPageState extends State<SettingsPage> {
     _countryController.text = (address['country'] ?? '').toString();
     _providerRoles = providerRolesOf(data);
     _notifyTrending = data['notifyTrending'] != false;
+    _area.load(user.uid).then((record) {
+      if (mounted) setState(() => _useLocation = record?.enabled ?? false);
+    });
     _galleryConsent.load().then((consent) {
       if (mounted) setState(() => _gallerySuggestions = consent.isActive);
     });
     setState(() => _loading = false);
+  }
+
+  /// "Near me" from the phone's location: turning on explains first, asks the
+  /// phone, and keeps only a rough area; turning off deletes it.
+  Future<void> _setUseLocation(bool on) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    if (!on) {
+      await _area.disable(user.uid);
+      if (mounted) setState(() => _useLocation = false);
+      return;
+    }
+    final agreed = await showConsentSheet(
+      context,
+      title: 'Use my location for Near me',
+      points: kLocationConsentText,
+    );
+    if (!agreed) return;
+    final result = await _area.enable(user.uid);
+    if (!mounted) return;
+    setState(() => _useLocation = result == AreaResult.enabled);
+    _showMessage(switch (result) {
+      AreaResult.enabled => 'Near me now uses your phone\'s location.',
+      AreaResult.serviceOff => 'Location is switched off on your phone.',
+      AreaResult.denied => 'Banigoba was not allowed to use your location.',
+      AreaResult.deniedForever =>
+        'Location is blocked for Banigoba. Allow it in your phone settings.',
+      AreaResult.failed => 'We could not find your location. Try again.',
+    });
   }
 
   /// Gallery suggestions (E-5): turning on shows the consent first; turning
@@ -466,6 +502,28 @@ class _SettingsPageState extends State<SettingsPage> {
                         'A look people in your city are talking about. At '
                         'most one a day, and only when a look has real '
                         'attention.',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+                  const Text(
+                    'Location',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Card(
+                    child: SwitchListTile(
+                      key: const ValueKey('use_location_switch'),
+                      value: _useLocation,
+                      onChanged: _setUseLocation,
+                      secondary: const Icon(Icons.my_location),
+                      title: const Text(
+                        'Use my location for Near me',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: const Text(
+                        'Only a rough area about 22 km wide is saved, never '
+                        'your exact position.',
                       ),
                     ),
                   ),

@@ -2,6 +2,7 @@
 //   npm --prefix test_rules test
 // Covers post privacy (I-2), the queries the feeds rely on, @usernames (U-4),
 // private emails (U-5) and Smart Wardrobe items (I-1).
+import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { after, before, beforeEach, describe, test } from 'node:test';
 import {
@@ -407,5 +408,34 @@ describe('fashion content', () => {
   test('the engine\'s own notes are closed', async () => {
     await assertFails(getDoc(doc(as('zoe'), 'content_sources/vogue')));
     await assertFails(setDoc(doc(as('zoe'), 'content_sources/vogue'), { ok: false }));
+  });
+});
+
+describe('the coarse area for Near me', () => {
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'users/zoe'), {
+        displayName: 'Zoe',
+        areaEnabled: true,
+        areaCell: '155:-90',
+      });
+    });
+  });
+
+  test('a person sets and clears her own area', async () => {
+    await assertSucceeds(
+      setDoc(doc(as('zoe'), 'users/zoe'), { areaCell: '156:-90' }, { merge: true }),
+    );
+    await assertSucceeds(
+      setDoc(doc(as('zoe'), 'users/zoe'), { areaEnabled: false }, { merge: true }),
+    );
+  });
+
+  test('others can read the cell (that is how Near me works) but not change it', async () => {
+    const snap = await assertSucceeds(getDoc(doc(as('farai'), 'users/zoe')));
+    assert.equal(snap.data().areaCell, '155:-90');
+    await assertFails(
+      setDoc(doc(as('farai'), 'users/zoe'), { areaCell: '0:0' }, { merge: true }),
+    );
   });
 });

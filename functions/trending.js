@@ -58,18 +58,23 @@ function trendingLooks(affirmations, now = new Date(), { minPeople = MIN_PEOPLE 
     .sort((a, b) => b.people - a.people || b.latestMillis - a.latestMillis);
 }
 
-/** The best look per city; items with no city are left out. */
+/**
+ * The best look per place; items with no place are left out. A place is the
+ * author's phone-location cell (placeKey "cell:155:-90") or, without one, the
+ * city they typed ("city:harare"); older items may carry just a cityKey.
+ */
 function pickPerCity(items) {
   const best = new Map();
   for (const item of items) {
-    if (!item.cityKey) continue;
-    const current = best.get(item.cityKey);
+    const key = item.placeKey || item.cityKey;
+    if (!key) continue;
+    const current = best.get(key);
     if (
       !current ||
       item.people > current.people ||
       (item.people === current.people && item.latestMillis > current.latestMillis)
     ) {
-      best.set(item.cityKey, item);
+      best.set(key, item);
     }
   }
   return best;

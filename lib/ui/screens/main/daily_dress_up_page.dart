@@ -24,7 +24,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../../data/models/affirmation.dart';
 import '../../../data/models/feed_ranking.dart';
+import '../../../data/models/geo_cell.dart';
 import '../../../data/models/post.dart';
+import '../../../data/services/area_service.dart';
 import '../../../data/services/author_cities.dart';
 import '../../../data/services/notification_service.dart';
 import '../../../data/services/outfit_service.dart';
@@ -42,6 +44,7 @@ import '../../widgets/find_pieces_sheet.dart';
 import '../../widgets/forward_look_sheet.dart';
 import '../../widgets/look_viewer_page.dart';
 import '../../widgets/home_feed_tabs.dart';
+import '../../widgets/consent_sheet.dart';
 import '../../widgets/makeover_fab.dart';
 import '../../widgets/near_me_bar.dart';
 import '../../widgets/saved_to_wardrobe_sheet.dart';
@@ -119,6 +122,7 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
             debugPrint('Unable to load who you follow: $error'),
       );
       _loadViewerCity(userId);
+      _area.refreshIfDue(userId).then((_) => _loadViewerArea(userId));
       _savedPostsSub = _outfitService.watchSavedPostIds(userId).listen(
         (ids) {
           if (mounted) setState(() => _savedPostIds = ids);
@@ -171,7 +175,9 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
   final AuthorCities _authorCities = AuthorCities();
   StreamSubscription<List<String>>? _followingSub;
   Set<String> _following = const {};
+  final AreaService _area = AreaService();
   String _viewerCity = '';
+  GeoCell? _viewerCell;
   bool _nearMe = true;
 
   // Posts saved to the Smart Wardrobe, so the save icon can show as on.
@@ -1018,6 +1024,8 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
                           nearMe: _nearMe,
                           onChanged: (value) => setState(() => _nearMe = value),
                           onSetCity: _addCity,
+                          hasLocation: _viewerCell != null,
+                          onUseLocation: _useLocation,
                         ),
                       ),
                     ],
@@ -1041,6 +1049,38 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
   Future<void> _loadViewerCity(String userId) async {
     final city = await _authorCities.cityOf(userId);
     if (mounted) setState(() => _viewerCity = city);
+  }
+
+  Future<void> _loadViewerArea(String userId) async {
+    final record = await _area.load(userId);
+    final cell = record != null && record.enabled ? record.cell : null;
+    if (mounted) setState(() => _viewerCell = cell);
+  }
+
+  /// "Use my location": explain, ask the phone, and say what happened.
+  Future<void> _useLocation() async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final agreed = await showConsentSheet(
+      context,
+      title: 'Use my location for Near me',
+      points: kLocationConsentText,
+    );
+    if (!agreed) return;
+    final result = await _area.enable(userId);
+    await _loadViewerArea(userId);
+    final message = switch (result) {
+      AreaResult.enabled => null,
+      AreaResult.serviceOff => 'Location is switched off on your phone.',
+      AreaResult.denied => 'Banigoba was not allowed to use your location.',
+      AreaResult.deniedForever =>
+        'Location is blocked for Banigoba. Allow it in your phone settings.',
+      AreaResult.failed => 'We could not find your location. Try again.',
+    };
+    if (message != null) {
+      messenger.showSnackBar(SnackBar(content: Text(message)));
+    }
   }
 
   /// Opens Settings to add a city, then picks up the answer.
@@ -1086,6 +1126,8 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
       following: _following,
       cityOf: _authorCities.known,
       viewerCity: _viewerCity,
+      viewerCell: _viewerCell,
+      cellOf: _authorCities.knownCells,
       now: DateTime.now(),
     );
     final nearOnly = !isMyMakeover && _nearMe;
@@ -1096,6 +1138,8 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
             following: _following,
             cityOf: _authorCities.known,
             viewerCity: _viewerCity,
+            viewerCell: _viewerCell,
+            cellOf: _authorCities.knownCells,
           )
         : ranked;
     return _buildPostList(
