@@ -21,12 +21,14 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../../../data/models/body_profile.dart';
 import '../../../data/models/look_request.dart';
 import '../../../data/models/look_session.dart';
 import '../../../data/models/weather.dart';
 import '../../../data/services/body_profile_service.dart';
+import '../../../data/services/gallery_scanner.dart';
 import '../../../data/services/look_generation_service.dart';
 import '../../../data/services/storage_service.dart';
 import '../../../data/services/weather_service.dart';
@@ -36,6 +38,7 @@ import '../../../data/style/style_catalogue.dart';
 import '../../widgets/app_drawer.dart';
 import '../../widgets/bottom_navigation.dart';
 import '../../widgets/find_pieces_sheet.dart';
+import '../../widgets/gallery_suggestions_strip.dart';
 import '../../widgets/save_look_sheet.dart';
 import '../main/main_screen.dart';
 import 'widgets/look_you_love_picker.dart';
@@ -237,6 +240,41 @@ class _MakeoverPageState extends State<MakeoverPage> {
       if (mounted) setState(() => _error = 'We could not use that photo.');
       return null;
     }
+  }
+
+  /// A photo tapped in the gallery strip (E-5): read in full and uploaded
+  /// only now, because the person chose it.
+  Future<void> _useGalleryPhoto(GalleryPhoto photo) async {
+    if (_isUploadingPhoto) return;
+    final userId = _userId;
+    if (userId.isEmpty) {
+      setState(() => _error = 'Sign in to use your photos.');
+      return;
+    }
+    setState(() {
+      _isUploadingPhoto = true;
+      _error = '';
+    });
+    String? url;
+    try {
+      final bytes = await photo.bytes();
+      final problem = bytes == null
+          ? 'We could not use that photo.'
+          : photoProblem(bytes.lengthInBytes);
+      if (problem != null) {
+        if (mounted) setState(() => _error = problem);
+      } else {
+        url = await _storage.uploadFullBodyImageBytes(bytes!, userId);
+      }
+    } on Exception catch (error) {
+      debugPrint('Unable to use gallery photo: $error');
+      if (mounted) setState(() => _error = 'We could not use that photo.');
+    }
+    if (!mounted) return;
+    setState(() {
+      if (url != null) _photoUrl = url;
+      _isUploadingPhoto = false;
+    });
   }
 
   Future<void> _pickPhoto(ImageSource source) async {
@@ -723,6 +761,11 @@ class _MakeoverPageState extends State<MakeoverPage> {
           onTakePhoto: _isUploadingPhoto
               ? null
               : () => _pickPhoto(ImageSource.camera),
+        ),
+        const SizedBox(height: 12),
+        GallerySuggestionsStrip(
+          onPick: _useGalleryPhoto,
+          onOpenSettings: openAppSettings,
         ),
         const SizedBox(height: 28),
         const MakeoverSectionTitle('How do you want to create your look?'),

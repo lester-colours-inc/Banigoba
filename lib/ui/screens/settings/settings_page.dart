@@ -6,9 +6,11 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../data/models/feed_ranking.dart';
+import '../../../data/services/gallery_consent_service.dart';
 import '../../../data/models/provider_roles.dart';
 import '../../../data/services/provider_service.dart';
 import '../../../data/services/storage_service.dart';
+import '../../widgets/gallery_consent_sheet.dart';
 import '../provider/become_provider_page.dart';
 import '../../../data/services/style_preferences_service.dart';
 import '../onboarding/style_preferences_screen.dart';
@@ -40,6 +42,8 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _saving = false;
   List<ProviderRole> _providerRoles = const [];
   bool _notifyTrending = true;
+  final GalleryConsentService _galleryConsent = GalleryConsentService();
+  bool _gallerySuggestions = false;
   String _profileImageUrl = '';
   String _username = '';
 
@@ -129,7 +133,26 @@ class _SettingsPageState extends State<SettingsPage> {
     _countryController.text = (address['country'] ?? '').toString();
     _providerRoles = providerRolesOf(data);
     _notifyTrending = data['notifyTrending'] != false;
+    _galleryConsent.load().then((consent) {
+      if (mounted) setState(() => _gallerySuggestions = consent.isActive);
+    });
     setState(() => _loading = false);
+  }
+
+  /// Gallery suggestions (E-5): turning on shows the consent first; turning
+  /// off withdraws it at once.
+  Future<void> _setGallerySuggestions(bool on) async {
+    if (on && !await showGalleryConsentSheet(context)) return;
+    try {
+      if (on) {
+        await _galleryConsent.grant();
+      } else {
+        await _galleryConsent.withdraw();
+      }
+      if (mounted) setState(() => _gallerySuggestions = on);
+    } on Exception catch (error) {
+      _showMessage('Unable to change this: $error');
+    }
   }
 
   /// Trending-look pushes on or off (at most one a day).
@@ -443,6 +466,28 @@ class _SettingsPageState extends State<SettingsPage> {
                         'A look people in your city are talking about. At '
                         'most one a day, and only when a look has real '
                         'attention.',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+                  const Text(
+                    'Photos',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Card(
+                    child: SwitchListTile(
+                      key: const ValueKey('gallery_suggestions'),
+                      value: _gallerySuggestions,
+                      onChanged: _setGallerySuggestions,
+                      secondary: const Icon(Icons.photo_library_outlined),
+                      title: const Text(
+                        'Suggestions from my photos',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: const Text(
+                        'Show my recent photos on the makeover screen. They '
+                        'stay on my phone until I pick one.',
                       ),
                     ),
                   ),

@@ -666,8 +666,8 @@
           "area": "Engagement and go-to-market",
           "note": "",
           "done": false,
-          "progress": "Planned 25 Oct: see docs/plans/service-provider-mode.md (shopping phases).",
-          "highlight": "planned"
+          "progress": "Built 28 Oct (first version): every evening (18:00 Harare time) a job finds public looks affirmed by at least 3 different people in the last 24 hours and tells people in that city about the best one. At most one push a person a day, never the same look twice, never the owner or someone who already affirmed it. No counts are shown, so counts stay owner-only. A switch in Settings turns it off; tapping the notification opens the look. Stays quiet at small scale because of the 3-person rule. Needs deploying. People are matched by the city in Settings, so someone must save their city to be included.",
+          "highlight": "partial"
         },
         {
           "id": "E-5",
@@ -675,7 +675,8 @@
           "area": "Engagement and go-to-market",
           "note": "Needs clear consent",
           "done": false,
-          "progress": ""
+          "progress": "Built 28 Oct (first version): off by default. The makeover screen offers \"Start from a photo on your phone?\"; turning it on shows plain-words consent (what is shown, that photos stay on the phone, that none are uploaded until you pick one, that you can turn it off). After that, your recent photos appear under \"Try a makeover on a recent photo\"; tapping one uploads only that photo for the makeover. Consent is stored privately and versioned (wording changes ask again); a switch in Settings withdraws it; if the phone refuses photo access it says so and points to settings. No photo is scanned, sorted or kept. Not yet tested on a real phone. Not built: choosing photos by what they show.",
+          "highlight": "partial"
         },
         {
           "id": "K-8",
@@ -714,7 +715,8 @@
           "area": "Backend, algorithms and research",
           "note": "",
           "done": false,
-          "progress": ""
+          "progress": "Built 28 Oct (first version): same work as P-5. Looks from people in your city rank above strangers, and the Near me view is built on the city each person chose.",
+          "highlight": "partial"
         },
         {
           "id": "A-5",
@@ -722,7 +724,8 @@
           "area": "Backend, algorithms and research",
           "note": "",
           "done": false,
-          "progress": ""
+          "progress": "Built 28 Oct: the Home feeds are ranked with people you follow (and your own looks) first, then people in your city, then everyone, newest first within each group. It is a recency boost, not three separate lists: a followed author's post counts as 7 days newer, a nearby author's as 2 days newer, so a month-old post cannot bury today's. Wording of \"wider\" is as decided here: city first, then everyone.",
+          "highlight": "partial"
         },
         {
           "id": "A-6",
@@ -757,7 +760,8 @@
           "area": "Post, save and share",
           "note": "Backend",
           "done": false,
-          "progress": ""
+          "progress": "Built 28 Oct (first version): Community now has Near me / Everyone chips. \"Near me\" is the people you follow plus people in your city; \"Everyone\" is every look you may see. The city is the one a person types in Settings and is public (nothing finer is stored); without a city, the tab asks for one instead of guessing. Not yet: distance-based \"near\" from phone location.",
+          "highlight": "partial"
         },
         {
           "id": "W-8",
