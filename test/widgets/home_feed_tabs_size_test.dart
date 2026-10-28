@@ -4,38 +4,63 @@ import 'package:flutter_test/flutter_test.dart';
 
 const _labels = ['My Fashion Makeover', 'My Daily Dress Up', 'Community'];
 
+double _sum(List<double> values) => values.fold(0.0, (sum, v) => sum + v);
+
 void main() {
   test('uses the normal size when every label fits', () {
-    expect(feedTabFontSize(labels: _labels, tabWidth: 400), kFeedTabFontSize);
+    final layout = feedTabLayout(labels: _labels, width: 900);
+
+    expect(layout.fontSize, kFeedTabFontSize);
   });
 
-  test('shrinks all tabs by the same amount when the widest does not fit', () {
-    final narrow = feedTabFontSize(labels: _labels, tabWidth: 110);
+  test('shrinks all labels by the same amount when they do not fit', () {
+    final layout = feedTabLayout(labels: _labels, width: 500);
 
-    expect(narrow, lessThan(kFeedTabFontSize));
-    expect(narrow, greaterThanOrEqualTo(kFeedTabMinFontSize));
-  });
-
-  test('allows for a phone set to larger text', () {
-    final normal = feedTabFontSize(labels: _labels, tabWidth: 260);
-    final large = feedTabFontSize(
-      labels: _labels,
-      tabWidth: 260,
-      textScaler: const TextScaler.linear(1.3),
-    );
-
-    expect(large, lessThan(normal));
+    expect(layout.fontSize, lessThan(kFeedTabFontSize));
+    expect(layout.fontSize, greaterThanOrEqualTo(kFeedTabMinFontSize));
   });
 
   test('never goes below the smallest readable size', () {
-    expect(feedTabFontSize(labels: _labels, tabWidth: 20), kFeedTabMinFontSize);
+    final layout = feedTabLayout(labels: _labels, width: 60);
+
+    expect(layout.fontSize, kFeedTabMinFontSize);
   });
 
   test('a narrower screen never gives a bigger size', () {
-    final wide = feedTabFontSize(labels: _labels, tabWidth: 130);
-    final narrower = feedTabFontSize(labels: _labels, tabWidth: 100);
+    final wide = feedTabLayout(labels: _labels, width: 600);
+    final narrower = feedTabLayout(labels: _labels, width: 450);
 
-    expect(narrower, lessThanOrEqualTo(wide));
+    expect(narrower.fontSize, lessThanOrEqualTo(wide.fontSize));
+  });
+
+  test('the tabs fill the bar exactly, at any width', () {
+    for (final width in [60.0, 320.0, 411.0, 900.0]) {
+      final layout = feedTabLayout(labels: _labels, width: width);
+
+      expect(_sum(layout.widths), closeTo(width, 0.001));
+      expect(
+        layout.leftOf(2),
+        closeTo(layout.widths[0] + layout.widths[1], 0.001),
+      );
+    }
+  });
+
+  test('each tab is as wide as its label needs', () {
+    final layout = feedTabLayout(labels: _labels, width: 411);
+
+    expect(layout.widths[0], greaterThan(layout.widths[1]));
+    expect(layout.widths[1], greaterThan(layout.widths[2]));
+  });
+
+  test('larger system text gives a smaller fitted size, not overflow', () {
+    final normal = feedTabLayout(labels: _labels, width: 600);
+    final large = feedTabLayout(
+      labels: _labels,
+      width: 600,
+      textScaler: const TextScaler.linear(1.4),
+    );
+
+    expect(large.fontSize, lessThan(normal.fontSize));
   });
 
   testWidgets('all three tabs are drawn at the same size', (tester) async {

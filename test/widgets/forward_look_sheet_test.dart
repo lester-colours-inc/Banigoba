@@ -2,6 +2,7 @@
 // in the feeds (that is "Post", P-4).
 import 'package:banigoba/ui/widgets/forward_look_sheet.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _destinations = [
@@ -64,5 +65,37 @@ void main() {
 
     expect(find.text('Hair Salon'), findsNothing);
     expect(find.text('This look has no picture to send.'), findsOneWidget);
+  });
+
+  testWidgets('WhatsApp opens the share sheet like More apps, not a link', (
+    tester,
+  ) async {
+    const shareChannel = MethodChannel('dev.fluttercommunity.plus/share');
+    final shared = <MethodCall>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      shareChannel,
+      (call) async {
+        shared.add(call);
+        return 'dev.fluttercommunity.plus/share/unavailable';
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        shareChannel,
+        null,
+      ),
+    );
+
+    await _openSheet(tester);
+    await tester.tap(find.text('WhatsApp'));
+    await tester.pumpAndSettle();
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 200)),
+    );
+    await tester.pumpAndSettle();
+
+    expect(shared, hasLength(1));
+    expect(shared.single.method, 'share');
+    expect(shared.single.arguments['text'], contains('Sunday best'));
   });
 }

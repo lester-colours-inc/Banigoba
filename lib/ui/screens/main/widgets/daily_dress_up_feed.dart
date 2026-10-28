@@ -34,13 +34,6 @@ class DailyDressUpFeed extends StatefulWidget {
 }
 
 class _DailyDressUpFeedState extends State<DailyDressUpFeed> {
-  static const List<Color> _cardColors = [
-    Color(0xFFA9DDC4),
-    Color(0xFFF3D98B),
-    Color(0xFF7F7FC0),
-    Color(0xFFE3A6E6),
-  ];
-
   final OutfitService _outfits = OutfitService();
   final String _userId = FirebaseAuth.instance.currentUser?.uid ?? '';
   late final Stream<QuerySnapshot<Map<String, dynamic>>> _looks = _outfits
@@ -122,11 +115,11 @@ class _DailyDressUpFeedState extends State<DailyDressUpFeed> {
       detail: fromPost ? 'From My Fashion Makeover' : 'Saved to wardrobe',
       avatarUrl: '',
       timeLabel: _formatDate(_createdAt(look)),
-      imageBackground: _cardColors[index % _cardColors.length],
+      imageBackground: kLookBackdrops[(index + 2) % kLookBackdrops.length],
       visual: AppNetworkImage(
         imageUrl,
-        fit: BoxFit.cover,
-        alignment: Alignment.topCenter,
+        fit: BoxFit.contain,
+        alignment: Alignment.bottomCenter,
       ),
       onImageTap: () => openLookViewer(
         context,
@@ -137,6 +130,7 @@ class _DailyDressUpFeedState extends State<DailyDressUpFeed> {
       actions: [
         DressUpCardAction(
           icon: Icons.event_available_outlined,
+          chipLabel: 'Wear today',
           label: 'Wear today',
           onTap: () => _wearToday(look),
         ),

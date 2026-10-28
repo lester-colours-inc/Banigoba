@@ -85,6 +85,9 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
   late final TabController _feeds;
   static Color primaryColor = Color(0xFF0D0140);
 
+  // The Makeover button folds to its sparkle while a feed scrolls down.
+  bool _fabExtended = true;
+
   @override
   void initState() {
     super.initState();
@@ -92,7 +95,7 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
       length: HomeFeed.values.length,
       vsync: this,
       initialIndex: (_takeFeedRequest() ?? HomeFeed.myMakeover).index,
-    );
+    )..addListener(_unfoldFab);
     DailyDressUpPage._feedRequests.addListener(_handleFeedRequest);
     final userId = FirebaseAuth.instance.currentUser?.uid;
     if (userId != null) {
@@ -148,6 +151,25 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
     final feed = DailyDressUpPage._feedRequests.value;
     DailyDressUpPage._feedRequests.value = null;
     return feed;
+  }
+
+  /// Folds the Makeover button while a feed scrolls down, so it covers less
+  /// of the looks, and unfolds it on the way back up or at the top.
+  bool _foldFabOnScroll(UserScrollNotification notification) {
+    if (notification.metrics.axis != Axis.vertical) return false;
+    final extended = makeoverFabExtendedAfter(
+      notification.direction,
+      wasExtended: _fabExtended,
+      offset: notification.metrics.pixels,
+    );
+    if (extended != _fabExtended) setState(() => _fabExtended = extended);
+    return false;
+  }
+
+  /// A newly picked feed shows the full button again.
+  void _unfoldFab() {
+    if (_fabExtended || !mounted) return;
+    setState(() => _fabExtended = true);
   }
 
   void _handleFeedRequest() {
@@ -1007,44 +1029,49 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
         actions: [SizedBox(width: 20)],
         bottom: HomeFeedTabs(controller: _feeds),
       ),
-      body: TabBarView(
-        controller: _feeds,
-        children: [
-          for (final feed in HomeFeed.values)
-            _KeepAlive(
-              child: SingleChildScrollView(
-                key: PageStorageKey(feed),
-                padding: EdgeInsets.fromLTRB(20, 16, 20, 0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (feed == HomeFeed.community) ...[
-                      const CommunityEventsStrip(),
-                      const FashionNewsSection(),
-                      Padding(
-                        padding: const EdgeInsets.only(top: 12, bottom: 12),
-                        child: NearMeBar(
-                          city: _viewerCity,
-                          nearMe: _nearMe && _hasPlace,
-                          onChanged: (value) => setState(() => _nearMe = value),
-                          onSetCity: _addCity,
-                          hasLocation: _viewerCell != null,
-                          onUseLocation: _useLocation,
+      body: NotificationListener<UserScrollNotification>(
+        onNotification: _foldFabOnScroll,
+        child: TabBarView(
+          controller: _feeds,
+          children: [
+            for (final feed in HomeFeed.values)
+              _KeepAlive(
+                child: SingleChildScrollView(
+                  key: PageStorageKey(feed),
+                  padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (feed == HomeFeed.community) ...[
+                        const CommunityEventsStrip(),
+                        const FashionNewsSection(),
+                        Padding(
+                          padding: const EdgeInsets.only(top: 12, bottom: 12),
+                          child: NearMeBar(
+                            city: _viewerCity,
+                            nearMe: _nearMe && _hasPlace,
+                            onChanged: (value) =>
+                                setState(() => _nearMe = value),
+                            onSetCity: _addCity,
+                            hasLocation: _viewerCell != null,
+                            onUseLocation: _useLocation,
+                          ),
                         ),
-                      ),
+                      ],
+                      _buildPostsFeed(feed),
+                      // Clears the floating Makeover button so it never covers
+                      // the last post's actions.
+                      SizedBox(height: 96),
                     ],
-                    _buildPostsFeed(feed),
-                    // Clears the floating Makeover button so it never covers
-                    // the last post's actions.
-                    SizedBox(height: 96),
-                  ],
+                  ),
                 ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
       floatingActionButton: MakeoverFab(
         color: primaryColor,
+        isExtended: _fabExtended,
         onPressed: () => startMakeover(context),
       ),
     );
@@ -1175,7 +1202,7 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
       children: [
         for (var index = 0; index < posts.length; index++) ...[
           _buildPostItem(posts[index], index, feed),
-          if (index != posts.length - 1) SizedBox(height: 20),
+          if (index != posts.length - 1) SizedBox(height: 18),
         ],
       ],
     );
@@ -1263,12 +1290,6 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
     required String currentUserId,
     String repostLabel = '',
   }) {
-    const cardColors = [
-      Color(0xFFE3A6E6),
-      Color(0xFF7F7FC0),
-      Color(0xFFF3D98B),
-      Color(0xFFA9DDC4),
-    ];
     return DressUpPostCard(
       key: ValueKey('dress_up_post_${post.id}'),
       isMineLayout: isMineTab,
@@ -1283,7 +1304,7 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
           ? author.profileImageUrl
           : author.fullBodyImageUrl,
       timeLabel: _formatPostTime(post.createdAt),
-      imageBackground: cardColors[index % cardColors.length],
+      imageBackground: kLookBackdrops[index % kLookBackdrops.length],
       visual: _buildPostImage(imageUrl),
       onImageTap: imageUrl.isEmpty
           ? null
@@ -1293,12 +1314,13 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
               title: author.displayName,
               caption: caption,
             ),
-      // One evenly spaced row: affirm (and comment) · repost · quote ·
-      // save to Smart Wardrobe · ⋮ · send to. Reposting a private look
-      // asks to share it first.
+      // One row: the Affirm pill (and comment) · repost · quote · save to
+      // Smart Wardrobe, then send to at the far end; the rest is in the ⋯
+      // menu. Reposting a private look asks to share it first.
       actions: [
         DressUpCardAction(
           glyph: 'a',
+          chipLabel: isOwner ? 'Affirmations' : 'Affirm',
           label: isOwner
               ? 'Affirmations & comments received'
               : 'Affirm & comment',
@@ -1675,10 +1697,11 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
       );
     }
 
+    // The whole look, standing on the bottom of the card's studio frame.
     return AppNetworkImage(
       imageUrl,
-      fit: BoxFit.cover,
-      alignment: Alignment.topCenter,
+      fit: BoxFit.contain,
+      alignment: Alignment.bottomCenter,
       fallback: Align(
         alignment: Alignment.center,
         child: Icon(

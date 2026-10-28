@@ -51,19 +51,12 @@ Iterable<String> _selectedLabels(WidgetTester tester) => tester
           .data!,
     );
 
-double _underlineWidth(WidgetTester tester, HomeFeed feed) {
-  final tab = find.ancestor(
-    of: find.text(feed.label),
-    matching: find.byType(InkWell),
-  );
-  final underline = find.descendant(
-    of: tab,
-    matching: find.byWidgetPredicate(
-      (widget) => widget is Container && widget.constraints?.maxHeight == 3,
-    ),
-  );
-  return tester.getSize(underline).width;
-}
+Rect _indicator(WidgetTester tester) =>
+    tester.getRect(find.byKey(const ValueKey('home_feed_indicator')));
+
+Rect _tab(WidgetTester tester, HomeFeed feed) => tester.getRect(
+  find.ancestor(of: find.text(feed.label), matching: find.byType(InkWell)),
+);
 
 void main() {
   test('feeds are My Fashion Makeover, My Daily Dress Up, Community', () {
@@ -117,22 +110,47 @@ void main() {
     expect(_selectedLabels(tester), ['My Daily Dress Up']);
   });
 
-  testWidgets('the underline follows the finger mid-swipe', (tester) async {
+  testWidgets('the capsule sits behind the selected feed', (tester) async {
+    await tester.pumpWidget(_host(initial: HomeFeed.community));
+
+    final capsule = _indicator(tester);
+    final tab = _tab(tester, HomeFeed.community);
+    expect(capsule.left, closeTo(tab.left, 0.5));
+    expect(capsule.width, closeTo(tab.width, 0.5));
+  });
+
+  testWidgets('longer feed names get wider tabs', (tester) async {
+    await tester.pumpWidget(_host());
+
+    expect(
+      _tab(tester, HomeFeed.myMakeover).width,
+      greaterThan(_tab(tester, HomeFeed.community).width),
+    );
+  });
+
+  testWidgets('the capsule follows the finger mid-swipe', (tester) async {
     await tester.pumpWidget(_host(withFeeds: true));
+    final first = _tab(tester, HomeFeed.myMakeover);
+    final second = _tab(tester, HomeFeed.dailyDressUp);
 
     final gesture = await tester.startGesture(const Offset(300, 300));
     await gesture.moveBy(const Offset(-20, 0)); // past the drag slop
     await gesture.moveBy(const Offset(-90, 0));
     await tester.pump();
 
-    final leaving = _underlineWidth(tester, HomeFeed.myMakeover);
-    final arriving = _underlineWidth(tester, HomeFeed.dailyDressUp);
-    expect(leaving, inExclusiveRange(0, 56));
-    expect(arriving, inExclusiveRange(0, 56));
-    expect(leaving + arriving, closeTo(56, 0.5));
-    expect(_underlineWidth(tester, HomeFeed.community), 0);
+    final capsule = _indicator(tester);
+    expect(capsule.left, inExclusiveRange(first.left, second.left));
+    expect(
+      capsule.width,
+      inExclusiveRange(
+        [first.width, second.width].reduce((a, b) => a < b ? a : b),
+        [first.width, second.width].reduce((a, b) => a > b ? a : b),
+      ),
+    );
 
     await gesture.up();
     await tester.pumpAndSettle();
+    // Let go short of halfway: the feed, and the capsule, spring back.
+    expect(_indicator(tester).left, closeTo(first.left, 0.5));
   });
 }

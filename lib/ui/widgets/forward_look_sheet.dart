@@ -6,10 +6,9 @@
 // both and separated them.
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:share_plus/share_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 
+import '../../data/services/look_image_share.dart';
 import '../../data/services/shop_chat_service.dart';
 import '../screens/shop/shop_chat_page.dart';
 import 'forward_recipient_sheet.dart';
@@ -63,7 +62,6 @@ Future<void> showForwardLookSheet(
         caption: caption,
       );
     case ForwardDestination.whatsapp:
-      await _forwardToWhatsapp(context, imageUrl: imageUrl, caption: caption);
     case ForwardDestination.otherApps:
       await _forwardToOtherApps(context, imageUrl: imageUrl, caption: caption);
   }
@@ -146,69 +144,50 @@ Future<void> _forwardInApp(
   }
 }
 
-Future<void> _forwardToWhatsapp(
-  BuildContext context, {
-  required String imageUrl,
-  required String caption,
-}) async {
-  final text = _shareText(caption, imageUrl);
-  final appUri = Uri(
-    scheme: 'whatsapp',
-    host: 'send',
-    queryParameters: {'text': text},
-  );
-  final webUri = Uri.https('wa.me', '/', {'text': text});
-  try {
-    if (await launchUrl(appUri, mode: LaunchMode.externalApplication)) return;
-  } catch (_) {
-    // WhatsApp is not installed; fall through to the web link.
-  }
-  try {
-    if (await launchUrl(webUri, mode: LaunchMode.externalApplication)) return;
-  } catch (_) {
-    // Reported below.
-  }
-  if (!context.mounted) return;
-  _showMessage(context, 'Could not open WhatsApp.');
+Rect? _shareOrigin(BuildContext context) {
+  final box = context.findRenderObject() as RenderBox?;
+  return box == null ? null : box.localToGlobal(Offset.zero) & box.size;
 }
 
-/// Shares the picture itself where possible (Instagram, Facebook, TikTok and
-/// friends only take images), falling back to a link when it can't be
-/// downloaded.
+/// Shares the picture itself where possible (WhatsApp, Instagram, Facebook,
+/// TikTok and friends take images, not links), falling back to a link when it
+/// can't be downloaded.
 Future<void> _forwardToOtherApps(
   BuildContext context, {
   required String imageUrl,
   required String caption,
 }) async {
-  final box = context.findRenderObject() as RenderBox?;
-  final origin = box == null ? null : box.localToGlobal(Offset.zero) & box.size;
-  final text = _shareText(caption, imageUrl);
+  final origin = _shareOrigin(context);
+  final image = await downloadLookImage(imageUrl);
+  if (!context.mounted) return;
+  await _openShareSheet(
+    context,
+    text: _shareText(caption, imageUrl),
+    image: image,
+    origin: origin,
+  );
+}
 
-  List<XFile> files = const [];
-  try {
-    final response = await http
-        .get(Uri.parse(imageUrl))
-        .timeout(const Duration(seconds: 15));
-    if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
-      final mimeType = response.headers['content-type'] ?? 'image/jpeg';
-      files = [
-        XFile.fromData(
-          response.bodyBytes,
-          mimeType: mimeType,
-          name: 'banigoba_look.${mimeType.contains('png') ? 'png' : 'jpg'}',
-        ),
-      ];
-    }
-  } catch (_) {
-    // Share the link instead.
-  }
-
+Future<void> _openShareSheet(
+  BuildContext context, {
+  required String text,
+  required LookImage? image,
+  required Rect? origin,
+}) async {
   try {
     await SharePlus.instance.share(
       ShareParams(
         text: text,
         subject: 'A look from Banigoba',
-        files: files.isEmpty ? null : files,
+        files: image == null
+            ? null
+            : [
+                XFile.fromData(
+                  image.bytes,
+                  mimeType: image.mimeType,
+                  name: image.fileName,
+                ),
+              ],
         sharePositionOrigin: origin,
       ),
     );

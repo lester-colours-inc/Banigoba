@@ -54,7 +54,7 @@ void main() {
     expect(find.textContaining('Heritage Fusion'), findsNothing);
   });
 
-  testWidgets('action row reads a, edit, save, menu, forward, evenly spaced', (
+  testWidgets('action row: affirm pill first, icons, then forward at the end', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -62,23 +62,21 @@ void main() {
         _card(
           isMineLayout: true,
           actions: [
-            DressUpCardAction(glyph: 'a', label: 'Affirm', onTap: () {}),
             DressUpCardAction(
-              icon: Icons.edit_outlined,
-              label: 'Edit my look',
+              glyph: 'a',
+              chipLabel: 'Affirm',
+              label: 'Affirm & comment',
+              onTap: () {},
+            ),
+            DressUpCardAction(
+              icon: Icons.repeat,
+              label: 'Repost',
               onTap: () {},
             ),
             DressUpCardAction(
               icon: Icons.checkroom_outlined,
               label: 'Save to Smart Wardrobe',
               onTap: () {},
-            ),
-          ],
-          menuItems: [
-            DressUpMenuItem(
-              icon: Icons.shopping_bag_outlined,
-              label: 'Place Order',
-              onSelected: () {},
             ),
           ],
           trailingAction: DressUpCardAction(
@@ -91,23 +89,59 @@ void main() {
     );
 
     final xs = [
-      'Affirm',
-      'Edit my look',
+      'Affirm & comment',
+      'Repost',
       'Save to Smart Wardrobe',
-      'More options',
       'Forward',
     ].map((label) => tester.getCenter(find.byTooltip(label)).dx).toList();
     for (var i = 1; i < xs.length; i++) {
       expect(xs[i], greaterThan(xs[i - 1]));
     }
+    // The main action is a labelled pill; the rest are icons, their labels
+    // only in tooltips.
     expect(find.text('a'), findsOneWidget);
-    // Icons only: labels live in tooltips, not on the row.
-    expect(find.text('Edit my look'), findsNothing);
-    // Evenly spread across the card, with no gap wider than the rest.
-    final gaps = [for (var i = 1; i < xs.length; i++) xs[i] - xs[i - 1]];
-    for (final gap in gaps) {
-      expect(gap, closeTo(gaps.first, 1));
-    }
+    expect(find.text('Affirm'), findsOneWidget);
+    expect(find.text('Repost'), findsNothing);
+    // Forward sits apart, at the far end of the card.
+    final cardRight = tester.getTopRight(find.byType(DressUpPostCard)).dx;
+    expect(cardRight - xs.last, lessThan(40));
+    expect(xs.last - xs[2], greaterThan(xs[2] - xs[1]));
+  });
+
+  testWidgets('the menu sits in the header, above the look', (tester) async {
+    await tester.pumpWidget(
+      _host(
+        _card(
+          onImageTap: () {},
+          menuItems: [
+            DressUpMenuItem(
+              icon: Icons.delete_outline,
+              label: 'Delete',
+              onSelected: () {},
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final menu = tester.getCenter(find.byTooltip('More options'));
+    final name = tester.getCenter(find.text('Tariro Muzaya'));
+    final image = tester.getRect(
+      find.byKey(const ValueKey('dress_up_post_image')),
+    );
+    expect(menu.dy, closeTo(name.dy, 12));
+    expect(menu.dy, lessThan(image.top));
+  });
+
+  testWidgets('the look stands in a portrait frame, so it is not cropped', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_host(_card(onImageTap: () {})));
+
+    final frame = tester.getSize(
+      find.byKey(const ValueKey('dress_up_post_image')),
+    );
+    expect(frame.height, greaterThan(frame.width));
   });
 
   testWidgets('a quote shows who it quotes and the quoter\'s words', (
@@ -144,7 +178,9 @@ void main() {
     await tester.pumpWidget(_host(_card(onImageTap: () => opens++)));
 
     await tester.tap(find.text('Tariro Muzaya'));
-    await tester.tap(find.textContaining('#Ankara', findRichText: true));
+    final caption = find.textContaining('#Ankara', findRichText: true);
+    await tester.ensureVisible(caption);
+    await tester.tap(caption);
     expect(opens, 2);
   });
 

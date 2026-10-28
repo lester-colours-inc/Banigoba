@@ -1,22 +1,30 @@
-// Displays user profiles, public dress-up posts, and follow controls.
-import 'package:cached_network_image/cached_network_image.dart';
+// Displays user profiles, public looks, and follow controls.
+//
+// Laid out like the Home feed's lookbook: a cover (pastel banner, photo,
+// name), the follow controls, then the person's public looks as the same
+// studio-frame cards Home uses.
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../core/app_routes.dart';
 import '../../../core/main_tab.dart';
 import '../../../data/models/affirmation.dart';
 import '../../../data/models/post.dart';
 import '../../../data/services/friend_service.dart';
 import '../../../data/services/post_service.dart';
+import '../../widgets/affirmation_composer_sheet.dart';
 import '../../widgets/affirmation_row.dart';
 import '../../widgets/bottom_navigation.dart';
+import '../../widgets/dress_up_post_card.dart';
+import '../../widgets/forward_look_sheet.dart';
+import '../../widgets/look_viewer_page.dart';
 import '../../widgets/post_comments_sheet.dart';
 import '../../widgets/profile_photo_changer.dart';
 import '../../widgets/try_on_product_picker.dart';
 import '../main/main_screen.dart';
 import '../../widgets/app_network_image.dart';
+import 'widgets/profile_cover.dart';
 
 /// Screen displaying user profile details and public Daily Dress Up posts.
 class ProfilePage extends StatelessWidget {
@@ -25,6 +33,12 @@ class ProfilePage extends StatelessWidget {
   // bottom navigation bar around this page's IndexedStack.
   final bool showBottomNav;
   const ProfilePage({super.key, this.userId, this.showBottomNav = true});
+
+  static const Color _primaryColor = Color(0xFF0D0140);
+  static const Color _accent = Color(0xFFF2A93B);
+
+  static Color _ink(ColorScheme colors) =>
+      colors.brightness == Brightness.dark ? colors.onSurface : _primaryColor;
 
   @override
   Widget build(BuildContext context) {
@@ -54,7 +68,7 @@ class ProfilePage extends StatelessWidget {
         }
 
         final userData = snapshot.data!.data() as Map<String, dynamic>;
-        final userName = userData['displayName'] ?? 'User';
+        final userName = (userData['displayName'] ?? 'User').toString();
         // Your own email, from your sign-in; it is not on the public
         // profile (U-5).
         final userEmail = isMe
@@ -70,29 +84,40 @@ class ProfilePage extends StatelessWidget {
           builder: (context, followingSnapshot) {
             final isFollowing = followingSnapshot.data ?? false;
             final bool canSeeContent = isMe || isFollowing;
-            final avatar = CircleAvatar(
-              radius: 50,
-              backgroundColor: const Color(0xFF0D0140),
-              backgroundImage: profileImageUrl.isEmpty
-                  ? null
-                  : CachedNetworkImageProvider(profileImageUrl),
-              child: profileImageUrl.isEmpty
-                  ? Text(
-                      userName.toString().isEmpty
-                          ? 'U'
-                          : userName.toString().substring(0, 1).toUpperCase(),
-                      style: const TextStyle(fontSize: 40, color: Colors.white),
-                    )
-                  : null,
-            );
+            final colors = Theme.of(context).colorScheme;
+            final ink = _ink(colors);
 
             return Scaffold(
-              backgroundColor: Theme.of(context).colorScheme.surface,
+              backgroundColor: colors.surface,
+              // The cover's banner runs up behind the app bar, which turns
+              // solid once the page scrolls under it.
+              extendBodyBehindAppBar: true,
               appBar: AppBar(
-                title: Text(isMe ? "My Profile" : userName),
-                backgroundColor: Theme.of(context).colorScheme.surface,
-                foregroundColor: Colors.black,
+                title: Text(
+                  isMe ? "My Profile" : userName,
+                  style: TextStyle(
+                    color: ink,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+                backgroundColor: WidgetStateColor.resolveWith(
+                  (states) => states.contains(WidgetState.scrolledUnder)
+                      ? colors.surface
+                      : Colors.transparent,
+                ),
+                foregroundColor: ink,
                 elevation: 0,
+                scrolledUnderElevation: 0,
+                // Clock and battery stay readable over the pale banner.
+                systemOverlayStyle: SystemUiOverlayStyle(
+                  statusBarColor: Colors.transparent,
+                  statusBarIconBrightness: colors.brightness == Brightness.dark
+                      ? Brightness.light
+                      : Brightness.dark,
+                  statusBarBrightness: colors.brightness,
+                ),
                 actions: [
                   if (isMe) ...[
                     IconButton(
@@ -103,6 +128,7 @@ class ProfilePage extends StatelessWidget {
                     ),
                     IconButton(
                       icon: const Icon(Icons.logout),
+                      tooltip: 'Sign out',
                       onPressed: () => FirebaseAuth.instance.signOut(),
                     ),
                   ],
@@ -111,152 +137,61 @@ class ProfilePage extends StatelessWidget {
               body: SingleChildScrollView(
                 child: Column(
                   children: [
-                    const SizedBox(height: 20),
-                    // Profile Avatar: your own can be changed by tapping it.
-                    if (isMe)
-                      Semantics(
-                        button: true,
-                        label: 'Change profile photo',
-                        child: GestureDetector(
-                          key: const ValueKey('profile_change_photo'),
-                          onTap: () => changeProfilePhoto(context),
-                          child: Stack(
-                            children: [
-                              avatar,
-                              Positioned(
-                                right: 0,
-                                bottom: 0,
-                                child: Container(
-                                  padding: const EdgeInsets.all(6),
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.primary,
-                                    border: Border.all(
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.surface,
-                                      width: 2,
-                                    ),
-                                  ),
-                                  child: const Icon(
-                                    Icons.camera_alt_outlined,
-                                    size: 18,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      )
-                    else
-                      avatar,
-                    const SizedBox(height: 10),
-                    // User Name and Email
-                    Text(
-                      userName,
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    ProfileCover(
+                      name: userName,
+                      photoUrl: profileImageUrl,
+                      username: username,
+                      // Your email is shown to you only, never to others.
+                      email: userEmail,
+                      onChangePhoto: isMe
+                          ? () => changeProfilePhoto(context)
+                          : null,
                     ),
-                    if (username.isNotEmpty)
-                      Text(
-                        '@$username',
-                        key: const ValueKey('profile_username'),
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.primary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    // Your email is shown to you only, never to others.
-                    if (isMe)
-                      Text(userEmail, style: TextStyle(color: Colors.grey)),
                     // Follow/Unfollow Button (if not viewing own profile)
                     if (!isMe) ...[
-                      const SizedBox(height: 20),
-                      StreamBuilder<bool>(
-                        stream: friendService.hasPendingRequest(targetUserId),
-                        builder: (context, requestSnapshot) {
-                          final hasRequest = requestSnapshot.data ?? false;
-                          return ElevatedButton(
-                            onPressed: () {
-                              if (isFollowing) {
-                                friendService.unfollowUser(targetUserId);
-                              } else if (hasRequest) {
-                                friendService.cancelFollowRequest(targetUserId);
-                              } else {
-                                friendService.sendFollowRequest(targetUserId);
-                              }
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: isFollowing
-                                  ? Colors.grey
-                                  : (hasRequest
-                                        ? Colors.orange
-                                        : const Color(0xFF0D0140)),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 40,
-                                vertical: 12,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(25),
-                              ),
-                            ),
-                            child: Text(
-                              isFollowing
-                                  ? 'Unfollow'
-                                  : (hasRequest ? 'Requested' : 'Follow'),
-                            ),
-                          );
-                        },
+                      const SizedBox(height: 18),
+                      _buildFollowButton(
+                        friendService,
+                        targetUserId,
+                        isFollowing: isFollowing,
                       ),
                     ],
-                    const SizedBox(height: 30),
+                    const SizedBox(height: 22),
                     // Followers/Following stats
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        _buildStatColumn(
-                          context,
-                          'Followers',
-                          friendService.getFollowersCount(targetUserId),
-                          targetUserId,
-                          'followers',
-                          canSeeContent,
-                          showTotal: isMe,
-                        ),
-                        _buildStatColumn(
-                          context,
-                          'Following',
-                          friendService.getFollowingCount(targetUserId),
-                          targetUserId,
-                          'following',
-                          canSeeContent,
-                          showTotal: isMe,
-                        ),
-                      ],
+                    _buildStatsCard(
+                      context,
+                      friendService,
+                      targetUserId,
+                      canSeeContent: canSeeContent,
+                      showTotal: isMe,
                     ),
                     // Follow starts with finding people (U-3).
                     if (isMe) ...[
-                      const SizedBox(height: 16),
-                      OutlinedButton.icon(
+                      const SizedBox(height: 14),
+                      TextButton.icon(
                         key: const ValueKey('profile_find_people'),
                         onPressed: () =>
                             Navigator.pushNamed(context, AppRoutes.search),
+                        style: TextButton.styleFrom(
+                          foregroundColor: ink,
+                          backgroundColor: ink.withValues(alpha: 0.06),
+                          shape: const StadiumBorder(),
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          minimumSize: const Size(0, 44),
+                          textStyle: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                         icon: const Icon(Icons.person_search_outlined),
                         label: const Text('Find people to follow'),
                       ),
                     ],
-                    const SizedBox(height: 30),
-                    const Divider(),
+                    _buildLookbookHeading(context, isMe: isMe),
                     _buildPublicDailyDressUps(
                       context,
                       targetUserId,
-                      userName.toString(),
+                      userName,
                       profileImageUrl,
                     ),
                   ],
@@ -280,6 +215,168 @@ class ProfilePage extends StatelessWidget {
     Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
+  /// Follow, Requested (tap to cancel) or Unfollow, as one pill.
+  Widget _buildFollowButton(
+    FriendService friendService,
+    String targetUserId, {
+    required bool isFollowing,
+  }) {
+    return StreamBuilder<bool>(
+      stream: friendService.hasPendingRequest(targetUserId),
+      builder: (context, requestSnapshot) {
+        final hasRequest = requestSnapshot.data ?? false;
+        final ink = _ink(Theme.of(context).colorScheme);
+        void onPressed() {
+          if (isFollowing) {
+            friendService.unfollowUser(targetUserId);
+          } else if (hasRequest) {
+            friendService.cancelFollowRequest(targetUserId);
+          } else {
+            friendService.sendFollowRequest(targetUserId);
+          }
+        }
+
+        const shape = StadiumBorder();
+        const size = Size(200, 46);
+        const textStyle = TextStyle(fontSize: 15, fontWeight: FontWeight.w700);
+        if (isFollowing) {
+          return OutlinedButton(
+            onPressed: onPressed,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: ink,
+              side: BorderSide(color: ink.withValues(alpha: 0.3)),
+              shape: shape,
+              minimumSize: size,
+              textStyle: textStyle,
+            ),
+            child: const Text('Unfollow'),
+          );
+        }
+        return FilledButton.icon(
+          onPressed: onPressed,
+          style: FilledButton.styleFrom(
+            backgroundColor: hasRequest
+                ? _accent.withValues(alpha: 0.2)
+                : _primaryColor,
+            foregroundColor: hasRequest ? ink : Colors.white,
+            shape: shape,
+            minimumSize: size,
+            textStyle: textStyle,
+          ),
+          icon: Icon(
+            hasRequest ? Icons.schedule : Icons.person_add_alt_1,
+            size: 20,
+          ),
+          label: Text(hasRequest ? 'Requested' : 'Follow'),
+        );
+      },
+    );
+  }
+
+  /// Followers and Following, side by side on one raised card.
+  Widget _buildStatsCard(
+    BuildContext context,
+    FriendService friendService,
+    String targetUserId, {
+    required bool canSeeContent,
+    required bool showTotal,
+  }) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final isDark = colors.brightness == Brightness.dark;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Container(
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: theme.cardTheme.color ?? colors.surfaceContainerLowest,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: _ink(colors).withValues(alpha: isDark ? 0.10 : 0.06),
+          ),
+          boxShadow: isDark
+              ? null
+              : [
+                  BoxShadow(
+                    color: _primaryColor.withValues(alpha: 0.07),
+                    blurRadius: 24,
+                    spreadRadius: -6,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+        ),
+        child: IntrinsicHeight(
+          child: Row(
+            children: [
+              Expanded(
+                child: _buildStatColumn(
+                  context,
+                  'Followers',
+                  friendService.getFollowersCount(targetUserId),
+                  targetUserId,
+                  'followers',
+                  canSeeContent,
+                  showTotal: showTotal,
+                ),
+              ),
+              VerticalDivider(
+                width: 1,
+                indent: 16,
+                endIndent: 16,
+                color: colors.outlineVariant,
+              ),
+              Expanded(
+                child: _buildStatColumn(
+                  context,
+                  'Following',
+                  friendService.getFollowingCount(targetUserId),
+                  targetUserId,
+                  'following',
+                  canSeeContent,
+                  showTotal: showTotal,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLookbookHeading(BuildContext context, {required bool isMe}) {
+    final colors = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(22, 32, 22, 2),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Expanded(
+            child: Text(
+              isMe ? 'My lookbook' : 'Lookbook',
+              style: TextStyle(
+                color: _ink(colors),
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.4,
+              ),
+            ),
+          ),
+          Icon(Icons.public, size: 15, color: colors.onSurfaceVariant),
+          const SizedBox(width: 4),
+          Text(
+            'Public looks',
+            style: TextStyle(
+              color: colors.onSurfaceVariant,
+              fontSize: 12.5,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildPublicDailyDressUps(
     BuildContext context,
     String userId,
@@ -293,76 +390,80 @@ class ProfilePage extends StatelessWidget {
         .snapshots();
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 30),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 30),
+      child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+        stream: stream,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: CircularProgressIndicator(),
+              ),
+            );
+          }
+
+          if (snapshot.hasError) {
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Text('Unable to load public Daily Dress Ups.'),
+            );
+          }
+
+          final posts =
+              snapshot.data?.docs.map(Post.fromFirestore).toList() ?? <Post>[];
+          posts.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+          if (posts.isEmpty) return _buildEmptyLookbook(context);
+
+          return Column(
+            children: [
+              for (var index = 0; index < posts.length; index++) ...[
+                _buildPublicDailyDressUpCard(
+                  context,
+                  posts[index],
+                  index,
+                  userName,
+                  profileImageUrl,
+                ),
+                if (index != posts.length - 1) const SizedBox(height: 18),
+              ],
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  /// An empty studio: the backdrop and a hanger, waiting for a first look.
+  Widget _buildEmptyLookbook(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final isDark = colors.brightness == Brightness.dark;
+    final backdrop = kLookBackdrops[1];
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 44),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(28),
+        gradient: RadialGradient(
+          radius: 1.2,
+          colors: [
+            for (final colour in [Colors.white, backdrop])
+              isDark ? Color.lerp(colour, Colors.black, 0.7)! : colour,
+          ],
+        ),
+      ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-            stream: stream,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(24),
-                    child: CircularProgressIndicator(),
-                  ),
-                );
-              }
-
-              if (snapshot.hasError) {
-                return const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 16),
-                  child: Text('Unable to load public Daily Dress Ups.'),
-                );
-              }
-
-              final posts =
-                  snapshot.data?.docs.map(Post.fromFirestore).toList() ??
-                  <Post>[];
-              posts.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-
-              if (posts.isEmpty) {
-                return Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 44,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surfaceContainerLow,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: const Column(
-                    children: [
-                      Icon(
-                        Icons.checkroom_outlined,
-                        size: 42,
-                        color: Colors.grey,
-                      ),
-                      SizedBox(height: 12),
-                      Text(
-                        'No public Daily Dress Ups yet.',
-                        style: TextStyle(color: Colors.grey),
-                      ),
-                    ],
-                  ),
-                );
-              }
-
-              return Column(
-                children: [
-                  for (var index = 0; index < posts.length; index++) ...[
-                    _buildPublicDailyDressUpCard(
-                      context,
-                      posts[index],
-                      userName,
-                      profileImageUrl,
-                    ),
-                    if (index != posts.length - 1) const SizedBox(height: 30),
-                  ],
-                ],
-              );
-            },
+          Icon(Icons.checkroom_outlined, size: 44, color: _ink(colors)),
+          const SizedBox(height: 12),
+          Text(
+            'No public Daily Dress Ups yet.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: colors.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),
@@ -372,181 +473,89 @@ class ProfilePage extends StatelessWidget {
   Widget _buildPublicDailyDressUpCard(
     BuildContext context,
     Post post,
+    int index,
     String userName,
     String profileImageUrl,
   ) {
-    final colors = Theme.of(context).colorScheme;
     final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
-    final initial = userName.trim().isEmpty
-        ? 'U'
-        : userName.trim()[0].toUpperCase();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(2),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.orange, width: 2),
-              ),
-              child: CircleAvatar(
-                radius: 20,
-                backgroundColor: const Color(0xFF0D0140),
-                backgroundImage: profileImageUrl.isEmpty
-                    ? null
-                    : CachedNetworkImageProvider(profileImageUrl),
-                child: profileImageUrl.isEmpty
-                    ? Text(
-                        initial,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      )
-                    : null,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    userName,
-                    style: const TextStyle(
-                      color: Color(0xFF0D0140),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
-                  Text(
-                    post.caption.isEmpty ? 'Daily dress-up' : post.caption,
-                    style: TextStyle(
-                      color: colors.onSurfaceVariant,
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Text(
-              _formatPostTime(post.createdAt),
-              style: const TextStyle(color: Colors.grey, fontSize: 12),
-            ),
-          ],
-        ),
-        const SizedBox(height: 15),
-        _buildPublicPostPreview(context, post),
-        const SizedBox(height: 15),
-        AffirmationRow(
-          targetType: AffirmationTargetType.post,
-          targetId: post.id,
-          targetOwnerId: post.authorId,
-          currentUserId: currentUserId,
-          ownerName: userName,
-          onOpenReceived: () => showReceivedAffirmations(
-            context,
-            targetType: AffirmationTargetType.post,
-            targetId: post.id,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Wrap(
-          spacing: 20,
-          runSpacing: 12,
-          children: [
-            _buildPostAction(
-              context,
-              Icons.chat_bubble_outline,
-              '${post.commentCount}',
-              onTap: () => showPostCommentsSheet(context, post),
-            ),
-            _buildPostAction(
-              context,
-              Icons.shortcut_outlined,
-              'Try On',
-              onTap: () => _tryOnPost(context, post),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPublicPostPreview(BuildContext context, Post post) {
-    final colors = Theme.of(context).colorScheme;
-    final products = post.products
-        .where((product) => _productImageUrl(product).isNotEmpty)
-        .take(3)
+    final isOwner = currentUserId == post.authorId;
+    final caption = post.caption.trim().isEmpty
+        ? 'Daily dress-up'
+        : post.caption.trim();
+    final pieces = post.products
+        .map(_productImageUrl)
+        .where((url) => url.isNotEmpty)
+        .take(4)
         .toList();
 
-    if (products.isEmpty) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(20),
-        child: SizedBox(
-          height: 280,
-          width: double.infinity,
-          child: _buildNetworkImage(
-            post.imageURL,
-            colors,
-            fit: BoxFit.cover,
-            fallbackIcon: Icons.checkroom_outlined,
+    return DressUpPostCard(
+      key: ValueKey('profile_post_${post.id}'),
+      isMineLayout: true,
+      title: userName,
+      subtitle: caption,
+      avatarUrl: profileImageUrl,
+      timeLabel: _formatPostTime(post.createdAt),
+      imageBackground: kLookBackdrops[index % kLookBackdrops.length],
+      visual: _buildLookImage(context, post.imageURL),
+      onImageTap: post.imageURL.isEmpty
+          ? null
+          : () => openLookViewer(
+              context,
+              imageUrl: post.imageURL,
+              title: userName,
+              caption: caption,
+            ),
+      actions: [
+        DressUpCardAction(
+          glyph: 'a',
+          chipLabel: isOwner ? 'Affirmations' : 'Affirm',
+          label: isOwner ? 'Affirmations received' : 'Affirm',
+          onTap: () => _openAffirmations(
+            context,
+            post,
+            isOwner: isOwner,
+            ownerName: userName,
           ),
         ),
-      );
-    }
-
-    return Container(
-      height: 310,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: colors.outlineVariant),
+        DressUpCardAction(
+          icon: Icons.chat_bubble_outline,
+          label: post.commentCount == 1
+              ? '1 comment'
+              : '${post.commentCount} comments',
+          onTap: () => showPostCommentsSheet(context, post),
+        ),
+        DressUpCardAction(
+          icon: Icons.accessibility_new,
+          label: 'Try On',
+          onTap: () => _tryOnPost(context, post),
+        ),
+      ],
+      trailingAction: DressUpCardAction(
+        icon: Icons.share_outlined,
+        label: kSendToLabel,
+        onTap: () => showForwardLookSheet(
+          context,
+          imageUrl: post.imageURL,
+          caption: post.caption,
+        ),
       ),
-      child: Row(
+      // The pieces the look is made of, then which affirmations it got;
+      // never how many (BNG SRS 001, AFF-003).
+      footer: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            flex: 3,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: _buildNetworkImage(
-                post.imageURL,
-                colors,
-                fit: BoxFit.contain,
-                fallbackIcon: Icons.person_outline,
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            flex: 2,
-            child: Column(
-              children: [
-                for (var index = 0; index < products.length; index++) ...[
-                  Expanded(
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(5),
-                      decoration: BoxDecoration(
-                        color: colors.surface,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: colors.outlineVariant),
-                      ),
-                      child: _buildNetworkImage(
-                        _productImageUrl(products[index]),
-                        colors,
-                        fit: BoxFit.contain,
-                        fallbackIcon: Icons.checkroom_outlined,
-                      ),
-                    ),
-                  ),
-                  if (index != products.length - 1) const SizedBox(height: 8),
-                ],
-              ],
+          if (pieces.isNotEmpty) _buildPieces(context, pieces),
+          AffirmationRow(
+            targetType: AffirmationTargetType.post,
+            targetId: post.id,
+            targetOwnerId: post.authorId,
+            currentUserId: currentUserId,
+            ownerName: isOwner ? 'your look' : userName,
+            showAction: false,
+            onOpenReceived: () => showReceivedAffirmations(
+              context,
+              targetType: AffirmationTargetType.post,
+              targetId: post.id,
             ),
           ),
         ],
@@ -554,31 +563,101 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  Widget _buildNetworkImage(
-    String imageUrl,
-    ColorScheme colors, {
-    required BoxFit fit,
-    required IconData fallbackIcon,
-  }) {
-    if (imageUrl.isEmpty) {
-      return Container(
-        color: colors.surfaceContainerHighest,
-        alignment: Alignment.center,
-        child: Icon(fallbackIcon, color: colors.outline, size: 38),
-      );
-    }
-
-    return AppNetworkImage(
-      imageUrl,
-      width: double.infinity,
-      height: double.infinity,
-      fit: fit,
-      fallback: Container(
-        color: colors.surfaceContainerHighest,
-        alignment: Alignment.center,
-        child: Icon(Icons.broken_image_outlined, color: colors.outline),
+  /// The whole look, standing on the bottom of the card's studio frame.
+  Widget _buildLookImage(BuildContext context, String imageUrl) {
+    final fallback = Center(
+      child: Icon(
+        Icons.checkroom_outlined,
+        size: 64,
+        color: Theme.of(context).colorScheme.outline,
       ),
     );
+    if (imageUrl.isEmpty) return fallback;
+    return AppNetworkImage(
+      imageUrl,
+      fit: BoxFit.contain,
+      alignment: Alignment.bottomCenter,
+      fallback: fallback,
+    );
+  }
+
+  /// "In this look": small swatches of the pieces the outfit is made of.
+  Widget _buildPieces(BuildContext context, List<String> imageUrls) {
+    final colors = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(top: 2, bottom: 10),
+      child: Row(
+        children: [
+          Text(
+            'In this look',
+            style: TextStyle(
+              color: colors.onSurfaceVariant,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(width: 10),
+          for (final url in imageUrls)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: Container(
+                width: 48,
+                height: 48,
+                padding: const EdgeInsets.all(5),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: colors.outlineVariant.withValues(alpha: 0.5),
+                  ),
+                ),
+                child: AppNetworkImage(
+                  url,
+                  fit: BoxFit.contain,
+                  fallback: Icon(
+                    Icons.checkroom_outlined,
+                    size: 20,
+                    color: colors.outline,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// The owner sees what their look received; anyone else affirms it.
+  Future<void> _openAffirmations(
+    BuildContext context,
+    Post post, {
+    required bool isOwner,
+    required String ownerName,
+  }) async {
+    if (isOwner) {
+      await showReceivedAffirmations(
+        context,
+        targetType: AffirmationTargetType.post,
+        targetId: post.id,
+      );
+      return;
+    }
+    final messenger = ScaffoldMessenger.of(context);
+    if (FirebaseAuth.instance.currentUser == null) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Sign in to affirm looks.')),
+      );
+      return;
+    }
+    final sent = await showAffirmationComposer(
+      context,
+      targetType: AffirmationTargetType.post,
+      targetId: post.id,
+      targetOwnerId: post.authorId,
+      recipientName: ownerName,
+    );
+    if (!sent) return;
+    messenger.showSnackBar(const SnackBar(content: Text('Affirmation sent.')));
   }
 
   String _productImageUrl(Map<String, dynamic> product) {
@@ -595,27 +674,6 @@ class ProfilePage extends StatelessWidget {
       if (value is String && value.trim().isNotEmpty) return value.trim();
     }
     return '';
-  }
-
-  Widget _buildPostAction(
-    BuildContext context,
-    IconData icon,
-    String label, {
-    Color? color,
-    VoidCallback? onTap,
-  }) {
-    final actionColor = color ?? Theme.of(context).colorScheme.onSurfaceVariant;
-    return GestureDetector(
-      onTap: onTap,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: actionColor, size: 20),
-          const SizedBox(width: 5),
-          Text(label, style: TextStyle(color: actionColor, fontSize: 13)),
-        ],
-      ),
-    );
   }
 
   Future<void> _tryOnPost(BuildContext context, Post post) async {
@@ -694,7 +752,13 @@ class ProfilePage extends StatelessWidget {
     bool canSee, {
     required bool showTotal,
   }) {
-    return GestureDetector(
+    final colors = Theme.of(context).colorScheme;
+    final labelStyle = TextStyle(
+      color: colors.onSurfaceVariant,
+      fontSize: 13,
+      fontWeight: FontWeight.w600,
+    );
+    return InkWell(
       onTap: () {
         if (canSee) {
           Navigator.push(
@@ -712,35 +776,42 @@ class ProfilePage extends StatelessWidget {
           );
         }
       },
-      // Totals are a private signal: only the profile's owner sees their
-      // numbers (BNG SRS 001; October 2026 review, U-2). Others get the
-      // list, without a number.
-      child: showTotal
-          ? StreamBuilder<int>(
-              stream: stream,
-              builder: (context, snapshot) {
-                final count = snapshot.data ?? 0;
-                return Column(
-                  children: [
-                    Text(
-                      count.toString(),
-                      key: ValueKey('profile_${type}_total'),
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        // Totals are a private signal: only the profile's owner sees their
+        // numbers (BNG SRS 001; October 2026 review, U-2). Others get the
+        // list, without a number.
+        child: showTotal
+            ? StreamBuilder<int>(
+                stream: stream,
+                builder: (context, snapshot) {
+                  final count = snapshot.data ?? 0;
+                  return Column(
+                    children: [
+                      Text(
+                        count.toString(),
+                        key: ValueKey('profile_${type}_total'),
+                        style: TextStyle(
+                          color: _ink(colors),
+                          fontSize: 24,
+                          fontWeight: FontWeight.w800,
+                          height: 1.1,
+                        ),
                       ),
-                    ),
-                    Text(label, style: TextStyle(color: Colors.grey)),
-                  ],
-                );
-              },
-            )
-          : Column(
-              children: [
-                const Icon(Icons.people_outline),
-                Text(label, style: TextStyle(color: Colors.grey)),
-              ],
-            ),
+                      const SizedBox(height: 2),
+                      Text(label, style: labelStyle),
+                    ],
+                  );
+                },
+              )
+            : Column(
+                children: [
+                  Icon(Icons.people_outline, color: _ink(colors)),
+                  const SizedBox(height: 4),
+                  Text(label, style: labelStyle),
+                ],
+              ),
+      ),
     );
   }
 }
