@@ -16,6 +16,17 @@ void main() {
     expect(narrow, greaterThanOrEqualTo(kFeedTabMinFontSize));
   });
 
+  test('allows for a phone set to larger text', () {
+    final normal = feedTabFontSize(labels: _labels, tabWidth: 260);
+    final large = feedTabFontSize(
+      labels: _labels,
+      tabWidth: 260,
+      textScaler: const TextScaler.linear(1.3),
+    );
+
+    expect(large, lessThan(normal));
+  });
+
   test('never goes below the smallest readable size', () {
     expect(feedTabFontSize(labels: _labels, tabWidth: 20), kFeedTabMinFontSize);
   });

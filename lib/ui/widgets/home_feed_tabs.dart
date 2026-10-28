@@ -35,6 +35,7 @@ const double kFeedTabMinFontSize = 11;
 double feedTabFontSize({
   required List<String> labels,
   required double tabWidth,
+  TextScaler textScaler = TextScaler.noScaling,
 }) {
   const padding = 8.0;
   final available = tabWidth - padding;
@@ -49,6 +50,7 @@ double feedTabFontSize({
         ),
       ),
       maxLines: 1,
+      textScaler: textScaler,
       textDirection: TextDirection.ltr,
     )..layout();
     if (painter.width > widest) widest = painter.width;
@@ -91,6 +93,7 @@ class HomeFeedTabs extends StatelessWidget implements PreferredSizeWidget {
           final fontSize = feedTabFontSize(
             labels: [for (final feed in HomeFeed.values) feed.label],
             tabWidth: constraints.maxWidth / HomeFeed.values.length,
+            textScaler: MediaQuery.textScalerOf(context),
           );
           return AnimatedBuilder(
             animation: position,
