@@ -439,3 +439,34 @@ describe('the coarse area for Near me', () => {
     );
   });
 });
+
+describe('product insights', () => {
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'product_insights/p1'), {
+        sellerId: 'tariro',
+        reach: 4,
+        followers: 9,
+      });
+    });
+  });
+
+  test('only the shop that listed the piece reads its reach', async () => {
+    await assertSucceeds(getDoc(doc(as('tariro'), 'product_insights/p1')));
+    await assertFails(getDoc(doc(as('zoe'), 'product_insights/p1')));
+  });
+
+  test('the shop lists its own insights, by seller', async () => {
+    await assertSucceeds(
+      getDocs(query(collection(as('tariro'), 'product_insights'), where('sellerId', '==', 'tariro'))),
+    );
+    await assertFails(
+      getDocs(query(collection(as('zoe'), 'product_insights'), where('sellerId', '==', 'tariro'))),
+    );
+  });
+
+  test('nobody writes insights from the app', async () => {
+    await assertFails(setDoc(doc(as('tariro'), 'product_insights/p1'), { sellerId: 'tariro', reach: 999 }));
+    await assertFails(setDoc(doc(as('zoe'), 'product_insights/p2'), { sellerId: 'zoe', reach: 1 }));
+  });
+});

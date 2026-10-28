@@ -62,3 +62,12 @@ List<Map<String, dynamic>> filterByStock(
   for (final product in products)
     if (level == null || stockLevelOf(product) == level) product,
 ];
+
+/// How far a piece got in followers' feeds, for the shop: "Shown to 4 of 9
+/// followers". Null for a piece with no record (listed before this existed).
+String? reachLabel({required int? reach, required int? followers}) {
+  if (reach == null || followers == null) return null;
+  if (followers == 0) return 'No followers yet';
+  if (reach == 0) return 'No follower matched it yet';
+  return 'Shown to $reach of $followers ${followers == 1 ? 'follower' : 'followers'}';
+}

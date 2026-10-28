@@ -183,6 +183,15 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ── product insights ───────────────────────────────────────────────────
+    // How many followers' feeds a new piece reached: a count, only for the
+    // shop that listed it, written by the matchNewStock function (admin SDK).
+
+    match /product_insights/{productId} {
+      allow read: if isSignedIn() && resource.data.get('sellerId', '') == request.auth.uid;
+      allow write: if false;
+    }
+
     // ── products ───────────────────────────────────────────────────────────
 
     match /products/{productId} {

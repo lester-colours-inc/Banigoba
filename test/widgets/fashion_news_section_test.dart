@@ -11,7 +11,9 @@ ContentItem _item(
   String title, {
   bool event = false,
   DateTime? at,
+  DateTime? startsAt,
 }) => ContentItem.fromMap(id, {
+  'startsAt': ?startsAt,
   'title': title,
   'url': 'https://mag.example/$id',
   'imageUrl': '',
@@ -33,6 +35,7 @@ Future<void> _pump(
   List<ContentItem> items, {
   Future<void> Function(ContentItem)? onOpen,
   int maxNews = 5,
+  List<String> idols = const [],
 }) async {
   tester.view.physicalSize = const Size(800, 2400);
   tester.view.devicePixelRatio = 2;
@@ -46,6 +49,7 @@ Future<void> _pump(
             clock: () => _now,
             onOpen: onOpen ?? (_) async {},
             maxNews: maxNews,
+            loadIdolNames: () async => idols,
           ),
         ),
       ),
@@ -106,5 +110,79 @@ void main() {
 
     expect(find.byKey(const ValueKey('fashion_news')), findsNothing);
     expect(find.text('In fashion news'), findsNothing);
+  });
+
+  testWidgets('shows the date on an event that has one', (tester) async {
+    await _pump(tester, [
+      _item(
+        'e',
+        'Gala returns',
+        event: true,
+        startsAt: DateTime.utc(2026, 11, 12),
+      ),
+    ]);
+
+    expect(find.byKey(const ValueKey('event_date_e')), findsOneWidget);
+    expect(find.text('12 Nov'), findsOneWidget);
+  });
+
+  testWidgets('leaves out an event whose day has passed', (tester) async {
+    await _pump(tester, [
+      _item(
+        'old',
+        'Gala was a success',
+        event: true,
+        startsAt: DateTime.utc(2026, 10, 1),
+      ),
+      _item('n', 'Spring runway report'),
+    ]);
+
+    expect(find.byKey(const ValueKey('content_old')), findsNothing);
+  });
+
+  group('from your idols', () {
+    testWidgets('lists stories that name an idol, above the rest', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        [
+          _item('a', 'Rihanna launches a new collection'),
+          _item('b', 'Spring runway report'),
+        ],
+        idols: ['Rihanna'],
+      );
+
+      expect(find.text('From your idols'), findsOneWidget);
+      final idolsAt = tester.getTopLeft(find.text('From your idols')).dy;
+      final newsAt = tester.getTopLeft(find.text('In fashion news')).dy;
+      expect(idolsAt, lessThan(newsAt));
+    });
+
+    testWidgets('does not repeat a story under both headings', (tester) async {
+      await _pump(
+        tester,
+        [_item('a', 'Rihanna launches a new collection')],
+        idols: ['Rihanna'],
+      );
+
+      expect(find.byKey(const ValueKey('content_a')), findsOneWidget);
+    });
+
+    testWidgets('no heading when no story names an idol', (tester) async {
+      await _pump(
+        tester,
+        [_item('b', 'Spring runway report')],
+        idols: ['Rihanna'],
+      );
+
+      expect(find.text('From your idols'), findsNothing);
+    });
+
+    testWidgets('no heading when the person has no idols', (tester) async {
+      await _pump(tester, [_item('a', 'Rihanna launches a collection')]);
+
+      expect(find.text('From your idols'), findsNothing);
+    });
   });
 }

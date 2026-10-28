@@ -38,7 +38,7 @@ function matchNewStockHandler(db, FieldValue, logger = console) {
     const user = db.collection('users').doc(followerId);
 
     // "Not for me" is remembered forever.
-    if ((await user.collection('feedDismissed').doc(product.id).get()).exists) return;
+    if ((await user.collection('feedDismissed').doc(product.id).get()).exists) return false;
 
     const [profile, bodyDoc, wardrobe] = await Promise.all([
       user.get(),
@@ -53,7 +53,7 @@ function matchNewStockHandler(db, FieldValue, logger = console) {
       ownedByCategory: ownedCounts(wardrobe.docs),
       followedSellerIds: new Set([sellerOf(product)]),
     });
-    if (match === null) return;
+    if (match === null) return false;
 
     const todays = await user.collection('feedCards').where('day', '==', today).get();
     const decision = placeCard(
@@ -64,7 +64,7 @@ function matchNewStockHandler(db, FieldValue, logger = console) {
       })),
       { id: product.id, score: match.score },
     );
-    if (!decision.add) return;
+    if (!decision.add) return false;
 
     const batch = db.batch();
     for (const id of decision.remove) {
@@ -79,6 +79,22 @@ function matchNewStockHandler(db, FieldValue, logger = console) {
       reasons: match.reasons,
       day: today,
       createdAt: FieldValue.serverTimestamp(),
+    });
+    await batch.commit();
+    return true;
+  }
+
+  // How far a piece got, for the shop only: a count, never who. A restock
+  // adds to the total.
+  async function recordReach(product, reached, followers) {
+    const ref = db.collection('product_insights').doc(product.id);
+    const before = (await ref.get()).data();
+    const batch = db.batch();
+    batch.set(ref, {
+      sellerId: sellerOf(product),
+      reach: ((before && before.reach) || 0) + reached,
+      followers,
+      updatedAt: FieldValue.serverTimestamp(),
     });
     await batch.commit();
   }
@@ -108,11 +124,12 @@ function matchNewStockHandler(db, FieldValue, logger = console) {
       for (const result of results) {
         if (result.status === 'rejected') {
           logger.warn('feed card failed', result.reason);
-        } else {
+        } else if (result.value) {
           written += 1;
         }
       }
     }
+    await recordReach(product, written, followers.size);
     logger.info(`matched ${product.id} for ${written} of ${followers.size} followers`);
   };
 }

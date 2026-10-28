@@ -134,3 +134,85 @@ describe('toDoc', () => {
     assert.ok(toDoc(item({ title: 'x'.repeat(400) }), source, NOW).title.length <= 180);
   });
 });
+
+const { eventDateOf } = require('../content/classify');
+
+describe('eventDateOf', () => {
+  const now = new Date('2026-10-28T12:00:00Z');
+  const day = (iso) => new Date(`${iso}T00:00:00Z`).getTime();
+
+  test('reads "12 November" and "12th Nov"', () => {
+    assert.equal(eventDateOf('Harare Fashion Week opens on 12 November', now).getTime(), day('2026-11-12'));
+    assert.equal(eventDateOf('Pop-up market on 3rd Dec', now).getTime(), day('2026-12-03'));
+  });
+
+  test('reads "November 12" and "Nov 12th"', () => {
+    assert.equal(eventDateOf('Gala set for November 12', now).getTime(), day('2026-11-12'));
+    assert.equal(eventDateOf('Expo returns Nov 20th', now).getTime(), day('2026-11-20'));
+  });
+
+  test('takes the first day of a range', () => {
+    assert.equal(eventDateOf('Fashion week runs 12-14 November', now).getTime(), day('2026-11-12'));
+    assert.equal(eventDateOf('Festival 12 – 14 November', now).getTime(), day('2026-11-12'));
+  });
+
+  test('uses a year when the title gives one', () => {
+    assert.equal(eventDateOf('Fashion Week returns 5 March 2027', now).getTime(), day('2027-03-05'));
+  });
+
+  test('a date earlier in the year means next year, when it is not just past', () => {
+    assert.equal(eventDateOf('Fashion Week returns on 5 March', now).getTime(), day('2027-03-05'));
+  });
+
+  test('a date that has only just passed is not an event any more', () => {
+    assert.equal(eventDateOf('Show was on 20 October', now), null);
+  });
+
+  test('"in March" with no day gives no date', () => {
+    assert.equal(eventDateOf('Harare Fashion Week returns in March', now), null);
+    assert.equal(eventDateOf('Spring runway report', now), null);
+  });
+
+  test('ignores numbers that are not dates', () => {
+    assert.equal(eventDateOf('Top 12 looks from the show', now), null);
+    assert.equal(eventDateOf('Fashion Week 2027 tickets go on sale', now), null);
+  });
+
+  test('ignores dates too far away to be believed', () => {
+    assert.equal(eventDateOf('Expo on 5 March 2031', now), null);
+  });
+});
+
+describe('toDoc for events', () => {
+  const now = new Date('2026-10-28T12:00:00Z');
+  const source = { id: 'fwo', name: 'Fashion Week Online', region: 'intl' };
+  const item = (title) => ({
+    title,
+    link: 'https://fwo.example/x',
+    publishedAt: new Date('2026-10-27T08:00:00Z'),
+    categories: [],
+    imageUrl: '',
+  });
+
+  test('keeps the date of an event and does not expire it before it happens', () => {
+    const doc = toDoc(item('Harare Fashion Week returns on 20 December'), source, now);
+
+    assert.equal(doc.kind, 'event');
+    assert.equal(doc.startsAt.toISOString(), '2026-12-20T00:00:00.000Z');
+    assert.ok(doc.expiresAt.getTime() >= doc.startsAt.getTime() + 24 * 3600 * 1000);
+  });
+
+  test('news never gets an event date', () => {
+    const doc = toDoc(item('Review of the 12 November collection'), source, now);
+
+    assert.equal(doc.kind, 'news');
+    assert.equal('startsAt' in doc, false);
+  });
+
+  test('an event with no readable date has none', () => {
+    const doc = toDoc(item('Harare Fashion Week returns in March'), source, now);
+
+    assert.equal(doc.kind, 'event');
+    assert.equal('startsAt' in doc, false);
+  });
+});

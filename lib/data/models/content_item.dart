@@ -20,6 +20,7 @@ class ContentItem {
     required this.places,
     required this.topics,
     required this.publishedAt,
+    this.startsAt,
   });
 
   final String id;
@@ -31,6 +32,9 @@ class ContentItem {
   final List<String> places;
   final List<String> topics;
   final DateTime publishedAt;
+
+  /// The day an event starts, when its title said so. Null otherwise.
+  final DateTime? startsAt;
 
   factory ContentItem.fromMap(String id, Map<String, dynamic> data) {
     List<String> strings(Object? value) => value is Iterable
@@ -52,7 +56,36 @@ class ContentItem {
         final DateTime date => date,
         _ => DateTime.fromMillisecondsSinceEpoch(0),
       },
+      startsAt: switch (data['startsAt']) {
+        Timestamp(:final seconds) => DateTime.fromMillisecondsSinceEpoch(
+          seconds * 1000,
+          isUtc: true,
+        ),
+        final DateTime date => date,
+        _ => null,
+      },
     );
+  }
+
+  /// "12 Nov" for an event with a date, else null.
+  String? get dateLabel {
+    final date = startsAt;
+    if (date == null) return null;
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return '${date.day} ${months[date.month - 1]}';
   }
 
   bool get hasImage => imageUrl.isNotEmpty;
@@ -107,17 +140,29 @@ Map<String, List<ContentItem>> newsAbout(
   return result;
 }
 
-/// Events and news, each newest first.
+/// Events and news. News is newest first. Events with a date that has not
+/// passed come first, soonest first; then events with no date, newest first.
+/// An event whose day has gone by is left out.
 ({List<ContentItem> events, List<ContentItem> news}) splitByKind(
-  Iterable<ContentItem> items,
-) {
+  Iterable<ContentItem> items, {
+  DateTime? now,
+}) {
+  final clock = now ?? DateTime.now();
+  final today = DateTime.utc(clock.year, clock.month, clock.day);
   int newestFirst(ContentItem a, ContentItem b) =>
       b.publishedAt.compareTo(a.publishedAt);
+  final events = <ContentItem>[
+    for (final item in items)
+      if (item.isEvent &&
+          (item.startsAt == null || !item.startsAt!.toUtc().isBefore(today)))
+        item,
+  ];
+  final dated = events.where((item) => item.startsAt != null).toList()
+    ..sort((a, b) => a.startsAt!.compareTo(b.startsAt!));
+  final undated = events.where((item) => item.startsAt == null).toList()
+    ..sort(newestFirst);
   return (
-    events: [
-      for (final item in items)
-        if (item.isEvent) item,
-    ]..sort(newestFirst),
+    events: [...dated, ...undated],
     news: [
       for (final item in items)
         if (!item.isEvent) item,

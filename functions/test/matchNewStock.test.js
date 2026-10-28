@@ -177,3 +177,42 @@ describe('matchNewStockHandler', () => {
     assert.equal(db.docs.has('users/rudo/feedCards/p1'), true);
   });
 });
+
+describe('shop insights', () => {
+  test('records how many followers a new piece was shown to, for the shop only', async () => {
+    await run(event(product()));
+
+    const insight = db.docs.get('product_insights/p1');
+    assert.equal(insight.sellerId, 'shop1');
+    assert.equal(insight.reach, 1);
+    assert.equal(insight.followers, 1);
+    assert.equal(insight.updatedAt, 'now');
+  });
+
+  test('records zero when no follower suits it', async () => {
+    await run(event(product({ sizeInventory: { XS: 2 } })));
+
+    assert.equal(db.docs.get('product_insights/p1').reach, 0);
+    assert.equal(db.docs.get('product_insights/p1').followers, 1);
+  });
+
+  test('a restock adds to the total', async () => {
+    await run(event(product()));
+    db.docs.delete('users/zoe/feedCards/p1');
+    await run(event(product(), product({ stock: 0, sizeInventory: { M: 0 } })));
+
+    assert.equal(db.docs.get('product_insights/p1').reach, 2);
+  });
+
+  test('an ordinary edit records nothing', async () => {
+    await run(event(product(), product()));
+
+    assert.equal(db.docs.has('product_insights/p1'), false);
+  });
+
+  test('holds no follower names or sizes', async () => {
+    await run(event(product()));
+
+    assert.doesNotMatch(JSON.stringify(db.docs.get('product_insights/p1')), /zoe/);
+  });
+});

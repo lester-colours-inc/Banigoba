@@ -173,4 +173,61 @@ void main() {
       expect(split.events.map((i) => i.title), ['Fashion Week returns']);
     });
   });
+
+  group('event dates', () {
+    ContentItem event(String title, {DateTime? startsAt, DateTime? at}) =>
+        ContentItem.fromMap('e-$title', {
+          'title': title,
+          'url': 'https://mag.example/$title',
+          'sourceName': 'Fashion Week Online',
+          'kind': 'event',
+          'publishedAt': at ?? DateTime(2026, 10, 28, 9),
+          'startsAt': ?startsAt,
+        });
+
+    test('reads the date and labels it in short', () {
+      final item = event('Gala', startsAt: DateTime.utc(2026, 11, 12));
+
+      expect(item.startsAt, DateTime.utc(2026, 11, 12));
+      expect(item.dateLabel, '12 Nov');
+    });
+
+    test('an event with no date has no label', () {
+      final item = event('Fashion Week returns in March');
+
+      expect(item.startsAt, isNull);
+      expect(item.dateLabel, isNull);
+    });
+
+    test(
+      'upcoming events come first, soonest first, then undated by newest',
+      () {
+        final split = splitByKind([
+          event('later', startsAt: DateTime.utc(2026, 12, 20)),
+          event('undated old', at: DateTime(2026, 10, 1)),
+          event('soon', startsAt: DateTime.utc(2026, 11, 2)),
+          event('undated new', at: DateTime(2026, 10, 27)),
+        ], now: _now);
+
+        expect(split.events.map((i) => i.title), [
+          'soon',
+          'later',
+          'undated new',
+          'undated old',
+        ]);
+      },
+    );
+
+    test(
+      'an event that has already happened is dropped; today still counts',
+      () {
+        final split = splitByKind([
+          event('yesterday', startsAt: DateTime.utc(2026, 10, 27)),
+          event('today', startsAt: DateTime.utc(2026, 10, 28)),
+        ], now: _now);
+
+        expect(split.events.map((i) => i.title), ['today']);
+      },
+    );
+  });
 }

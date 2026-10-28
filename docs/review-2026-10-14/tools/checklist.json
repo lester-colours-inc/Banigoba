@@ -462,7 +462,7 @@
           "area": "Engagement and go-to-market",
           "note": "Links to C-1",
           "done": false,
-          "progress": "Built 28 Oct (first version): stories that announce an event (a fashion week returning, a show to be hosted, tickets, pop-ups, expos, festivals, galas) appear under \\\"Fashion events\\\" with an Event tag, above \\\"In fashion news\\\", on the Community tab. They are found from the title only, so dates are not read. Still planned: events with dates in My Daily Dress Up, and curator-added events merged in.",
+          "progress": "Built 28 Oct: stories that announce an event (a fashion week returning, a show to be hosted, tickets, pop-ups, expos, festivals, galas) appear under \\\"Fashion events\\\" with an Event tag on the Community tab. Added 28 Oct: when the title gives a day (\\\"opens on 12 November\\\", \\\"12-14 Nov\\\") the date is read and shown on the card; upcoming events come first, soonest first, and one whose day has passed is dropped. Honest limit: few publishers put a date in the title, so most events show without one (none of the events in the feeds checked on 28 Oct had a date). Not done: events in My Daily Dress Up itself (that screen is being redesigned in another session), and curator-added events merged into the same list.",
           "highlight": "partial"
         }
       ]
@@ -504,7 +504,7 @@
           "area": "Fashion Twins, Fashion Idols and Hair Stylists",
           "note": "",
           "done": false,
-          "progress": "New \"My Fashion Idols\" page: keep idols by name; \"Style me like …\" opens the makeover with the idol filled in. Still to do: idols' news and looks in the feed, which needs the fashion-content engine (E-2). Planned 25 Oct: see docs/plans/service-provider-mode.md (shopping phases). Added 28 Oct: \\\"In the news\\\" under your idols lists up to two stories that name each idol (whole name in the title). Not yet: following an idol into your feed, and looks about them.",
+          "progress": "New \"My Fashion Idols\" page: keep idols by name; \"Style me like …\" opens the makeover with the idol filled in. Still to do: idols' news and looks in the feed, which needs the fashion-content engine (E-2). Planned 25 Oct: see docs/plans/service-provider-mode.md (shopping phases). Added 28 Oct: \\\"In the news\\\" under your idols lists up to two stories that name each idol (whole name in the title). Added 28 Oct (second step): a \\\"From your idols\\\" block at the top of the Community fashion news lists up to three stories that name any of your idols, so they come to you without opening the Idols page. Not yet: looks about them (posts by or of your idol).",
           "highlight": "partial"
         },
         {
@@ -742,7 +742,7 @@
           "area": "Backend, algorithms and research",
           "note": "",
           "done": false,
-          "progress": "Built 28 Oct (first version, same work as K-4): a look is checked against the wardrobe and matched to verified-shop stock in your size. Not yet: saving a look into a shop's own view, and shops seeing which wardrobes their pieces would fill.",
+          "progress": "Built 28 Oct (first version, same work as K-4): a look is checked against the wardrobe and matched to verified-shop stock in your size. Added 28 Oct: shops see how far each new piece got. Products & Inventory shows \\\"Shown to 4 of 9 followers\\\" under each piece, from a count kept when the piece is matched to followers' feeds (a restock adds to it). It is a number only, readable by the shop alone; no follower is named. Needs the matchNewStock function (deployed) and the rules (not yet). Not yet: saving a look into a shop's own view.",
           "highlight": "partial"
         },
         {

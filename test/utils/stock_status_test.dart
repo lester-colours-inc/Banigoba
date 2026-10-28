@@ -7,6 +7,7 @@ Map<String, dynamic> _p({num? stock, Map<String, dynamic>? sizes}) => {
 };
 
 void main() {
+  reachTests();
   group('totalStock', () {
     test('adds up the sizes', () {
       expect(totalStock(_p(sizes: {'S': 2, 'M': 3})), 5);
@@ -57,6 +58,27 @@ void main() {
       expect(filterByStock(products, null), hasLength(4));
       expect(filterByStock(products, StockLevel.soldOut), hasLength(2));
       expect(filterByStock(products, StockLevel.low), hasLength(1));
+    });
+  });
+}
+
+void reachTests() {
+  group('reachLabel', () {
+    test('says how many followers a piece was shown to', () {
+      expect(reachLabel(reach: 4, followers: 9), 'Shown to 4 of 9 followers');
+      expect(reachLabel(reach: 1, followers: 1), 'Shown to 1 of 1 follower');
+    });
+
+    test('says so when no follower suited it yet', () {
+      expect(reachLabel(reach: 0, followers: 9), 'No follower matched it yet');
+    });
+
+    test('says so when the shop has no followers', () {
+      expect(reachLabel(reach: 0, followers: 0), 'No followers yet');
+    });
+
+    test('says nothing for a piece listed before this existed', () {
+      expect(reachLabel(reach: null, followers: null), isNull);
     });
   });
 }

@@ -30,6 +30,36 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
   final ProductService _productService = ProductService();
   final ImagePicker _picker = ImagePicker();
   StockLevel? _stockFilter;
+
+  // How far each piece got in followers' feeds (product id -> counts).
+  Map<String, ({int reach, int followers})> _reach = const {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadReach();
+  }
+
+  Future<void> _loadReach() async {
+    if (_currentUserId.isEmpty) return;
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('product_insights')
+          .where('sellerId', isEqualTo: _currentUserId)
+          .get();
+      final reach = {
+        for (final doc in snapshot.docs)
+          doc.id: (
+            reach: (doc.data()['reach'] as num?)?.toInt() ?? 0,
+            followers: (doc.data()['followers'] as num?)?.toInt() ?? 0,
+          ),
+      };
+      if (mounted) setState(() => _reach = reach);
+    } on FirebaseException {
+      // No numbers is fine: the label just does not show.
+    }
+  }
+
   final String _currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
   static const Color primaryColor = Color(0xFF0D0140);
   // Preset sizes speed up entry while still allowing custom labels in the
@@ -205,6 +235,19 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                     "${sizeInventory.isEmpty ? '' : ' • ${sizeInventory.length} sizes'}",
                   ),
                   _stockLabel(data, stock),
+                  if (reachLabel(
+                        reach: _reach[doc.id]?.reach,
+                        followers: _reach[doc.id]?.followers,
+                      )
+                      case final reach?)
+                    Text(
+                      reach,
+                      key: ValueKey('reach_${doc.id}'),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
                 ],
               ),
               trailing: Row(
