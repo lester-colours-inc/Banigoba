@@ -29,6 +29,7 @@ import 'package:flutter/foundation.dart';
 import '../models/makeover_job.dart';
 import '../utils/garment_taxonomy.dart';
 import 'photo_edit_api.dart';
+import 'result_mirror.dart';
 
 class CoordinatedMakeoverService {
   CoordinatedMakeoverService({
@@ -36,14 +37,19 @@ class CoordinatedMakeoverService {
     FirebaseAuth? auth,
     PhotoEditApi? api,
     String? apiKey,
+    ResultMirror? mirror,
   }) : _db = firestore ?? FirebaseFirestore.instance,
        _auth = auth ?? FirebaseAuth.instance,
        _injectedApi = api,
+       // Real runs keep a copy of the result in our storage; tests that
+       // inject a fake api opt in by passing a mirror.
+       _mirror = mirror ?? (api == null ? ResultMirror() : null),
        _apiKey = apiKey ?? _compiledApiKey;
 
   final FirebaseFirestore _db;
   final FirebaseAuth _auth;
   final PhotoEditApi? _injectedApi;
+  final ResultMirror? _mirror;
   final String _apiKey;
 
   static const String _compiledApiKey = String.fromEnvironment('FASHN_API_KEY');
@@ -56,6 +62,15 @@ class CoordinatedMakeoverService {
   PhotoEditApi get _api => _injectedApi ?? PhotoEditApi(apiKey: _apiKey);
 
   String get _currentUserId => _auth.currentUser?.uid ?? '';
+
+  /// The final images are the ones the user saves and posts, so they are
+  /// copied into our storage; earlier stages only feed the next call.
+  Future<List<String>> _keepCopies(List<String> outputs) async {
+    final mirror = _mirror;
+    final userId = _currentUserId;
+    if (mirror == null || userId.isEmpty) return outputs;
+    return [for (final url in outputs) await mirror.keep(url, userId)];
+  }
 
   CollectionReference<Map<String, dynamic>> _jobsFor(String userId) =>
       _db.collection('users').doc(userId).collection('makeover_jobs');
@@ -244,8 +259,9 @@ class CoordinatedMakeoverService {
           );
         }
 
-        current = await _markSucceeded(current, domain, outputs);
-        carrier = outputs.first;
+        final kept = isFinalStage ? await _keepCopies(outputs) : outputs;
+        current = await _markSucceeded(current, domain, kept);
+        carrier = kept.first;
       } on MakeoverStageException catch (error) {
         current = await _markFailed(current, domain, error.message);
         // Downstream stages cannot run without this stage's output.
