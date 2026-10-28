@@ -23,7 +23,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../../data/models/affirmation.dart';
+import '../../../data/models/feed_ranking.dart';
 import '../../../data/models/post.dart';
+import '../../../data/services/author_cities.dart';
 import '../../../data/services/notification_service.dart';
 import '../../../data/services/outfit_service.dart';
 import '../../../data/services/post_service.dart';
@@ -41,6 +43,7 @@ import '../../widgets/forward_look_sheet.dart';
 import '../../widgets/look_viewer_page.dart';
 import '../../widgets/home_feed_tabs.dart';
 import '../../widgets/makeover_fab.dart';
+import '../../widgets/near_me_bar.dart';
 import '../../widgets/saved_to_wardrobe_sheet.dart';
 import '../wardrobe/wardrobe_page.dart';
 import '../events/community_events_strip.dart';
@@ -98,11 +101,24 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
           ).listen(
             (posts) {
               if (mounted) setState(() => _visiblePosts = posts);
+              _authorCities.ensure(posts.map((post) => post.authorId)).then((
+                learned,
+              ) {
+                if (learned && mounted) setState(() {});
+              });
             },
             onError: (Object error) {
               if (mounted) setState(() => _postsError = error);
             },
           );
+      _followingSub = _friendService.getFollowingIds().listen(
+        (ids) {
+          if (mounted) setState(() => _following = ids.toSet());
+        },
+        onError: (Object error) =>
+            debugPrint('Unable to load who you follow: $error'),
+      );
+      _loadViewerCity(userId);
       _savedPostsSub = _outfitService.watchSavedPostIds(userId).listen(
         (ids) {
           if (mounted) setState(() => _savedPostIds = ids);
@@ -115,6 +131,7 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
 
   @override
   void dispose() {
+    unawaited(_followingSub?.cancel());
     unawaited(_savedPostsSub?.cancel());
     unawaited(_visiblePostsSub?.cancel());
     DailyDressUpPage._feedRequests.removeListener(_handleFeedRequest);
@@ -148,6 +165,14 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
   StreamSubscription<List<Post>>? _visiblePostsSub;
   List<Post>? _visiblePosts;
   Object? _postsError;
+
+  // Who I follow and the city each author chose, for ranking the feeds and
+  // for "Near me" on Community.
+  final AuthorCities _authorCities = AuthorCities();
+  StreamSubscription<List<String>>? _followingSub;
+  Set<String> _following = const {};
+  String _viewerCity = '';
+  bool _nearMe = true;
 
   // Posts saved to the Smart Wardrobe, so the save icon can show as on.
   StreamSubscription<Set<String>>? _savedPostsSub;
@@ -986,6 +1011,15 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
                     if (feed == HomeFeed.community) ...[
                       const CommunityEventsStrip(),
                       const FashionNewsSection(),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 12, bottom: 12),
+                        child: NearMeBar(
+                          city: _viewerCity,
+                          nearMe: _nearMe,
+                          onChanged: (value) => setState(() => _nearMe = value),
+                          onSetCity: _addCity,
+                        ),
+                      ),
                     ],
                     _buildPostsFeed(feed),
                     // Clears the floating Makeover button so it never covers
@@ -1002,6 +1036,18 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
         onPressed: () => startMakeover(context),
       ),
     );
+  }
+
+  Future<void> _loadViewerCity(String userId) async {
+    final city = await _authorCities.cityOf(userId);
+    if (mounted) setState(() => _viewerCity = city);
+  }
+
+  /// Opens Settings to add a city, then picks up the answer.
+  Future<void> _addCity() async {
+    await Navigator.pushNamed(context, AppRoutes.settings);
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId != null && mounted) await _loadViewerCity(userId);
   }
 
   Widget _buildPostsFeed(HomeFeed feed) {
@@ -1029,19 +1075,38 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
     // shows only other people's.
     final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
     final isMyMakeover = feed == HomeFeed.myMakeover;
-    final posts = visiblePosts
-        .where(
-          (post) =>
-              !post.isDressUp &&
-              (isMyMakeover || post.authorId != currentUserId),
-        )
-        .toList();
+    final candidates = visiblePosts.where(
+      (post) =>
+          !post.isDressUp && (isMyMakeover || post.authorId != currentUserId),
+    );
+    // People I follow first, then people in my city, then everyone (A-5).
+    final ranked = rankPosts(
+      candidates,
+      viewerId: currentUserId,
+      following: _following,
+      cityOf: _authorCities.known,
+      viewerCity: _viewerCity,
+      now: DateTime.now(),
+    );
+    final nearOnly = !isMyMakeover && _nearMe;
+    final posts = nearOnly
+        ? nearMe(
+            ranked,
+            viewerId: currentUserId,
+            following: _following,
+            cityOf: _authorCities.known,
+            viewerCity: _viewerCity,
+          )
+        : ranked;
     return _buildPostList(
       posts,
       feed: feed,
       emptyMessage: isMyMakeover
           ? 'Your looks and your friends\' looks will appear here. '
                 'Tap "$kMakeoverFabLabel" to make your first one.'
+          : nearOnly
+          ? 'No looks near you yet. Switch to Everyone, or follow people '
+                'to see theirs here.'
           : 'No community looks yet. Follow people to see theirs here.',
     );
   }

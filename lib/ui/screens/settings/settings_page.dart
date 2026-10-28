@@ -121,7 +121,7 @@ class _SettingsPageState extends State<SettingsPage> {
             .toString();
     _username = (data['username'] ?? '').toString();
     _streetController.text = (address['street'] ?? '').toString();
-    _cityController.text = (address['city'] ?? '').toString();
+    _cityController.text = (data['city'] ?? address['city'] ?? '').toString();
     _stateController.text = (address['state'] ?? '').toString();
     _postalController.text = (address['postalCode'] ?? '').toString();
     _countryController.text = (address['country'] ?? '').toString();
@@ -204,6 +204,9 @@ class _SettingsPageState extends State<SettingsPage> {
         user.updateDisplayName(name),
         FirebaseFirestore.instance.collection('users').doc(user.uid).set({
           'displayName': name,
+          // The city alone is public, so people near you can find each
+          // other (the rest of the address is for delivery).
+          'city': _cityController.text.trim(),
           'address': {
             'street': _streetController.text.trim(),
             'city': _cityController.text.trim(),
@@ -352,7 +355,12 @@ class _SettingsPageState extends State<SettingsPage> {
                   const SizedBox(height: 12),
                   Row(
                     children: [
-                      Expanded(child: _field(_cityController, 'City')),
+                      Expanded(
+                        child: _field(
+                          _cityController,
+                          'City (public, for Near me)',
+                        ),
+                      ),
                       const SizedBox(width: 12),
                       Expanded(child: _field(_stateController, 'State')),
                     ],
