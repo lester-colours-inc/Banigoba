@@ -594,7 +594,8 @@
           "area": "Service-provider mode",
           "note": "",
           "done": false,
-          "progress": ""
+          "progress": "Built 28 Oct (first version): a Customer / Provider switch at the top of the menu and a \"Provider mode\" row in Settings. Switching never signs you out. Not yet: a provider-wide Orders view.",
+          "highlight": "partial"
         },
         {
           "id": "S-2",
@@ -602,15 +603,17 @@
           "area": "Service-provider mode",
           "note": "",
           "done": false,
-          "progress": ""
+          "progress": "Built 28 Oct: one person can hold shop, designer and salon together; roles set up before are carried over automatically. Not yet: the Orders view across all roles.",
+          "highlight": "partial"
         },
         {
           "id": "S-3",
           "text": "Provider mode has its own screens: my shop, my designs, my salon, with forms to enter stock and services.",
           "area": "Service-provider mode",
-          "note": "Not built yet",
+          "note": "Provider home built 28 Oct (a card per role opening My Shop, My Designs, My Salon, plus Messages). Orders across all roles is not built yet.",
           "done": false,
-          "progress": ""
+          "progress": "",
+          "highlight": "partial"
         },
         {
           "id": "S-4",
@@ -618,7 +621,8 @@
           "area": "Service-provider mode",
           "note": "",
           "done": false,
-          "progress": ""
+          "progress": "Built 28 Oct: one \"Become a provider\" form (tick what you offer, business name, location) for any user; no separate business sign-up. Listings still appear only after a curator verifies them.",
+          "highlight": "partial"
         },
         {
           "id": "K-1",

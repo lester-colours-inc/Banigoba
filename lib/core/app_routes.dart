@@ -18,7 +18,8 @@ import '../ui/screens/auth/custom_login_screen.dart';
 import '../ui/screens/onboarding/onboarding_screen.dart';
 import '../ui/screens/onboarding/style_preferences_screen.dart';
 import '../ui/screens/permissions/permissions_request_screen.dart';
-import '../ui/screens/shop/seller_dashboard_page.dart';
+import '../data/models/provider_roles.dart';
+import '../ui/screens/provider/provider_home_page.dart';
 import '../ui/screens/shop/shops_page.dart';
 import '../ui/screens/agents/agents_page.dart';
 import '../ui/screens/designers/fashion_designers_page.dart';
@@ -260,8 +261,8 @@ class _AuthGateState extends State<AuthGate> {
                   if (isAdmin) {
                     return _afterSplash(const CuratorsWorkspacePage());
                   }
-                  if (userData['sellerMode'] == true) {
-                    return _afterSplash(const SellerDashboardPage());
+                  if (isProviderMode(userData)) {
+                    return _afterSplash(const ProviderHomePage());
                   }
                   // Everyone needs a unique @username (U-4). New and existing
                   // users get one suggested from their name to confirm.

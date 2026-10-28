@@ -1,4 +1,4 @@
-// Seller home for boutique owners.
+// The shop screen inside provider mode, for boutique owners.
 //
 // Boutique owners use this screen to maintain storefront details, manage their
 // products, review orders, and open customer conversations. Storefront edits
@@ -98,15 +98,6 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
     }
   }
 
-  Future<void> _leaveSellerMode() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-    await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-      'sellerMode': false,
-      'sellerModeUpdatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
-  }
-
   void _message(String text) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
@@ -116,19 +107,9 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Seller Mode'),
+        title: const Text('My Shop'),
         backgroundColor: _primary,
         foregroundColor: Colors.white,
-        actions: [
-          TextButton.icon(
-            onPressed: _leaveSellerMode,
-            icon: const Icon(Icons.storefront_outlined, color: Colors.white),
-            label: const Text(
-              'Shop as Customer',
-              style: TextStyle(color: Colors.white),
-            ),
-          ),
-        ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())

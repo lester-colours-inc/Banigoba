@@ -5,7 +5,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../data/models/provider_roles.dart';
+import '../../../data/services/provider_service.dart';
 import '../../../data/services/storage_service.dart';
+import '../provider/become_provider_page.dart';
 import '../../../data/services/style_preferences_service.dart';
 import '../onboarding/style_preferences_screen.dart';
 import '../../widgets/profile_photo_changer.dart';
@@ -34,7 +37,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   bool _loading = true;
   bool _saving = false;
-  bool _sellerMode = false;
+  List<ProviderRole> _providerRoles = const [];
   String _profileImageUrl = '';
   String _username = '';
 
@@ -122,34 +125,30 @@ class _SettingsPageState extends State<SettingsPage> {
     _stateController.text = (address['state'] ?? '').toString();
     _postalController.text = (address['postalCode'] ?? '').toString();
     _countryController.text = (address['country'] ?? '').toString();
-    _sellerMode = data['sellerMode'] == true;
+    _providerRoles = providerRolesOf(data);
     setState(() => _loading = false);
   }
 
-  Future<void> _setSellerMode(bool enabled) async {
+  /// Opens provider mode, or the one-time sign-up when the user holds no
+  /// provider role yet.
+  Future<void> _openProviderMode() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null || _saving) return;
-    setState(() {
-      _saving = true;
-      _sellerMode = enabled;
-    });
-    try {
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-        'sellerMode': enabled,
-        if (enabled) 'isSeller': true,
-        'sellerModeUpdatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-      _showMessage(
-        enabled
-            ? 'Seller Mode enabled. Opening your boutique dashboard.'
-            : 'Seller Mode disabled.',
+    if (_providerRoles.isEmpty) {
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) =>
+              BecomeProviderPage(suggestedName: _nameController.text.trim()),
+        ),
       );
-      if (mounted) {
-        Navigator.of(context).popUntil((route) => route.isFirst);
-      }
-    } catch (error) {
-      if (mounted) setState(() => _sellerMode = !enabled);
-      _showMessage('Unable to change Seller Mode: $error');
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      await ProviderService().setMode(user.uid, provider: true);
+      if (mounted) Navigator.of(context).popUntil((route) => route.isFirst);
+    } on Exception catch (error) {
+      _showMessage('Unable to open provider mode: $error');
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -398,23 +397,27 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                   const SizedBox(height: 28),
                   const Text(
-                    'Selling',
+                    'Business',
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
                   Card(
-                    child: SwitchListTile(
-                      value: _sellerMode,
-                      onChanged: _saving ? null : _setSellerMode,
-                      activeThumbColor: _primaryColor,
-                      secondary: const Icon(Icons.storefront_outlined),
+                    child: ListTile(
+                      key: const ValueKey('provider_mode_tile'),
+                      leading: const Icon(Icons.storefront_outlined),
                       title: const Text(
-                        'Seller Mode',
+                        'Provider mode',
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
-                      subtitle: const Text(
-                        'Switch to your boutique dashboard to manage your shop and products.',
+                      subtitle: Text(
+                        _providerRoles.isEmpty
+                            ? 'Run a shop, design service or hair salon on '
+                                  'Banigoba.'
+                            : 'Switch to your business: '
+                                  '${_providerRoles.map((r) => r.label).join(', ')}.',
                       ),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: _saving ? null : _openProviderMode,
                     ),
                   ),
                   const SizedBox(height: 28),

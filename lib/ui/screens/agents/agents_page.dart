@@ -35,7 +35,7 @@ class _AgentsPageState extends State<AgentsPage> {
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute<void>(
-                builder: (_) => const _AgentProfileEditorPage(),
+                builder: (_) => const AgentProfileEditorPage(),
               ),
             ),
           ),
@@ -150,7 +150,7 @@ class _AgentsPageState extends State<AgentsPage> {
             onAction: () => Navigator.push(
               context,
               MaterialPageRoute<void>(
-                builder: (_) => const _AgentProfileEditorPage(),
+                builder: (_) => const AgentProfileEditorPage(),
               ),
             ),
           );
@@ -494,15 +494,14 @@ class _AgentRequestsPage extends StatelessWidget {
   }
 }
 
-class _AgentProfileEditorPage extends StatefulWidget {
-  const _AgentProfileEditorPage();
+class AgentProfileEditorPage extends StatefulWidget {
+  const AgentProfileEditorPage({super.key});
 
   @override
-  State<_AgentProfileEditorPage> createState() =>
-      _AgentProfileEditorPageState();
+  State<AgentProfileEditorPage> createState() => AgentProfileEditorPageState();
 }
 
-class _AgentProfileEditorPageState extends State<_AgentProfileEditorPage> {
+class AgentProfileEditorPageState extends State<AgentProfileEditorPage> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _bioController = TextEditingController();

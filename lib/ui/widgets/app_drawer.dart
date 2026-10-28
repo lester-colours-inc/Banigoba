@@ -15,6 +15,7 @@ import '../screens/shop/shop_chat_page.dart';
 import 'app_network_image.dart';
 import 'coming_soon_page.dart';
 import 'home_feed_tabs.dart';
+import 'provider_mode_switch.dart';
 
 /// The drawer's main menu, in the order agreed in September 2026. Home is
 /// not listed: it is the first tab of the bottom bar.
@@ -133,6 +134,7 @@ class AppDrawer extends StatelessWidget {
               padding: EdgeInsets.zero,
               children: [
                 _buildHeader(context, primaryColor),
+                const ProviderModeSwitch(),
                 const Padding(
                   padding: EdgeInsets.fromLTRB(25, 20, 25, 10),
                   child: Text(

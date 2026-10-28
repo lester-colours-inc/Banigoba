@@ -160,7 +160,7 @@ class _FashionDesignersPageState extends State<FashionDesignersPage> {
             onAction: () => Navigator.push(
               context,
               MaterialPageRoute<void>(
-                builder: (_) => const _DesignerProfileEditorPage(),
+                builder: (_) => const DesignerProfileEditorPage(),
               ),
             ),
           );
@@ -370,7 +370,7 @@ class _FashionDesignersPageState extends State<FashionDesignersPage> {
                     onPressed: () => Navigator.push(
                       context,
                       MaterialPageRoute<void>(
-                        builder: (_) => const _DesignerProfileEditorPage(),
+                        builder: (_) => const DesignerProfileEditorPage(),
                       ),
                     ),
                     icon: Icon(active ? Icons.edit_outlined : Icons.add),
@@ -908,16 +908,15 @@ class _DesignRequestPageState extends State<_DesignRequestPage> {
   }
 }
 
-class _DesignerProfileEditorPage extends StatefulWidget {
-  const _DesignerProfileEditorPage();
+class DesignerProfileEditorPage extends StatefulWidget {
+  const DesignerProfileEditorPage({super.key});
 
   @override
-  State<_DesignerProfileEditorPage> createState() =>
-      _DesignerProfileEditorPageState();
+  State<DesignerProfileEditorPage> createState() =>
+      DesignerProfileEditorPageState();
 }
 
-class _DesignerProfileEditorPageState
-    extends State<_DesignerProfileEditorPage> {
+class DesignerProfileEditorPageState extends State<DesignerProfileEditorPage> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _bioController = TextEditingController();

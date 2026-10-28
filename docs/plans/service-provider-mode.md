@@ -52,16 +52,23 @@ tells a customer which providers exist as "my" shop.
 Tests: role-combination logic (unit), the toggle and provider home (widget),
 rule tests for the new fields.
 
-## Decisions I need from you
+## Decisions (answered 28 Oct)
 
-1. **Seller Mode today replaces the app.** Is the new "toggle that keeps the
-   customer app available" what you want? (Recommended: yes.)
-2. **Can unverified providers be seen at all?** Recommended: set up yes,
-   listed publicly only after a curator verifies.
-3. **Naming:** "Provider mode" vs "Business mode" vs "Seller mode" for
-   shops, designers and salons together.
-4. **Marketplace dependency:** build only steps 1-2 now (the switch and
-   sign-up), leaving Orders for the marketplace work? (Recommended: yes.)
+1. **Customer ⇄ Provider toggle that keeps the customer app available:** yes.
+2. **Unverified providers:** can set up, listed publicly only after a curator
+   verifies them: yes.
+3. **Name:** "Provider mode".
+4. **Scope now:** build steps 1 and 2 (the switch and the sign-up) only;
+   Orders across all roles waits for the marketplace work: yes.
+
+## Status
+
+Steps 1 and 2 are built (28 Oct): `lib/data/models/provider_roles.dart`,
+`lib/data/services/provider_service.dart`, `lib/ui/screens/provider/`, the
+switch in the menu and the Provider mode row in Settings. Existing shops,
+designers and hair salons are recognised from their old fields. Steps 3 and 4
+(Orders and Messages across roles, retiring the old Seller Mode switch
+entry points) are not started.
 
 ---
 
