@@ -63,12 +63,31 @@ rule tests for the new fields.
 
 ## Status
 
-Steps 1 and 2 are built (28 Oct): `lib/data/models/provider_roles.dart`,
-`lib/data/services/provider_service.dart`, `lib/ui/screens/provider/`, the
-switch in the menu and the Provider mode row in Settings. Existing shops,
-designers and hair salons are recognised from their old fields. Steps 3 and 4
-(Orders and Messages across roles, retiring the old Seller Mode switch
-entry points) are not started.
+All four steps are built (28 Oct).
+
+1. **Switch and provider home:** `lib/data/models/provider_roles.dart`,
+   `lib/data/services/provider_service.dart`, `lib/ui/screens/provider/`, the
+   switch in the menu and the Provider mode row in Settings. Existing shops,
+   designers and hair salons are recognised from their old fields.
+2. **One sign-up:** "Become a provider" creates any of the three profiles.
+3. **Orders and requests across roles:** "Orders & requests" on the provider
+   home merges shop orders, design requests and hair requests, new ones first,
+   with Accept / Decline / Mark completed for requests (customers are
+   notified). Messages already covered shops and designers (their chats store
+   the provider as `sellerId`); salons work through requests only.
+4. **Old doors retired:** the Seller Mode switch is gone, and every old
+   "Create profile" button (Agents page, Designers page) now opens the one
+   sign-up with that role ticked, or the editor if the role is already held.
+
+**Bug found and fixed on the way:** the rules for `design_requests` and
+`agent_requests` only recognised `userId`, `sellerId` and similar fields, so
+nobody could create or read a request (customers sending one, designers or
+salons reading one). They now allow the customer and the provider, and a
+request can never be reassigned. Six rules tests cover this. **The rules need
+deploying for design and hair requests to work.**
+
+Not built: provider-wide earnings or payouts (marketplace work), and a chat
+with salons.
 
 ---
 

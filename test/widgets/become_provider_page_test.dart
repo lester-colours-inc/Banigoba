@@ -3,13 +3,21 @@ import 'package:banigoba/ui/screens/provider/become_provider_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-Future<void> _pump(WidgetTester tester, {List<ProviderRole> held = const []}) {
+Future<void> _pump(
+  WidgetTester tester, {
+  List<ProviderRole> held = const [],
+  List<ProviderRole> initial = const [],
+}) {
   tester.view.physicalSize = const Size(800, 2400);
   tester.view.devicePixelRatio = 2;
   addTearDown(tester.view.reset);
   return tester.pumpWidget(
     MaterialApp(
-      home: BecomeProviderPage(held: held, suggestedName: 'Glow'),
+      home: BecomeProviderPage(
+        held: held,
+        initialRoles: initial,
+        suggestedName: 'Glow',
+      ),
     ),
   );
 }
@@ -57,5 +65,32 @@ void main() {
     await _pump(tester);
 
     expect(find.text('Glow'), findsOneWidget);
+  });
+
+  testWidgets('opens with the role from the button that led here', (
+    tester,
+  ) async {
+    await _pump(tester, initial: [ProviderRole.salon]);
+
+    final salon = tester.widget<CheckboxListTile>(
+      find.byKey(const ValueKey('role_salon')),
+    );
+    final shop = tester.widget<CheckboxListTile>(
+      find.byKey(const ValueKey('role_shop')),
+    );
+    expect(salon.value, isTrue);
+    expect(shop.value, isFalse);
+  });
+
+  testWidgets('does not tick a role that is already held twice', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      held: [ProviderRole.salon],
+      initial: [ProviderRole.salon],
+    );
+
+    expect(find.text('Already set up'), findsOneWidget);
   });
 }

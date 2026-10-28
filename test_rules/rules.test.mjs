@@ -277,3 +277,77 @@ describe('moving the email off the public profile (sign-in)', () => {
     await assertSucceeds(batch.commit());
   });
 });
+
+describe('design and agent requests', () => {
+  const design = {
+    customerId: 'zoe',
+    designerId: 'tariro',
+    status: 'pending',
+    occasion: 'Wedding',
+  };
+  const agent = {
+    customerId: 'zoe',
+    agentId: 'tariro',
+    status: 'pending',
+    service: 'Braids',
+  };
+
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore();
+      await setDoc(doc(db, 'design_requests/d1'), design);
+      await setDoc(doc(db, 'agent_requests/a1'), agent);
+    });
+  });
+
+  test('a customer sends a request in her own name', async () => {
+    await assertSucceeds(setDoc(doc(as('zoe'), 'design_requests/new'), design));
+    await assertSucceeds(setDoc(doc(as('zoe'), 'agent_requests/new'), agent));
+  });
+
+  test('nobody sends a request in someone else\'s name', async () => {
+    await assertFails(setDoc(doc(as('farai'), 'design_requests/x'), design));
+    await assertFails(setDoc(doc(as('farai'), 'agent_requests/x'), agent));
+  });
+
+  test('the customer and the provider read it; a stranger does not', async () => {
+    await assertSucceeds(getDoc(doc(as('zoe'), 'design_requests/d1')));
+    await assertSucceeds(getDoc(doc(as('tariro'), 'design_requests/d1')));
+    await assertFails(getDoc(doc(as('farai'), 'design_requests/d1')));
+    await assertSucceeds(getDoc(doc(as('tariro'), 'agent_requests/a1')));
+    await assertFails(getDoc(doc(as('farai'), 'agent_requests/a1')));
+  });
+
+  test('a provider lists the requests sent to her', async () => {
+    await assertSucceeds(
+      getDocs(
+        query(collection(as('tariro'), 'design_requests'), where('designerId', '==', 'tariro')),
+      ),
+    );
+    await assertSucceeds(
+      getDocs(
+        query(collection(as('tariro'), 'agent_requests'), where('agentId', '==', 'tariro')),
+      ),
+    );
+  });
+
+  test('the provider updates the status but cannot reassign the request', async () => {
+    await assertSucceeds(
+      setDoc(doc(as('tariro'), 'design_requests/d1'), { ...design, status: 'accepted' }),
+    );
+    await assertFails(
+      setDoc(doc(as('tariro'), 'design_requests/d1'), {
+        ...design,
+        designerId: 'farai',
+      }),
+    );
+    await assertFails(
+      setDoc(doc(as('farai'), 'agent_requests/a1'), { ...agent, status: 'accepted' }),
+    );
+  });
+
+  test('only the customer deletes a request', async () => {
+    await assertFails(deleteDoc(doc(as('tariro'), 'design_requests/d1')));
+    await assertSucceeds(deleteDoc(doc(as('zoe'), 'design_requests/d1')));
+  });
+});

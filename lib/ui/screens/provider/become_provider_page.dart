@@ -11,11 +11,16 @@ class BecomeProviderPage extends StatefulWidget {
   const BecomeProviderPage({
     super.key,
     this.held = const [],
+    this.initialRoles = const [],
     this.suggestedName = '',
     this.service,
   });
 
   final List<ProviderRole> held;
+
+  /// Roles ticked when the page opens, e.g. from a "Create salon profile"
+  /// button.
+  final List<ProviderRole> initialRoles;
   final String suggestedName;
   final ProviderService? service;
 
@@ -30,7 +35,10 @@ class _BecomeProviderPageState extends State<BecomeProviderPage> {
     text: widget.suggestedName,
   );
   final TextEditingController _location = TextEditingController();
-  final Set<ProviderRole> _chosen = {};
+  late final Set<ProviderRole> _chosen = {
+    for (final role in widget.initialRoles)
+      if (!widget.held.contains(role)) role,
+  };
   bool _saving = false;
   String? _error;
 

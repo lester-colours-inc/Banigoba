@@ -414,16 +414,47 @@ service cloud.firestore {
 
     // ── design & agent requests ────────────────────────────────────────────
 
+    // Requests a customer sends to a designer or a hair salon. Both sides read
+    // them; the provider answers by changing the status, but a request can
+    // never be handed to someone else.
     match /design_requests/{requestId} {
-      allow read: if ownsDoc(resource.data);
-      allow create: if ownsDoc(request.resource.data);
-      allow update, delete: if ownsDoc(resource.data);
+      function isRequestParty(data) {
+        return isSignedIn() && (
+          data.get('customerId', '') == request.auth.uid ||
+          data.get('designerId', '') == request.auth.uid
+        );
+      }
+
+      allow read: if isRequestParty(resource.data);
+      allow create: if isSignedIn() &&
+        request.resource.data.get('customerId', '') == request.auth.uid;
+      allow update: if isRequestParty(resource.data) &&
+        request.resource.data.get('customerId', '') ==
+          resource.data.get('customerId', '') &&
+        request.resource.data.get('designerId', '') ==
+          resource.data.get('designerId', '');
+      allow delete: if isSignedIn() &&
+        resource.data.get('customerId', '') == request.auth.uid;
     }
 
     match /agent_requests/{requestId} {
-      allow read: if ownsDoc(resource.data);
-      allow create: if ownsDoc(request.resource.data);
-      allow update, delete: if ownsDoc(resource.data);
+      function isRequestParty(data) {
+        return isSignedIn() && (
+          data.get('customerId', '') == request.auth.uid ||
+          data.get('agentId', '') == request.auth.uid
+        );
+      }
+
+      allow read: if isRequestParty(resource.data);
+      allow create: if isSignedIn() &&
+        request.resource.data.get('customerId', '') == request.auth.uid;
+      allow update: if isRequestParty(resource.data) &&
+        request.resource.data.get('customerId', '') ==
+          resource.data.get('customerId', '') &&
+        request.resource.data.get('agentId', '') ==
+          resource.data.get('agentId', '');
+      allow delete: if isSignedIn() &&
+        resource.data.get('customerId', '') == request.auth.uid;
     }
 
     // ── ai_makeovers ───────────────────────────────────────────────────────

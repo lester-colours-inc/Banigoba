@@ -593,36 +593,36 @@
           "text": "Any user can switch between Customer mode and Service-provider mode, like switching between passenger and driver in InDrive. One person can be both.",
           "area": "Service-provider mode",
           "note": "",
-          "done": false,
-          "progress": "Built 28 Oct (first version): a Customer / Provider switch at the top of the menu and a \"Provider mode\" row in Settings. Switching never signs you out. Not yet: a provider-wide Orders view.",
-          "highlight": "partial"
+          "done": true,
+          "progress": "Built 28 Oct: a Customer / Provider switch at the top of the menu and a \"Provider mode\" row in Settings. Switching never signs you out. The old Seller Mode switch (which turned the whole app into the shop screen) is gone.",
+          "highlight": "done"
         },
         {
           "id": "S-2",
           "text": "A provider can be a shop, a designer, a hair stylist or salon, or several of these at once.",
           "area": "Service-provider mode",
           "note": "",
-          "done": false,
-          "progress": "Built 28 Oct: one person can hold shop, designer and salon together; roles set up before are carried over automatically. Not yet: the Orders view across all roles.",
-          "highlight": "partial"
+          "done": true,
+          "progress": "Built 28 Oct: one person can hold shop, designer and salon together; roles set up before are carried over automatically.",
+          "highlight": "done"
         },
         {
           "id": "S-3",
           "text": "Provider mode has its own screens: my shop, my designs, my salon, with forms to enter stock and services.",
           "area": "Service-provider mode",
-          "note": "Provider home built 28 Oct (a card per role opening My Shop, My Designs, My Salon, plus Messages). Orders across all roles is not built yet.",
-          "done": false,
-          "progress": "",
-          "highlight": "partial"
+          "note": "",
+          "done": true,
+          "progress": "Built 28 Oct: a provider home with a card per role (My Shop, My Designs, My Salon), \"Orders & requests\" (orders, design requests and hair requests together, with Accept / Decline / Completed and a notification to the customer) and Messages. Needs the new database rules deployed for design and hair requests.",
+          "highlight": "done"
         },
         {
           "id": "S-4",
           "text": "Shops and designers sign up as normal users, then switch on provider mode. No separate business sign-up.",
           "area": "Service-provider mode",
           "note": "",
-          "done": false,
-          "progress": "Built 28 Oct: one \"Become a provider\" form (tick what you offer, business name, location) for any user; no separate business sign-up. Listings still appear only after a curator verifies them.",
-          "highlight": "partial"
+          "done": true,
+          "progress": "Built 28 Oct: one \"Become a provider\" form (tick what you offer, business name, location) for any user; every old \"Create profile\" button now opens it. Listings still appear only after a curator verifies them.",
+          "highlight": "done"
         },
         {
           "id": "K-1",

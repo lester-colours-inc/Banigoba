@@ -3,6 +3,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../../data/models/provider_roles.dart';
+import '../provider/provider_setup.dart';
+
 class AgentsPage extends StatefulWidget {
   const AgentsPage({super.key});
 
@@ -32,11 +35,10 @@ class _AgentsPageState extends State<AgentsPage> {
           IconButton(
             tooltip: 'Create agent profile',
             icon: const Icon(Icons.person_add_alt_1_rounded),
-            onPressed: () => Navigator.push(
+            onPressed: () => openProviderSetup(
               context,
-              MaterialPageRoute<void>(
-                builder: (_) => const AgentProfileEditorPage(),
-              ),
+              ProviderRole.salon,
+              editor: () => const AgentProfileEditorPage(),
             ),
           ),
         ],
@@ -147,11 +149,10 @@ class _AgentsPageState extends State<AgentsPage> {
                 ? 'No $typeLabel agents yet.'
                 : 'No $typeLabel agents match your search.',
             actionLabel: 'Create Agent Profile',
-            onAction: () => Navigator.push(
+            onAction: () => openProviderSetup(
               context,
-              MaterialPageRoute<void>(
-                builder: (_) => const AgentProfileEditorPage(),
-              ),
+              ProviderRole.salon,
+              editor: () => const AgentProfileEditorPage(),
             ),
           );
         }

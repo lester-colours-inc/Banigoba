@@ -3,15 +3,19 @@
 // to the normal app without signing out.
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../../data/models/provider_inbox.dart';
 import '../../../data/models/provider_roles.dart';
+import '../../../data/services/provider_inbox_service.dart';
 import '../../../data/services/provider_service.dart';
 import '../agents/agents_page.dart';
 import '../designers/fashion_designers_page.dart';
 import '../shop/seller_dashboard_page.dart';
 import '../shop/shop_chat_page.dart';
 import 'become_provider_page.dart';
+import 'provider_inbox_page.dart';
 
 class ProviderHomePage extends StatelessWidget {
   const ProviderHomePage({super.key});
@@ -91,6 +95,13 @@ class ProviderHomePage extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 16),
+                    _InboxTile(
+                      userId: user.uid,
+                      roles: roles,
+                      onOpen: () =>
+                          _open(context, ProviderInboxPage(roles: roles)),
+                    ),
+                    const SizedBox(height: 12),
                     for (final role in roles) ...[
                       Card(
                         child: ListTile(
@@ -153,6 +164,74 @@ class ProviderHomePage extends StatelessWidget {
                 );
               },
             ),
+    );
+  }
+}
+
+/// "Orders & requests" with a count of what is waiting for an answer.
+class _InboxTile extends StatefulWidget {
+  const _InboxTile({
+    required this.userId,
+    required this.roles,
+    required this.onOpen,
+  });
+
+  final String userId;
+  final List<ProviderRole> roles;
+  final VoidCallback onOpen;
+
+  @override
+  State<_InboxTile> createState() => _InboxTileState();
+}
+
+class _InboxTileState extends State<_InboxTile> {
+  late Stream<List<InboxItem>> _items;
+
+  @override
+  void initState() {
+    super.initState();
+    _items = ProviderInboxService().watch(widget.userId, widget.roles);
+  }
+
+  @override
+  void didUpdateWidget(_InboxTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!listEquals(oldWidget.roles, widget.roles)) {
+      _items = ProviderInboxService().watch(widget.userId, widget.roles);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<InboxItem>>(
+      stream: _items,
+      builder: (context, snapshot) {
+        final waiting = openCount(snapshot.data ?? const []);
+        return Card(
+          child: ListTile(
+            key: const ValueKey('card_inbox'),
+            contentPadding: const EdgeInsets.all(18),
+            leading: CircleAvatar(
+              backgroundColor: ProviderHomePage._primary,
+              foregroundColor: Colors.white,
+              child: const Icon(Icons.inbox_outlined),
+            ),
+            title: const Text(
+              'Orders & requests',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            subtitle: Text(
+              waiting == 0
+                  ? 'Nothing waiting for you.'
+                  : '$waiting waiting for your answer.',
+            ),
+            trailing: waiting == 0
+                ? const Icon(Icons.arrow_forward_ios, size: 16)
+                : Badge.count(count: waiting),
+            onTap: widget.onOpen,
+          ),
+        );
+      },
     );
   }
 }

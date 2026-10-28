@@ -5,8 +5,10 @@ import 'package:flutter/material.dart';
 
 import '../../../data/models/piece_details.dart';
 import '../../../data/models/portfolio_piece.dart';
+import '../../../data/models/provider_roles.dart';
 import '../../../data/services/notification_service.dart';
 import '../../../data/services/shop_chat_service.dart';
+import '../provider/provider_setup.dart';
 import '../shop/shop_chat_page.dart';
 import '../../widgets/app_network_image.dart';
 import '../../widgets/piece_extra_details_fields.dart';
@@ -157,11 +159,10 @@ class _FashionDesignersPageState extends State<FashionDesignersPage> {
                 ? 'No designer profiles yet.'
                 : 'No designers match your search.',
             actionLabel: 'Create Designer Profile',
-            onAction: () => Navigator.push(
+            onAction: () => openProviderSetup(
               context,
-              MaterialPageRoute<void>(
-                builder: (_) => const DesignerProfileEditorPage(),
-              ),
+              ProviderRole.designer,
+              editor: () => const DesignerProfileEditorPage(),
             ),
           );
         }
@@ -367,11 +368,10 @@ class _FashionDesignersPageState extends State<FashionDesignersPage> {
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton.icon(
-                    onPressed: () => Navigator.push(
+                    onPressed: () => openProviderSetup(
                       context,
-                      MaterialPageRoute<void>(
-                        builder: (_) => const DesignerProfileEditorPage(),
-                      ),
+                      ProviderRole.designer,
+                      editor: () => const DesignerProfileEditorPage(),
                     ),
                     icon: Icon(active ? Icons.edit_outlined : Icons.add),
                     label: Text(
