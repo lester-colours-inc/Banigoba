@@ -493,6 +493,7 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
       'bottoms' => 'worn on the lower body',
       'dresses' => 'worn as a one-piece',
       'outerwear' => 'worn as an outer layer over the other clothing',
+      'shoes' => 'worn on the feet',
       'accessories' => 'worn or carried the way this accessory normally is',
       _ => 'worn the way this item normally is',
     };
@@ -507,8 +508,9 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
       'tops': 1,
       'bottoms': 2,
       'outerwear': 3,
-      'accessories': 4,
-      'other': 5,
+      'shoes': 4,
+      'accessories': 5,
+      'other': 6,
     };
     final sorted = [...products];
     sorted.sort(
@@ -526,6 +528,13 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
         value.contains('jumpsuit') ||
         value.contains('one-piece')) {
       return 'dresses';
+    }
+    if (value.contains('shoe') ||
+        value.contains('sneaker') ||
+        value.contains('boot') ||
+        value.contains('sandal') ||
+        value.contains('heel')) {
+      return 'shoes';
     }
     if (value.contains('outerwear') ||
         value.contains('jacket') ||

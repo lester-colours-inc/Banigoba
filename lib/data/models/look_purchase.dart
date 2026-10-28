@@ -33,13 +33,14 @@ bool _isShoe(Map<String, dynamic> item) =>
     _shoeWords.hasMatch((item['name'] ?? '').toString());
 
 /// Whether a wardrobe item or shop product is the kind of thing [part] needs.
-/// Neither the wardrobe nor the shops have a shoes category, so shoes are
-/// recognised by name.
+/// Shoes are the shoes category, or, for older listings made before it
+/// existed, anything with a shoe word in its name.
 bool itemSuitsPart(Map<String, dynamic> item, LookPart part) {
   if (part == LookPart.hair) return false;
-  if (part == LookPart.shoes) return _isShoe(item);
-  if (_isShoe(item)) return false;
   final category = (item['category'] ?? '').toString().trim().toLowerCase();
+  final isShoe = category == 'shoes' || _isShoe(item);
+  if (part == LookPart.shoes) return isShoe;
+  if (isShoe) return false;
   return _partCategories[part]?.contains(category) ?? false;
 }
 

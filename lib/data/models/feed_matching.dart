@@ -18,12 +18,13 @@ const int kDailyFeedCards = 3;
 /// A wardrobe category counts as a gap when the person owns fewer than this.
 const int kGapBelow = 1;
 
-/// Categories that come in clothing sizes.
+/// Categories that come in sizes: clothing sizes, or shoe sizes for shoes.
 const Set<String> kSizedCategories = {
   'tops',
   'bottoms',
   'dresses',
   'outerwear',
+  'shoes',
 };
 
 /// Which shop style tags suit each style a person can choose. The two lists
@@ -121,6 +122,9 @@ String? sizeFor(Map<String, dynamic> product, BodyProfile body) {
       if (entry.value > 0) entry.key,
   ];
   if (inStock.isEmpty) return null;
+  // Shoes go by shoe size; a size chart says nothing about them.
+  final footwear = _category(product) == 'shoes';
+  if (footwear) return body.sizeToSelect(inStock, footwear: true);
   if (body.sizeToSelect(inStock, footwear: false) case final usual?) {
     // Their usual size, unless the shop's own chart says it is tight.
     final chart = SizeChart.fromProduct(product);

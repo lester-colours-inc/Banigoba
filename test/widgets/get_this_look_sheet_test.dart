@@ -233,7 +233,11 @@ void main() {
         'outerwear',
         'bottoms',
       });
-      expect(categoriesToScan([LookPart.shoes]), {'other', 'accessories'});
+      expect(categoriesToScan([LookPart.shoes]), {
+        'shoes',
+        'other',
+        'accessories',
+      });
       expect(categoriesToScan([LookPart.hair]), isEmpty);
     });
   });

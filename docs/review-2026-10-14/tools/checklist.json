@@ -628,9 +628,10 @@
           "id": "K-1",
           "text": "Shops, including flea-market traders, upload their stock with photos, sizes, measurements and prices.",
           "area": "Marketplace, e-fitting room and monetization",
-          "note": "Uses provider mode (S)",
+          "note": "Provider mode (S) is built, so shops now reach this from My Shop.",
           "done": false,
-          "progress": ""
+          "progress": "Partly built (the listing screen existed): photos with a back photo, sizes with stock per size, an optional size chart per size, prices, colours and style. Added 28 Oct: a proper Shoes category with UK shoe sizes (UK 3 to UK 12), which \\\"Get this look\\\" now matches against the buyer's shoe size (the wardrobe has the category too); and a stock overview on Products & Inventory: counts for all, low (2 or fewer left) and sold out, filter chips, and a colour-coded \\\"Only 2 left\\\" / \\\"Sold out\\\" on each piece. Not yet: a quick-add flow for flea-market traders (photo, price, size only), editing stock counts without opening the full form, and delivery settings (K-3).",
+          "highlight": "partial"
         },
         {
           "id": "K-2",

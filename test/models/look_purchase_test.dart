@@ -31,6 +31,7 @@ Map<String, dynamic> _owned(String category, {String name = 'My item'}) => {
 const _me = 'me';
 
 void main() {
+  shoeTests();
   group('itemSuitsPart', () {
     test('maps clothes to every garment category', () {
       for (final category in ['tops', 'bottoms', 'dresses', 'outerwear']) {
@@ -213,6 +214,63 @@ void main() {
       );
 
       expect(advice.picks.single.reasons, contains("You don't have any yet"));
+    });
+  });
+}
+
+void shoeTests() {
+  group('shoes', () {
+    test('a product in the shoes category is shoes, whatever its name', () {
+      final runner = _product('r', category: 'shoes', name: 'Runner');
+
+      expect(itemSuitsPart(runner, LookPart.shoes), isTrue);
+      expect(itemSuitsPart(runner, LookPart.accessories), isFalse);
+      expect(itemSuitsPart(runner, LookPart.outfit), isFalse);
+    });
+
+    test('are offered in the person\'s shoe size', () {
+      final advice = adviceFor(
+        LookPart.shoes,
+        userId: _me,
+        wardrobe: const [],
+        stock: [
+          _product('fits', category: 'shoes', sizes: {'UK 6': 2, 'UK 7': 3}),
+          _product('wrong', category: 'shoes', sizes: {'UK 9': 3}),
+        ],
+        body: const BodyProfile(shoeSize: 'UK 7'),
+        styles: const [],
+      );
+
+      expect(advice.picks.map((p) => p.product['id']), ['fits']);
+      expect(advice.picks.single.size, 'UK 7');
+    });
+
+    test('are left out when the shop has none in the person\'s size', () {
+      final advice = adviceFor(
+        LookPart.shoes,
+        userId: _me,
+        wardrobe: const [],
+        stock: [
+          _product('a', category: 'shoes', sizes: {'UK 5': 1}),
+        ],
+        body: const BodyProfile(shoeSize: 'UK 8'),
+        styles: const [],
+      );
+
+      expect(advice.picks, isEmpty);
+    });
+
+    test('count shoes in the wardrobe by category', () {
+      final advice = adviceFor(
+        LookPart.shoes,
+        userId: _me,
+        wardrobe: [_owned('shoes'), _owned('tops')],
+        stock: const [],
+        body: const BodyProfile(),
+        styles: const [],
+      );
+
+      expect(advice.owned, hasLength(1));
     });
   });
 }

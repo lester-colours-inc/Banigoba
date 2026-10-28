@@ -13,6 +13,7 @@ import '../../../data/models/fit_check.dart';
 import '../../../data/models/piece_details.dart';
 import '../../../data/services/product_service.dart';
 import '../../../data/services/storage_service.dart';
+import '../../../data/utils/stock_status.dart';
 import '../../widgets/back_photo_field.dart';
 import '../../widgets/piece_extra_details_fields.dart';
 import '../../widgets/safe_product_image.dart';
@@ -28,6 +29,7 @@ class AdminProductsPage extends StatefulWidget {
 class _AdminProductsPageState extends State<AdminProductsPage> {
   final ProductService _productService = ProductService();
   final ImagePicker _picker = ImagePicker();
+  StockLevel? _stockFilter;
   final String _currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
   static const Color primaryColor = Color(0xFF0D0140);
   // Preset sizes speed up entry while still allowing custom labels in the
@@ -54,6 +56,21 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
     'UK 24',
   ];
 
+  // Shoes are sold by UK shoe size, which is what buyers save on their
+  // profile, so they get their own suggestions.
+  static const List<String> _suggestedShoeSizes = [
+    'UK 3',
+    'UK 4',
+    'UK 5',
+    'UK 6',
+    'UK 7',
+    'UK 8',
+    'UK 9',
+    'UK 10',
+    'UK 11',
+    'UK 12',
+  ];
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -74,61 +91,26 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
             );
           }
 
-          final products = snapshot.data!.docs;
+          final allProducts = snapshot.data!.docs;
+          Map<String, dynamic> dataOf(QueryDocumentSnapshot doc) =>
+              doc.data() as Map<String, dynamic>;
+          final summary = summarizeStock(allProducts.map(dataOf));
+          final products = [
+            for (final doc in allProducts)
+              if (_stockFilter == null ||
+                  stockLevelOf(dataOf(doc)) == _stockFilter)
+                doc,
+          ];
 
-          // List of all catalog products with delete actions
-          return ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: products.length,
-            separatorBuilder: (context, index) => const Divider(),
-            itemBuilder: (context, index) {
-              final doc = products[index];
-              final data = doc.data() as Map<String, dynamic>;
-              final name = data['name'] ?? 'No Name';
-              final imageUrl = data['imageUrl'] ?? data['imageURL'] ?? '';
-              final rawImageUrl = data['rawImageUrl'] ?? imageUrl;
-              final sizeInventory = _sizeInventoryFor(data);
-              // For sized items, total stock is derived from the size buckets.
-              final stock = sizeInventory.isNotEmpty
-                  ? sizeInventory.values.fold<int>(
-                      0,
-                      (total, quantity) => total + quantity,
-                    )
-                  : (data['stock'] as num?)?.toInt() ?? 0;
-
-              return ListTile(
-                leading: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: SafeProductImage(
-                    imageUrl: rawImageUrl,
-                    width: 50,
-                    height: 50,
-                    fit: BoxFit.cover,
-                    iconSize: 26,
-                  ),
-                ),
-                title: Text(name),
-                subtitle: Text(
-                  "${data['category'] ?? 'No Category'} • "
-                  "\$${((data['price'] as num?)?.toDouble() ?? 0).toStringAsFixed(2)} • "
-                  "$stock in stock"
-                  "${sizeInventory.isEmpty ? '' : ' • ${sizeInventory.length} sizes'}",
-                ),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.edit, color: Colors.blue),
-                      onPressed: () => _showEditProductDialog(doc.id, data),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.red),
-                      onPressed: () => _confirmDelete(doc.id, name),
-                    ),
-                  ],
-                ),
-              );
-            },
+          return Column(
+            children: [
+              _stockHeader(summary),
+              Expanded(
+                child: products.isEmpty
+                    ? const Center(child: Text('Nothing in this group.'))
+                    : _productList(products),
+              ),
+            ],
           );
         },
       ),
@@ -137,6 +119,111 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
         backgroundColor: primaryColor,
         child: const Icon(Icons.add, color: Colors.white),
       ),
+    );
+  }
+
+  /// Totals and filter chips: all pieces, the low ones, the sold out ones.
+  Widget _stockHeader(StockSummary summary) {
+    Widget chip(String label, StockLevel? level) => Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: ChoiceChip(
+        key: ValueKey('stock_filter_${level?.name ?? 'all'}'),
+        label: Text(label),
+        selected: _stockFilter == level,
+        onSelected: (_) => setState(() => _stockFilter = level),
+      ),
+    );
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            chip('All (${summary.total})', null),
+            chip('Low (${summary.low})', StockLevel.low),
+            chip('Sold out (${summary.soldOut})', StockLevel.soldOut),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// How much of a piece is left, in words, with a colour for the urgent ones.
+  Widget _stockLabel(Map<String, dynamic> data, int stock) {
+    final (text, color) = switch (stockLevelOf(data)) {
+      StockLevel.soldOut => ('Sold out', Colors.red),
+      StockLevel.low => ('Only $stock left', const Color(0xFFD9822B)),
+      StockLevel.inStock => ('$stock in stock', Colors.green.shade700),
+    };
+    return Text(
+      text,
+      style: TextStyle(color: color, fontWeight: FontWeight.w600),
+    );
+  }
+
+  Widget _productList(List<QueryDocumentSnapshot> products) {
+    // List of all catalog products with delete actions
+    return Builder(
+      builder: (context) {
+        return ListView.separated(
+          padding: const EdgeInsets.all(16),
+          itemCount: products.length,
+          separatorBuilder: (context, index) => const Divider(),
+          itemBuilder: (context, index) {
+            final doc = products[index];
+            final data = doc.data() as Map<String, dynamic>;
+            final name = data['name'] ?? 'No Name';
+            final imageUrl = data['imageUrl'] ?? data['imageURL'] ?? '';
+            final rawImageUrl = data['rawImageUrl'] ?? imageUrl;
+            final sizeInventory = _sizeInventoryFor(data);
+            // For sized items, total stock is derived from the size buckets.
+            final stock = sizeInventory.isNotEmpty
+                ? sizeInventory.values.fold<int>(
+                    0,
+                    (total, quantity) => total + quantity,
+                  )
+                : (data['stock'] as num?)?.toInt() ?? 0;
+
+            return ListTile(
+              leading: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: SafeProductImage(
+                  imageUrl: rawImageUrl,
+                  width: 50,
+                  height: 50,
+                  fit: BoxFit.cover,
+                  iconSize: 26,
+                ),
+              ),
+              title: Text(name),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "${data['category'] ?? 'No Category'} • "
+                    "\$${((data['price'] as num?)?.toDouble() ?? 0).toStringAsFixed(2)}"
+                    "${sizeInventory.isEmpty ? '' : ' • ${sizeInventory.length} sizes'}",
+                  ),
+                  _stockLabel(data, stock),
+                ],
+              ),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.edit, color: Colors.blue),
+                    onPressed: () => _showEditProductDialog(doc.id, data),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.delete, color: Colors.red),
+                    onPressed: () => _confirmDelete(doc.id, name),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -244,6 +331,7 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
       'bottoms': ['none', 'jeans', 'joggers', 'leggings', 'shorts', 'skirts'],
       'dresses': ['none'],
       'outerwear': ['none', 'blazers', 'jackets'],
+      'shoes': ['none', 'boots', 'flats', 'heels', 'sandals', 'sneakers'],
       'tops': [
         'none',
         'hoodies',
@@ -460,10 +548,14 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                                   .toUpperCase(),
                             )
                             .toSet();
-                        final nextSize = _suggestedSizes.firstWhere(
-                          (size) => !usedSizes.contains(size),
-                          orElse: () => '',
-                        );
+                        final nextSize =
+                            (category == 'shoes'
+                                    ? _suggestedShoeSizes
+                                    : _suggestedSizes)
+                                .firstWhere(
+                                  (size) => !usedSizes.contains(size),
+                                  orElse: () => '',
+                                );
                         sizeEntries.add(
                           _SizeInventoryEntry(
                             size: nextSize,
@@ -479,7 +571,7 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
               ),
               if (sizeEntries.isEmpty)
                 Text(
-                  'Use XXS-XXXL or UK numeric sizes. Leave empty for one-size items.',
+                  'Use XXS-XXXL, UK clothing sizes, or UK shoe sizes (UK 7). Leave empty for one-size items.',
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
@@ -533,49 +625,52 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                               ],
                             ),
                             const SizedBox(height: 8),
-                            // Optional size chart: what the garment measures
-                            // in this size, so buyers get a fit check.
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: [
-                                for (final part in kChartParts)
-                                  SizedBox(
-                                    width: 104,
-                                    child: TextField(
-                                      key: ValueKey(
-                                        'chart_${index}_${part.key}',
-                                      ),
-                                      controller: sizeEntries[index]
-                                          .measureControllers[part],
-                                      keyboardType:
-                                          const TextInputType.numberWithOptions(
-                                            decimal: true,
-                                          ),
-                                      decoration: InputDecoration(
-                                        labelText:
-                                            part == BodyMeasurement.insideLeg
-                                            ? 'Inseam (cm)'
-                                            : '${_chartLabel(part)} (cm)',
-                                        isDense: true,
-                                        border: const OutlineInputBorder(),
+                            if (category != 'shoes') ...[
+                              // Optional size chart: what the garment measures
+                              // in this size, so buyers get a fit check.
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
+                                  for (final part in kChartParts)
+                                    SizedBox(
+                                      width: 104,
+                                      child: TextField(
+                                        key: ValueKey(
+                                          'chart_${index}_${part.key}',
+                                        ),
+                                        controller: sizeEntries[index]
+                                            .measureControllers[part],
+                                        keyboardType:
+                                            const TextInputType.numberWithOptions(
+                                              decimal: true,
+                                            ),
+                                        decoration: InputDecoration(
+                                          labelText:
+                                              part == BodyMeasurement.insideLeg
+                                              ? 'Inseam (cm)'
+                                              : '${_chartLabel(part)} (cm)',
+                                          isDense: true,
+                                          border: const OutlineInputBorder(),
+                                        ),
                                       ),
                                     ),
-                                  ),
-                              ],
-                            ),
+                                ],
+                              ),
+                            ],
                           ],
                         ),
                       ),
-                    Text(
-                      'Optional: measure the garment itself, all the way '
-                      'around for chest, waist and hips. Buyers see a fit '
-                      'check against their own measurements.',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    if (category != 'shoes')
+                      Text(
+                        'Optional: measure the garment itself, all the way '
+                        'around for chest, waist and hips. Buyers see a fit '
+                        'check against their own measurements.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                       ),
-                    ),
                   ],
                 ),
               const SizedBox(height: 15),

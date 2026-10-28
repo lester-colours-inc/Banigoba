@@ -18,7 +18,8 @@ abstract interface class LookPurchaseSource {
 /// Pieces fetched across all shops before the verified ones are kept.
 const int kStockScan = 100;
 
-/// The product categories to scan for [parts]. Shoes sit under "other".
+/// The product categories to scan for [parts]. Older shoe listings sit under
+/// "other" or "accessories".
 Set<String> categoriesToScan(Iterable<LookPart> parts) => {
   for (final part in parts)
     ...switch (part) {
@@ -26,7 +27,7 @@ Set<String> categoriesToScan(Iterable<LookPart> parts) => {
       LookPart.outfit => const {'tops', 'bottoms', 'dresses', 'outerwear'},
       LookPart.top => const {'tops', 'outerwear'},
       LookPart.bottom => const {'bottoms'},
-      LookPart.shoes => const {'other', 'accessories'},
+      LookPart.shoes => const {'shoes', 'other', 'accessories'},
       LookPart.accessories => const {'accessories'},
     },
 };

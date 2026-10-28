@@ -568,6 +568,7 @@ class _WardrobePageState extends State<WardrobePage> {
       'bottoms': ['none', 'jeans', 'joggers', 'leggings', 'shorts', 'skirts'],
       'dresses': ['none'],
       'outerwear': ['none', 'blazers', 'jackets'],
+      'shoes': ['none', 'boots', 'flats', 'heels', 'sandals', 'sneakers'],
       'tops': [
         'none',
         'hoodies',
