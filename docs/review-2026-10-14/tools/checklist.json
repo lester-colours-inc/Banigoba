@@ -647,8 +647,8 @@
           "area": "Marketplace, e-fitting room and monetization",
           "note": "Backend matching",
           "done": false,
-          "progress": "Planned 25 Oct: see docs/plans/service-provider-mode.md (shopping phases).",
-          "highlight": "planned"
+          "progress": "Built 28 Oct (first version): after a makeover, \"Place Order\" opens \"Get this look\". For each changed piece (top, bottom, clothes, shoes, accessories) it says whether you already own something like it (\"You have 2 in your wardrobe\" or \"None in your wardrobe\") and offers up to 3 pieces from verified shops that are in stock in your size, best style match first, each with one-tap \"Add to bag\". Hair links to hairdressers and \"Have it made\" to designers. It also opens from friends' looks in My Daily Dress Up (whole look). Not yet: colour matching (the look is a picture, so colour per piece is unknown); shoes are recognised by name because neither the wardrobe nor shops have a shoes category; the shop's own products only, no supplier matching.",
+          "highlight": "partial"
         },
         {
           "id": "K-7",
@@ -738,8 +738,8 @@
           "area": "Backend, algorithms and research",
           "note": "",
           "done": false,
-          "progress": "Planned 25 Oct: see docs/plans/service-provider-mode.md (shopping phases).",
-          "highlight": "planned"
+          "progress": "Built 28 Oct (first version, same work as K-4): a look is checked against the wardrobe and matched to verified-shop stock in your size. Not yet: saving a look into a shop's own view, and shops seeing which wardrobes their pieces would fill.",
+          "highlight": "partial"
         },
         {
           "id": "A-8",

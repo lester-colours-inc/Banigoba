@@ -2,13 +2,19 @@
 //
 // Each changed item links to the place that sells or does it: boutiques for
 // clothes, shoes and accessories, hair agents for hair, and designers to have
-// the whole look made. This is the first step of "Get this look" (Phase 5);
-// wardrobe matching and supplier matching come later.
+// the whole look made. For clothes, shoes and accessories the sheet first
+// checks the person's wardrobe and offers verified-shop pieces in their size
+// ("Get this look", K-4); when that cannot load it falls back to these links.
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/app_routes.dart';
+import '../../data/models/look_purchase.dart';
 import '../../data/models/look_request.dart';
+import '../../data/services/cart_service.dart';
+import '../../data/services/look_purchase_service.dart';
 import '../screens/shop/shops_page.dart';
+import 'get_this_look_sheet.dart';
 
 enum PieceDestination { boutiques, hairdressers, designers }
 
@@ -95,15 +101,59 @@ PieceLink _linkFor(LookPart part) => switch (part) {
   ),
 };
 
+String? _signedInUserId() {
+  try {
+    return FirebaseAuth.instance.currentUser?.uid;
+  } on Object {
+    return null;
+  }
+}
+
+/// Adds a pick to the bag; returns a message when it could not.
+Future<String?> _addToBag(String userId, ShopPick pick) async {
+  try {
+    await CartService().addToCart(
+      userId: userId,
+      productId: (pick.product['id'] ?? '').toString(),
+      productData: pick.product,
+      selectedSize: pick.size.isEmpty ? null : pick.size,
+    );
+    return null;
+  } on CartShopConflictException catch (error) {
+    return 'Your bag has items from ${error.currentShopName}. Finish or '
+        'clear that bag first.';
+  } on Exception catch (error) {
+    return error.toString().replaceFirst('Exception: ', '');
+  }
+}
+
 /// Shows where the pieces of a look can be found, then opens the choice.
+///
+/// [source], [userId] and [addToCart] are for tests; the app uses the real
+/// ones.
 Future<void> showFindPiecesSheet(
   BuildContext context, {
   List<LookPart> parts = const [],
+  LookPurchaseSource? source,
+  String? userId,
+  AddPickToCart? addToCart,
 }) async {
+  final shown = parts.isEmpty ? kWholeLookParts : parts;
+  final uid = userId ?? _signedInUserId();
+  final shoppable = shown.any((part) => part != LookPart.hair);
   final link = await showModalBottomSheet<PieceLink>(
     context: context,
     showDragHandle: true,
-    builder: (_) => FindPiecesSheet(links: pieceLinksFor(parts)),
+    isScrollControlled: true,
+    builder: (_) => uid == null || !shoppable
+        ? FindPiecesSheet(links: pieceLinksFor(parts))
+        : _GetThisLookLoader(
+            parts: shown,
+            userId: uid,
+            source: source ?? LookPurchaseService(),
+            addToCart: addToCart ?? (pick) => _addToBag(uid, pick),
+            fallbackLinks: pieceLinksFor(parts),
+          ),
   );
   if (link == null || !context.mounted) return;
 
@@ -119,6 +169,61 @@ Future<void> showFindPiecesSheet(
       await Navigator.pushNamed(context, AppRoutes.agents);
     case PieceDestination.designers:
       await Navigator.pushNamed(context, AppRoutes.fashionDesigners);
+  }
+}
+
+/// Loads the wardrobe check and shop picks, then shows [GetThisLookSheet].
+class _GetThisLookLoader extends StatefulWidget {
+  const _GetThisLookLoader({
+    required this.parts,
+    required this.userId,
+    required this.source,
+    required this.addToCart,
+    required this.fallbackLinks,
+  });
+
+  final List<LookPart> parts;
+  final String userId;
+  final LookPurchaseSource source;
+  final AddPickToCart addToCart;
+  final List<PieceLink> fallbackLinks;
+
+  @override
+  State<_GetThisLookLoader> createState() => _GetThisLookLoaderState();
+}
+
+class _GetThisLookLoaderState extends State<_GetThisLookLoader> {
+  late final Future<List<PieceAdvice>> _advice = widget.source.load(
+    widget.userId,
+    widget.parts,
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<PieceAdvice>>(
+      future: _advice,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return FindPiecesSheet(links: widget.fallbackLinks);
+        }
+        if (!snapshot.hasData) {
+          return const SafeArea(
+            child: SizedBox(
+              height: 160,
+              child: Center(child: CircularProgressIndicator()),
+            ),
+          );
+        }
+        return GetThisLookSheet(
+          advices: snapshot.data!,
+          showHair: widget.parts.contains(LookPart.hair),
+          onAddToCart: widget.addToCart,
+          onBrowse: (part) => Navigator.pop(context, _linkFor(part)),
+          onHair: () => Navigator.pop(context, _linkFor(LookPart.hair)),
+          onDesigner: () => Navigator.pop(context, widget.fallbackLinks.last),
+        );
+      },
+    );
   }
 }
 

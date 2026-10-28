@@ -123,6 +123,11 @@ waist".*
   with a one-tap "Add to cart".
 - **Depends on:** shop stock with categories, colours and sizes (phase 1).
 
+**Status (28 Oct): first version built.** "Get this look" matches by kind,
+size and chosen style, not by colour, and shows pieces from verified shops
+only. See `lib/data/models/look_purchase.dart` and
+`lib/ui/widgets/get_this_look_sheet.dart`.
+
 ## Phase 4: Shop matching in the daily feed (D-4, A-6)
 
 *New stock from shops and designers you follow shows in My Daily Dress Up.*
