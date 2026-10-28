@@ -8,6 +8,7 @@ const {
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { matchNewStockHandler } = require('./matchNewStock');
 const { runIngest } = require('./content/ingest');
+const { notifyTrendingJob } = require('./trendingJob');
 const { SOURCES } = require('./content/sources');
 
 admin.initializeApp();
@@ -193,5 +194,20 @@ exports.refreshFashionContent = onSchedule(
       now: new Date(),
       FieldValue: admin.firestore.FieldValue,
     });
+  },
+);
+
+// Trending looks (review item E-4): every evening, tell people in a city about
+// the look people there are affirming most. Quiet until a look has been
+// affirmed by three different people in a day.
+exports.notifyTrendingLooks = onSchedule(
+  {
+    schedule: 'every day 18:00',
+    timeZone: 'Africa/Harare',
+    region: 'europe-west1',
+    timeoutSeconds: 300,
+  },
+  async () => {
+    await notifyTrendingJob(db, admin.firestore.FieldValue)(new Date());
   },
 );

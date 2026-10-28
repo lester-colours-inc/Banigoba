@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../data/models/feed_ranking.dart';
 import '../../../data/models/provider_roles.dart';
 import '../../../data/services/provider_service.dart';
 import '../../../data/services/storage_service.dart';
@@ -38,6 +39,7 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _loading = true;
   bool _saving = false;
   List<ProviderRole> _providerRoles = const [];
+  bool _notifyTrending = true;
   String _profileImageUrl = '';
   String _username = '';
 
@@ -126,7 +128,23 @@ class _SettingsPageState extends State<SettingsPage> {
     _postalController.text = (address['postalCode'] ?? '').toString();
     _countryController.text = (address['country'] ?? '').toString();
     _providerRoles = providerRolesOf(data);
+    _notifyTrending = data['notifyTrending'] != false;
     setState(() => _loading = false);
+  }
+
+  /// Trending-look pushes on or off (at most one a day).
+  Future<void> _setNotifyTrending(bool on) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    setState(() => _notifyTrending = on);
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+        'notifyTrending': on,
+      }, SetOptions(merge: true));
+    } on FirebaseException catch (error) {
+      if (mounted) setState(() => _notifyTrending = !on);
+      _showMessage('Unable to change this: ${error.message}');
+    }
   }
 
   /// Opens provider mode, or the one-time sign-up when the user holds no
@@ -207,6 +225,8 @@ class _SettingsPageState extends State<SettingsPage> {
           // The city alone is public, so people near you can find each
           // other (the rest of the address is for delivery).
           'city': _cityController.text.trim(),
+          // How people in the same city are matched, spelling aside.
+          'cityKey': normalizeCity(_cityController.text),
           'address': {
             'street': _streetController.text.trim(),
             'city': _cityController.text.trim(),
@@ -401,6 +421,29 @@ class _SettingsPageState extends State<SettingsPage> {
                       ),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: _saving ? null : _openStylePreferences,
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+                  const Text(
+                    'Notifications',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Card(
+                    child: SwitchListTile(
+                      key: const ValueKey('notify_trending'),
+                      value: _notifyTrending,
+                      onChanged: _setNotifyTrending,
+                      secondary: const Icon(Icons.trending_up),
+                      title: const Text(
+                        'Trending looks near me',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: const Text(
+                        'A look people in your city are talking about. At '
+                        'most one a day, and only when a look has real '
+                        'attention.',
+                      ),
                     ),
                   ),
                   const SizedBox(height: 28),

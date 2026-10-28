@@ -1,5 +1,6 @@
 // Displays social and product notifications and lets users respond to follow requests.
 import 'package:flutter/gestures.dart';
+import '../../widgets/look_viewer_page.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -844,6 +845,24 @@ class _NotificationsPageState extends State<NotificationsPage> {
     Map<String, dynamic>? extraData,
   ) async {
     if (extraData == null) return;
+    if (type == 'trending_look') {
+      final postId = (extraData['postId'] ?? '').toString();
+      if (postId.isEmpty) return;
+      final post = await FirebaseFirestore.instance
+          .collection('posts')
+          .doc(postId)
+          .get();
+      if (!context.mounted || !post.exists) return;
+      final data = post.data() ?? const <String, dynamic>{};
+      final imageUrl = (data['imageURL'] ?? data['imageUrl'] ?? '').toString();
+      if (imageUrl.isEmpty) return;
+      await openLookViewer(
+        context,
+        imageUrl: imageUrl,
+        caption: (data['caption'] ?? '').toString(),
+      );
+      return;
+    }
     if (type == 'shop_message' ||
         type == 'designer_message' ||
         type == 'order_update') {
