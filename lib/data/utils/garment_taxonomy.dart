@@ -1,7 +1,6 @@
 // Garment classification helpers shared by every try-on path.
 //
-// Maps loose catalogue category strings onto the FASHN try-on categories and
-// onto a layering order, so garments are applied in a physically sensible
+// Maps loose catalogue category strings onto a layering order, so garments are applied in a physically sensible
 // sequence (base layers before outerwear).
 library;
 
@@ -14,32 +13,6 @@ const List<String> kGarmentLayerOrder = [
   'accessories',
   'other',
 ];
-
-/// FASHN try-on category for a catalogue category string.
-String fashnCategoryFor(String? value) {
-  final category = value?.toLowerCase() ?? '';
-  if (category.contains('bottom') ||
-      category.contains('pants') ||
-      category.contains('trouser') ||
-      category.contains('skirt')) {
-    return 'bottoms';
-  }
-  if (category.contains('dress') ||
-      category.contains('jumpsuit') ||
-      category.contains('one-piece')) {
-    return 'one-pieces';
-  }
-  if (category.contains('top') ||
-      category.contains('shirt') ||
-      category.contains('jacket') ||
-      category.contains('outerwear') ||
-      category.contains('blazer') ||
-      category.contains('coat') ||
-      category.contains('hoodie')) {
-    return 'tops';
-  }
-  return 'auto';
-}
 
 /// Layering group for a product map.
 String garmentGroupOf(Map<String, dynamic> product) {

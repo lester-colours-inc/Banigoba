@@ -1,4 +1,4 @@
-// Garment layering and category mapping, shared by every try-on path.
+// Garment layering, shared by every try-on path.
 import 'package:banigoba/data/utils/garment_taxonomy.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -8,32 +8,6 @@ Map<String, dynamic> _product(String category, {String? subcategory}) => {
 };
 
 void main() {
-  group('fashnCategoryFor', () {
-    test('maps bottom-half garments to bottoms', () {
-      for (final value in ['bottoms', 'Pants', 'trousers', 'midi skirt']) {
-        expect(fashnCategoryFor(value), 'bottoms', reason: value);
-      }
-    });
-
-    test('maps full-body garments to one-pieces', () {
-      for (final value in ['Dress', 'jumpsuit', 'one-piece']) {
-        expect(fashnCategoryFor(value), 'one-pieces', reason: value);
-      }
-    });
-
-    test('maps upper-body garments to tops', () {
-      for (final value in ['tops', 'Shirt', 'jacket', 'blazer', 'hoodie']) {
-        expect(fashnCategoryFor(value), 'tops', reason: value);
-      }
-    });
-
-    test('falls back to auto for anything unrecognised', () {
-      expect(fashnCategoryFor('sunglasses'), 'auto');
-      expect(fashnCategoryFor(''), 'auto');
-      expect(fashnCategoryFor(null), 'auto');
-    });
-  });
-
   group('garmentGroupOf', () {
     test('classifies each layering group', () {
       expect(garmentGroupOf(_product('Summer dress')), 'dresses');

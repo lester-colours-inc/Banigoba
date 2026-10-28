@@ -1,8 +1,8 @@
 // Client for Gemini image editing (Nano Banana) via the Interactions API.
 //
-// Unlike FASHN, Gemini is a general image editor: it takes the avatar plus
-// every garment in a single call and returns raw image bytes rather than a
-// hosted URL, so callers have to upload the result themselves.
+// Gemini is a general image editor: it takes the avatar plus every garment
+// in a single call and returns raw image bytes rather than a hosted URL, so
+// callers have to upload the result themselves.
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';

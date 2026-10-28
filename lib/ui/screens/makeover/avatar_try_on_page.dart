@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 
 import '../../../data/services/gemini_image_api.dart';
 import '../../../data/services/outfit_service.dart';
-import '../../../data/services/photo_edit_api.dart';
 import '../../../data/services/storage_service.dart';
 import '../../widgets/before_after_view.dart';
 import '../../widgets/safe_product_image.dart';
@@ -17,10 +16,8 @@ import '../../widgets/app_network_image.dart';
 import '../../../data/services/turn_around_service.dart';
 import '../../widgets/turn_around_viewer.dart';
 
-/// The engines the page can dress the avatar with. Results are kept per
-/// provider so the same look can be generated twice and compared.
+/// The engine that dresses the avatar. Results are kept per provider.
 enum TryOnProvider {
-  fashn('FASHN', 'generated'),
   gemini('Gemini', 'generated_gemini');
 
   const TryOnProvider(this.label, this.previewType);
@@ -37,8 +34,7 @@ class AvatarTryOnPage extends StatefulWidget {
   final String? category;
 
   /// How the item really fits the shopper (their size and the fit check's
-  /// findings), passed to the engine that accepts instructions (Gemini).
-  /// FASHN's clothing try-on takes no free-text instructions.
+  /// findings), passed to Gemini as an instruction.
   final String fitNote;
 
   const AvatarTryOnPage({
@@ -55,7 +51,6 @@ class AvatarTryOnPage extends StatefulWidget {
 
 class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
   static const Color _primaryColor = Color(0xFF0D0140);
-  static const String _fashnApiKey = String.fromEnvironment('FASHN_API_KEY');
   static const String _geminiApiKey = String.fromEnvironment('GEMINI_API_KEY');
   final OutfitService _outfitService = OutfitService();
   final StorageService _storageService = StorageService();
@@ -429,50 +424,6 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
     );
   }
 
-  /// FASHN dresses the avatar one garment at a time, feeding each result into
-  /// the next call.
-  Future<void> _generateWithFashn() async {
-    final inputs = _generationInputs(
-      apiKey: _fashnApiKey,
-      keyName: 'FASHN_API_KEY',
-      providerLabel: TryOnProvider.fashn.label,
-    );
-    if (inputs == null) return;
-
-    await _runGeneration(TryOnProvider.fashn, () async {
-      final api = PhotoEditApi(apiKey: _fashnApiKey);
-      var currentAvatarUrl = inputs.avatarUrl;
-      for (final product in _orderedProducts(inputs.products)) {
-        final garmentUrl = _productImageUrl(product);
-        if (garmentUrl.isEmpty) continue;
-        final group = _productGroup(product);
-        final productName = (product['name'] ?? 'a product').toString();
-
-        _setGeneratingLabel(productName);
-
-        // tryon-v1.6 renders apparel only; bags, hats, shoes and jewellery
-        // have to go through tryon-max or they come back mangled.
-        final results = group == 'accessories'
-            ? await api.tryOnProductMax(
-                modelImageUrl: currentAvatarUrl,
-                productImageUrl: garmentUrl,
-                prompt: _accessoryPrompt(product),
-              )
-            : await api.tryOnClothes(
-                modelImageUrl: currentAvatarUrl,
-                garmentImageUrl: garmentUrl,
-                category: _fashnCategory(group),
-                mode: 'quality',
-              );
-        if (results.isEmpty) {
-          throw Exception('No image was returned for $productName.');
-        }
-        currentAvatarUrl = results.first;
-      }
-      return currentAvatarUrl;
-    });
-  }
-
   /// Gemini takes the avatar and every garment in one call and returns raw
   /// bytes, so the result is uploaded before it can be shown or saved.
   Future<void> _generateWithGemini() async {
@@ -546,37 +497,6 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
       _ => 'worn the way this item normally is',
     };
     return '$name ($placement)';
-  }
-
-  /// Names the item so Try-On Max places it the way the item is actually worn.
-  String _accessoryPrompt(Map<String, dynamic> product) {
-    final name = (product['name'] ?? 'accessory').toString();
-    final descriptor =
-        '${product['subcategory'] ?? ''} ${product['category'] ?? ''}'
-            .toLowerCase();
-
-    if (descriptor.contains('bag') ||
-        descriptor.contains('purse') ||
-        descriptor.contains('clutch')) {
-      return 'Place the $name so the person carries it naturally by the handle, '
-          'keeping their outfit and pose unchanged.';
-    }
-    if (descriptor.contains('hat') || descriptor.contains('cap')) {
-      return 'Place the $name on the person\'s head at a natural angle, '
-          'keeping their outfit and pose unchanged.';
-    }
-    if (descriptor.contains('shoe') ||
-        descriptor.contains('sneaker') ||
-        descriptor.contains('boot')) {
-      return 'Put the $name on the person\'s feet, '
-          'keeping their outfit and pose unchanged.';
-    }
-    if (descriptor.contains('glass') || descriptor.contains('sunglass')) {
-      return 'Place the $name on the person\'s face, '
-          'keeping their outfit and pose unchanged.';
-    }
-    return 'Add the $name to the person as it would normally be worn, '
-        'keeping their outfit and pose unchanged.';
   }
 
   List<Map<String, dynamic>> _orderedProducts(
@@ -773,16 +693,6 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
     Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
-  /// Maps a [_productGroup] onto the categories tryon-v1.6 accepts.
-  String _fashnCategory(String group) {
-    return switch (group) {
-      'bottoms' => 'bottoms',
-      'dresses' => 'one-pieces',
-      'tops' || 'outerwear' => 'tops',
-      _ => 'auto',
-    };
-  }
-
   Future<void> _createOrUpdateAvatar() async {
     await Navigator.of(context).push(
       MaterialPageRoute(
@@ -922,13 +832,13 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
                   ],
                   const SizedBox(height: 20),
                   ElevatedButton.icon(
-                    onPressed: canGenerate ? _generateWithFashn : null,
+                    onPressed: canGenerate ? _generateWithGemini : null,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: _primaryColor,
                       foregroundColor: Colors.white,
                       minimumSize: const Size(double.infinity, 54),
                     ),
-                    icon: _generatingProvider == TryOnProvider.fashn
+                    icon: _generatingProvider == TryOnProvider.gemini
                         ? const SizedBox(
                             width: 18,
                             height: 18,
@@ -939,34 +849,11 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
                           )
                         : const Icon(Icons.auto_awesome),
                     label: Text(
-                      _generatingProvider == TryOnProvider.fashn
-                          ? 'Dressing your avatar...'
-                          : _results.containsKey(TryOnProvider.fashn)
-                          ? 'Try FASHN Again'
-                          : 'See It On Me',
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  OutlinedButton.icon(
-                    onPressed: canGenerate ? _generateWithGemini : null,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: _primaryColor,
-                      minimumSize: const Size(double.infinity, 54),
-                      side: BorderSide(color: colors.outlineVariant),
-                    ),
-                    icon: _generatingProvider == TryOnProvider.gemini
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.blur_on),
-                    label: Text(
                       _generatingProvider == TryOnProvider.gemini
-                          ? 'Gemini is dressing your avatar...'
+                          ? 'Dressing your avatar...'
                           : _results.containsKey(TryOnProvider.gemini)
-                          ? 'Try Gemini Again'
-                          : 'Also Generate With Gemini',
+                          ? 'Try Again'
+                          : 'See It On Me',
                     ),
                   ),
                   if (_generatingProvider != null &&

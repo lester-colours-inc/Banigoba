@@ -28,32 +28,32 @@ import 'package:flutter/foundation.dart';
 
 import '../models/makeover_job.dart';
 import '../utils/garment_taxonomy.dart';
-import 'photo_edit_api.dart';
+import 'look_generation_service.dart';
+import 'storage_service.dart';
 
 class CoordinatedMakeoverService {
   CoordinatedMakeoverService({
     FirebaseFirestore? firestore,
     FirebaseAuth? auth,
-    PhotoEditApi? api,
-    String? apiKey,
+    LookImageGenerator? generator,
+    LookUploader? save,
   }) : _db = firestore ?? FirebaseFirestore.instance,
        _auth = auth ?? FirebaseAuth.instance,
-       _injectedApi = api,
-       _apiKey = apiKey ?? _compiledApiKey;
+       _generator = generator ?? GeminiLookGenerator(),
+       _injectedSave = save;
 
   final FirebaseFirestore _db;
   final FirebaseAuth _auth;
-  final PhotoEditApi? _injectedApi;
-  final String _apiKey;
-
-  static const String _compiledApiKey = String.fromEnvironment('FASHN_API_KEY');
+  final LookImageGenerator _generator;
+  final LookUploader? _injectedSave;
 
   /// AI-003: at least two separately selectable alternatives.
   static const int alternativesPerJob = 2;
 
-  bool get isAiConfigured => _injectedApi != null || _apiKey.isNotEmpty;
+  bool get isAiConfigured => _generator.isConfigured;
 
-  PhotoEditApi get _api => _injectedApi ?? PhotoEditApi(apiKey: _apiKey);
+  LookUploader get _save =>
+      _injectedSave ?? StorageService().uploadTryOnResultBytes;
 
   String get _currentUserId => _auth.currentUser?.uid ?? '';
 
@@ -291,10 +291,10 @@ class CoordinatedMakeoverService {
     required String inputImageUrl,
     required int sampleCount,
   }) async {
-    return _api.applyHairStyle(
-      imageUrl: inputImageUrl,
+    return _images(
+      photoUrl: inputImageUrl,
       prompt: buildHairPrompt(intent),
-      numImages: sampleCount,
+      count: sampleCount,
     );
   }
 
@@ -325,13 +325,11 @@ class CoordinatedMakeoverService {
       final garment = garments[index];
       final isLast = index == garments.length - 1;
 
-      final outputs = await _api.tryOnClothes(
-        modelImageUrl: carrier,
-        garmentImageUrl: garmentImageUrlOf(garment),
-        category: fashnCategoryFor(
-          (garment['category'] ?? garment['subcategory'])?.toString(),
-        ),
-        numImages: isLast ? sampleCount : 1,
+      final outputs = await _images(
+        photoUrl: carrier,
+        prompt: buildGarmentPrompt(garment),
+        references: [garmentImageUrlOf(garment)],
+        count: isLast ? sampleCount : 1,
       );
 
       if (outputs.isEmpty) {
@@ -344,6 +342,40 @@ class CoordinatedMakeoverService {
     }
 
     return results;
+  }
+
+  /// Generates [count] images (one Gemini call each, in parallel) and keeps
+  /// them in our storage, returning their addresses.
+  Future<List<String>> _images({
+    required String photoUrl,
+    required String prompt,
+    List<String> references = const [],
+    required int count,
+  }) async {
+    final userId = _currentUserId;
+    if (userId.isEmpty) {
+      throw const MakeoverStageException('Sign in to create a makeover.');
+    }
+    return Future.wait([
+      for (var i = 0; i < count; i += 1)
+        _generator
+            .generate(
+              photoUrl: photoUrl,
+              prompt: prompt,
+              referenceImageUrls: references,
+            )
+            .then((bytes) => _save(bytes, userId)),
+    ]);
+  }
+
+  /// Puts one garment on the person, leaving everything else as it is.
+  static String buildGarmentPrompt(Map<String, dynamic> garment) {
+    final name = (garment['name'] ?? 'the item').toString().trim();
+    return 'The first image is a photo of a person. The second image is '
+        '$name. Generate one photorealistic image of the same person wearing '
+        '$name exactly as shown: keep its colour, pattern, print, texture, '
+        'length and cut identical. Keep the face, skin tone, body shape, '
+        'hair, pose, background and every other piece of clothing unchanged.';
   }
 
   /// Builds the hair instruction, scoped so generation cannot wander into

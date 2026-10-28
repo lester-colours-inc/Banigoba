@@ -252,6 +252,23 @@ void main() {
     });
   });
 
+  group('garment prompt', () {
+    test('names the item and keeps the rest of the look unchanged', () {
+      final prompt = CoordinatedMakeoverService.buildGarmentPrompt({
+        'name': 'Navy blazer',
+      });
+
+      expect(prompt, contains('Navy blazer'));
+      expect(prompt, contains('every other piece of clothing unchanged'));
+    });
+
+    test('still reads without an item name', () {
+      final prompt = CoordinatedMakeoverService.buildGarmentPrompt({});
+
+      expect(prompt, contains('the item'));
+    });
+  });
+
   group('hair prompt', () {
     test('carries the user instruction', () {
       final prompt = CoordinatedMakeoverService.buildHairPrompt(

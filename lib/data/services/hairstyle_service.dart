@@ -3,12 +3,10 @@ import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-import 'package:http/http.dart' as http;
 
 import '../models/affirmation.dart';
 import '../models/post.dart';
 import 'affirmation_service.dart';
-import 'photo_edit_api.dart';
 
 class HairstyleService {
   HairstyleService({FirebaseFirestore? firestore, FirebaseStorage? storage})
@@ -17,10 +15,6 @@ class HairstyleService {
 
   final FirebaseFirestore _firestore;
   final FirebaseStorage _storage;
-
-  static const String _apiKey = String.fromEnvironment('FASHN_API_KEY');
-
-  bool get isAiConfigured => _apiKey.isNotEmpty;
 
   Future<String> saveLatestSelfie({
     required String userId,
@@ -63,64 +57,6 @@ class HairstyleService {
       throw Exception('The saved hairstyle selfie is empty.');
     }
     return bytes;
-  }
-
-  Future<HairstyleGeneration> generate({
-    required String userId,
-    Uint8List? sourceBytes,
-    required String styleName,
-    required String prompt,
-    String? sourceImageUrl,
-  }) async {
-    final directory = _storage
-        .ref()
-        .child('userImages')
-        .child(userId)
-        .child('hairStyles');
-    final sourceUrl =
-        sourceImageUrl ??
-        await saveLatestSelfie(
-          userId: userId,
-          imageBytes:
-              sourceBytes ??
-              (throw Exception('Choose or upload a hairstyle selfie first.')),
-        );
-
-    if (!isAiConfigured) {
-      return HairstyleGeneration(
-        sourceImageUrl: sourceUrl,
-        resultImageUrl: sourceUrl,
-        isPreview: true,
-      );
-    }
-
-    final output = await PhotoEditApi(
-      apiKey: _apiKey,
-    ).applyHairStyle(imageUrl: sourceUrl, prompt: prompt, numImages: 1);
-    if (output.isEmpty) {
-      throw Exception('The hairstyle service returned no image.');
-    }
-
-    final response = await http.get(Uri.parse(output.first));
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception('Unable to download the generated hairstyle.');
-    }
-
-    final timestamp = DateTime.now().millisecondsSinceEpoch;
-    final resultRef = directory.child('${timestamp}_result.png');
-    await resultRef.putData(
-      response.bodyBytes,
-      SettableMetadata(
-        contentType:
-            response.headers['content-type']?.split(';').first ?? 'image/png',
-      ),
-    );
-
-    return HairstyleGeneration(
-      sourceImageUrl: sourceUrl,
-      resultImageUrl: await resultRef.getDownloadURL(),
-      isPreview: false,
-    );
   }
 
   Future<void> saveLook({

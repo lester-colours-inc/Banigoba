@@ -634,7 +634,7 @@
           "area": "Marketplace, e-fitting room and monetization",
           "note": "Core value. Depends on U-6 measurements.",
           "done": false,
-          "progress": "Built 25 Oct (committed a641605) (first version): a \"Fit check\" card on clothing product pages compares the shop's garment measurements with your saved ones and says where it is tight, snug or loose (\"Size M: tight around the waist\"), shows the numbers, and suggests the best size in stock. Shops can enter an optional size chart (shoulders, chest, waist, hips, inseam per size) in the stock form; where there is none it compares size labels (\"a size bigger than you usually wear\"). The fit also goes to the Gemini try-on picture. Not yet: FASHN's try-on cannot take fit instructions, so the picture only reflects fit on the Gemini engine; existing shop products have no size charts until shops add them; stretchy fabric is not accounted for.",
+          "progress": "Built 25 Oct (committed a641605) (first version): a \"Fit check\" card on clothing product pages compares the shop's garment measurements with your saved ones and says where it is tight, snug or loose (\"Size M: tight around the waist\"), shows the numbers, and suggests the best size in stock. Shops can enter an optional size chart (shoulders, chest, waist, hips, inseam per size) in the stock form; where there is none it compares size labels (\"a size bigger than you usually wear\"). The fit also goes to the Gemini try-on picture. Not yet: existing shop products have no size charts until shops add them; stretchy fabric is not accounted for.",
           "highlight": "partial"
         },
         {
