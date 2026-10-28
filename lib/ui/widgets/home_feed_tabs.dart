@@ -22,6 +22,43 @@ enum HomeFeed {
   final String label;
 }
 
+/// The size the tab labels are drawn at when they all fit.
+const double kFeedTabFontSize = 14;
+
+/// The smallest the labels shrink to on a narrow phone.
+const double kFeedTabMinFontSize = 11;
+
+/// One font size for every tab: [kFeedTabFontSize], or smaller by the same
+/// factor for all three when the widest label (at its bold, selected weight)
+/// does not fit in [tabWidth]. Sizing them together keeps the row even, instead
+/// of only the longest label looking smaller.
+double feedTabFontSize({
+  required List<String> labels,
+  required double tabWidth,
+}) {
+  const padding = 8.0;
+  final available = tabWidth - padding;
+  var widest = 0.0;
+  for (final label in labels) {
+    final painter = TextPainter(
+      text: TextSpan(
+        text: label,
+        style: const TextStyle(
+          fontSize: kFeedTabFontSize,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      maxLines: 1,
+      textDirection: TextDirection.ltr,
+    )..layout();
+    if (painter.width > widest) widest = painter.width;
+    painter.dispose();
+  }
+  if (widest <= available) return kFeedTabFontSize;
+  final scaled = kFeedTabFontSize * available / widest;
+  return scaled < kFeedTabMinFontSize ? kFeedTabMinFontSize : scaled;
+}
+
 class HomeFeedTabs extends StatelessWidget implements PreferredSizeWidget {
   const HomeFeedTabs({super.key, this.controller});
 
@@ -49,24 +86,31 @@ class HomeFeedTabs extends StatelessWidget implements PreferredSizeWidget {
       decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: colors.outlineVariant)),
       ),
-      child: AnimatedBuilder(
-        animation: position,
-        builder: (context, _) => Row(
-          children: [
-            for (final feed in HomeFeed.values)
-              Expanded(
-                child: _FeedTab(
-                  label: feed.label,
-                  isSelected: feed.index == position.value.round(),
-                  underline: (1 - (position.value - feed.index).abs()).clamp(
-                    0.0,
-                    1.0,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final fontSize = feedTabFontSize(
+            labels: [for (final feed in HomeFeed.values) feed.label],
+            tabWidth: constraints.maxWidth / HomeFeed.values.length,
+          );
+          return AnimatedBuilder(
+            animation: position,
+            builder: (context, _) => Row(
+              children: [
+                for (final feed in HomeFeed.values)
+                  Expanded(
+                    child: _FeedTab(
+                      label: feed.label,
+                      fontSize: fontSize,
+                      isSelected: feed.index == position.value.round(),
+                      underline: (1 - (position.value - feed.index).abs())
+                          .clamp(0.0, 1.0),
+                      onTap: () => tabs.animateTo(feed.index),
+                    ),
                   ),
-                  onTap: () => tabs.animateTo(feed.index),
-                ),
-              ),
-          ],
-        ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
@@ -75,12 +119,14 @@ class HomeFeedTabs extends StatelessWidget implements PreferredSizeWidget {
 class _FeedTab extends StatelessWidget {
   const _FeedTab({
     required this.label,
+    required this.fontSize,
     required this.isSelected,
     required this.underline,
     required this.onTap,
   });
 
   final String label;
+  final double fontSize;
   final bool isSelected;
 
   /// How much of the underline shows: 1 on the selected feed, easing to 0 as
@@ -100,21 +146,19 @@ class _FeedTab extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
-            // Long labels shrink to fit a narrow phone rather than truncate.
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                    color: isSelected
-                        ? colors.onSurface
-                        : colors.onSurfaceVariant,
-                  ),
+            // All tabs share one size, chosen so the widest label fits.
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: fontSize,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                  color: isSelected
+                      ? colors.onSurface
+                      : colors.onSurfaceVariant,
                 ),
               ),
             ),

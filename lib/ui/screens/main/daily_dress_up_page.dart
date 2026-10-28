@@ -180,6 +180,10 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
   GeoCell? _viewerCell;
   bool _nearMe = true;
 
+  /// Near me needs somewhere to be near: a location or a city. Until then
+  /// the Community feed shows everyone instead of an empty list.
+  bool get _hasPlace => _viewerCell != null || _viewerCity.trim().isNotEmpty;
+
   // Posts saved to the Smart Wardrobe, so the save icon can show as on.
   StreamSubscription<Set<String>>? _savedPostsSub;
   Set<String> _savedPostIds = const {};
@@ -1021,7 +1025,7 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
                         padding: const EdgeInsets.only(top: 12, bottom: 12),
                         child: NearMeBar(
                           city: _viewerCity,
-                          nearMe: _nearMe,
+                          nearMe: _nearMe && _hasPlace,
                           onChanged: (value) => setState(() => _nearMe = value),
                           onSetCity: _addCity,
                           hasLocation: _viewerCell != null,
@@ -1130,7 +1134,7 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
       cellOf: _authorCities.knownCells,
       now: DateTime.now(),
     );
-    final nearOnly = !isMyMakeover && _nearMe;
+    final nearOnly = !isMyMakeover && _nearMe && _hasPlace;
     final posts = nearOnly
         ? nearMe(
             ranked,
