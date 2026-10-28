@@ -173,6 +173,16 @@ service cloud.firestore {
       }
     }
 
+    // ── fashion content ────────────────────────────────────────────────────
+    // Credited link previews of fashion stories and events, written only by
+    // the refreshFashionContent function (admin SDK, which bypasses rules).
+    // content_sources, the engine's own notes, has no rule and is closed.
+
+    match /content_items/{itemId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
     // ── products ───────────────────────────────────────────────────────────
 
     match /products/{productId} {

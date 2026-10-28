@@ -162,6 +162,14 @@ expires after a day instead of being removed.
 - **Risk:** scraping sites can break their terms; prefer their RSS feeds or
   official APIs.
 
+**Status (28 Oct): first version built.** `functions/content/` (feed reader,
+classifier, ingest, source list) and the `refreshFashionContent` schedule
+write credited link previews to `content_items`; the app shows them on the
+Community tab (`FashionNewsSection`) and under My Fashion Idols
+(`IdolNewsSection`). Only publishers' own feeds are read; no article text or
+picture is copied. To add a source, add one line in `functions/content/sources.js`.
+To deploy: `firebase deploy --only functions:refreshFashionContent,firestore:rules`.
+
 ## Suggested order
 
 1. Provider mode (switch and sign-up), then shop stock listing with size

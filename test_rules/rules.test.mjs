@@ -378,3 +378,34 @@ describe('daily feed cards', () => {
     );
   });
 });
+
+describe('fashion content', () => {
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore();
+      await setDoc(doc(db, 'content_items/s1'), { title: 'Story', kind: 'news' });
+      await setDoc(doc(db, 'content_sources/vogue'), { ok: true });
+    });
+  });
+
+  test('signed-in people read and list the stories', async () => {
+    await assertSucceeds(getDoc(doc(as('zoe'), 'content_items/s1')));
+    await assertSucceeds(getDocs(collection(as('zoe'), 'content_items')));
+  });
+
+  test('signed-out visitors read nothing', async () => {
+    const anon = env.unauthenticatedContext().firestore();
+    await assertFails(getDoc(doc(anon, 'content_items/s1')));
+  });
+
+  test('nobody writes stories from the app', async () => {
+    await assertFails(setDoc(doc(as('zoe'), 'content_items/s2'), { title: 'Fake' }));
+    await assertFails(setDoc(doc(as('zoe'), 'content_items/s1'), { title: 'Edited' }));
+    await assertFails(deleteDoc(doc(as('zoe'), 'content_items/s1')));
+  });
+
+  test('the engine\'s own notes are closed', async () => {
+    await assertFails(getDoc(doc(as('zoe'), 'content_sources/vogue')));
+    await assertFails(setDoc(doc(as('zoe'), 'content_sources/vogue'), { ok: false }));
+  });
+});

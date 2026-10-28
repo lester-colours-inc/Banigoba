@@ -453,8 +453,8 @@
           "area": "Engagement and go-to-market",
           "note": "Backend. Open question 9 (image rights)",
           "done": false,
-          "progress": "Decided 22 Oct: show a credited link preview (title, small image and site name from the source) that opens the source; never copy images to our servers. Not built yet. Planned 25 Oct: see docs/plans/service-provider-mode.md (shopping phases).",
-          "highlight": "decided"
+          "progress": "Decided 22 Oct: show a credited link preview (title, small image and site name from the source) that opens the source; never copy images to our servers. Not built yet. Planned 25 Oct: see docs/plans/service-provider-mode.md (shopping phases). | Built 28 Oct (first version): a scheduled job (every 3 hours) reads 15 publishers' own RSS/Atom feeds (Vogue, Fashionista, ELLE, Harper's Bazaar, The Guardian, Fashion Week Online, BellaNaija, and Zimbabwean news sites such as The Herald, NewZimbabwe, ZBC, 263Chat), keeps the fashion stories, and stores each as a credited link preview: title, a link to the source's own picture, the source's name and the link. No article text and no picture is copied; every card opens the source. Stories expire after 30 days. Tagged by place (Harare, Lagos, ...) and topic. No scraping. Needs deploying. Limit: Zimbabwean fashion coverage is thin because those feeds are general news; more local sources can be added in one line each.",
+          "highlight": "partial"
         },
         {
           "id": "E-3",
@@ -462,8 +462,8 @@
           "area": "Engagement and go-to-market",
           "note": "Links to C-1",
           "done": false,
-          "progress": "Decided 22 Oct: same rule as E-2 for events found online. Not built yet. Planned 25 Oct: see docs/plans/service-provider-mode.md (shopping phases).",
-          "highlight": "decided"
+          "progress": "Built 28 Oct (first version): stories that announce an event (a fashion week returning, a show to be hosted, tickets, pop-ups, expos, festivals, galas) appear under \\\"Fashion events\\\" with an Event tag, above \\\"In fashion news\\\", on the Community tab. They are found from the title only, so dates are not read. Still planned: events with dates in My Daily Dress Up, and curator-added events merged in.",
+          "highlight": "partial"
         }
       ]
     },
@@ -504,7 +504,7 @@
           "area": "Fashion Twins, Fashion Idols and Hair Stylists",
           "note": "",
           "done": false,
-          "progress": "New \"My Fashion Idols\" page: keep idols by name; \"Style me like …\" opens the makeover with the idol filled in. Still to do: idols' news and looks in the feed, which needs the fashion-content engine (E-2). Planned 25 Oct: see docs/plans/service-provider-mode.md (shopping phases).",
+          "progress": "New \"My Fashion Idols\" page: keep idols by name; \"Style me like …\" opens the makeover with the idol filled in. Still to do: idols' news and looks in the feed, which needs the fashion-content engine (E-2). Planned 25 Oct: see docs/plans/service-provider-mode.md (shopping phases). Added 28 Oct: \\\"In the news\\\" under your idols lists up to two stories that name each idol (whole name in the title). Not yet: following an idol into your feed, and looks about them.",
           "highlight": "partial"
         },
         {
@@ -748,7 +748,8 @@
           "area": "Backend, algorithms and research",
           "note": "",
           "done": false,
-          "progress": ""
+          "progress": "Content-engine half built 28 Oct (see E-2). Monetization tracking is not started (K-7).",
+          "highlight": "partial"
         },
         {
           "id": "P-5",

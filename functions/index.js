@@ -5,7 +5,10 @@ const {
   onDocumentCreated,
   onDocumentWritten,
 } = require('firebase-functions/v2/firestore');
+const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { matchNewStockHandler } = require('./matchNewStock');
+const { runIngest } = require('./content/ingest');
+const { SOURCES } = require('./content/sources');
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -172,4 +175,23 @@ exports.matchNewStock = onDocumentWritten(
     timeoutSeconds: 300,
   },
   matchNewStockHandler(db, admin.firestore.FieldValue),
+);
+
+// Fashion-content engine (review items E-2, E-3, F-2): every few hours, read
+// the publishers' own feeds and store the fashion stories and events as
+// credited link previews in content_items, which the app reads.
+exports.refreshFashionContent = onSchedule(
+  {
+    schedule: 'every 3 hours',
+    region: 'europe-west1',
+    timeoutSeconds: 300,
+  },
+  async () => {
+    await runIngest({
+      db,
+      sources: SOURCES,
+      now: new Date(),
+      FieldValue: admin.firestore.FieldValue,
+    });
+  },
 );

@@ -2,12 +2,13 @@
 // Banigoba or not, kept by name. "Style me like …" opens a makeover with
 // the idol filled in.
 //
-// TODO(content-engine): news and looks about each idol coming into the feed
-// needs the fashion-content engine (review item E-2).
+// Under the list, "In the news" shows the stories from the fashion-content
+// engine that name an idol.
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../../data/services/style_lists_service.dart';
+import '../../widgets/idol_news_section.dart';
 import '../makeover/makeover_page.dart';
 
 const int _maxIdolNameLength = 60;
@@ -147,6 +148,7 @@ class _FashionIdolsPageState extends State<FashionIdolsPage> {
                     ),
                   ),
                 ),
+              IdolNewsSection(names: [for (final idol in idols) idol.name]),
             ],
           );
         },

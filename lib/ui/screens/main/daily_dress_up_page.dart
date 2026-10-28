@@ -44,6 +44,7 @@ import '../../widgets/makeover_fab.dart';
 import '../../widgets/saved_to_wardrobe_sheet.dart';
 import '../wardrobe/wardrobe_page.dart';
 import '../events/community_events_strip.dart';
+import '../../widgets/fashion_news_section.dart';
 import '../../widgets/cart_badge_button.dart';
 import '../../widgets/safe_product_image.dart';
 import '../../widgets/repost_actions.dart';
@@ -982,8 +983,10 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (feed == HomeFeed.community)
+                    if (feed == HomeFeed.community) ...[
                       const CommunityEventsStrip(),
+                      const FashionNewsSection(),
+                    ],
                     _buildPostsFeed(feed),
                     // Clears the floating Makeover button so it never covers
                     // the last post's actions.
