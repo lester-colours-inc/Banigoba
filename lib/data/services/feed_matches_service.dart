@@ -45,6 +45,54 @@ Map<String, int> ownedCounts(Iterable<Map<String, dynamic>> wardrobe) {
   return Map.unmodifiable(counts);
 }
 
+/// A server-written card counts for this long.
+const Duration kServerCardLife = Duration(hours: 24);
+
+/// Today's cards the server wrote (the matchNewStock function), best first and
+/// at most [kDailyFeedCards]. Older, malformed or product-less cards are
+/// skipped.
+List<FeedItem> cardsFromServer(
+  Iterable<Map<String, dynamic>> docs,
+  DateTime now,
+) {
+  final cards = <(FeedItem, DateTime)>[];
+  for (final doc in docs) {
+    final id = (doc['productId'] ?? '').toString();
+    final product = doc['product'];
+    if (id.isEmpty || product is! Map) continue;
+    // A card whose timestamp has not landed yet was written just now.
+    final created = switch (doc['createdAt']) {
+      Timestamp(:final seconds) => DateTime.fromMillisecondsSinceEpoch(
+        seconds * 1000,
+      ),
+      final DateTime date => date,
+      _ => now,
+    };
+    if (now.difference(created) > kServerCardLife) continue;
+    final reasons = [
+      for (final reason in (doc['reasons'] as List? ?? const []))
+        reason.toString(),
+    ];
+    cards.add((
+      FeedItem(
+        product: {...Map<String, dynamic>.from(product), 'id': id},
+        match: FeedMatch(
+          productId: id,
+          score: (doc['score'] as num?)?.toInt() ?? 0,
+          reasons: reasons.isEmpty ? const ['Available now'] : reasons,
+          size: (doc['size'] ?? '').toString(),
+        ),
+      ),
+      created,
+    ));
+  }
+  cards.sort((a, b) {
+    final byScore = b.$1.match.score.compareTo(a.$1.match.score);
+    return byScore != 0 ? byScore : b.$2.compareTo(a.$2);
+  });
+  return List.unmodifiable(cards.take(kDailyFeedCards).map((card) => card.$1));
+}
+
 /// What the feed strip needs; the real one reads Firestore, tests use a fake.
 abstract interface class FeedSource {
   Future<List<FeedItem>> loadToday(String userId);
@@ -67,10 +115,32 @@ class FeedMatchesService implements FeedSource {
   CollectionReference<Map<String, dynamic>> _dismissed(String userId) =>
       _db.collection('users').doc(userId).collection('feedDismissed');
 
+  CollectionReference<Map<String, dynamic>> _cards(String userId) =>
+      _db.collection('users').doc(userId).collection('feedCards');
+
+  /// The cards the server prepared when a followed shop added stock. Empty
+  /// when there are none (or they cannot be read), and the phone works it out
+  /// itself instead.
+  Future<List<FeedItem>> _serverCards(String userId) async {
+    try {
+      final snapshot = await _cards(
+        userId,
+      ).orderBy('createdAt', descending: true).limit(20).get();
+      return cardsFromServer(
+        snapshot.docs.map((doc) => doc.data()),
+        DateTime.now(),
+      );
+    } on FirebaseException {
+      return const [];
+    }
+  }
+
   /// Today's pieces for [userId], best first (at most [kDailyFeedCards]).
   @override
   Future<List<FeedItem>> loadToday(String userId) async {
     if (userId.isEmpty) return const [];
+    final fromServer = await _serverCards(userId);
+    if (fromServer.isNotEmpty) return fromServer;
     final followed = (await _friends.getFollowingIds().first).toSet();
     if (followed.isEmpty) return const [];
 
@@ -122,7 +192,10 @@ class FeedMatchesService implements FeedSource {
 
   /// "Not for me": this piece will not come back.
   @override
-  Future<void> dismiss(String userId, String productId) => _dismissed(
-    userId,
-  ).doc(productId).set({'dismissedAt': FieldValue.serverTimestamp()});
+  Future<void> dismiss(String userId, String productId) async {
+    await _dismissed(
+      userId,
+    ).doc(productId).set({'dismissedAt': FieldValue.serverTimestamp()});
+    await _cards(userId).doc(productId).delete();
+  }
 }

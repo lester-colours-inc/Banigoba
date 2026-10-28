@@ -139,6 +139,12 @@ only. See `lib/data/models/look_purchase.dart` and
 - **Depends on:** phase 1 (stock) and the server-side feed work we already
   noted as the fix for feed scale.
 
+**Status (28 Oct): built.** `functions/feedMatching.js` (rules, tested) and
+`functions/matchNewStock.js` (the trigger on `products/{id}`), writing cards to
+`users/{uid}/feedCards`; the app reads them in `FeedMatchesService`. Limits:
+at most 1000 followers handled per stock event; a deleted product's card
+expires after a day instead of being removed.
+
 ## Phase 5: Fashion-content engine (E-2, E-3, F-2, E-4)
 
 *Find fashion stories and events online; post them as credited link previews.*

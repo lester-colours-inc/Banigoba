@@ -351,3 +351,30 @@ describe('design and agent requests', () => {
     await assertSucceeds(deleteDoc(doc(as('zoe'), 'design_requests/d1')));
   });
 });
+
+describe('daily feed cards', () => {
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'users/zoe/feedCards/p1'), {
+        productId: 'p1',
+        score: 5,
+      });
+    });
+  });
+
+  test('a person reads and removes her own cards', async () => {
+    await assertSucceeds(getDoc(doc(as('zoe'), 'users/zoe/feedCards/p1')));
+    await assertSucceeds(
+      getDocs(collection(as('zoe'), 'users/zoe/feedCards')),
+    );
+    await assertSucceeds(deleteDoc(doc(as('zoe'), 'users/zoe/feedCards/p1')));
+  });
+
+  test('nobody else reads or changes them', async () => {
+    await assertFails(getDoc(doc(as('farai'), 'users/zoe/feedCards/p1')));
+    await assertFails(deleteDoc(doc(as('farai'), 'users/zoe/feedCards/p1')));
+    await assertFails(
+      setDoc(doc(as('farai'), 'users/zoe/feedCards/p2'), { productId: 'p2' }),
+    );
+  });
+});

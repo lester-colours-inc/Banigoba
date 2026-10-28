@@ -2,6 +2,9 @@
   "name": "banigoba-functions",
   "description": "Firebase cloud functions for the Banigoba AI makeover app.",
   "private": true,
+  "scripts": {
+    "test": "node --test test/"
+  },
   "engines": {
     "node": "22"
   },

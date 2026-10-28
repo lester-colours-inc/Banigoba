@@ -1,7 +1,11 @@
 // Exposes authenticated backend operations for the Banigoba app.
 const admin = require('firebase-admin');
 const { HttpsError, onCall } = require('firebase-functions/v2/https');
-const { onDocumentCreated } = require('firebase-functions/v2/firestore');
+const {
+  onDocumentCreated,
+  onDocumentWritten,
+} = require('firebase-functions/v2/firestore');
+const { matchNewStockHandler } = require('./matchNewStock');
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -157,4 +161,15 @@ exports.generateMakeover = onCall(
       generatedImageUrls,
     };
   },
+);
+
+// Daily feed cards (review items D-4, A-6): when a shop adds or restocks a
+// piece, write a card for each follower it suits, in their size and style.
+exports.matchNewStock = onDocumentWritten(
+  {
+    document: 'products/{productId}',
+    region: 'europe-west1',
+    timeoutSeconds: 300,
+  },
+  matchNewStockHandler(db, admin.firestore.FieldValue),
 );
