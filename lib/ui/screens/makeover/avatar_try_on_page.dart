@@ -7,7 +7,6 @@ import 'package:flutter/material.dart';
 import '../../../data/services/gemini_image_api.dart';
 import '../../../data/services/outfit_service.dart';
 import '../../../data/services/photo_edit_api.dart';
-import '../../../data/services/result_mirror.dart';
 import '../../../data/services/storage_service.dart';
 import '../../widgets/before_after_view.dart';
 import '../../widgets/safe_product_image.dart';
@@ -470,9 +469,7 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
         }
         currentAvatarUrl = results.first;
       }
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) return currentAvatarUrl;
-      return ResultMirror().keep(currentAvatarUrl, user.uid);
+      return currentAvatarUrl;
     });
   }
 
