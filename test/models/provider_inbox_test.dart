@@ -45,6 +45,58 @@ void main() {
     });
   });
 
+  group('delivery orders', () {
+    test('mark an order that is to be delivered', () {
+      final item = InboxItem.fromOrder('abc123', {
+        'orderNumber': '1042',
+        'status': 'submitted',
+        'total': 43,
+        'fulfilment': 'delivery',
+        'deliveryArea': 'Avondale',
+        'items': [
+          {'quantity': 1},
+        ],
+      }, createdAt: t1);
+
+      expect(item.detail, '1 item · \$43.00 · Delivery to Avondale');
+    });
+
+    test('a delivery with no area says just Delivery', () {
+      final item = InboxItem.fromOrder('a', {
+        'fulfilment': 'delivery',
+        'total': 10,
+        'items': [
+          {'quantity': 1},
+        ],
+      }, createdAt: t1);
+
+      expect(item.detail, '1 item · \$10.00 · Delivery');
+    });
+
+    test(
+      'an order with no fulfilment is a collection and says nothing extra',
+      () {
+        final item = InboxItem.fromOrder('a', {
+          'total': 10,
+          'items': [
+            {'quantity': 1},
+          ],
+        }, createdAt: t1);
+
+        expect(item.detail, '1 item · \$10.00');
+      },
+    );
+
+    test('the delivery steps read in plain words', () {
+      String label(String status) => InboxItem.fromOrder('x', {
+        'status': status,
+      }, createdAt: t1).statusLabel;
+
+      expect(label('out_for_delivery'), 'Out for delivery');
+      expect(label('delivered'), 'Delivered');
+    });
+  });
+
   group('requests', () {
     test('a design request shows the occasion, budget and deadline', () {
       final item = InboxItem.fromDesignRequest('d1', {

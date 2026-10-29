@@ -7,6 +7,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../../data/models/delivery.dart';
+import '../../widgets/delivery_settings_card.dart';
 import 'admin_products_page.dart';
 import 'seller_orders_page.dart';
 import 'shop_chat_page.dart';
@@ -24,6 +26,7 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
   final _description = TextEditingController();
   final _contact = TextEditingController();
   bool _loading = true;
+  DeliverySettings _delivery = const DeliverySettings();
   bool _saving = false;
 
   @override
@@ -54,7 +57,18 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
             .toString();
     _description.text = (shop['description'] ?? '').toString();
     _contact.text = (shop['contact'] ?? user.email ?? '').toString();
+    _delivery = DeliverySettings.fromShop(shop);
     if (mounted) setState(() => _loading = false);
+  }
+
+  /// Saves only the delivery settings, leaving the rest of the shop (and its
+  /// verification) untouched.
+  Future<void> _saveDelivery(DeliverySettings settings) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('Sign in first.');
+    await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+      'shop': {'delivery': settings.toMap()},
+    }, SetOptions(merge: true));
   }
 
   Future<void> _saveShop() async {
@@ -165,6 +179,13 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
                   child: Text(_saving ? 'Saving...' : 'Save Boutique'),
                 ),
                 const SizedBox(height: 28),
+                const Text(
+                  'Delivery',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                DeliverySettingsCard(initial: _delivery, onSave: _saveDelivery),
+                const SizedBox(height: 20),
                 Card(
                   child: ListTile(
                     contentPadding: const EdgeInsets.all(18),

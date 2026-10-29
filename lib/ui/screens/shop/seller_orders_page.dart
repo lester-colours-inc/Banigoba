@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../../data/models/delivery.dart';
 import '../../../data/services/order_service.dart';
 import 'shop_chat_page.dart';
 
@@ -80,14 +81,6 @@ class _OrderCard extends StatefulWidget {
 class _OrderCardState extends State<_OrderCard> {
   bool _updating = false;
 
-  static const _statuses = [
-    'submitted',
-    'accepted',
-    'ready_for_collection',
-    'collected',
-    'cancelled',
-  ];
-
   @override
   Widget build(BuildContext context) {
     final order = widget.order;
@@ -98,6 +91,16 @@ class _OrderCardState extends State<_OrderCard> {
       order['customerAddress'] as Map? ?? const {},
     );
     final status = (order['status'] ?? 'submitted').toString();
+    final fulfilment = Fulfilment.fromValue(order['fulfilment']);
+    final delivering = fulfilment == Fulfilment.delivery;
+    final deliveryFee = (order['deliveryFee'] as num?)?.toDouble() ?? 0;
+    final deliveryArea = (order['deliveryArea'] ?? '').toString();
+    // The steps that fit this kind of order, keeping the current one even if
+    // it is from an older flow.
+    final statuses = [
+      ...statusesFor(fulfilment),
+      if (!statusesFor(fulfilment).contains(status)) status,
+    ];
     final orderNumber = (order['orderNumber'] ?? widget.orderId.substring(0, 6))
         .toString();
     final total = (order['total'] as num?)?.toDouble() ?? 0;
@@ -138,6 +141,30 @@ class _OrderCardState extends State<_OrderCard> {
             ),
             if (customerEmail.isNotEmpty) Text(customerEmail),
             const SizedBox(height: 10),
+            Container(
+              key: ValueKey('fulfilment_${widget.orderId}'),
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: delivering
+                    ? const Color(0xFF0D0140)
+                    : Theme.of(context).colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                delivering
+                    ? 'Deliver${deliveryArea.isEmpty ? '' : ' to $deliveryArea'}'
+                          ' · ${deliveryFee == 0 ? 'free' : '\$${deliveryFee.toStringAsFixed(2)}'}'
+                    : 'Customer collects',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: delivering
+                      ? Colors.white
+                      : Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
             Text(
               _formatAddress(address),
               style: TextStyle(
@@ -158,12 +185,12 @@ class _OrderCardState extends State<_OrderCard> {
             }),
             const SizedBox(height: 14),
             DropdownButtonFormField<String>(
-              initialValue: _statuses.contains(status) ? status : 'submitted',
+              initialValue: statuses.contains(status) ? status : 'submitted',
               decoration: const InputDecoration(
                 labelText: 'Order status',
                 border: OutlineInputBorder(),
               ),
-              items: _statuses
+              items: statuses
                   .map(
                     (status) => DropdownMenuItem(
                       value: status,

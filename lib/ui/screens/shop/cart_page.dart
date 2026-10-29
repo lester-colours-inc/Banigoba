@@ -9,8 +9,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../../data/models/delivery.dart';
 import '../../../data/services/cart_service.dart';
 import '../../../data/services/order_service.dart';
+import '../../widgets/checkout_options.dart';
 import '../../widgets/safe_product_image.dart';
 
 class CartPage extends StatelessWidget {
@@ -143,6 +145,7 @@ class CartPage extends StatelessWidget {
                                     context,
                                     user.uid,
                                     total,
+                                    _sellerIdOf(items),
                                   ),
                                   child: const Text('Checkout'),
                                 ),
@@ -213,88 +216,151 @@ class CartPage extends StatelessWidget {
     }
   }
 
+  /// The shop everything in the bag is from ('' when it cannot be told).
+  String _sellerIdOf(List<QueryDocumentSnapshot<Map<String, dynamic>>> items) {
+    if (items.isEmpty) return '';
+    final data = items.first.data();
+    return (data['shopId'] ?? data['uploaderId'] ?? data['sellerId'] ?? '')
+        .toString();
+  }
+
+  Future<DeliverySettings> _deliveryFor(String sellerId) async {
+    if (sellerId.isEmpty) return const DeliverySettings();
+    try {
+      final seller = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(sellerId)
+          .get();
+      final shop = seller.data()?['shop'];
+      return DeliverySettings.fromShop(
+        shop is Map ? Map<String, dynamic>.from(shop) : null,
+      );
+    } on FirebaseException {
+      return const DeliverySettings();
+    }
+  }
+
   void _showCollectionCheckout(
     BuildContext context,
     String userId,
     double total,
+    String sellerId,
   ) {
+    final deliveryLoad = _deliveryFor(sellerId);
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
+      isScrollControlled: true,
       builder: (context) {
         var placing = false;
-        return StatefulBuilder(
-          builder: (context, setSheetState) {
-            return SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Checkout',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.radio_button_checked),
-                      title: const Text('Pay upon collection'),
-                      subtitle: Text('Total: \$${total.toStringAsFixed(2)}'),
-                    ),
-                    const SizedBox(height: 12),
-                    FilledButton(
-                      onPressed: placing
-                          ? null
-                          : () async {
-                              setSheetState(() => placing = true);
-                              try {
-                                final hasCollectionAddress =
-                                    await _ensureCollectionAddress(
-                                      context,
-                                      userId,
-                                    );
-                                if (!hasCollectionAddress) {
-                                  if (context.mounted) {
-                                    setSheetState(() => placing = false);
-                                  }
-                                  return;
-                                }
-                                final orderId = await OrderService()
-                                    .placeCollectionOrder(customerId: userId);
-                                if (!context.mounted) return;
-                                Navigator.pop(context);
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      'Order #${orderId.substring(0, 6).toUpperCase()} sent to the boutique.',
-                                    ),
-                                  ),
-                                );
-                              } catch (error) {
-                                if (!context.mounted) return;
-                                setSheetState(() => placing = false);
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      'Unable to place order: $error',
-                                    ),
-                                  ),
-                                );
+        var fulfilment = Fulfilment.collect;
+        var area = '';
+        return FutureBuilder<DeliverySettings>(
+          future: deliveryLoad,
+          builder: (context, snapshot) {
+            final settings = snapshot.data ?? const DeliverySettings();
+            return StatefulBuilder(
+              builder: (context, setSheetState) {
+                final delivering = fulfilment == Fulfilment.delivery;
+                final canConfirm =
+                    snapshot.hasData &&
+                    (!delivering ||
+                        quoteDelivery(settings, area: area).available);
+                return SafeArea(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Checkout',
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        if (!snapshot.hasData)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 24),
+                            child: Center(child: CircularProgressIndicator()),
+                          )
+                        else
+                          CheckoutOptions(
+                            itemsTotal: total,
+                            settings: settings,
+                            fulfilment: fulfilment,
+                            area: area,
+                            onFulfilment: (value) => setSheetState(() {
+                              fulfilment = value;
+                              // With one area to choose from, choose it.
+                              if (value == Fulfilment.delivery &&
+                                  area.isEmpty &&
+                                  settings.areas.length == 1) {
+                                area = settings.areas.first;
                               }
-                            },
-                      style: FilledButton.styleFrom(
-                        minimumSize: const Size(double.infinity, 48),
-                      ),
-                      child: Text(placing ? 'Sending Order...' : 'Confirm'),
+                            }),
+                            onArea: (value) =>
+                                setSheetState(() => area = value),
+                          ),
+                        const SizedBox(height: 14),
+                        FilledButton(
+                          key: const ValueKey('confirm_order'),
+                          onPressed: placing || !canConfirm
+                              ? null
+                              : () async {
+                                  setSheetState(() => placing = true);
+                                  try {
+                                    final hasAddress =
+                                        await _ensureCollectionAddress(
+                                          context,
+                                          userId,
+                                          deliveryOnly: delivering,
+                                        );
+                                    if (!hasAddress) {
+                                      if (context.mounted) {
+                                        setSheetState(() => placing = false);
+                                      }
+                                      return;
+                                    }
+                                    final orderId = await OrderService()
+                                        .placeCollectionOrder(
+                                          customerId: userId,
+                                          fulfilment: fulfilment,
+                                          deliveryArea: area,
+                                        );
+                                    if (!context.mounted) return;
+                                    Navigator.pop(context);
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          'Order #${orderId.substring(0, 6).toUpperCase()} sent to the boutique.',
+                                        ),
+                                      ),
+                                    );
+                                  } catch (error) {
+                                    if (!context.mounted) return;
+                                    setSheetState(() => placing = false);
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          'Unable to place order: $error',
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                },
+                          style: FilledButton.styleFrom(
+                            minimumSize: const Size(double.infinity, 48),
+                          ),
+                          child: Text(placing ? 'Sending Order...' : 'Confirm'),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              ),
+                  ),
+                );
+              },
             );
           },
         );
@@ -304,18 +370,27 @@ class CartPage extends StatelessWidget {
 
   Future<bool> _ensureCollectionAddress(
     BuildContext context,
-    String userId,
-  ) async {
+    String userId, {
+    bool deliveryOnly = false,
+  }) async {
     final userRef = FirebaseFirestore.instance.collection('users').doc(userId);
     final snapshot = await userRef.get();
     final data = snapshot.data() ?? const <String, dynamic>{};
     final address = Map<String, dynamic>.from(
       data['address'] as Map? ?? const {},
     );
-    if (_hasCollectionAddress(address)) return true;
+    // Delivery needs the buyer's own street address, not a collection point.
+    final suitable = deliveryOnly
+        ? (address['street'] ?? '').toString().trim().isNotEmpty &&
+              address['collectionPreference'] != 'collection_point'
+        : _hasCollectionAddress(address);
+    if (suitable) return true;
     if (!context.mounted) return false;
 
-    final collectionAddress = await _showCollectionAddressPrompt(context);
+    final collectionAddress = await _showCollectionAddressPrompt(
+      context,
+      deliveryOnly: deliveryOnly,
+    );
     if (collectionAddress == null) return false;
 
     await userRef.set({
@@ -338,8 +413,9 @@ class CartPage extends StatelessWidget {
   }
 
   Future<Map<String, dynamic>?> _showCollectionAddressPrompt(
-    BuildContext context,
-  ) async {
+    BuildContext context, {
+    bool deliveryOnly = false,
+  }) async {
     final streetController = TextEditingController();
     final cityController = TextEditingController();
     final stateController = TextEditingController();
@@ -354,29 +430,34 @@ class CartPage extends StatelessWidget {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              title: const Text('Collection details'),
+              title: Text(
+                deliveryOnly ? 'Delivery address' : 'Collection details',
+              ),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    SegmentedButton<bool>(
-                      segments: const [
-                        ButtonSegment(
-                          value: false,
-                          label: Text('Address'),
-                          icon: Icon(Icons.home_outlined),
-                        ),
-                        ButtonSegment(
-                          value: true,
-                          label: Text('Collection point'),
-                          icon: Icon(Icons.location_on_outlined),
-                        ),
-                      ],
-                      selected: {usePickupPoint},
-                      onSelectionChanged: (selection) {
-                        setDialogState(() => usePickupPoint = selection.first);
-                      },
-                    ),
+                    if (!deliveryOnly)
+                      SegmentedButton<bool>(
+                        segments: const [
+                          ButtonSegment(
+                            value: false,
+                            label: Text('Address'),
+                            icon: Icon(Icons.home_outlined),
+                          ),
+                          ButtonSegment(
+                            value: true,
+                            label: Text('Collection point'),
+                            icon: Icon(Icons.location_on_outlined),
+                          ),
+                        ],
+                        selected: {usePickupPoint},
+                        onSelectionChanged: (selection) {
+                          setDialogState(
+                            () => usePickupPoint = selection.first,
+                          );
+                        },
+                      ),
                     const SizedBox(height: 14),
                     if (usePickupPoint) ...[
                       TextField(

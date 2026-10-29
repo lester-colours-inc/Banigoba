@@ -444,8 +444,8 @@
           "area": "Marketplace, e-fitting room and monetization",
           "note": "Open question 8 (delivery)",
           "done": false,
-          "progress": "Decided 22 Oct: shops deliver themselves (they set whether they deliver, the fee and the areas) or the buyer collects; the app tracks the status. Not built yet.",
-          "highlight": "decided"
+          "progress": "Built 29 Oct (first version): a shop sets, in My Shop > Delivery, whether it delivers itself, the delivery fee (or free), the areas it covers (empty means anywhere the buyer gives an address) and a note. At checkout the buyer chooses \\\"Collect from the shop\\\" (pay upon collection) or \\\"Deliver to me\\\" (pay on delivery), picks an area from the shop's list, and sees items + delivery fee = total. The fee is recomputed from the shop's saved settings when the order is placed, so the app cannot set the price; delivery needs the buyer's own street address (a collection point does not count). Orders keep how they are fulfilled, the fee and the area. The seller's Orders screen shows \\\"Deliver to Avondale · \\$3.00\\\" or \\\"Customer collects\\\" and offers the steps that fit: collection ends Ready for collection > Collected, delivery ends Out for delivery > Delivered; the buyer is told at each step (chat message and notification), and the provider inbox marks delivery orders. Not yet: tried on a real phone; a buyer-side \\\"My orders\\\" screen (buyers follow status through notifications and the shop chat); delivery tracking beyond status (no map, no driver); payment is still cash on collection or delivery.",
+          "highlight": "partial"
         },
         {
           "id": "E-2",

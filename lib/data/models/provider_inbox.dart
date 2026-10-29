@@ -22,6 +22,8 @@ String _statusLabel(String status) => switch (status) {
   'completed' => 'Completed',
   'ready_for_collection' => 'Ready for collection',
   'collected' => 'Collected',
+  'out_for_delivery' => 'Out for delivery',
+  'delivered' => 'Delivered',
   'cancelled' => 'Cancelled',
   _ => 'Updated',
 };
@@ -78,8 +80,11 @@ class InboxItem {
           : _text(data['customerName']),
       title:
           'Order #${number.isEmpty ? id.substring(0, id.length.clamp(0, 6)) : number}',
-      detail:
-          '$pieces ${pieces == 1 ? 'item' : 'items'} · \$${total.toStringAsFixed(2)}',
+      detail: [
+        '$pieces ${pieces == 1 ? 'item' : 'items'} · \$${total.toStringAsFixed(2)}',
+        if (data['fulfilment'] == 'delivery')
+          'Delivery${_text(data['deliveryArea']).isEmpty ? '' : ' to ${_text(data['deliveryArea'])}'}',
+      ].join(' · '),
       status: _text(data['status']).isEmpty
           ? 'submitted'
           : _text(data['status']),

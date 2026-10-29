@@ -9,6 +9,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'notification_service.dart';
 import 'shop_chat_service.dart';
 import '../utils/size_inventory.dart';
+import '../models/delivery.dart';
 
 class OrderService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -25,7 +26,16 @@ class OrderService {
         .snapshots();
   }
 
-  Future<String> placeCollectionOrder({required String customerId}) async {
+  /// Places the order for everything in the bag, from one shop. By default
+  /// the buyer collects; with [fulfilment] delivery the shop's own fee is
+  /// added, worked out here from the shop's saved settings and never taken
+  /// from the app. [deliveryArea] is the area the buyer chose from the shop's
+  /// list (ignored for collection).
+  Future<String> placeCollectionOrder({
+    required String customerId,
+    Fulfilment fulfilment = Fulfilment.collect,
+    String deliveryArea = '',
+  }) async {
     final cartSnapshot = await _db
         .collection('users')
         .doc(customerId)
@@ -96,11 +106,23 @@ class OrderService {
       }),
     );
     final items = itemRecords.map((record) => record.orderItem).toList();
-    final total = items.fold<double>(
+    final itemsTotal = items.fold<double>(
       0,
       (runningTotal, item) =>
           runningTotal + ((item['lineTotal'] as num?)?.toDouble() ?? 0),
     );
+    final totals = orderTotals(
+      items: itemsTotal,
+      fulfilment: fulfilment,
+      settings: DeliverySettings.fromShop(shop),
+      area: deliveryArea,
+    );
+    final total = totals.total;
+    if (fulfilment == Fulfilment.delivery &&
+        (address['street'] ?? '').toString().trim().isEmpty) {
+      throw Exception('Add your delivery address first.');
+    }
+    final delivering = fulfilment == Fulfilment.delivery;
     final itemCount = items.fold<int>(
       0,
       (runningTotal, item) =>
@@ -172,9 +194,15 @@ class OrderService {
         'customerAddress': address,
         'items': items,
         'itemCount': itemCount,
+        'itemsTotal': itemsTotal,
+        'deliveryFee': totals.fee,
         'total': total,
-        'paymentMethod': 'pay_upon_collection',
-        'paymentLabel': 'Pay upon collection',
+        'fulfilment': fulfilment.value,
+        if (delivering) 'deliveryArea': deliveryArea.trim(),
+        'paymentMethod': delivering
+            ? 'pay_upon_delivery'
+            : 'pay_upon_collection',
+        'paymentLabel': delivering ? 'Pay on delivery' : 'Pay upon collection',
         'status': 'submitted',
         'statusLabel': orderStatusLabel('submitted'),
         'chatId': chatId,
@@ -195,8 +223,12 @@ class OrderService {
       }
     });
 
-    final message =
-        'Order #$orderNumber confirmed for $shopName. Payment method: pay upon collection. Total: \$${total.toStringAsFixed(2)}.';
+    final message = delivering
+        ? 'Order #$orderNumber confirmed for $shopName. Delivery'
+              '${deliveryArea.trim().isEmpty ? '' : ' to ${deliveryArea.trim()}'}'
+              ' (fee \$${totals.fee.toStringAsFixed(2)}). Payment method: pay on delivery. '
+              'Total: \$${total.toStringAsFixed(2)}.'
+        : 'Order #$orderNumber confirmed for $shopName. Payment method: pay upon collection. Total: \$${total.toStringAsFixed(2)}.';
     await _chatService.addSystemMessage(
       chatId: chatId,
       text: message,
@@ -235,6 +267,13 @@ class OrderService {
       throw Exception('You can only update your own boutique orders.');
     }
 
+    final fulfilment = Fulfilment.fromValue(order['fulfilment']);
+    if (!statusesFor(fulfilment).contains(status)) {
+      throw Exception(
+        '${orderStatusLabel(status)} does not apply to this '
+        '${fulfilment == Fulfilment.delivery ? 'delivery' : 'collection'} order.',
+      );
+    }
     final label = orderStatusLabel(status);
     await orderRef.update({
       'status': status,
@@ -282,21 +321,7 @@ class OrderService {
     }
   }
 
-  String orderStatusLabel(String status) {
-    switch (status) {
-      case 'accepted':
-        return 'Accepted by boutique';
-      case 'ready_for_collection':
-        return 'Ready for collection';
-      case 'collected':
-        return 'Collected';
-      case 'cancelled':
-        return 'Cancelled';
-      case 'submitted':
-      default:
-        return 'Submitted';
-    }
-  }
+  String orderStatusLabel(String status) => orderStatusText(status);
 
   String _sellerIdFor(Map<String, dynamic> data) {
     return (data['shopId'] ?? data['uploaderId'] ?? data['sellerId'] ?? '')

@@ -470,3 +470,45 @@ describe('product insights', () => {
     await assertFails(setDoc(doc(as('zoe'), 'product_insights/p2'), { sellerId: 'zoe', reach: 1 }));
   });
 });
+
+describe('shop delivery settings', () => {
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'users/tariro'), {
+        displayName: 'Tariro',
+        isSeller: true,
+        shop: { name: 'Glow', verified: true },
+      });
+    });
+  });
+
+  test('a shop saves its own delivery settings', async () => {
+    await assertSucceeds(
+      setDoc(
+        doc(as('tariro'), 'users/tariro'),
+        { shop: { delivery: { delivers: true, fee: 3, areas: ['Avondale'], note: '' } } },
+        { merge: true },
+      ),
+    );
+  });
+
+  test('saving delivery settings cannot change who is verified', async () => {
+    await assertFails(
+      setDoc(
+        doc(as('tariro'), 'users/tariro'),
+        { shop: { verified: false, delivery: { delivers: true } } },
+        { merge: true },
+      ),
+    );
+  });
+
+  test('nobody else changes a shop\'s delivery settings', async () => {
+    await assertFails(
+      setDoc(
+        doc(as('zoe'), 'users/tariro'),
+        { shop: { delivery: { delivers: true, fee: 0 } } },
+        { merge: true },
+      ),
+    );
+  });
+});
