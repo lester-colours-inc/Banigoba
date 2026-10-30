@@ -686,6 +686,15 @@
           "done": false,
           "highlight": "partial",
           "progress": "First version built 26 Oct: \"Turn me around\" on the try-on makes right side, back and left views with AI (one at a time, shown as they arrive); drag left or right, or use the arrows, to turn like a turntable. Sides and back are estimates and are labelled so. Costs three more AI image calls per try-on.  Later options: a short spin video, optional back photo from shops to improve the back view, and true 3D models once shops can supply them. 27 Oct: the angles are now kept with the saved look (also if you turn around after saving), and a saved look that has angles opens in the turn-around viewer from Saved Looks and My Daily Dress Up. Not tried on a phone yet. 27 Oct: shops can add an optional back photo for each item in the stock form; when there is one, the turn-around uses it for the back view instead of guessing. Needs a shop to add the photo, and has not been seen on a phone."
+        },
+        {
+          "id": "K-9",
+          "text": "Shops and designers send a link or QR code to their stock, a category or chosen pieces: to friends, followers, the public in the app, and to many WhatsApp groups. The link lets anyone try the pieces on (eFitting) and buy them online.",
+          "area": "Marketplace, e-fitting room and monetization",
+          "note": "Added 30 Oct at the stakeholder's request.",
+          "done": false,
+          "highlight": "partial",
+          "progress": "Built 30 Oct (first version): \"Share my stock\" on the provider home. The shop picks all stock, a category or pieces, adds a title and note, and chooses who in Banigoba is told (just the link, friends, followers, or public: followers get a notification and public links show in a \"From the shops\" strip on Community). It then gets a link and QR code with Send on WhatsApp (WhatsApp opens with the message ready and the shop ticks the groups; WhatsApp does not let any app post to groups automatically, and limits how many chats are picked at once), other apps, the QR as a picture, and copy. Anyone opening the link sees the pieces with prices and Try on / Buy (sign-in needed for those); on a phone with the app it opens in the app. Links can be switched off. Shop products are now publicly readable (a shop window) so links work without an account; only public links can be listed. Needs: deploying the rules, the announceShopLink function and the web app (Firebase Hosting); on the web, try-on is off until image generation moves to the server, because a public web app would expose the Gemini key. Not yet: iOS universal links, opening the link again automatically after signing in, link view counts for the shop, designers' portfolio pieces (links cover shop products)."
         }
       ]
     },

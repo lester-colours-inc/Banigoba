@@ -47,6 +47,7 @@ import '../../widgets/home_feed_tabs.dart';
 import '../../widgets/consent_sheet.dart';
 import '../../widgets/makeover_fab.dart';
 import '../../widgets/near_me_bar.dart';
+import '../../widgets/shop_drops_strip.dart';
 import '../../widgets/saved_to_wardrobe_sheet.dart';
 import '../wardrobe/wardrobe_page.dart';
 import '../events/community_events_strip.dart';
@@ -1044,6 +1045,7 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
                     children: [
                       if (feed == HomeFeed.community) ...[
                         const CommunityEventsStrip(),
+                        const ShopDropsStrip(),
                         const FashionNewsSection(),
                         Padding(
                           padding: const EdgeInsets.only(top: 12, bottom: 12),

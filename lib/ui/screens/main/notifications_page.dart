@@ -1,6 +1,7 @@
 // Displays social and product notifications and lets users respond to follow requests.
 import 'package:flutter/gestures.dart';
 import '../../widgets/look_viewer_page.dart';
+import '../shop/shared_stock_page.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -845,6 +846,17 @@ class _NotificationsPageState extends State<NotificationsPage> {
     Map<String, dynamic>? extraData,
   ) async {
     if (extraData == null) return;
+    if (type == 'shop_link') {
+      final linkId = (extraData['linkId'] ?? '').toString();
+      if (linkId.isEmpty) return;
+      await Navigator.push(
+        context,
+        MaterialPageRoute<void>(
+          builder: (_) => SharedStockPage(linkId: linkId),
+        ),
+      );
+      return;
+    }
     if (type == 'trending_look') {
       final postId = (extraData['postId'] ?? '').toString();
       if (postId.isEmpty) return;

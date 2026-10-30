@@ -13,6 +13,7 @@ import '../../../data/services/provider_service.dart';
 import '../agents/agents_page.dart';
 import '../designers/fashion_designers_page.dart';
 import '../shop/seller_dashboard_page.dart';
+import '../shop/shop_links_pages.dart';
 import '../shop/shop_chat_page.dart';
 import 'become_provider_page.dart';
 import 'provider_inbox_page.dart';
@@ -102,6 +103,33 @@ class ProviderHomePage extends StatelessWidget {
                           _open(context, ProviderInboxPage(roles: roles)),
                     ),
                     const SizedBox(height: 12),
+                    if (roles.contains(ProviderRole.shop)) ...[
+                      Card(
+                        child: ListTile(
+                          key: const ValueKey('card_share_stock'),
+                          contentPadding: const EdgeInsets.all(18),
+                          leading: const CircleAvatar(
+                            backgroundColor: _primary,
+                            foregroundColor: Colors.white,
+                            child: Icon(Icons.qr_code_2),
+                          ),
+                          title: const Text(
+                            'Share my stock',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          subtitle: const Text(
+                            'A link or QR to your stock for WhatsApp groups, '
+                            'followers and the public: they try on and buy.',
+                          ),
+                          trailing: const Icon(
+                            Icons.arrow_forward_ios,
+                            size: 16,
+                          ),
+                          onTap: () => _open(context, const ShopLinksPage()),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
                     for (final role in roles) ...[
                       Card(
                         child: ListTile(

@@ -9,6 +9,7 @@ import '../ui/screens/main/notifications_page.dart';
 import '../ui/screens/main/daily_dress_up_page.dart';
 import '../ui/screens/wardrobe/wardrobe_page.dart';
 import '../ui/screens/shop/cart_page.dart';
+import '../ui/screens/shop/shared_stock_page.dart';
 import '../ui/screens/main/search_page.dart';
 import '../ui/screens/social/profile_page.dart';
 import '../ui/screens/makeover/avatar_try_on_page.dart';
@@ -19,6 +20,7 @@ import '../ui/screens/onboarding/onboarding_screen.dart';
 import '../ui/screens/onboarding/style_preferences_screen.dart';
 import '../ui/screens/permissions/permissions_request_screen.dart';
 import '../data/models/provider_roles.dart';
+import '../data/models/shop_link.dart';
 import '../ui/screens/provider/provider_home_page.dart';
 import '../ui/screens/shop/shops_page.dart';
 import '../ui/screens/agents/agents_page.dart';
@@ -342,6 +344,18 @@ class AppRoutes {
   // coordinated makeover journey. They stay routable because they also host
   // the shop try-on picker and the hairstyle catalogue.
   static const String dailyDressUp = '/daily-dress-up';
+
+  /// Routes that carry data, such as a shared stock link
+  /// ("/s?id=…", K-9), opened from the web, a QR code or a phone link.
+  static Route<dynamic>? onGenerateRoute(RouteSettings settings) {
+    final uri = Uri.tryParse(settings.name ?? '');
+    final linkId = uri == null ? null : shopLinkIdFrom(uri);
+    if (linkId == null) return null;
+    return MaterialPageRoute<void>(
+      settings: settings,
+      builder: (_) => SharedStockPage(linkId: linkId),
+    );
+  }
 
   static Map<String, WidgetBuilder> routes = {
     root: (context) => const AuthGate(),

@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.banigoba",
+      "sha256_cert_fingerprints": [
+        "76:86:52:72:CA:AF:63:F5:D1:2D:FF:25:63:B1:D5:7A:D5:77:25:66:77:49:86:5A:07:F5:A5:97:0E:79:AF:4E"
+      ]
+    }
+  }
+]

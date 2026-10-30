@@ -5,6 +5,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
@@ -21,6 +22,8 @@ final rootNavigatorKey = GlobalKey<NavigatorState>();
 final rootScaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
 
 void main() async {
+  // Clean web addresses ("/s?id=…") so shared stock links work in a browser.
+  usePathUrlStrategy();
   WidgetsFlutterBinding.ensureInitialized();
 
   await Future.wait([
@@ -69,6 +72,7 @@ class MyApp extends StatelessWidget {
           darkTheme: MyApp.buildTheme(Brightness.dark),
           initialRoute: AppRoutes.root,
           routes: AppRoutes.routes,
+          onGenerateRoute: AppRoutes.onGenerateRoute,
         );
       },
     );

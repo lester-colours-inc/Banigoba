@@ -512,3 +512,78 @@ describe('shop delivery settings', () => {
     );
   });
 });
+
+describe('shared stock links', () => {
+  const link = (extra = {}) => ({
+    ownerId: 'tariro',
+    shopName: 'Glow',
+    title: 'Winter coats',
+    note: '',
+    scope: 'all',
+    audience: 'link',
+    coverImageUrl: '',
+    active: true,
+    ...extra,
+  });
+
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore();
+      await setDoc(doc(db, 'shop_links/private1'), link());
+      await setDoc(doc(db, 'shop_links/public1'), link({ audience: 'public' }));
+      await setDoc(doc(db, 'products/p1'), { uploaderId: 'tariro', name: 'Coat', price: 40, stock: 3 });
+    });
+  });
+
+  test('anyone with the link opens it, even without an account', async () => {
+    const anon = env.unauthenticatedContext().firestore();
+    await assertSucceeds(getDoc(doc(anon, 'shop_links/private1')));
+    await assertSucceeds(getDoc(doc(as('zoe'), 'shop_links/private1')));
+  });
+
+  test('anyone can see a shop\'s pieces, even without an account', async () => {
+    const anon = env.unauthenticatedContext().firestore();
+    await assertSucceeds(getDoc(doc(anon, 'products/p1')));
+    await assertSucceeds(
+      getDocs(query(collection(anon, 'products'), where('uploaderId', '==', 'tariro'))),
+    );
+  });
+
+  test('only public links can be listed; just-the-link ones cannot be found', async () => {
+    const anon = env.unauthenticatedContext().firestore();
+    await assertSucceeds(
+      getDocs(query(collection(anon, 'shop_links'), where('audience', '==', 'public'))),
+    );
+    await assertFails(getDocs(collection(as('zoe'), 'shop_links')));
+  });
+
+  test('a shop lists its own links', async () => {
+    await assertSucceeds(
+      getDocs(query(collection(as('tariro'), 'shop_links'), where('ownerId', '==', 'tariro'))),
+    );
+  });
+
+  test('a shop creates a link in its own name only', async () => {
+    await assertSucceeds(setDoc(doc(as('tariro'), 'shop_links/new1'), link()));
+    await assertFails(setDoc(doc(as('zoe'), 'shop_links/new2'), link()));
+    const anon = env.unauthenticatedContext().firestore();
+    await assertFails(setDoc(doc(anon, 'shop_links/new3'), link()));
+  });
+
+  test('a link must be sensible', async () => {
+    await assertFails(setDoc(doc(as('tariro'), 'shop_links/bad1'), link({ title: 'x'.repeat(81) })));
+    await assertFails(setDoc(doc(as('tariro'), 'shop_links/bad2'), link({ scope: 'everything' })));
+    await assertFails(setDoc(doc(as('tariro'), 'shop_links/bad3'), link({ audience: 'world' })));
+    await assertFails(
+      setDoc(doc(as('tariro'), 'shop_links/bad4'), link({ scope: 'items', productIds: Array.from({ length: 61 }, (_, i) => `p${i}`) })),
+    );
+  });
+
+  test('only the shop switches its link off or deletes it, and cannot hand it over', async () => {
+    await assertSucceeds(setDoc(doc(as('tariro'), 'shop_links/private1'), link({ active: false })));
+    await assertFails(setDoc(doc(as('tariro'), 'shop_links/private1'), link({ ownerId: 'zoe' })));
+    await assertFails(setDoc(doc(as('zoe'), 'shop_links/private1'), link({ active: false })));
+    await assertFails(deleteDoc(doc(as('zoe'), 'shop_links/private1')));
+    await assertSucceeds(deleteDoc(doc(as('tariro'), 'shop_links/private1')));
+  });
+});

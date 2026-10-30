@@ -179,3 +179,38 @@ To deploy: `firebase deploy --only functions:refreshFashionContent,firestore:rul
 4. Daily feed matching (phase 4).
 5. Content engine (phase 5), which can run in parallel by anyone since it
    doesn't depend on shops.
+
+---
+
+# Share my stock (K-9), added 30 Oct
+
+*A shop sends a link or QR code to its stock, a category or chosen pieces, to
+WhatsApp groups and to friends, followers or the public in Banigoba. Anyone
+opening it can try the pieces on and buy them.*
+
+**Built (first version, 30 Oct):** `lib/data/models/shop_link.dart`,
+`lib/data/services/shop_link_service.dart`, `lib/ui/screens/shop/shop_link*`,
+`shared_stock_*`, `share_shop_link_panel.dart`, the Community strip
+(`lib/ui/widgets/shop_drops_strip.dart`) and the `announceShopLink` function.
+
+**Decisions taken:**
+- WhatsApp has no way for an app to post to groups; "Send on WhatsApp" opens
+  WhatsApp with the message ready and the shop picks the groups there.
+- Links live on the Firebase web address, `https://appdemo-b9e3e.web.app/s?id=…`
+  (change `kShareHost` for a custom domain). On Android with the app installed
+  they open the app (verified App Link via `web/.well-known/assetlinks.json`).
+- Shop products are readable by anyone so links work without an account.
+  Only public links can be listed; just-the-link shares cannot be browsed.
+- The hosted web app is built **without** the Gemini key, so try-on there says
+  to use the app. Moving image generation behind a Cloud Function would make
+  web try-on safe.
+
+**To deploy (in this order):**
+1. `firebase deploy --only firestore:rules --project appdemo-b9e3e`
+2. `firebase deploy --only functions:announceShopLink --project appdemo-b9e3e`
+3. `flutter build web --release` (no `--dart-define-from-file`, so no keys
+   are compiled in), then `firebase deploy --only hosting --project appdemo-b9e3e`
+4. Ship the new app build so links open in the app.
+
+If the release APK is signed with a key other than the local debug key, add
+its SHA-256 fingerprint to `web/.well-known/assetlinks.json`.

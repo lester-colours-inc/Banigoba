@@ -192,10 +192,39 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ── shared stock links ─────────────────────────────────────────────────
+    // A shop's link to all its stock, a category or picked pieces (K-9).
+    // Anyone holding the link opens it; only public links can be listed, so a
+    // just-the-link share cannot be found by browsing. Followers are told by
+    // the announceShopLink function (admin SDK).
+
+    match /shop_links/{linkId} {
+      function sensibleLink(data) {
+        return data.ownerId == request.auth.uid &&
+          data.title is string && data.title.size() > 0 && data.title.size() <= 80 &&
+          data.get('note', '') is string && data.get('note', '').size() <= 300 &&
+          data.scope in ['all', 'category', 'items'] &&
+          data.audience in ['link', 'friends', 'followers', 'public'] &&
+          (!('productIds' in data) || (data.productIds is list && data.productIds.size() <= 60)) &&
+          data.active is bool;
+      }
+
+      allow get: if true;
+      allow list: if resource.data.audience == 'public' ||
+        (isSignedIn() && resource.data.ownerId == request.auth.uid);
+      allow create: if isSignedIn() && sensibleLink(request.resource.data);
+      allow update: if isSignedIn() &&
+        resource.data.ownerId == request.auth.uid &&
+        sensibleLink(request.resource.data);
+      allow delete: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+    }
+
     // ── products ───────────────────────────────────────────────────────────
 
     match /products/{productId} {
-      allow read: if isSignedIn();
+      // A shop's pieces are its shop window: anyone may look, so a shared
+      // stock link (K-9) works for people without an account.
+      allow read: if true;
       allow create: if ownsDoc(request.resource.data);
       allow delete: if ownsDoc(resource.data);
       // Checkout decrements stock on another seller's product inside a

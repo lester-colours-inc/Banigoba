@@ -9,6 +9,7 @@ const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { matchNewStockHandler } = require('./matchNewStock');
 const { runIngest } = require('./content/ingest');
 const { notifyTrendingJob } = require('./trendingJob');
+const { announceShopLinkHandler } = require('./shopLinks');
 const { SOURCES } = require('./content/sources');
 
 admin.initializeApp();
@@ -210,4 +211,14 @@ exports.notifyTrendingLooks = onSchedule(
   async () => {
     await notifyTrendingJob(db, admin.firestore.FieldValue)(new Date());
   },
+);
+
+// Shared stock links (review item K-9): when a shop shares to friends,
+// followers or the public, tell those people.
+exports.announceShopLink = onDocumentCreated(
+  {
+    document: 'shop_links/{linkId}',
+    region: 'europe-west1',
+  },
+  announceShopLinkHandler(db, admin.firestore.FieldValue),
 );
