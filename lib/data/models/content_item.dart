@@ -2,8 +2,9 @@
 // F-2): a credited link preview. It holds the title, a link to the source's
 // own picture, the source's name and the link, never the article, so every
 // card opens the source.
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+
+import '../supabase/rows.dart';
 
 /// Shorter names are too likely to match the wrong person.
 const int kMinNameLength = 3;
@@ -49,21 +50,10 @@ class ContentItem {
       isEvent: data['kind'] == 'event',
       places: strings(data['places']),
       topics: strings(data['topics']),
-      publishedAt: switch (data['publishedAt']) {
-        Timestamp(:final seconds) => DateTime.fromMillisecondsSinceEpoch(
-          seconds * 1000,
-        ),
-        final DateTime date => date,
-        _ => DateTime.fromMillisecondsSinceEpoch(0),
-      },
-      startsAt: switch (data['startsAt']) {
-        Timestamp(:final seconds) => DateTime.fromMillisecondsSinceEpoch(
-          seconds * 1000,
-          isUtc: true,
-        ),
-        final DateTime date => date,
-        _ => null,
-      },
+      publishedAt:
+          asDateTime(data['publishedAt']) ??
+          DateTime.fromMillisecondsSinceEpoch(0),
+      startsAt: asDateTime(data['startsAt']),
     );
   }
 

@@ -11,8 +11,9 @@
 // different provider is chosen, add another LookImageGenerator; nothing else
 // here needs to change.
 
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+
+import '../../core/supabase/app_auth.dart';
 
 import '../models/look_request.dart';
 import 'gemini_image_api.dart';
@@ -89,7 +90,7 @@ class LookGenerationService {
        _upload = upload ?? StorageService().uploadTryOnResultBytes,
        _currentUserId =
            currentUserId ??
-           (() => FirebaseAuth.instance.currentUser?.uid ?? '');
+           (() => AppAuth.instance.currentUser?.uid ?? '');
 
   final LookImageGenerator _generator;
   final LookUploader _upload;

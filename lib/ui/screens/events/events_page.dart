@@ -1,7 +1,8 @@
 import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import '../../../core/supabase/app_auth.dart';
+import '../../../data/supabase/rows.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -81,7 +82,7 @@ class MyEventsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = AppAuth.instance.currentUser;
     if (user == null) {
       return const Scaffold(
         body: Center(child: Text('Sign in to manage your events.')),
@@ -91,7 +92,7 @@ class MyEventsPage extends StatelessWidget {
     final service = EventService();
     return Scaffold(
       appBar: AppBar(title: const Text('My Events')),
-      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      body: StreamBuilder<List<Map<String, dynamic>>>(
         stream: service.watchUserEvents(user.uid),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
@@ -101,10 +102,10 @@ class MyEventsPage extends StatelessWidget {
             return const Center(child: CircularProgressIndicator());
           }
 
-          final events = snapshot.data!.docs.toList()
+          final events = snapshot.data!.toList()
             ..sort((a, b) {
-              final aTime = a.data()['eventDateTime'] as Timestamp?;
-              final bTime = b.data()['eventDateTime'] as Timestamp?;
+              final aTime = asDateTime(a['eventDateTime']);
+              final bTime = asDateTime(b['eventDateTime']);
               return (aTime?.millisecondsSinceEpoch ?? 0).compareTo(
                 bTime?.millisecondsSinceEpoch ?? 0,
               );
@@ -123,8 +124,8 @@ class MyEventsPage extends StatelessWidget {
             itemCount: events.length,
             separatorBuilder: (_, _) => const SizedBox(height: 14),
             itemBuilder: (context, index) {
-              final doc = events[index];
-              final data = doc.data();
+              final data = events[index];
+              final eventId = data['id'].toString();
               final status = (data['status'] ?? 'pending').toString();
               return EventCard(
                 data: data,
@@ -133,7 +134,7 @@ class MyEventsPage extends StatelessWidget {
                   children: [
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: () => service.removeEvent(doc.id),
+                        onPressed: () => service.removeEvent(eventId),
                         icon: const Icon(Icons.delete_outline),
                         label: const Text('Remove'),
                       ),
@@ -145,7 +146,7 @@ class MyEventsPage extends StatelessWidget {
                           context,
                           MaterialPageRoute<void>(
                             builder: (_) => EventSubmissionPage(
-                              eventId: doc.id,
+                              eventId: eventId,
                               initialData: data,
                             ),
                           ),
@@ -186,7 +187,7 @@ class _ApprovedEventsListState extends State<ApprovedEventsList> {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+    return StreamBuilder<List<Map<String, dynamic>>>(
       stream: _service.watchApprovedEvents(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
@@ -198,12 +199,12 @@ class _ApprovedEventsListState extends State<ApprovedEventsList> {
 
         final now = DateTime.now();
         final events =
-            snapshot.data!.docs.where((doc) {
-              final eventDate = doc.data()['eventDateTime'] as Timestamp?;
-              return eventDate == null || eventDate.toDate().isAfter(now);
+            snapshot.data!.where((event) {
+              final eventDate = asDateTime(event['eventDateTime']);
+              return eventDate == null || eventDate.isAfter(now);
             }).toList()..sort((a, b) {
-              final aTime = a.data()['eventDateTime'] as Timestamp?;
-              final bTime = b.data()['eventDateTime'] as Timestamp?;
+              final aTime = asDateTime(a['eventDateTime']);
+              final bTime = asDateTime(b['eventDateTime']);
               return (aTime?.millisecondsSinceEpoch ?? 0).compareTo(
                 bTime?.millisecondsSinceEpoch ?? 0,
               );
@@ -222,9 +223,9 @@ class _ApprovedEventsListState extends State<ApprovedEventsList> {
           itemCount: events.length,
           separatorBuilder: (_, _) => const SizedBox(height: 14),
           itemBuilder: (context, index) {
-            final doc = events[index];
-            final data = doc.data();
-            final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
+            final data = events[index];
+            final eventId = data['id'].toString();
+            final currentUserId = AppAuth.instance.currentUser?.uid ?? '';
             final isOwner = data['submittedBy'] == currentUserId;
             return EventCard(
               data: data,
@@ -234,7 +235,7 @@ class _ApprovedEventsListState extends State<ApprovedEventsList> {
                         context,
                         MaterialPageRoute<void>(
                           builder: (_) => EventSubmissionPage(
-                            eventId: doc.id,
+                            eventId: eventId,
                             initialData: data,
                           ),
                         ),
@@ -298,9 +299,7 @@ class _EventSubmissionPageState extends State<EventSubmissionPage> {
     _whatsappController.text = (data['whatsappNumber'] ?? '').toString();
     _bookingLinkController.text = (data['bookingLink'] ?? '').toString();
     _existingFlyerUrl = (data['flyerUrl'] ?? '').toString();
-    if (data['eventDateTime'] is Timestamp) {
-      _eventDateTime = (data['eventDateTime'] as Timestamp).toDate();
-    }
+    _eventDateTime = asDateTime(data['eventDateTime']) ?? _eventDateTime;
   }
 
   @override
@@ -591,9 +590,7 @@ class EventCard extends StatelessWidget {
     final bookingLink = (data['bookingLink'] ?? '').toString();
     final description = (data['description'] ?? '').toString();
     final amenities = List<String>.from(data['amenities'] ?? const []);
-    final eventDate = data['eventDateTime'] is Timestamp
-        ? (data['eventDateTime'] as Timestamp).toDate()
-        : null;
+    final eventDate = asDateTime(data['eventDateTime']);
 
     return Card(
       clipBehavior: Clip.antiAlias,

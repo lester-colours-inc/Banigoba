@@ -1,40 +1,32 @@
-// Sends makeover requests and stores generated looks for the signed-in user.
 import 'dart:io';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_functions/cloud_functions.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../../core/supabase/app_auth.dart';
+import '../../core/supabase/supabase_config.dart';
+import '../supabase/storage_files.dart';
 
 class MakeoverService {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
-  final FirebaseStorage _storage = FirebaseStorage.instance;
-  final FirebaseFunctions _functions = FirebaseFunctions.instanceFor(
-    region: 'europe-west1',
-  );
-
   /// Uploads the user's original full-body selfie or photo for AI processing.
   Future<String> uploadInputImage(File file, String userId) async {
-    final filename = '${DateTime.now().millisecondsSinceEpoch}.jpg';
-    final ref = _storage
-        .ref()
-        .child('ai_makeovers')
-        .child(userId)
-        .child(filename);
-    final uploadTask = await ref.putFile(file);
-    if (uploadTask.state == TaskState.success) {
-      return await ref.getDownloadURL();
+    try {
+      return await StorageFiles.upload(
+        bucket: Buckets.aiMakeovers,
+        path: '$userId/${randomFileName()}',
+        bytes: await file.readAsBytes(),
+      );
+    } on Object catch (error) {
+      throw Exception('Failed to upload makeover input image: $error');
     }
-    throw Exception('Failed to upload makeover input image.');
   }
 
-  /// Calls the Firebase cloud function to generate makeover result URLs.
+  /// Calls the generate-makeover function to produce makeover result URLs.
   Future<List<String>> generateMakeover({
     required String userId,
     required String style,
     required String imageUrl,
   }) async {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = AppAuth.instance.currentUser;
     if (user == null) {
       throw Exception('User is not authenticated.');
     }
@@ -43,54 +35,36 @@ class MakeoverService {
     }
 
     try {
-      final callable = _functions.httpsCallable('generateMakeover');
-      final result = await callable.call(<String, dynamic>{
-        'style': style,
-        'imageUrl': imageUrl,
-      });
-      final data = Map<String, dynamic>.from(result.data as Map);
-      final urls = data['generatedImageUrls'];
+      final result = await supabase.functions.invoke(
+        'generate-makeover',
+        body: {'style': style, 'imageUrl': imageUrl},
+      );
+      final data = result.data;
+      final urls = data is Map ? data['generatedImageUrls'] : null;
       if (urls is List) {
         return urls.map((item) => item.toString()).toList();
       }
 
       throw Exception('Unexpected response from makeover function.');
-    } on FirebaseFunctionsException catch (error) {
+    } on FunctionException catch (error) {
       throw Exception(
-        error.message ?? 'Makeover generation failed (${error.code}).',
+        error.reasonPhrase ?? 'Makeover generation failed (${error.status}).',
       );
     }
   }
 
-  /// Saves the generated makeover result into Firestore and the user's wardrobe.
+  /// Saves the generated makeover result.
   Future<void> saveGeneratedMakeover({
     required String userId,
     required String style,
     required List<String> generatedImageUrls,
     required String sourceImageUrl,
   }) async {
-    final docRef = _db.collection('ai_makeovers').doc();
-    final data = {
-      'userId': userId,
+    await supabase.from('ai_makeovers').insert({
+      'user_id': userId,
       'style': style,
-      'sourceImageUrl': sourceImageUrl,
-      'generatedImageUrls': generatedImageUrls,
-      'createdAt': FieldValue.serverTimestamp(),
-    };
-    await docRef.set(data);
-
-    await _db
-        .collection('users')
-        .doc(userId)
-        .collection('wardrobe')
-        .doc(docRef.id)
-        .set({
-          'name': 'AI Makeover',
-          'style': style,
-          'imageUrls': generatedImageUrls,
-          'sourceImageUrl': sourceImageUrl,
-          'createdAt': FieldValue.serverTimestamp(),
-          'visibility': 'private',
-        });
+      'source_image_url': sourceImageUrl,
+      'generated_image_urls': generatedImageUrls,
+    });
   }
 }

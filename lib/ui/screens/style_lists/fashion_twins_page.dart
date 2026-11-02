@@ -41,7 +41,7 @@ class _FashionTwinsPageState extends State<FashionTwinsPage> {
           id: uid,
           name: name,
           username: (data['username'] ?? '').toString(),
-          imageUrl: (data['profileImageURL'] ?? data['profileImageUrl'] ?? '')
+          imageUrl: (data['profileImageUrl'] ?? '')
               .toString(),
         ),
       );

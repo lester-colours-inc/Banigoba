@@ -9,7 +9,7 @@
 // Each domain therefore carries its own independent state, and the coordinator
 // keeps the intermediate artifact from every stage so a refinement can resume
 // from the last unaffected point instead of starting over.
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../supabase/rows.dart';
 
 /// The two transformation domains in the lean MVP.
 enum MakeoverDomain {
@@ -115,8 +115,8 @@ class MakeoverStage {
                 .toList()
           : const [],
       errorMessage: (data['errorMessage'] ?? '').toString(),
-      startedAt: startedAt is Timestamp ? startedAt.toDate() : null,
-      completedAt: completedAt is Timestamp ? completedAt.toDate() : null,
+      startedAt: asDateTime(startedAt),
+      completedAt: asDateTime(completedAt),
     );
   }
 
@@ -124,8 +124,9 @@ class MakeoverStage {
     'status': status.id,
     'outputImageUrls': outputImageUrls,
     'errorMessage': errorMessage,
-    if (startedAt != null) 'startedAt': Timestamp.fromDate(startedAt!),
-    if (completedAt != null) 'completedAt': Timestamp.fromDate(completedAt!),
+    if (startedAt != null) 'startedAt': startedAt!.toUtc().toIso8601String(),
+    if (completedAt != null)
+      'completedAt': completedAt!.toUtc().toIso8601String(),
   };
 }
 
@@ -314,8 +315,8 @@ class MakeoverJob {
     );
   }
 
-  factory MakeoverJob.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>? ?? const {};
+  /// Builds a job from its stored document (see CoordinatedMakeoverService).
+  factory MakeoverJob.fromDocument(String id, Map<String, dynamic> data) {
     final rawStages = data['stages'];
     final stages = <MakeoverDomain, MakeoverStage>{};
     if (rawStages is Map) {
@@ -346,7 +347,7 @@ class MakeoverJob {
     final updatedAt = data['updatedAt'];
 
     return MakeoverJob(
-      id: doc.id,
+      id: id,
       userId: (data['userId'] ?? '').toString(),
       sourceImageUrl: (data['sourceImageUrl'] ?? '').toString(),
       intent: data['intent'] is Map
@@ -356,8 +357,8 @@ class MakeoverJob {
           : const MakeoverIntent(),
       stages: stages,
       alternatives: alternatives,
-      createdAt: createdAt is Timestamp ? createdAt.toDate() : null,
-      updatedAt: updatedAt is Timestamp ? updatedAt.toDate() : null,
+      createdAt: asDateTime(createdAt),
+      updatedAt: asDateTime(updatedAt),
     );
   }
 

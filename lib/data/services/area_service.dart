@@ -1,15 +1,16 @@
 // "Near me" from the phone's location (review items P-5, A-4).
 //
 // Only a coarse cell about 22 km wide is ever saved (see geo_cell.dart), on
-// the person's user record as `areaCell`; coordinates are read, turned into a
+// the person's profile as `area_cell`; coordinates are read, turned into a
 // cell and dropped. It is off until the person turns it on, refreshes at most
 // once a day, and a refresh never shows a permission prompt: if permission
 // has been taken away the old cell just stays until they turn it off.
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../models/geo_cell.dart';
+import '../supabase/rows.dart';
+import 'profile_service.dart';
 
 /// What the person is told before "Near me" uses their location.
 const List<String> kLocationConsentText = [
@@ -86,40 +87,37 @@ abstract interface class AreaStore {
   Future<void> clear(String userId);
 }
 
-class FirestoreAreaStore implements AreaStore {
-  FirestoreAreaStore({FirebaseFirestore? db}) : _injected = db;
+class ProfileAreaStore implements AreaStore {
+  ProfileAreaStore({ProfileService? profiles})
+    : _profiles = profiles ?? ProfileService();
 
-  final FirebaseFirestore? _injected;
-
-  DocumentReference<Map<String, dynamic>> _doc(String userId) =>
-      (_injected ?? FirebaseFirestore.instance).collection('users').doc(userId);
+  final ProfileService _profiles;
 
   @override
   Future<AreaRecord?> read(String userId) async {
-    final data = (await _doc(userId).get()).data();
-    if (data == null) return null;
-    final updated = data['areaUpdatedAt'];
+    final data = await _profiles.get(userId);
+    if (data.isEmpty) return null;
     return AreaRecord(
       enabled: data['areaEnabled'] == true,
       cell: GeoCell.tryParse(data['areaCell']?.toString()),
-      updatedAt: updated is Timestamp ? updated.toDate() : null,
+      updatedAt: asDateTime(data['areaUpdatedAt']),
     );
   }
 
   @override
   Future<void> write(String userId, GeoCell cell, DateTime at) =>
-      _doc(userId).set({
+      _profiles.update(userId, {
         'areaEnabled': true,
         'areaCell': cell.key,
-        'areaUpdatedAt': Timestamp.fromDate(at),
-      }, SetOptions(merge: true));
+        'areaUpdatedAt': at.toUtc().toIso8601String(),
+      });
 
   @override
-  Future<void> clear(String userId) => _doc(userId).set({
+  Future<void> clear(String userId) => _profiles.update(userId, {
     'areaEnabled': false,
-    'areaCell': FieldValue.delete(),
-    'areaUpdatedAt': FieldValue.delete(),
-  }, SetOptions(merge: true));
+    'areaCell': null,
+    'areaUpdatedAt': null,
+  });
 }
 
 class AreaService {
@@ -128,7 +126,7 @@ class AreaService {
     AreaStore? store,
     DateTime Function()? clock,
   }) : _source = source ?? const GeolocatorPositionSource(),
-       _store = store ?? FirestoreAreaStore(),
+       _store = store ?? ProfileAreaStore(),
        _clock = clock ?? DateTime.now;
 
   final PositionSource _source;

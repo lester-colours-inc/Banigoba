@@ -22,9 +22,13 @@
 // non-generative path.
 import 'dart:async';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../../core/supabase/app_auth.dart';
+import '../../core/supabase/supabase_config.dart';
+import '../supabase/rows.dart';
+import '../supabase/storage_files.dart' show randomFileName;
 
 import '../models/makeover_job.dart';
 import '../utils/garment_taxonomy.dart';
@@ -33,17 +37,11 @@ import 'storage_service.dart';
 
 class CoordinatedMakeoverService {
   CoordinatedMakeoverService({
-    FirebaseFirestore? firestore,
-    FirebaseAuth? auth,
     LookImageGenerator? generator,
     LookUploader? save,
-  }) : _db = firestore ?? FirebaseFirestore.instance,
-       _auth = auth ?? FirebaseAuth.instance,
-       _generator = generator ?? GeminiLookGenerator(),
+  }) : _generator = generator ?? GeminiLookGenerator(),
        _injectedSave = save;
 
-  final FirebaseFirestore _db;
-  final FirebaseAuth _auth;
   final LookImageGenerator _generator;
   final LookUploader? _injectedSave;
 
@@ -55,10 +53,17 @@ class CoordinatedMakeoverService {
   LookUploader get _save =>
       _injectedSave ?? StorageService().uploadTryOnResultBytes;
 
-  String get _currentUserId => _auth.currentUser?.uid ?? '';
+  String get _currentUserId => AppAuth.instance.currentUser?.uid ?? '';
 
-  CollectionReference<Map<String, dynamic>> _jobsFor(String userId) =>
-      _db.collection('users').doc(userId).collection('makeover_jobs');
+  /// Jobs are private documents of kind `makeoverJobs`.
+  static const String _kind = 'makeoverJobs';
+
+  MakeoverJob _readJob(Map<String, dynamic> row) {
+    final data = Map<String, dynamic>.from(row['data'] as Map? ?? {});
+    data['createdAt'] ??= row['created_at'];
+    data['updatedAt'] = row['updated_at'];
+    return MakeoverJob.fromDocument(row['id'].toString(), data);
+  }
 
   // ── Job lifecycle ───────────────────────────────────────────────────────
 
@@ -88,19 +93,19 @@ class CoordinatedMakeoverService {
         ),
     };
 
-    final ref = _jobsFor(userId).doc();
     final job = MakeoverJob(
-      id: ref.id,
+      id: randomFileName('x').split('.').first,
       userId: userId,
       sourceImageUrl: sourceImageUrl,
       intent: intent,
       stages: stages,
     );
 
-    await ref.set({
-      ...job.toMap(),
-      'createdAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
+    await supabase.from('user_documents').insert({
+      'user_id': userId,
+      'kind': _kind,
+      'id': job.id,
+      'data': job.toMap(),
     });
 
     return job;
@@ -110,29 +115,50 @@ class CoordinatedMakeoverService {
     final userId = _currentUserId;
     if (userId.isEmpty || jobId.isEmpty) return Stream.value(null);
 
-    return _jobsFor(userId)
-        .doc(jobId)
-        .snapshots()
-        .map((doc) => doc.exists ? MakeoverJob.fromFirestore(doc) : null);
+    return supabase
+        .from('user_documents')
+        .stream(primaryKey: ['user_id', 'kind', 'id'])
+        .eq('user_id', userId)
+        .map((rows) {
+          for (final row in rows) {
+            if (row['kind'] == _kind && row['id'] == jobId) {
+              return _readJob(row);
+            }
+          }
+          return null;
+        });
   }
 
   Stream<List<MakeoverJob>> watchRecentJobs({int limit = 20}) {
     final userId = _currentUserId;
     if (userId.isEmpty) return Stream.value(const []);
 
-    return _jobsFor(userId)
-        .orderBy('createdAt', descending: true)
-        .limit(limit)
-        .snapshots()
-        .map(
-          (snapshot) => snapshot.docs.map(MakeoverJob.fromFirestore).toList(),
-        );
+    return supabase
+        .from('user_documents')
+        .stream(primaryKey: ['user_id', 'kind', 'id'])
+        .eq('user_id', userId)
+        .map((rows) {
+          final jobs = [
+            for (final row in rows)
+              if (row['kind'] == _kind) _readJob(row),
+          ]..sort(
+            (a, b) => (b.createdAt ?? DateTime(0)).compareTo(
+              a.createdAt ?? DateTime(0),
+            ),
+          );
+          return jobs.take(limit).toList();
+        });
   }
 
   Future<void> deleteJob(String jobId) async {
     final userId = _currentUserId;
     if (userId.isEmpty || jobId.isEmpty) return;
-    await _jobsFor(userId).doc(jobId).delete();
+    await supabase
+        .from('user_documents')
+        .delete()
+        .eq('user_id', userId)
+        .eq('kind', _kind)
+        .eq('id', jobId);
   }
 
   // ── Generation ──────────────────────────────────────────────────────────
@@ -505,11 +531,13 @@ class CoordinatedMakeoverService {
   Future<void> _persist(MakeoverJob job) async {
     if (job.userId.isEmpty || job.id.isEmpty) return;
     try {
-      await _jobsFor(job.userId).doc(job.id).set({
-        ...job.toMap(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-    } on FirebaseException catch (error) {
+      await supabase.from('user_documents').upsert({
+        'user_id': job.userId,
+        'kind': _kind,
+        'id': job.id,
+        'data': job.toMap(),
+      });
+    } on PostgrestException catch (error) {
       // Losing a progress write must not abort a generation already paid for.
       debugPrint('Unable to persist makeover job ${job.id}: ${error.code}');
     }

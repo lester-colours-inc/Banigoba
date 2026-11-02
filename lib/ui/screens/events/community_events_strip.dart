@@ -1,7 +1,7 @@
 // Upcoming events at the top of the Community feed, with a way to add one,
 // e.g. to announce a fashion show (October 2026 review, C-1 and C-2).
 // Tapping an event opens its full card; "See all" opens the Events page.
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../data/supabase/rows.dart';
 import 'package:flutter/material.dart';
 
 import '../../../data/services/event_service.dart';
@@ -15,10 +15,7 @@ List<Map<String, dynamic>> upcomingEvents(
   required DateTime now,
 }) {
   DateTime? dateOf(Map<String, dynamic> event) =>
-      switch (event['eventDateTime']) {
-        final Timestamp stamp => stamp.toDate(),
-        _ => null,
-      };
+      asDateTime(event['eventDateTime']);
   final today = DateTime(now.year, now.month, now.day);
   final upcoming =
       events.where((event) {
@@ -43,7 +40,7 @@ class CommunityEventsStrip extends StatefulWidget {
 }
 
 class _CommunityEventsStripState extends State<CommunityEventsStrip> {
-  late final Stream<QuerySnapshot<Map<String, dynamic>>> _events =
+  late final Stream<List<Map<String, dynamic>>> _events =
       EventService().watchApprovedEvents();
 
   void _addEvent() => Navigator.push(
@@ -58,14 +55,11 @@ class _CommunityEventsStripState extends State<CommunityEventsStrip> {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+    return StreamBuilder<List<Map<String, dynamic>>>(
       stream: _events,
       builder: (context, snapshot) {
         final events = snapshot.hasData
-            ? upcomingEvents(
-                snapshot.data!.docs.map((doc) => doc.data()),
-                now: DateTime.now(),
-              )
+            ? upcomingEvents(snapshot.data!, now: DateTime.now())
             : const <Map<String, dynamic>>[];
         return Padding(
           padding: const EdgeInsets.only(bottom: 20),
@@ -133,10 +127,7 @@ class _EventTile extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     final title = (event['title'] ?? 'Event').toString();
     final flyerUrl = (event['flyerUrl'] ?? '').toString();
-    final date = switch (event['eventDateTime']) {
-      final Timestamp stamp => stamp.toDate(),
-      _ => null,
-    };
+    final date = asDateTime(event['eventDateTime']);
     return GestureDetector(
       onTap: () => Navigator.push(
         context,

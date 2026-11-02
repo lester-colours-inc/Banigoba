@@ -1,11 +1,12 @@
-// Stores gallery-suggestion consent (E-5) at users/{uid}/private/
-// photoSuggestions, which only the person can read or write.
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+// Stores gallery-suggestion consent (E-5) in `gallery_consent`, which only
+// the person can read or write.
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/supabase/app_auth.dart';
+import '../../core/supabase/supabase_config.dart';
 import '../models/gallery_consent.dart';
 
-/// What the screens need; the real one reads Firestore, tests use a fake.
+/// What the screens need; the real one reads the database, tests use a fake.
 abstract interface class GalleryConsentStore {
   Future<GalleryConsent> load();
   Future<void> grant();
@@ -13,41 +14,31 @@ abstract interface class GalleryConsentStore {
 }
 
 class GalleryConsentService implements GalleryConsentStore {
-  GalleryConsentService({FirebaseFirestore? db, FirebaseAuth? auth})
-    : _injectedDb = db,
-      _injectedAuth = auth;
-
-  final FirebaseFirestore? _injectedDb;
-  final FirebaseAuth? _injectedAuth;
-
-  // Looked up when used, so building the service never needs Firebase.
-  DocumentReference<Map<String, dynamic>>? get _doc {
-    final uid = (_injectedAuth ?? FirebaseAuth.instance).currentUser?.uid;
-    if (uid == null) return null;
-    return (_injectedDb ?? FirebaseFirestore.instance)
-        .collection('users')
-        .doc(uid)
-        .collection('private')
-        .doc('photoSuggestions');
-  }
+  String? get _uid => AppAuth.instance.currentUser?.uid;
 
   @override
   Future<GalleryConsent> load() async {
-    final doc = _doc;
-    if (doc == null) return const GalleryConsent.none();
+    final uid = _uid;
+    if (uid == null) return const GalleryConsent.none();
     try {
-      return GalleryConsent.fromMap((await doc.get()).data());
-    } on FirebaseException {
+      final row = await supabase
+          .from('gallery_consent')
+          .select()
+          .eq('user_id', uid)
+          .maybeSingle();
+      return GalleryConsent.fromMap(row);
+    } on PostgrestException {
       return const GalleryConsent.none();
     }
   }
 
   Future<void> _save(GalleryConsent consent) async {
-    final doc = _doc;
-    if (doc == null) return;
-    await doc.set({
+    final uid = _uid;
+    if (uid == null) return;
+    await supabase.from('gallery_consent').upsert({
+      'user_id': uid,
       ...consent.toMap(),
-      'changedAt': FieldValue.serverTimestamp(),
+      'changed_at': DateTime.now().toUtc().toIso8601String(),
     });
   }
 

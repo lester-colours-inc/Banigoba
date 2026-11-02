@@ -1,7 +1,7 @@
 // Loads what "Get this look" needs for one person (K-4, A-7): their
 // wardrobe, size, chosen styles, and stock from verified shops, then runs the
 // matching in models/look_purchase.dart.
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../core/supabase/supabase_config.dart';
 
 import '../models/body_profile.dart';
 import '../models/feed_matching.dart';
@@ -9,8 +9,9 @@ import '../models/look_purchase.dart';
 import '../models/look_request.dart';
 import 'body_profile_service.dart';
 import 'feed_matches_service.dart';
+import 'product_service.dart' show productMap;
 
-/// What the sheet needs; the real one reads Firestore, tests use a fake.
+/// What the sheet needs; the real one reads the database, tests use a fake.
 abstract interface class LookPurchaseSource {
   Future<List<PieceAdvice>> load(String userId, List<LookPart> parts);
 }
@@ -33,25 +34,21 @@ Set<String> categoriesToScan(Iterable<LookPart> parts) => {
 };
 
 class LookPurchaseService implements LookPurchaseSource {
-  LookPurchaseService({
-    FirebaseFirestore? db,
-    Future<BodyProfile> Function()? loadBody,
-  }) : _db = db ?? FirebaseFirestore.instance,
-       _loadBody = loadBody ?? BodyProfileService().loadForCurrentUser;
+  LookPurchaseService({Future<BodyProfile> Function()? loadBody})
+    : _loadBody = loadBody ?? BodyProfileService().loadForCurrentUser;
 
-  final FirebaseFirestore _db;
   final Future<BodyProfile> Function() _loadBody;
 
   Future<Set<String>> _verifiedSellers(Set<String> sellerIds) async {
     final verified = <String>{};
     for (final batch in batchesOf(sellerIds)) {
-      final snapshot = await _db
-          .collection('users')
-          .where(FieldPath.documentId, whereIn: batch)
-          .get();
-      for (final doc in snapshot.docs) {
-        final shop = doc.data()['shop'];
-        if (shop is Map && shop['verified'] == true) verified.add(doc.id);
+      final rows = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('shop_verified', true)
+          .inFilter('id', batch);
+      for (final row in rows) {
+        verified.add(row['id'].toString());
       }
     }
     return verified;
@@ -65,27 +62,34 @@ class LookPurchaseService implements LookPurchaseSource {
     ];
     if (userId.isEmpty || wanted.isEmpty) return const [];
 
-    final userDoc = await _db.collection('users').doc(userId).get();
-    final rawStyles = userDoc.data()?['stylePreferences'];
+    final profile = await supabase
+        .from('profiles')
+        .select('style_preferences')
+        .eq('id', userId)
+        .maybeSingle();
+    final rawStyles = profile?['style_preferences'];
     final styles = rawStyles is Iterable
         ? rawStyles.map((style) => style.toString()).toList()
         : const <String>[];
-    final wardrobe = await _db
-        .collection('user_products')
-        .where('userId', isEqualTo: userId)
-        .get();
+    final wardrobe = [
+      for (final row in await supabase
+          .from('user_products')
+          .select()
+          .eq('user_id', userId))
+        productMap(row),
+    ];
     final body = await _loadBody();
 
     final categories = categoriesToScan(wanted).toList();
     final stock = <Map<String, dynamic>>[];
     for (final batch in batchesOf(categories, 10)) {
-      final snapshot = await _db
-          .collection('products')
-          .where('category', whereIn: batch)
-          .limit(kStockScan)
-          .get();
-      for (final doc in snapshot.docs) {
-        stock.add({...doc.data(), 'id': doc.id});
+      final rows = await supabase
+          .from('products')
+          .select()
+          .inFilter('category', batch)
+          .limit(kStockScan);
+      for (final row in rows) {
+        stock.add(productMap(row));
       }
     }
     final verified = await _verifiedSellers(
@@ -101,7 +105,7 @@ class LookPurchaseService implements LookPurchaseSource {
         adviceFor(
           part,
           userId: userId,
-          wardrobe: wardrobe.docs.map((doc) => doc.data()),
+          wardrobe: wardrobe,
           stock: fromVerified,
           body: body,
           styles: styles,

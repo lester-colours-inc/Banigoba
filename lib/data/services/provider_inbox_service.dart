@@ -2,24 +2,20 @@
 // answer to a request (see provider_inbox.dart).
 import 'dart:async';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../core/supabase/supabase_config.dart';
+import '../supabase/rows.dart';
 
 import '../models/provider_inbox.dart';
 import '../models/provider_roles.dart';
 import 'notification_service.dart';
+import 'order_service.dart' show orderMap;
 
 class ProviderInboxService {
-  ProviderInboxService({FirebaseFirestore? firestore})
-    : _db = firestore ?? FirebaseFirestore.instance;
-
-  final FirebaseFirestore _db;
-
-  DateTime? _when(Object? stamp) => stamp is Timestamp ? stamp.toDate() : null;
-
   Stream<List<InboxItem>> _source({
-    required String collection,
-    required String field,
+    required String table,
+    required String column,
     required String userId,
+    required Map<String, dynamic> Function(Map<String, dynamic> row) read,
     required InboxItem Function(
       String id,
       Map<String, dynamic> data,
@@ -27,14 +23,18 @@ class ProviderInboxService {
     )
     build,
   }) {
-    return _db
-        .collection(collection)
-        .where(field, isEqualTo: userId)
-        .snapshots()
+    return supabase
+        .from(table)
+        .stream(primaryKey: ['id'])
+        .eq(column, userId)
         .map(
-          (snapshot) => [
-            for (final doc in snapshot.docs)
-              build(doc.id, doc.data(), _when(doc.data()['createdAt'])),
+          (rows) => [
+            for (final row in rows)
+              build(
+                row['id'].toString(),
+                read(row),
+                asDateTime(row['created_at']),
+              ),
           ],
         );
   }
@@ -46,24 +46,27 @@ class ProviderInboxService {
     final sources = <Stream<List<InboxItem>>>[
       if (roles.contains(ProviderRole.shop))
         _source(
-          collection: 'orders',
-          field: 'sellerId',
+          table: 'orders',
+          column: 'seller_id',
           userId: userId,
+          read: orderMap,
           build: (id, data, at) => InboxItem.fromOrder(id, data, createdAt: at),
         ),
       if (roles.contains(ProviderRole.designer))
         _source(
-          collection: 'design_requests',
-          field: 'designerId',
+          table: 'design_requests',
+          column: 'designer_id',
           userId: userId,
+          read: flattenRow,
           build: (id, data, at) =>
               InboxItem.fromDesignRequest(id, data, createdAt: at),
         ),
       if (roles.contains(ProviderRole.salon))
         _source(
-          collection: 'agent_requests',
-          field: 'agentId',
+          table: 'agent_requests',
+          column: 'agent_id',
           userId: userId,
+          read: flattenRow,
           build: (id, data, at) =>
               InboxItem.fromAgentRequest(id, data, createdAt: at),
         ),
@@ -108,10 +111,7 @@ class ProviderInboxService {
       InboxKind.hair => 'agent_requests',
       InboxKind.order => throw ArgumentError('Orders are answered in Orders.'),
     };
-    await _db.collection(collection).doc(item.id).set({
-      'status': status,
-      'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    await supabase.from(collection).update({'status': status}).eq('id', item.id);
 
     if (item.customerId.isEmpty || item.status == status) return;
     final what = item.kind == InboxKind.design ? 'design' : 'hair';

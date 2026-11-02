@@ -1,9 +1,6 @@
 // Registers FCM device tokens and handles notification taps.
 import 'dart:async';
-import 'dart:convert';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
@@ -11,6 +8,8 @@ import 'package:flutter/material.dart';
 
 import '../../firebase_options.dart';
 import '../../core/app_routes.dart';
+import '../../core/supabase/app_auth.dart';
+import '../../core/supabase/supabase_config.dart';
 
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -24,11 +23,10 @@ class PushNotificationService with WidgetsBindingObserver {
   static const int _apnsTokenAttempts = 20;
   static const Duration _apnsTokenRetryDelay = Duration(milliseconds: 500);
 
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final AppAuth _auth = AppAuth.instance;
   final FirebaseMessaging _messaging = FirebaseMessaging.instance;
 
-  StreamSubscription<User?>? _authSubscription;
+  StreamSubscription<AppUser?>? _authSubscription;
   StreamSubscription<String>? _tokenSubscription;
   StreamSubscription<RemoteMessage>? _foregroundMessageSubscription;
   StreamSubscription<RemoteMessage>? _messageOpenedSubscription;
@@ -78,7 +76,7 @@ class PushNotificationService with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _handleAuthChange(User? user) async {
+  Future<void> _handleAuthChange(AppUser? user) async {
     if (user == null) {
       await _deleteRegisteredToken();
       return;
@@ -147,17 +145,12 @@ class PushNotificationService with WidgetsBindingObserver {
       await _deleteRegisteredToken();
     }
 
-    final tokenId = base64Url.encode(utf8.encode(token)).replaceAll('=', '');
-    await _firestore
-        .collection('users')
-        .doc(user.uid)
-        .collection('fcmTokens')
-        .doc(tokenId)
-        .set({
-          'token': token,
-          'platform': defaultTargetPlatform.name,
-          'updatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
+    await supabase.from('fcm_tokens').upsert({
+      'user_id': user.uid,
+      'token': token,
+      'platform': defaultTargetPlatform.name,
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+    });
 
     _registeredUserId = user.uid;
     _registeredToken = token;
@@ -168,13 +161,11 @@ class PushNotificationService with WidgetsBindingObserver {
     final token = _registeredToken;
     if (userId == null || token == null) return;
 
-    final tokenId = base64Url.encode(utf8.encode(token)).replaceAll('=', '');
-    await _firestore
-        .collection('users')
-        .doc(userId)
-        .collection('fcmTokens')
-        .doc(tokenId)
-        .delete();
+    await supabase
+        .from('fcm_tokens')
+        .delete()
+        .eq('user_id', userId)
+        .eq('token', token);
 
     _registeredUserId = null;
     _registeredToken = null;

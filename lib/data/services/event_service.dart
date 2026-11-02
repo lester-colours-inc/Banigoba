@@ -1,74 +1,97 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+// Community events: submitted by anyone, shown to everyone once a curator
+// approves them. Events are rows in `events`; screens read them as maps with
+// camelCase fields, `id`, and `eventDateTime` as a DateTime.
 import 'package:flutter/foundation.dart';
 
+import '../../core/supabase/app_auth.dart';
+import '../../core/supabase/supabase_config.dart';
+import '../supabase/rows.dart';
+import '../supabase/storage_files.dart';
+
+/// An `events` row as the screens read it.
+Map<String, dynamic> eventMap(Map<String, dynamic> row) {
+  final flat = flattenRow(row);
+  return {
+    ...flat,
+    'eventDateTime': asDateTime(row['starts_at']),
+    'flyerUrl': row['image_url'],
+    'submittedAt': row['created_at'],
+  };
+}
+
 class EventService {
-  EventService({
-    FirebaseFirestore? firestore,
-    FirebaseAuth? auth,
-    FirebaseStorage? storage,
-  }) : _db = firestore ?? FirebaseFirestore.instance,
-       _auth = auth ?? FirebaseAuth.instance,
-       _storage = storage ?? FirebaseStorage.instance;
-
-  final FirebaseFirestore _db;
-  final FirebaseAuth _auth;
-  final FirebaseStorage _storage;
-
-  Stream<QuerySnapshot<Map<String, dynamic>>> watchApprovedEvents() {
-    return _db
-        .collection('events')
-        .where('status', isEqualTo: 'approved')
-        .snapshots();
+  Stream<List<Map<String, dynamic>>> _watch(
+    bool Function(Map<String, dynamic> row) keep, {
+    String? submittedBy,
+  }) {
+    final stream = submittedBy == null
+        ? supabase.from('events').stream(primaryKey: ['id'])
+        : supabase
+              .from('events')
+              .stream(primaryKey: ['id'])
+              .eq('submitted_by', submittedBy);
+    return stream.map(
+      (rows) => [
+        for (final row in rows)
+          if (keep(row)) eventMap(row),
+      ],
+    );
   }
 
-  Stream<QuerySnapshot<Map<String, dynamic>>> watchPendingEvents() {
-    return _db
-        .collection('events')
-        .where('status', isEqualTo: 'pending')
-        .snapshots();
-  }
+  Stream<List<Map<String, dynamic>>> watchApprovedEvents() =>
+      _watch((row) => row['status'] == 'approved');
 
-  Stream<QuerySnapshot<Map<String, dynamic>>> watchApprovedManageableEvents() {
-    return _db
-        .collection('events')
-        .where('status', isEqualTo: 'approved')
-        .snapshots();
-  }
+  Stream<List<Map<String, dynamic>>> watchPendingEvents() =>
+      _watch((row) => row['status'] == 'pending');
 
-  Stream<QuerySnapshot<Map<String, dynamic>>> watchUserEvents(String userId) {
-    return _db
-        .collection('events')
-        .where('submittedBy', isEqualTo: userId)
-        .snapshots();
-  }
+  Stream<List<Map<String, dynamic>>> watchApprovedManageableEvents() =>
+      watchApprovedEvents();
+
+  Stream<List<Map<String, dynamic>>> watchUserEvents(String userId) =>
+      _watch((_) => true, submittedBy: userId);
 
   Future<String> uploadEventFlyer({
     required Uint8List bytes,
     required String fileName,
   }) async {
-    final userId = _auth.currentUser?.uid;
+    final userId = AppAuth.instance.currentUser?.uid;
     if (userId == null || userId.isEmpty) {
       throw Exception('You must be signed in to upload an event flyer.');
     }
 
-    final safeName = fileName
-        .replaceAll(RegExp(r'[^\w.\-]+'), '_')
-        .replaceAll(RegExp(r'_+'), '_');
-    final uploadId = DateTime.now().millisecondsSinceEpoch.toString();
-    final ref = _storage
-        .ref()
-        .child('events')
-        .child(userId)
-        .child('flyers')
-        .child('$uploadId-$safeName');
+    final isPng = fileName.toLowerCase().endsWith('.png');
+    return StorageFiles.upload(
+      bucket: Buckets.events,
+      path: '$userId/flyers/${randomFileName(isPng ? 'png' : 'jpg')}',
+      bytes: bytes,
+      contentType: isPng ? 'image/png' : 'image/jpeg',
+    );
+  }
 
-    final contentType = safeName.toLowerCase().endsWith('.png')
-        ? 'image/png'
-        : 'image/jpeg';
-    await ref.putData(bytes, SettableMetadata(contentType: contentType));
-    return ref.getDownloadURL();
+  Map<String, dynamic> _fields({
+    required String title,
+    required String description,
+    required String location,
+    required DateTime eventDateTime,
+    required List<String> amenities,
+    required String price,
+    required String phoneNumber,
+    required String whatsappNumber,
+    required String bookingLink,
+    required String flyerUrl,
+  }) {
+    return {
+      'title': title.trim(),
+      'description': description.trim(),
+      'location': location.trim(),
+      'starts_at': eventDateTime.toUtc().toIso8601String(),
+      'amenities': amenities,
+      'price': price.trim(),
+      'phone_number': phoneNumber.trim(),
+      'whatsapp_number': whatsappNumber.trim(),
+      'booking_link': bookingLink.trim(),
+      'image_url': flyerUrl,
+    };
   }
 
   Future<void> submitEvent({
@@ -83,27 +106,26 @@ class EventService {
     required String bookingLink,
     required String flyerUrl,
   }) async {
-    final user = _auth.currentUser;
+    final user = AppAuth.instance.currentUser;
     if (user == null) {
       throw Exception('You must be signed in to submit an event.');
     }
 
-    await _db.collection('events').add({
-      'title': title.trim(),
-      'description': description.trim(),
-      'location': location.trim(),
-      'eventDateTime': Timestamp.fromDate(eventDateTime),
-      'amenities': amenities,
-      'price': price.trim(),
-      'phoneNumber': phoneNumber.trim(),
-      'whatsappNumber': whatsappNumber.trim(),
-      'bookingLink': bookingLink.trim(),
-      'flyerUrl': flyerUrl,
-      'status': 'pending',
-      'submittedBy': user.uid,
-      'submittedByName': user.displayName ?? user.email ?? 'User',
-      'submittedAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
+    await supabase.from('events').insert({
+      ..._fields(
+        title: title,
+        description: description,
+        location: location,
+        eventDateTime: eventDateTime,
+        amenities: amenities,
+        price: price,
+        phoneNumber: phoneNumber,
+        whatsappNumber: whatsappNumber,
+        bookingLink: bookingLink,
+        flyerUrl: flyerUrl,
+      ),
+      'submitted_by': user.uid,
+      'submitted_by_name': user.displayName ?? user.email ?? 'User',
     });
   }
 
@@ -120,33 +142,33 @@ class EventService {
     required String bookingLink,
     required String flyerUrl,
   }) async {
-    final user = _auth.currentUser;
+    final user = AppAuth.instance.currentUser;
     if (user == null) {
       throw Exception('You must be signed in to edit an event.');
     }
 
-    final eventRef = _db.collection('events').doc(eventId);
-    final event = await eventRef.get();
-    final data = event.data();
-    if (data == null || data['submittedBy'] != user.uid) {
+    final updated = await supabase
+        .from('events')
+        .update({
+          ..._fields(
+            title: title,
+            description: description,
+            location: location,
+            eventDateTime: eventDateTime,
+            amenities: amenities,
+            price: price,
+            phoneNumber: phoneNumber,
+            whatsappNumber: whatsappNumber,
+            bookingLink: bookingLink,
+            flyerUrl: flyerUrl,
+          ),
+        })
+        .eq('id', eventId)
+        .eq('submitted_by', user.uid)
+        .select('id');
+    if (updated.isEmpty) {
       throw Exception('You are not authorised to edit this event.');
     }
-
-    await eventRef.set({
-      'title': title.trim(),
-      'description': description.trim(),
-      'location': location.trim(),
-      'eventDateTime': Timestamp.fromDate(eventDateTime),
-      'amenities': amenities,
-      'price': price.trim(),
-      'phoneNumber': phoneNumber.trim(),
-      'whatsappNumber': whatsappNumber.trim(),
-      'bookingLink': bookingLink.trim(),
-      'flyerUrl': flyerUrl,
-      'status': 'pending',
-      'updatedAt': FieldValue.serverTimestamp(),
-      'editedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
   }
 
   Future<void> approveEvent(String eventId) async {
@@ -158,38 +180,38 @@ class EventService {
   }
 
   Future<void> removeEvent(String eventId) async {
-    await _db.collection('events').doc(eventId).delete();
+    await supabase.from('events').delete().eq('id', eventId);
   }
 
+  /// Removes events whose date has passed (curators and the event's owner can
+  /// only delete what they may see; the rest is cleaned up by the server).
   Future<void> removeExpiredEvents() async {
-    final now = Timestamp.now();
-    final expired = await _db
-        .collection('events')
-        .where('eventDateTime', isLessThan: now)
-        .get();
-    if (expired.docs.isEmpty) return;
-
-    final batch = _db.batch();
-    for (final doc in expired.docs) {
-      batch.delete(doc.reference);
+    try {
+      await supabase
+          .from('events')
+          .delete()
+          .lt('starts_at', DateTime.now().toUtc().toIso8601String());
+    } on Object catch (error) {
+      debugPrint('Unable to remove expired events: $error');
     }
-    await batch.commit();
   }
 
   Future<void> _reviewEvent({
     required String eventId,
     required String status,
   }) async {
-    final user = _auth.currentUser;
+    final user = AppAuth.instance.currentUser;
     if (user == null) {
       throw Exception('You must be signed in as an admin.');
     }
 
-    await _db.collection('events').doc(eventId).set({
-      'status': status,
-      'reviewedBy': user.uid,
-      'reviewedAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    await supabase
+        .from('events')
+        .update({
+          'status': status,
+          'reviewed_by': user.uid,
+          'reviewed_at': DateTime.now().toUtc().toIso8601String(),
+        })
+        .eq('id', eventId);
   }
 }

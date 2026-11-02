@@ -1,38 +1,25 @@
 // Resolves the closest upcoming Plan Ahead event for dashboard context chips.
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../supabase/rows.dart';
+import 'outfit_service.dart';
 
 class UpcomingEventService {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final OutfitService _plans = OutfitService();
 
   Stream<UpcomingEvent?> watchClosestEvent(String userId) {
     if (userId.isEmpty) return Stream.value(null);
-
-    return _db
-        .collection('users')
-        .doc(userId)
-        .collection('eventPlans')
-        .snapshots()
-        .map((snapshot) => _closestEvent(snapshot.docs));
+    return _plans.watchEventPlans(userId).map(_closestEvent);
   }
 
   Future<UpcomingEvent?> getClosestEvent(String userId) async {
     if (userId.isEmpty) return null;
-
-    final snapshot = await _db
-        .collection('users')
-        .doc(userId)
-        .collection('eventPlans')
-        .get();
-    return _closestEvent(snapshot.docs);
+    return _closestEvent(await _plans.watchEventPlans(userId).first);
   }
 
-  UpcomingEvent? _closestEvent(
-    List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
-  ) {
+  UpcomingEvent? _closestEvent(List<Map<String, dynamic>> plans) {
     final today = _dateOnly(DateTime.now());
     final events =
-        docs
-            .map((doc) => UpcomingEvent.fromFirestore(doc.id, doc.data()))
+        plans
+            .map((plan) => UpcomingEvent.fromPlan(plan['id'].toString(), plan))
             .where((event) => !event.endDate.isBefore(today))
             .toList()
           ..sort((a, b) => a.startDate.compareTo(b.startDate));
@@ -58,11 +45,11 @@ class UpcomingEvent {
   final DateTime startDate;
   final DateTime endDate;
 
-  factory UpcomingEvent.fromFirestore(String id, Map<String, dynamic> data) {
+  factory UpcomingEvent.fromPlan(String id, Map<String, dynamic> data) {
     final start = data['startDate'];
     final end = data['endDate'];
-    final startDate = start is Timestamp ? start.toDate() : DateTime.now();
-    final endDate = end is Timestamp ? end.toDate() : startDate;
+    final startDate = asDateTime(start) ?? DateTime.now();
+    final endDate = asDateTime(end) ?? startDate;
 
     return UpcomingEvent(
       id: id,
