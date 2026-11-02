@@ -1,12 +1,11 @@
 // Verifies the auth screens expose every supported sign-in route.
 //
-// These tests do not talk to live Google/Facebook/Apple/Firebase providers.
+// These tests do not talk to live Google/Facebook/Apple/Supabase providers.
 // Instead, the screens receive a fake AuthService so taps can prove that each
 // button routes to the correct provider method.
 import 'package:banigoba/data/services/auth_service.dart';
 import 'package:banigoba/ui/screens/auth/email_signin_screen.dart';
 import 'package:banigoba/ui/screens/auth/email_signup_screen.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -220,21 +219,21 @@ class _RecordingAuthService extends AuthService {
   }
 
   @override
-  Future<UserCredential?> signInWithGoogle() async {
+  Future<bool> signInWithGoogle() async {
     calls.add('Google');
-    return null;
+    return true;
   }
 
   @override
-  Future<UserCredential?> signInWithFacebook() async {
+  Future<bool> signInWithFacebook() async {
     calls.add('Facebook');
-    return null;
+    return true;
   }
 
   @override
-  Future<UserCredential?> signInWithApple() async {
+  Future<bool> signInWithApple() async {
     calls.add('Apple');
-    return null;
+    return true;
   }
 }
 

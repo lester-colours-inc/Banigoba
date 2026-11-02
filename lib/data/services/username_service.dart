@@ -1,9 +1,9 @@
-// Claims and changes @usernames. Uniqueness is kept by a lookup collection,
-// usernames/{name} → {uid}: claiming creates that document in the same
-// transaction that writes users/{uid}.username, so two people can never
-// hold the same name (the security rules refuse a second create).
-import 'package:cloud_firestore/cloud_firestore.dart';
+// Claims and changes @usernames. Uniqueness is enforced by the database (a
+// unique index on the lower-cased name), so two people can never hold the
+// same name; reserved names are refused by a trigger as well.
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/supabase/supabase_config.dart';
 import '../models/username.dart';
 
 /// The name is taken or not allowed; [message] says why, in plain words.
@@ -17,19 +17,21 @@ class UsernameUnavailableException implements Exception {
 }
 
 class UsernameService {
-  UsernameService({FirebaseFirestore? db})
-    : _db = db ?? FirebaseFirestore.instance;
+  UsernameService({SupabaseClient? client}) : _client = client;
 
-  final FirebaseFirestore _db;
+  final SupabaseClient? _client;
 
-  DocumentReference<Map<String, dynamic>> _lookup(String name) =>
-      _db.collection('usernames').doc(name);
+  SupabaseClient get _db => _client ?? supabase;
 
   Future<bool> isAvailable(String input) async {
     final name = normalizeUsername(input);
     if (usernameProblem(name) != null) return false;
-    final doc = await _lookup(name).get();
-    return !doc.exists;
+    final taken = await _db
+        .from('profiles')
+        .select('id')
+        .eq('username', name)
+        .limit(1);
+    return taken.isEmpty;
   }
 
   /// The first free suggestion for [displayName], or null if all are taken.
@@ -47,28 +49,22 @@ class UsernameService {
     if (usernameProblem(name) case final problem?) {
       throw UsernameUnavailableException(problem);
     }
-    final userRef = _db.collection('users').doc(userId);
-    await _db.runTransaction((transaction) async {
-      final wanted = await transaction.get(_lookup(name));
-      final owner = wanted.data()?['uid'];
-      if (wanted.exists && owner != userId) {
+    try {
+      await _db.from('profiles').update({'username': name}).eq('id', userId);
+    } on PostgrestException catch (error) {
+      // 23505: unique violation. 23514: check/reserved-name violation.
+      if (error.code == '23505') {
         throw const UsernameUnavailableException(
           'That username is taken. Try another.',
         );
       }
-      final user = await transaction.get(userRef);
-      final previous = (user.data()?['username'] ?? '').toString();
-      if (previous == name) return;
-      if (previous.isNotEmpty) transaction.delete(_lookup(previous));
-      transaction.set(_lookup(name), {
-        'uid': userId,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-      transaction.set(userRef, {
-        'username': name,
-        'usernameUpdatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-    });
+      if (error.code == '23514') {
+        throw const UsernameUnavailableException(
+          'That username is reserved. Try another.',
+        );
+      }
+      rethrow;
+    }
     return name;
   }
 }

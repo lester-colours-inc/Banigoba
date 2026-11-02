@@ -1,8 +1,6 @@
 // Defines application routes and decides which screen a user sees during startup.
 import 'dart:async';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../ui/screens/main/main_screen.dart';
 import '../ui/screens/main/notifications_page.dart';
@@ -34,7 +32,8 @@ import '../ui/widgets/brand_splash.dart';
 import '../data/services/permissions_service.dart';
 import '../data/services/style_preferences_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../data/services/account_privacy_service.dart';
+import '../data/services/profile_service.dart';
+import 'supabase/app_auth.dart';
 import '../data/services/username_service.dart';
 import '../ui/screens/onboarding/username_screen.dart';
 
@@ -46,7 +45,7 @@ class AuthGate extends StatefulWidget {
 }
 
 class _AuthGateState extends State<AuthGate> {
-  User? _lastUser;
+  AppUser? _lastUser;
   bool? _onboardingDone;
   final Set<String> _permissionPromptHandledThisSession = {};
   final Map<String, Future<_PermissionGateState>> _permissionChecks = {};
@@ -88,64 +87,30 @@ class _AuthGateState extends State<AuthGate> {
     });
   }
 
-  Future<void> _upsertUserProfile(User user) async {
-    final userRef = FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid);
-    final snapshot = await userRef.get();
-    final data = snapshot.data();
-
-    await userRef.set({
-      'uid': user.uid,
-      'displayName': user.displayName ?? (user.email?.split('@')[0] ?? 'User'),
-      if (data == null || !data.containsKey('stylePreference'))
-        'stylePreference': 'casual',
-      if (data == null || !data.containsKey('permissionsGranted'))
-        'permissionsGranted': false,
-      if (data == null || !data.containsKey('permissionStatus'))
-        'permissionStatus': PermissionsService.emptyPermissionsSummary,
-      'lastSeen': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
-    // The email stays off the public profile (U-5). Moving it must never
-    // block signing in, so a failure is only logged.
+  /// The profile row is created with the account; here it is only topped up
+  /// with a name if sign-in provided none, and stamped with "last seen". A
+  /// failure must never block signing in.
+  Future<void> _upsertUserProfile(AppUser user) async {
     try {
-      await AccountPrivacyService().secureEmail(
-        userId: user.uid,
-        email: user.email ?? '',
-      );
-    } on FirebaseException catch (error) {
-      debugPrint('Unable to secure email: ${error.code}');
+      final profiles = ProfileService();
+      final data = await profiles.get(user.uid);
+      final name = (data['displayName'] ?? '').toString();
+      await profiles.update(user.uid, {
+        if (name.isEmpty)
+          'displayName':
+              user.displayName ?? (user.email?.split('@')[0] ?? 'User'),
+        'lastSeen': DateTime.now().toUtc().toIso8601String(),
+      });
+    } on Exception catch (error) {
+      debugPrint('Unable to update profile on sign-in: $error');
     }
   }
 
-  Future<_PermissionGateState> _checkUserPermissions(User user) async {
+  /// Which permissions the device still lacks. Read from the device itself;
+  /// nothing about them is stored on the server.
+  Future<_PermissionGateState> _checkUserPermissions(AppUser user) async {
     await _upsertUserProfile(user);
-
-    final userRef = FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid);
-    final results = await Future.wait([
-      userRef.get(),
-      PermissionsService.getPermissionsSummary(),
-    ]);
-
-    final userSnapshot = results[0] as DocumentSnapshot<Map<String, dynamic>>;
-    final deviceStatuses = results[1] as Map<String, bool>;
-    final userData = userSnapshot.data();
-    final storedStatuses = Map<String, dynamic>.from(
-      userData?['permissionStatus'] as Map? ?? const {},
-    );
-    final storedAsGranted = userData?['permissionsGranted'] == true;
-    final devicePermissionsGranted =
-        PermissionsService.areAllPermissionsGranted(deviceStatuses);
-    final storedStatusesMatch = deviceStatuses.entries.every(
-      (entry) => storedStatuses[entry.key] == entry.value,
-    );
-
-    if (!storedStatusesMatch || storedAsGranted != devicePermissionsGranted) {
-      await _savePermissionStatuses(user.uid, deviceStatuses);
-    }
-
+    final deviceStatuses = await PermissionsService.getPermissionsSummary();
     return _PermissionGateState(
       missingPermissions: deviceStatuses.entries
           .where((entry) => !entry.value)
@@ -154,24 +119,10 @@ class _AuthGateState extends State<AuthGate> {
     );
   }
 
-  Future<void> _savePermissionStatuses(
-    String userId,
-    Map<String, bool> statuses,
-  ) async {
-    await FirebaseFirestore.instance.collection('users').doc(userId).set({
-      'permissionStatus': statuses,
-      'permissionsGranted': PermissionsService.areAllPermissionsGranted(
-        statuses,
-      ),
-      'permissionsUpdatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
-  }
-
   Future<void> _completePermissionPrompt(
-    User user,
+    AppUser user,
     Map<String, bool> statuses,
   ) async {
-    await _savePermissionStatuses(user.uid, statuses);
     if (!mounted) return;
 
     setState(() {
@@ -180,7 +131,7 @@ class _AuthGateState extends State<AuthGate> {
     });
   }
 
-  Future<_PermissionGateState> _permissionCheckFor(User user) {
+  Future<_PermissionGateState> _permissionCheckFor(AppUser user) {
     return _permissionChecks.putIfAbsent(
       user.uid,
       () => _checkUserPermissions(user),
@@ -197,8 +148,8 @@ class _AuthGateState extends State<AuthGate> {
       return _afterSplash(const OnboardingScreen());
     }
 
-    return StreamBuilder<User?>(
-      stream: FirebaseAuth.instance.authStateChanges(),
+    return StreamBuilder<AppUser?>(
+      stream: AppAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const BrandSplash();
@@ -246,17 +197,14 @@ class _AuthGateState extends State<AuthGate> {
                 );
               }
 
-              return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-                stream: FirebaseFirestore.instance
-                    .collection('users')
-                    .doc(user.uid)
-                    .snapshots(),
+              return StreamBuilder<Map<String, dynamic>>(
+                stream: ProfileService().watch(user.uid),
                 builder: (context, userSnapshot) {
                   if (!userSnapshot.hasData) {
                     return const BrandSplash();
                   }
                   final userData =
-                      userSnapshot.data?.data() ?? const <String, dynamic>{};
+                      userSnapshot.data ?? const <String, dynamic>{};
                   final isAdmin =
                       userData['isAdmin'] == true ||
                       userData['role'] == 'admin';

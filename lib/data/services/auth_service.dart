@@ -1,23 +1,18 @@
-// Centralizes email, Google, Facebook, Apple, and sign-out authentication.
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:google_sign_in/google_sign_in.dart';
+// Centralizes email, Google, Facebook, Apple, and sign-out authentication on
+// Supabase Auth. The profile row is created by a database trigger when the
+// account is created, so sign-up only has to pass the name along.
 import 'package:flutter/foundation.dart';
-import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'permissions_service.dart';
-
-import 'account_privacy_service.dart';
+import '../../core/supabase/supabase_config.dart';
 
 class AuthService {
-  FirebaseAuth get _auth => FirebaseAuth.instance;
-
-  // Web Client ID for the appdemo-b9e3e Firebase project.
-  static const String _webClientId =
-      '379405824371-i657b4cj9ahacjl3j2u1v3df6erfm5a2.apps.googleusercontent.com';
+  SupabaseClient get _client => supabase;
 
   final GoogleSignIn _googleSignIn = GoogleSignIn(
-    clientId: kIsWeb ? _webClientId : null,
+    clientId: kGoogleIosClientId.isEmpty ? null : kGoogleIosClientId,
+    serverClientId: kGoogleWebClientId.isEmpty ? null : kGoogleWebClientId,
   );
 
   /// Sign in with a standard email and password account.
@@ -25,113 +20,72 @@ class AuthService {
     required String email,
     required String password,
   }) async {
-    await _auth.signInWithEmailAndPassword(email: email, password: password);
+    await _client.auth.signInWithPassword(email: email, password: password);
   }
 
-  /// Registers an email/password user and stores the initial app profile.
+  /// Registers an email/password user. The database creates the profile and
+  /// the private email record from the account itself.
   Future<void> registerWithEmail({
     required String name,
     required String email,
     required String password,
   }) async {
-    final userCredential = await _auth.createUserWithEmailAndPassword(
+    await _client.auth.signUp(
       email: email,
       password: password,
+      data: {'full_name': name},
     );
-
-    final user = userCredential.user;
-    if (user == null) return;
-
-    await user.updateDisplayName(name);
-    await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-      'uid': user.uid,
-      'displayName': name,
-      'stylePreference': 'casual',
-      'role': 'user',
-      'permissionStatus': PermissionsService.emptyPermissionsSummary,
-      'permissionsGranted': false,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
-    // Private, never on the public profile (U-5). Sign-in moves it again if
-    // this fails, so it must never fail the sign-up itself.
-    try {
-      await AccountPrivacyService().secureEmail(userId: user.uid, email: email);
-    } on FirebaseException catch (error) {
-      debugPrint('Unable to secure email at sign-up: ${error.code}');
-    }
   }
 
-  /// Sign in with Google
-  Future<UserCredential?> signInWithGoogle() async {
+  /// Sign in with Google. Returns false when the person backs out.
+  Future<bool> signInWithGoogle() async {
     try {
       if (kIsWeb) {
-        // On Web, use the Firebase Auth popup flow directly.
-        // This is more reliable than the google_sign_in plugin on web.
-        GoogleAuthProvider googleProvider = GoogleAuthProvider();
-        return await _auth.signInWithPopup(googleProvider);
-      } else {
-        // On Mobile, use the google_sign_in plugin flow
-        final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-        if (googleUser == null) return null;
-
-        final GoogleSignInAuthentication googleAuth =
-            await googleUser.authentication;
-        final AuthCredential credential = GoogleAuthProvider.credential(
-          accessToken: googleAuth.accessToken,
-          idToken: googleAuth.idToken,
+        return await _client.auth.signInWithOAuth(
+          OAuthProvider.google,
+          redirectTo: Uri.base.origin,
         );
-        return await _auth.signInWithCredential(credential);
       }
+      final account = await _googleSignIn.signIn();
+      if (account == null) return false;
+      final auth = await account.authentication;
+      final idToken = auth.idToken;
+      if (idToken == null) {
+        throw const AuthException('Google did not return an ID token.');
+      }
+      await _client.auth.signInWithIdToken(
+        provider: OAuthProvider.google,
+        idToken: idToken,
+        accessToken: auth.accessToken,
+      );
+      return true;
     } catch (e) {
       debugPrint('Error signing in with Google: $e');
       rethrow;
     }
   }
 
-  /// Sign in with Facebook (Placeholder - requires flutter_facebook_auth)
-  Future<UserCredential?> signInWithFacebook() async {
+  /// Sign in with Facebook through Supabase's OAuth flow.
+  Future<bool> signInWithFacebook() async {
     try {
-      final result = await FacebookAuth.instance.login(
-        permissions: ['email', 'public_profile'],
+      return await _client.auth.signInWithOAuth(
+        OAuthProvider.facebook,
+        redirectTo: kIsWeb ? Uri.base.origin : _mobileRedirect,
+        scopes: 'email,public_profile',
       );
-
-      if (result.status != LoginStatus.success || result.accessToken == null) {
-        debugPrint('Facebook login failed: ${result.status}');
-        debugPrint('Message: ${result.message}');
-        return null;
-      }
-
-      final accessToken = result.accessToken!;
-
-      final credential = FacebookAuthProvider.credential(accessToken.token);
-
-      return await FirebaseAuth.instance.signInWithCredential(credential);
     } catch (e) {
       debugPrint('Facebook Sign-In error: $e');
       rethrow;
     }
   }
 
-  /// Signs in with Apple through Firebase's native provider flow.
-  Future<UserCredential?> signInWithApple() async {
+  /// Sign in with Apple through Supabase's OAuth flow.
+  Future<bool> signInWithApple() async {
     try {
-      final provider = AppleAuthProvider()
-        ..addScope('email')
-        ..addScope('name');
-
-      if (kIsWeb) {
-        return await _auth.signInWithPopup(provider);
-      }
-
-      return await _auth.signInWithProvider(provider);
-    } on FirebaseAuthException catch (error) {
-      if (error.code == 'canceled' ||
-          error.code == 'web-context-cancelled' ||
-          error.code == 'popup-closed-by-user') {
-        return null;
-      }
-      debugPrint('Apple Sign-In failed: ${error.code} ${error.message}');
-      rethrow;
+      return await _client.auth.signInWithOAuth(
+        OAuthProvider.apple,
+        redirectTo: kIsWeb ? Uri.base.origin : _mobileRedirect,
+      );
     } catch (error) {
       debugPrint('Apple Sign-In error: $error');
       rethrow;
@@ -140,7 +94,14 @@ class AuthService {
 
   /// Sign out
   Future<void> signOut() async {
-    await _googleSignIn.signOut();
-    await _auth.signOut();
+    try {
+      await _googleSignIn.signOut();
+    } on Exception catch (error) {
+      debugPrint('Google sign-out skipped: $error');
+    }
+    await _client.auth.signOut();
   }
+
+  static const String _mobileRedirect =
+      'com.coloursinc.banigoba://login-callback';
 }

@@ -1,4 +1,4 @@
-// Initializes Firebase and starts the Banigoba Flutter application.
+// Initializes Supabase (data and sign-in) and Firebase (push only), then starts the Banigoba Flutter application.
 // import 'package:cloud_firestore/cloud_firestore.dart';
 // import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:async';
@@ -8,12 +8,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 //import 'package:firebase_ui_auth/firebase_ui_auth.dart' as ui;
 //import 'package:simple_app/screens/main_screen.dart';
 //import 'package:simple_app/screens/login_screen.dart';
 import 'firebase_options.dart';
 import 'core/app_routes.dart';
+import 'core/supabase/supabase_config.dart';
 import 'core/theme_provider.dart';
 import 'ui/widgets/brand_splash.dart';
 import 'data/services/push_notification_service.dart';
@@ -30,18 +30,10 @@ void main() async {
     Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform),
     precacheBrandSplash(),
   ]);
+  await initializeSupabase();
   await themeProvider.initialize();
 
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-
-  if (kIsWeb) {
-    await FacebookAuth.instance.webAndDesktopInitialize(
-      appId: '1190675386466812',
-      cookie: true,
-      xfbml: true,
-      version: 'v19.0',
-    );
-  }
 
   runApp(const MyApp());
   WidgetsBinding.instance.addPostFrameCallback((_) {
