@@ -54,3 +54,7 @@ app.*.map.json
 key.properties
 env.json
 .vercel
+
+# Service-account keys
+*-key.json
+*service-account*.json
