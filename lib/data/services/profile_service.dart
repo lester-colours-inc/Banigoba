@@ -3,6 +3,30 @@
 import '../../core/supabase/supabase_config.dart';
 import '../supabase/rows.dart';
 
+/// Provider settings live in jsonb (`shop`, `designerProfile`,
+/// `agentProfile`) but "verified" is a guarded column, so reads fold it back
+/// in as `verified` for the screens that look for `shop['verified']`.
+const Map<String, String> _verifiedColumns = {
+  'shop': 'shopVerified',
+  'designerProfile': 'designerVerified',
+  'agentProfile': 'agentVerified',
+};
+
+/// A `profiles` row as the screens read it.
+Map<String, dynamic> profileMap(Map<String, dynamic> row) {
+  final data = camelizeRow(row);
+  for (final entry in _verifiedColumns.entries) {
+    final profile = data[entry.key];
+    if (profile is Map && profile.isNotEmpty) {
+      data[entry.key] = {
+        ...Map<String, dynamic>.from(profile),
+        'verified': data[entry.value] == true,
+      };
+    }
+  }
+  return data;
+}
+
 class ProfileService {
   static const String _table = 'profiles';
 
@@ -13,7 +37,7 @@ class ProfileService {
         .select()
         .eq('id', userId)
         .maybeSingle();
-    return row == null ? const {} : camelizeRow(row);
+    return row == null ? const {} : profileMap(row);
   }
 
   /// The profile now and every time it changes.
@@ -22,16 +46,26 @@ class ProfileService {
         .from(_table)
         .stream(primaryKey: ['id'])
         .eq('id', userId)
-        .map((rows) => rows.isEmpty ? const {} : camelizeRow(rows.first));
+        .map((rows) => rows.isEmpty ? const {} : profileMap(rows.first));
   }
 
   /// Saves [changes] (camelCase field names) onto the user's own profile.
   Future<void> update(String userId, Map<String, dynamic> changes) async {
     if (changes.isEmpty) return;
-    await supabase
-        .from(_table)
-        .update({for (final e in changes.entries) snakeCase(e.key): e.value})
-        .eq('id', userId);
+    final row = <String, dynamic>{};
+    for (final entry in changes.entries) {
+      var value = entry.value;
+      // "verified" is its own guarded column; only a curator can change it.
+      if (_verifiedColumns[entry.key] case final column? when value is Map) {
+        final copy = Map<String, dynamic>.from(value);
+        if (copy.containsKey('verified')) {
+          row[snakeCase(column)] = copy.remove('verified');
+        }
+        value = copy;
+      }
+      row[snakeCase(entry.key)] = value;
+    }
+    await supabase.from(_table).update(row).eq('id', userId);
   }
 
   /// Stamps "last seen"; best effort.
@@ -54,7 +88,7 @@ class ProfileService {
         .or('display_name.ilike.%$needle%,username.ilike.%$needle%')
         .order('display_name')
         .limit(limit);
-    return [for (final row in rows) camelizeRow(row)];
+    return [for (final row in rows) profileMap(row)];
   }
 
   /// Verified providers of [kind] ('salon', 'shop' or 'designer') as
@@ -73,6 +107,6 @@ class ProfileService {
             .eq('designer_profile->>active', 'true'),
       _ => await base.eq('shop_verified', true),
     };
-    return [for (final row in rows) camelizeRow(row)];
+    return [for (final row in rows) profileMap(row)];
   }
 }

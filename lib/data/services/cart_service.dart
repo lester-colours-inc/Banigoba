@@ -1,26 +1,42 @@
-// Firestore data access for the user's boutique cart.
+// Data access for the user's boutique cart.
 //
-// Cart rows live under users/{uid}/cart. The service enforces one boutique per
-// cart, carries selected sizes into cart rows, and keeps cart totals reactive.
-import 'package:cloud_firestore/cloud_firestore.dart';
-
+// Cart rows live in `cart_items`, one per piece and size, with a snapshot of
+// the piece (name, price, picture, shop) so the bag still shows if the shop
+// changes it. The service enforces one boutique per cart, carries selected
+// sizes into cart rows, and keeps cart totals reactive. Items are identified
+// by their cart row id.
+import '../../core/supabase/supabase_config.dart';
+import '../supabase/rows.dart';
 import '../utils/size_inventory.dart';
+import 'product_service.dart';
 
 class CartService {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
-
-  CollectionReference<Map<String, dynamic>> _cart(String userId) {
-    return _db.collection('users').doc(userId).collection('cart');
+  /// A `cart_items` row as the screens read it: the snapshot fields, plus
+  /// `id` (the cart item), `productId`, `quantity` and `selectedSize`.
+  static Map<String, dynamic> cartItemMap(Map<String, dynamic> row) {
+    final data = row['data'];
+    return {
+      if (data is Map) ...Map<String, dynamic>.from(data),
+      'id': row['id'].toString(),
+      'productId': row['product_id'].toString(),
+      'quantity': row['quantity'],
+      if ((row['selected_size'] ?? '').toString().isNotEmpty)
+        'selectedSize': row['selected_size'],
+    };
   }
 
-  Stream<QuerySnapshot<Map<String, dynamic>>> watchCart(String userId) {
-    return _cart(userId).snapshots();
+  Stream<List<Map<String, dynamic>>> watchCart(String userId) {
+    return supabase
+        .from('cart_items')
+        .stream(primaryKey: ['id'])
+        .eq('user_id', userId)
+        .map((rows) => [for (final row in rows) cartItemMap(row)]);
   }
 
   Stream<int> watchItemCount(String userId) {
-    return watchCart(userId).map((snapshot) {
-      return snapshot.docs.fold<int>(0, (total, doc) {
-        final quantity = (doc.data()['quantity'] as num?)?.toInt() ?? 1;
+    return watchCart(userId).map((items) {
+      return items.fold<int>(0, (total, item) {
+        final quantity = (item['quantity'] as num?)?.toInt() ?? 1;
         return total + quantity;
       });
     });
@@ -47,53 +63,83 @@ class CartService {
       }
       cartProductData['stock'] = sizeStock;
     }
-    final existing = await _cart(userId).get();
+    final existing = await supabase
+        .from('cart_items')
+        .select()
+        .eq('user_id', userId);
     final newShopId = _shopIdFor(cartProductData);
     final newShopName = _shopNameFor(cartProductData);
-    final cartItemId = cartItemIdForSize(productId, normalizedSize);
-    for (final doc in existing.docs) {
-      if (doc.id == cartItemId) continue;
-      final itemShopId = _shopIdFor(doc.data());
+    Map<String, dynamic>? sameItem;
+    for (final row in existing) {
+      final item = cartItemMap(row);
+      if (item['productId'] == productId &&
+          (item['selectedSize'] ?? '').toString() == normalizedSize) {
+        sameItem = item;
+        continue;
+      }
+      final itemShopId = _shopIdFor(item);
       if (itemShopId.isNotEmpty &&
           newShopId.isNotEmpty &&
           itemShopId != newShopId) {
         throw CartShopConflictException(
-          currentShopName: _shopNameFor(doc.data()),
+          currentShopName: _shopNameFor(item),
           newShopName: newShopName,
         );
       }
     }
 
-    final ref = _cart(userId).doc(cartItemId);
-    final snapshot = await ref.get();
-    if (snapshot.exists) {
-      final currentQuantity =
-          (snapshot.data()?['quantity'] as num?)?.toInt() ?? 1;
+    if (sameItem != null) {
+      final currentQuantity = (sameItem['quantity'] as num?)?.toInt() ?? 1;
       if (sizeInventory.isNotEmpty &&
           currentQuantity + 1 > (sizeInventory[normalizedSize] ?? 0)) {
         throw Exception(
           'Only ${sizeInventory[normalizedSize]} left in size $normalizedSize.',
         );
       }
-      await ref.update({
-        'quantity': FieldValue.increment(1),
-        ..._cartPriceAndStockFields(cartProductData),
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+      await supabase
+          .from('cart_items')
+          .update({
+            'quantity': currentQuantity + 1,
+            'data': {
+              ..._snapshotOf(sameItem),
+              ..._cartPriceAndStockFields(cartProductData),
+            },
+          })
+          .eq('id', sameItem['id']);
       return;
     }
 
-    await ref.set({
-      ...cartProductData,
-      'productId': productId,
-      'shopId': newShopId,
-      'shopName': newShopName,
-      if (normalizedSize.isNotEmpty) 'selectedSize': normalizedSize,
+    await supabase.from('cart_items').insert({
+      'user_id': userId,
+      'product_id': productId,
+      'selected_size': normalizedSize,
       'quantity': 1,
-      'addedAt': FieldValue.serverTimestamp(),
+      'data': {
+        ..._snapshotOf(cartProductData),
+        'shopId': newShopId,
+        'shopName': newShopName,
+      },
     });
   }
 
+  /// The snapshot fields of a cart item, without the row's own columns.
+  Map<String, dynamic> _snapshotOf(Map<String, dynamic> item) {
+    return {
+      for (final entry in item.entries)
+        if (!const {
+          'id',
+          'productId',
+          'quantity',
+          'selectedSize',
+          'userId',
+          'createdAt',
+          'updatedAt',
+        }.contains(entry.key))
+          entry.key: entry.value,
+    };
+  }
+
+  /// Sets how many of a cart item are wanted. [productId] is the cart item id.
   Future<void> setQuantity({
     required String userId,
     required String productId,
@@ -103,8 +149,12 @@ class CartService {
       await removeFromCart(userId: userId, productId: productId);
       return;
     }
-    final snapshot = await _cart(userId).doc(productId).get();
-    final data = snapshot.data();
+    final row = await supabase
+        .from('cart_items')
+        .select()
+        .eq('id', productId)
+        .maybeSingle();
+    final data = row == null ? null : cartItemMap(row);
     final selectedSize = (data?['selectedSize'] ?? '').toString();
     final sizeInventory = parseSizeInventory(data ?? const <String, dynamic>{});
     if (selectedSize.isNotEmpty &&
@@ -114,26 +164,26 @@ class CartService {
         'Only ${sizeInventory[selectedSize]} left in size $selectedSize.',
       );
     }
-    await _cart(userId).doc(productId).update({
-      'quantity': quantity,
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
+    await supabase
+        .from('cart_items')
+        .update({'quantity': quantity})
+        .eq('id', productId);
   }
 
+  /// Removes a cart item. [productId] is the cart item id.
   Future<void> removeFromCart({
     required String userId,
     required String productId,
-  }) {
-    return _cart(userId).doc(productId).delete();
+  }) async {
+    await supabase
+        .from('cart_items')
+        .delete()
+        .eq('id', productId)
+        .eq('user_id', userId);
   }
 
   Future<void> clearCart(String userId) async {
-    final snapshot = await _cart(userId).get();
-    final batch = _db.batch();
-    for (final doc in snapshot.docs) {
-      batch.delete(doc.reference);
-    }
-    await batch.commit();
+    await supabase.from('cart_items').delete().eq('user_id', userId);
   }
 
   String _shopIdFor(Map<String, dynamic> data) {
@@ -150,11 +200,15 @@ class CartService {
     String productId,
     Map<String, dynamic> fallback,
   ) async {
-    final product = await _db.collection('products').doc(productId).get();
-    final liveData = product.data();
-    if (liveData == null) {
+    final row = await supabase
+        .from('products')
+        .select()
+        .eq('id', productId)
+        .maybeSingle();
+    if (row == null) {
       return {...fallback, ..._cartPriceAndStockFields(fallback)};
     }
+    final liveData = productMap(row);
 
     return {
       ...fallback,

@@ -1,13 +1,18 @@
 // Cart screen for boutique purchases.
 //
 // Responsibilities:
-// - show the signed-in user's Firestore cart in real time,
+// - show the signed-in user's cart in real time,
 // - display the selected size for sized boutique products,
 // - let the user change quantities or remove lines,
 // - collect the final collection details before creating an order.
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
+
+import '../../../core/supabase/app_auth.dart';
+import '../../../core/supabase/supabase_config.dart';
+import '../../../data/services/private_account_service.dart';
+import '../../../data/services/profile_service.dart';
+import '../../../data/services/product_service.dart' show productMap;
 
 import '../../../data/models/delivery.dart';
 import '../../../data/services/cart_service.dart';
@@ -20,19 +25,19 @@ class CartPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = AppAuth.instance.currentUser;
     final cart = CartService();
     return Scaffold(
       appBar: AppBar(title: const Text("Cart")),
       body: user == null
           ? const Center(child: Text('Sign in to use your cart.'))
-          : StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+          : StreamBuilder<List<Map<String, dynamic>>>(
               stream: cart.watchCart(user.uid),
               builder: (context, snapshot) {
                 if (!snapshot.hasData) {
                   return const Center(child: CircularProgressIndicator());
                 }
-                final items = snapshot.data!.docs;
+                final items = snapshot.data!;
                 if (items.isEmpty) {
                   return const Center(child: Text('Your cart is empty.'));
                 }
@@ -45,9 +50,8 @@ class CartPage extends StatelessWidget {
                     final liveProducts =
                         productSnapshot.data ??
                         const <String, Map<String, dynamic>>{};
-                    final total = items.fold<double>(0, (totalSoFar, doc) {
-                      final data = doc.data();
-                      final price = _priceFor(data, liveProducts[doc.id]);
+                    final total = items.fold<double>(0, (totalSoFar, data) {
+                      final price = _priceFor(data, liveProducts[data['id']]);
                       return totalSoFar +
                           price * ((data['quantity'] as num?)?.toInt() ?? 1);
                     });
@@ -59,9 +63,9 @@ class CartPage extends StatelessWidget {
                             itemCount: items.length,
                             separatorBuilder: (_, _) => const Divider(),
                             itemBuilder: (context, index) {
-                              final doc = items[index];
-                              final data = doc.data();
-                              final liveProduct = liveProducts[doc.id];
+                              final data = items[index];
+                              final itemId = data['id'].toString();
+                              final liveProduct = liveProducts[itemId];
                               final quantity =
                                   (data['quantity'] as num?)?.toInt() ?? 1;
                               final imageUrl =
@@ -99,7 +103,7 @@ class CartPage extends StatelessWidget {
                                         context: context,
                                         cart: cart,
                                         userId: user.uid,
-                                        productId: doc.id,
+                                        productId: itemId,
                                         quantity: quantity - 1,
                                       ),
                                       icon: const Icon(
@@ -112,7 +116,7 @@ class CartPage extends StatelessWidget {
                                         context: context,
                                         cart: cart,
                                         userId: user.uid,
-                                        productId: doc.id,
+                                        productId: itemId,
                                         quantity: quantity + 1,
                                       ),
                                       icon: const Icon(
@@ -163,18 +167,18 @@ class CartPage extends StatelessWidget {
   }
 
   Future<Map<String, Map<String, dynamic>>> _loadLiveProducts(
-    List<QueryDocumentSnapshot<Map<String, dynamic>>> cartItems,
+    List<Map<String, dynamic>> cartItems,
   ) async {
     final products = <String, Map<String, dynamic>>{};
     await Future.wait(
       cartItems.map((item) async {
-        final productId = (item.data()['productId'] ?? item.id).toString();
-        final product = await FirebaseFirestore.instance
-            .collection('products')
-            .doc(productId)
-            .get();
-        final data = product.data();
-        if (data != null) products[item.id] = data;
+        final productId = (item['productId'] ?? item['id']).toString();
+        final row = await supabase
+            .from('products')
+            .select()
+            .eq('id', productId)
+            .maybeSingle();
+        if (row != null) products[item['id'].toString()] = productMap(row);
       }),
     );
     return products;
@@ -217,9 +221,9 @@ class CartPage extends StatelessWidget {
   }
 
   /// The shop everything in the bag is from ('' when it cannot be told).
-  String _sellerIdOf(List<QueryDocumentSnapshot<Map<String, dynamic>>> items) {
+  String _sellerIdOf(List<Map<String, dynamic>> items) {
     if (items.isEmpty) return '';
-    final data = items.first.data();
+    final data = items.first;
     return (data['shopId'] ?? data['uploaderId'] ?? data['sellerId'] ?? '')
         .toString();
   }
@@ -227,15 +231,12 @@ class CartPage extends StatelessWidget {
   Future<DeliverySettings> _deliveryFor(String sellerId) async {
     if (sellerId.isEmpty) return const DeliverySettings();
     try {
-      final seller = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(sellerId)
-          .get();
-      final shop = seller.data()?['shop'];
+      final seller = await ProfileService().get(sellerId);
+      final shop = seller['shop'];
       return DeliverySettings.fromShop(
         shop is Map ? Map<String, dynamic>.from(shop) : null,
       );
-    } on FirebaseException {
+    } on PostgrestException {
       return const DeliverySettings();
     }
   }
@@ -373,12 +374,8 @@ class CartPage extends StatelessWidget {
     String userId, {
     bool deliveryOnly = false,
   }) async {
-    final userRef = FirebaseFirestore.instance.collection('users').doc(userId);
-    final snapshot = await userRef.get();
-    final data = snapshot.data() ?? const <String, dynamic>{};
-    final address = Map<String, dynamic>.from(
-      data['address'] as Map? ?? const {},
-    );
+    final account = PrivateAccountService();
+    final address = await account.address(userId);
     // Delivery needs the buyer's own street address, not a collection point.
     final suitable = deliveryOnly
         ? (address['street'] ?? '').toString().trim().isNotEmpty &&
@@ -393,10 +390,7 @@ class CartPage extends StatelessWidget {
     );
     if (collectionAddress == null) return false;
 
-    await userRef.set({
-      'address': collectionAddress,
-      'accountUpdatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    await account.saveAddress(userId, collectionAddress);
     return true;
   }
 

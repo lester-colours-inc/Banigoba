@@ -1,10 +1,14 @@
 // Seller inventory manager for boutiques.
 //
-// This screen creates and edits catalog products in Firestore, uploads product
+// This screen creates and edits catalog products, uploads product
 // images, and stores optional per-size inventory. When size inventory exists,
 // the total stock field is still saved for legacy screens and quick summaries.
 import 'dart:io';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
+import '../../../core/supabase/app_auth.dart';
+import '../../../core/supabase/supabase_config.dart';
+import '../../../data/services/profile_service.dart';
+import '../../../data/supabase/rows.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -43,24 +47,24 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
   Future<void> _loadReach() async {
     if (_currentUserId.isEmpty) return;
     try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('product_insights')
-          .where('sellerId', isEqualTo: _currentUserId)
-          .get();
+      final rows = await supabase
+          .from('product_insights')
+          .select()
+          .eq('seller_id', _currentUserId);
       final reach = {
-        for (final doc in snapshot.docs)
-          doc.id: (
-            reach: (doc.data()['reach'] as num?)?.toInt() ?? 0,
-            followers: (doc.data()['followers'] as num?)?.toInt() ?? 0,
+        for (final row in rows)
+          row['product_id'].toString(): (
+            reach: (row['reach'] as num?)?.toInt() ?? 0,
+            followers: (row['followers'] as num?)?.toInt() ?? 0,
           ),
       };
       if (mounted) setState(() => _reach = reach);
-    } on FirebaseException {
+    } on PostgrestException {
       // No numbers is fine: the label just does not show.
     }
   }
 
-  final String _currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
+  final String _currentUserId = AppAuth.instance.currentUser?.uid ?? '';
   static const Color primaryColor = Color(0xFF0D0140);
   // Preset sizes speed up entry while still allowing custom labels in the
   // editable size rows below.
@@ -109,21 +113,20 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
         backgroundColor: primaryColor,
         foregroundColor: Colors.white,
       ),
-      body: StreamBuilder<QuerySnapshot>(
+      body: StreamBuilder<List<Map<String, dynamic>>>(
         stream: _productService.getAdminProducts(_currentUserId),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          if (!snapshot.hasData || snapshot.data!.isEmpty) {
             return const Center(
               child: Text("No products yet. Add your first listing."),
             );
           }
 
-          final allProducts = snapshot.data!.docs;
-          Map<String, dynamic> dataOf(QueryDocumentSnapshot doc) =>
-              doc.data() as Map<String, dynamic>;
+          final allProducts = snapshot.data!;
+          Map<String, dynamic> dataOf(Map<String, dynamic> doc) => doc;
           final summary = summarizeStock(allProducts.map(dataOf));
           final products = [
             for (final doc in allProducts)
@@ -191,7 +194,7 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
     );
   }
 
-  Widget _productList(List<QueryDocumentSnapshot> products) {
+  Widget _productList(List<Map<String, dynamic>> products) {
     // List of all catalog products with delete actions
     return Builder(
       builder: (context) {
@@ -201,7 +204,8 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
           separatorBuilder: (context, index) => const Divider(),
           itemBuilder: (context, index) {
             final doc = products[index];
-            final data = doc.data() as Map<String, dynamic>;
+            final data = doc;
+            final docId = doc['id'].toString();
             final name = data['name'] ?? 'No Name';
             final imageUrl = data['imageUrl'] ?? data['imageURL'] ?? '';
             final rawImageUrl = data['rawImageUrl'] ?? imageUrl;
@@ -236,13 +240,13 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                   ),
                   _stockLabel(data, stock),
                   if (reachLabel(
-                        reach: _reach[doc.id]?.reach,
-                        followers: _reach[doc.id]?.followers,
+                        reach: _reach[docId]?.reach,
+                        followers: _reach[docId]?.followers,
                       )
                       case final reach?)
                     Text(
                       reach,
-                      key: ValueKey('reach_${doc.id}'),
+                      key: ValueKey('reach_$docId'),
                       style: TextStyle(
                         fontSize: 12,
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -255,11 +259,11 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                 children: [
                   IconButton(
                     icon: const Icon(Icons.edit, color: Colors.blue),
-                    onPressed: () => _showEditProductDialog(doc.id, data),
+                    onPressed: () => _showEditProductDialog(docId, data),
                   ),
                   IconButton(
                     icon: const Icon(Icons.delete, color: Colors.red),
-                    onPressed: () => _confirmDelete(doc.id, name),
+                    onPressed: () => _confirmDelete(docId, name),
                   ),
                 ],
               ),
@@ -960,7 +964,7 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
 
                         if (imageUrl.isEmpty) {
                           throw Exception(
-                            'Firebase Storage returned an empty image URL',
+                            'Storage returned an empty image URL',
                           );
                         }
                       }
@@ -989,7 +993,7 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                         if (backImageUrl.isNotEmpty)
                           'backImageUrl': backImageUrl
                         else if (isEditing)
-                          'backImageUrl': FieldValue.delete(),
+                          'backImageUrl': kRemoveField,
                         'category': category,
                         'subcategory': subcategory == 'none'
                             ? null
@@ -1002,12 +1006,12 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                         if (sizeInventory.isNotEmpty)
                           'sizeInventory': sizeInventory,
                         if (sizeInventory.isEmpty && isEditing)
-                          'sizeInventory': FieldValue.delete(),
+                          'sizeInventory': kRemoveField,
                         if (_sizeChartFromEntries(sizeEntries) case final chart
                             when !chart.isEmpty)
                           'sizeChart': chart.toMap()
                         else if (isEditing)
-                          'sizeChart': FieldValue.delete(),
+                          'sizeChart': kRemoveField,
                         ...PieceDetails.fromControllerText(
                           shoulderMeasurement: shoulderController.text,
                           heightMeasurement: heightMeasurementController.text,
@@ -1017,19 +1021,12 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                             (controller) => controller.text,
                           ),
                         ).toMap(),
-                        if (!isEditing)
-                          'createdAt': FieldValue.serverTimestamp(),
-                        if (isEditing)
-                          'updatedAt': FieldValue.serverTimestamp(),
                       };
 
                       debugPrint('[ProductUpload] Loading seller profile.');
-                      final sellerSnapshot = await FirebaseFirestore.instance
-                          .collection('users')
-                          .doc(_currentUserId)
-                          .get();
-                      final sellerData =
-                          sellerSnapshot.data() ?? const <String, dynamic>{};
+                      final sellerData = await ProfileService().get(
+                        _currentUserId,
+                      );
                       final shop = Map<String, dynamic>.from(
                         sellerData['shop'] as Map? ?? const {},
                       );

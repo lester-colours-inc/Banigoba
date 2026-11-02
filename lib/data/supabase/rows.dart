@@ -34,3 +34,47 @@ DateTime? asDateTime(Object? value) {
   if (value is String && value.isNotEmpty) return DateTime.tryParse(value);
   return null;
 }
+
+/// A row flattened for the screens: the free-form `data` column's keys sit
+/// beside the camelCased columns, and the columns win on a clash.
+Map<String, dynamic> flattenRow(Map<String, dynamic> row) {
+  final extra = row['data'];
+  final columns = camelizeRow({
+    for (final entry in row.entries)
+      if (entry.key != 'data') entry.key: entry.value,
+  });
+  return {if (extra is Map) ...Map<String, dynamic>.from(extra), ...columns};
+}
+
+/// Splits camelCase [fields] into a row to write: keys that are [columns]
+/// (snake_case names) become columns, everything else goes into `data`.
+/// [aliases] maps a field name to the column it is stored in, e.g.
+/// `imageURL` → `image_url`. Null values are dropped.
+Map<String, dynamic> toStoredRow(
+  Map<String, dynamic> fields, {
+  required Set<String> columns,
+  Map<String, String> aliases = const {},
+}) {
+  final row = <String, dynamic>{};
+  final extra = <String, dynamic>{};
+  for (final entry in fields.entries) {
+    if (entry.value == null) continue;
+    final column = aliases[entry.key] ?? snakeCase(entry.key);
+    if (columns.contains(column)) {
+      row[column] = entry.value;
+    } else {
+      extra[entry.key] = entry.value;
+    }
+  }
+  if (extra.isNotEmpty) row['data'] = extra;
+  return row;
+}
+
+/// Put in an update to remove a free-form field (the old `FieldValue.delete`).
+const Object kRemoveField = _RemoveField();
+
+class _RemoveField {
+  const _RemoveField();
+  @override
+  String toString() => 'kRemoveField';
+}

@@ -1,268 +1,67 @@
 // Order workflow for boutique checkout.
 //
-// Converts the current user's cart into an order document, decrements product
-// stock, opens/updates the boutique chat, and notifies the seller. Checkout is
-// intentionally collection-based with a single "pay upon collection" method.
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-
+// Converts the current user's bag into an order in one database transaction
+// (place_order): stock goes down, the bag empties, the boutique chat gets a
+// confirmation and the seller a notification. Checkout is collection-based
+// by default, with delivery where the shop offers it.
+import '../../core/supabase/app_auth.dart';
+import '../../core/supabase/supabase_config.dart';
+import '../models/delivery.dart';
+import '../supabase/rows.dart';
 import 'notification_service.dart';
 import 'shop_chat_service.dart';
-import '../utils/size_inventory.dart';
-import '../models/delivery.dart';
+
+/// An `orders` row as the screens read it (camelCase fields and an `id`).
+Map<String, dynamic> orderMap(Map<String, dynamic> row) {
+  final flat = flattenRow(row);
+  return {...flat, 'orderId': row['id'], 'statusLabel': row['status_label']};
+}
 
 class OrderService {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
   final ShopChatService _chatService = ShopChatService();
   final NotificationService _notifications = NotificationService();
 
-  Stream<QuerySnapshot<Map<String, dynamic>>> watchSellerOrders(
-    String sellerId,
-  ) {
-    return _db
-        .collection('orders')
-        .where('sellerId', isEqualTo: sellerId)
-        .snapshots();
+  Stream<List<Map<String, dynamic>>> watchSellerOrders(String sellerId) {
+    return supabase
+        .from('orders')
+        .stream(primaryKey: ['id'])
+        .eq('seller_id', sellerId)
+        .map((rows) => [for (final row in rows) orderMap(row)]);
   }
 
   /// Places the order for everything in the bag, from one shop. By default
   /// the buyer collects; with [fulfilment] delivery the shop's own fee is
-  /// added, worked out here from the shop's saved settings and never taken
-  /// from the app. [deliveryArea] is the area the buyer chose from the shop's
-  /// list (ignored for collection).
+  /// added, worked out by the database from the shop's saved settings and
+  /// never taken from the app. [deliveryArea] is the area the buyer chose
+  /// from the shop's list (ignored for collection). Returns the order id.
   Future<String> placeCollectionOrder({
     required String customerId,
     Fulfilment fulfilment = Fulfilment.collect,
     String deliveryArea = '',
   }) async {
-    final cartSnapshot = await _db
-        .collection('users')
-        .doc(customerId)
-        .collection('cart')
-        .get();
-    if (cartSnapshot.docs.isEmpty) {
-      throw Exception('Your bag is empty.');
-    }
-
-    final firstItem = cartSnapshot.docs.first.data();
-    final sellerId = _sellerIdFor(firstItem);
-    if (sellerId.isEmpty) {
-      throw Exception('This bag is missing boutique details.');
-    }
-
-    final customerSnapshot = await _db
-        .collection('users')
-        .doc(customerId)
-        .get();
-    final customerData = customerSnapshot.data() ?? const <String, dynamic>{};
-    final sellerSnapshot = await _db.collection('users').doc(sellerId).get();
-    final sellerData = sellerSnapshot.data() ?? const <String, dynamic>{};
-    final shop = Map<String, dynamic>.from(
-      sellerData['shop'] as Map? ?? const {},
-    );
-    final shopName = (shop['name'] ?? _shopNameFor(firstItem)).toString();
-    final customerName =
-        (customerData['displayName'] ??
-                _auth.currentUser?.displayName ??
-                _auth.currentUser?.email?.split('@').first ??
-                'Customer')
-            .toString();
-    final customerEmail =
-        (customerData['email'] ?? _auth.currentUser?.email ?? '').toString();
-    final address = Map<String, dynamic>.from(
-      customerData['address'] as Map? ?? const {},
-    );
-
-    final itemRecords = await Future.wait(
-      cartSnapshot.docs.map((doc) async {
-        final data = doc.data();
-        final productId = (data['productId'] ?? doc.id).toString();
-        final productRef = _db.collection('products').doc(productId);
-        final productSnapshot = await productRef.get();
-        final productData = productSnapshot.data() ?? const <String, dynamic>{};
-        final mergedData = {...data, ...productData};
-        final quantity = _intValue(data['quantity'], fallback: 1);
-        final price = _moneyValue(mergedData['price']);
-        return _OrderItemRecord(
-          cartRef: doc.reference,
-          productRef: productSnapshot.exists ? productRef : null,
-          orderItem: {
-            'productId': productId,
-            'name': (mergedData['name'] ?? 'Product').toString(),
-            'quantity': quantity,
-            if ((data['selectedSize'] ?? '').toString().trim().isNotEmpty)
-              'selectedSize': data['selectedSize'].toString().trim(),
-            'price': price,
-            'lineTotal': price * quantity,
-            'imageUrl':
-                (mergedData['rawImageUrl'] ??
-                        mergedData['imageUrl'] ??
-                        mergedData['imageURL'] ??
-                        '')
-                    .toString(),
-          },
-        );
-      }),
-    );
-    final items = itemRecords.map((record) => record.orderItem).toList();
-    final itemsTotal = items.fold<double>(
-      0,
-      (runningTotal, item) =>
-          runningTotal + ((item['lineTotal'] as num?)?.toDouble() ?? 0),
-    );
-    final totals = orderTotals(
-      items: itemsTotal,
-      fulfilment: fulfilment,
-      settings: DeliverySettings.fromShop(shop),
-      area: deliveryArea,
-    );
-    final total = totals.total;
-    if (fulfilment == Fulfilment.delivery &&
-        (address['street'] ?? '').toString().trim().isEmpty) {
-      throw Exception('Add your delivery address first.');
-    }
-    final delivering = fulfilment == Fulfilment.delivery;
-    final itemCount = items.fold<int>(
-      0,
-      (runningTotal, item) =>
-          runningTotal + ((item['quantity'] as num?)?.toInt() ?? 1),
-    );
-
-    final chatId = await _chatService.ensureConversation(
-      sellerId: sellerId,
-      customerId: customerId,
-      shopName: shopName,
-    );
-    final orderRef = _db.collection('orders').doc();
-    final orderNumber = orderRef.id.substring(0, 6).toUpperCase();
-
-    await _db.runTransaction((transaction) async {
-      for (final record in itemRecords) {
-        final productRef = record.productRef;
-        if (productRef == null) continue;
-        final productSnapshot = await transaction.get(productRef);
-        final productData = productSnapshot.data();
-        if (productData == null || !productData.containsKey('stock')) {
-          continue;
-        }
-        final quantity = _intValue(record.orderItem['quantity'], fallback: 1);
-        final selectedSize = normalizeSizeLabel(
-          record.orderItem['selectedSize'],
-        );
-        final sizeInventory = parseSizeInventory(productData);
-        // Sized products reduce only the selected size bucket; total stock is
-        // recalculated so older screens that read stock still stay accurate.
-        if (selectedSize.isNotEmpty && sizeInventory.isNotEmpty) {
-          final currentSizeStock = sizeInventory[selectedSize] ?? 0;
-          if (currentSizeStock < quantity) {
-            throw Exception(
-              '${record.orderItem['name']} only has $currentSizeStock left in size $selectedSize.',
-            );
-          }
-          sizeInventory[selectedSize] = currentSizeStock - quantity;
-          transaction.update(productRef, {
-            'sizeInventory': sizeInventory,
-            'stock': sizeInventory.values.fold<int>(
-              0,
-              (total, sizeStock) => total + sizeStock,
-            ),
-            'updatedAt': FieldValue.serverTimestamp(),
-          });
-          continue;
-        }
-        final currentStock = _intValue(productData['stock']);
-        if (currentStock < quantity) {
-          throw Exception(
-            '${record.orderItem['name']} only has $currentStock in stock.',
-          );
-        }
-        transaction.update(productRef, {
-          'stock': currentStock - quantity,
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
-      }
-
-      transaction.set(orderRef, {
-        'orderId': orderRef.id,
-        'orderNumber': orderNumber,
-        'sellerId': sellerId,
-        'shopName': shopName,
-        'customerId': customerId,
-        'customerName': customerName,
-        'customerEmail': customerEmail,
-        'customerAddress': address,
-        'items': items,
-        'itemCount': itemCount,
-        'itemsTotal': itemsTotal,
-        'deliveryFee': totals.fee,
-        'total': total,
-        'fulfilment': fulfilment.value,
-        if (delivering) 'deliveryArea': deliveryArea.trim(),
-        'paymentMethod': delivering
-            ? 'pay_upon_delivery'
-            : 'pay_upon_collection',
-        'paymentLabel': delivering ? 'Pay on delivery' : 'Pay upon collection',
-        'status': 'submitted',
-        'statusLabel': orderStatusLabel('submitted'),
-        'chatId': chatId,
-        'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-        'statusHistory': [
-          {
-            'status': 'submitted',
-            'label': orderStatusLabel('submitted'),
-            'updatedBy': customerId,
-            'updatedAt': Timestamp.now(),
-          },
-        ],
-      });
-
-      for (final record in itemRecords) {
-        transaction.delete(record.cartRef);
-      }
-    });
-
-    final message = delivering
-        ? 'Order #$orderNumber confirmed for $shopName. Delivery'
-              '${deliveryArea.trim().isEmpty ? '' : ' to ${deliveryArea.trim()}'}'
-              ' (fee \$${totals.fee.toStringAsFixed(2)}). Payment method: pay on delivery. '
-              'Total: \$${total.toStringAsFixed(2)}.'
-        : 'Order #$orderNumber confirmed for $shopName. Payment method: pay upon collection. Total: \$${total.toStringAsFixed(2)}.';
-    await _chatService.addSystemMessage(
-      chatId: chatId,
-      text: message,
-      unreadForSeller: true,
-      unreadForCustomer: true,
-      orderId: orderRef.id,
-    );
-    await _notifications.addNotification(
-      receiverId: sellerId,
-      title: 'New order',
-      body: 'placed order #$orderNumber.',
-      type: 'order_update',
-      extraData: {
-        'orderId': orderRef.id,
-        'chatId': chatId,
-        'fromName': customerName,
-        'shopName': shopName,
-        'sellerId': sellerId,
-        'customerId': customerId,
+    final id = await supabase.rpc(
+      'place_order',
+      params: {
+        'p_fulfilment': fulfilment.value,
+        'p_delivery_area': deliveryArea.trim(),
       },
     );
-    return orderRef.id;
+    return id.toString();
   }
 
   Future<void> updateOrderStatus({
     required String orderId,
     required String status,
   }) async {
-    final sellerId = _auth.currentUser?.uid ?? '';
+    final sellerId = AppAuth.instance.currentUser?.uid ?? '';
     if (sellerId.isEmpty) return;
-    final orderRef = _db.collection('orders').doc(orderId);
-    final orderSnapshot = await orderRef.get();
-    final order = orderSnapshot.data();
-    if (order == null) throw Exception('Order not found.');
+    final row = await supabase
+        .from('orders')
+        .select()
+        .eq('id', orderId)
+        .maybeSingle();
+    if (row == null) throw Exception('Order not found.');
+    final order = orderMap(row);
     if ((order['sellerId'] ?? '').toString() != sellerId) {
       throw Exception('You can only update your own boutique orders.');
     }
@@ -275,19 +74,24 @@ class OrderService {
       );
     }
     final label = orderStatusLabel(status);
-    await orderRef.update({
-      'status': status,
-      'statusLabel': label,
-      'updatedAt': FieldValue.serverTimestamp(),
-      'statusHistory': FieldValue.arrayUnion([
-        {
+    final history = [
+      ...((row['status_history'] as List?) ?? const []),
+      {
+        'status': status,
+        'label': label,
+        'updatedBy': sellerId,
+        'updatedAt': DateTime.now().toUtc().toIso8601String(),
+      },
+    ];
+    await supabase
+        .from('orders')
+        .update({
           'status': status,
-          'label': label,
-          'updatedBy': sellerId,
-          'updatedAt': Timestamp.now(),
-        },
-      ]),
-    });
+          'status_label': label,
+          'status_history': history,
+        })
+        .eq('id', orderId)
+        .eq('seller_id', sellerId);
 
     final chatId = (order['chatId'] ?? '').toString();
     final orderNumber = (order['orderNumber'] ?? orderId.substring(0, 6))
@@ -322,37 +126,4 @@ class OrderService {
   }
 
   String orderStatusLabel(String status) => orderStatusText(status);
-
-  String _sellerIdFor(Map<String, dynamic> data) {
-    return (data['shopId'] ?? data['uploaderId'] ?? data['sellerId'] ?? '')
-        .toString();
-  }
-
-  String _shopNameFor(Map<String, dynamic> data) {
-    return (data['shopName'] ?? data['boutiqueName'] ?? 'Boutique').toString();
-  }
-
-  double _moneyValue(dynamic value) {
-    if (value is num) return value.toDouble();
-    if (value is String) return double.tryParse(value.trim()) ?? 0;
-    return 0;
-  }
-
-  int _intValue(dynamic value, {int fallback = 0}) {
-    if (value is num) return value.toInt();
-    if (value is String) return int.tryParse(value.trim()) ?? fallback;
-    return fallback;
-  }
-}
-
-class _OrderItemRecord {
-  const _OrderItemRecord({
-    required this.cartRef,
-    required this.productRef,
-    required this.orderItem,
-  });
-
-  final DocumentReference<Map<String, dynamic>> cartRef;
-  final DocumentReference<Map<String, dynamic>>? productRef;
-  final Map<String, dynamic> orderItem;
 }

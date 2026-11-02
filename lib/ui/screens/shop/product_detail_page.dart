@@ -5,7 +5,8 @@
 // Owners can also edit or delete their own products from here.
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import '../../../core/supabase/app_auth.dart';
+import '../../../data/services/profile_service.dart';
 import '../../../core/app_routes.dart';
 import '../../../data/models/body_profile.dart';
 import '../../../data/models/fit_check.dart';
@@ -72,7 +73,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    final String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final String currentUserId = AppAuth.instance.currentUser?.uid ?? '';
 
     // Extract display data with fallbacks
     final imageUrl =
@@ -204,17 +205,13 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                 children: [
                   // Poster Name
                   if (uploaderId != null)
-                    StreamBuilder<DocumentSnapshot>(
-                      stream: FirebaseFirestore.instance
-                          .collection('users')
-                          .doc(uploaderId)
-                          .snapshots(),
+                    StreamBuilder<Map<String, dynamic>>(
+                      stream: ProfileService().watch(uploaderId),
                       builder: (context, snapshot) {
-                        if (!snapshot.hasData || !snapshot.data!.exists) {
+                        if (!snapshot.hasData || snapshot.data!.isEmpty) {
                           return const SizedBox.shrink();
                         }
-                        final userData =
-                            snapshot.data!.data() as Map<String, dynamic>;
+                        final userData = snapshot.data!;
                         final bool isAdmin =
                             userData['role'] == 'admin' ||
                             userData['isAdmin'] == true;
@@ -742,7 +739,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
           TextButton(
             onPressed: () async {
               final String currentUserId =
-                  FirebaseAuth.instance.currentUser?.uid ?? '';
+                  AppAuth.instance.currentUser?.uid ?? '';
               if (isCatalog) {
                 await _productService.deleteProduct(id);
               } else {
@@ -969,7 +966,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                       } else {
                         await _productService.updateUserProduct(
                           userProductId: id,
-                          userId: FirebaseAuth.instance.currentUser!.uid,
+                          userId: AppAuth.instance.currentUser!.uid,
                           updatedData: updated,
                         );
                       }

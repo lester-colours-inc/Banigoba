@@ -1,43 +1,101 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-
+// Conversations between customers and shops, designers and hair salons.
+//
+// A conversation is a row in `shop_chats` and its messages are rows in
+// `shop_chat_messages`. All writes go through database functions
+// (ensure_chat, send_chat_message, post_system_message, mark_chat_read) so
+// unread counts stay right and nobody can pose as the system. Screens read
+// chats and messages as maps with camelCase fields and an `id`.
+import '../../core/supabase/app_auth.dart';
+import '../../core/supabase/supabase_config.dart';
+import '../supabase/rows.dart';
 import 'notification_service.dart';
 
+/// A `shop_chats` row as the screens read it.
+Map<String, dynamic> chatMap(Map<String, dynamic> row) {
+  final flat = flattenRow(row);
+  final kind = (row['kind'] ?? 'shop').toString();
+  return {
+    ...flat,
+    'conversationType': kind,
+    'participantIds': [row['seller_id'], row['customer_id']],
+    'designerName': (flat['designerName'] ?? '').toString().isNotEmpty
+        ? flat['designerName']
+        : flat['shopName'],
+  };
+}
+
+/// A `shop_chat_messages` row as the screens read it.
+Map<String, dynamic> messageMap(Map<String, dynamic> row) {
+  final flat = flattenRow(row);
+  return {
+    ...flat,
+    'senderId': row['is_system'] == true ? 'system' : row['sender_id'],
+    'senderType': row['sender_type'] == 'text' ? null : row['sender_type'],
+  };
+}
+
 class ShopChatService {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
   final NotificationService _notifications = NotificationService();
 
-  String conversationId({
-    required String sellerId,
-    required String customerId,
-  }) {
-    return '${sellerId}_$customerId';
+  String get _userId => AppAuth.instance.currentUser?.uid ?? '';
+
+  /// One conversation, or null if it does not exist or is not the caller's.
+  Future<Map<String, dynamic>?> getChat(String chatId) async {
+    final row = await supabase
+        .from('shop_chats')
+        .select()
+        .eq('id', chatId)
+        .maybeSingle();
+    return row == null ? null : chatMap(row);
   }
 
-  String designerConversationId({
-    required String designerId,
-    required String customerId,
-  }) {
-    return 'designer_${designerId}_$customerId';
+  /// One conversation, live (null while it cannot be read).
+  Stream<Map<String, dynamic>?> watchChat(String chatId) {
+    return supabase
+        .from('shop_chats')
+        .stream(primaryKey: ['id'])
+        .eq('id', chatId)
+        .map((rows) => rows.isEmpty ? null : chatMap(rows.first));
   }
 
-  Stream<QuerySnapshot<Map<String, dynamic>>> watchConversations(
-    String userId,
-  ) {
-    return _db
-        .collection('shop_chats')
-        .where('participantIds', arrayContains: userId)
-        .snapshots();
+  Stream<List<Map<String, dynamic>>> watchConversations(String userId) {
+    return supabase
+        .from('shop_chats')
+        .stream(primaryKey: ['id'])
+        .map(
+          (rows) => [
+            for (final row in rows)
+              if (row['seller_id'] == userId || row['customer_id'] == userId)
+                chatMap(row),
+          ],
+        );
   }
 
-  Stream<QuerySnapshot<Map<String, dynamic>>> watchMessages(String chatId) {
-    return _db
-        .collection('shop_chats')
-        .doc(chatId)
-        .collection('messages')
-        .orderBy('createdAt', descending: true)
-        .snapshots();
+  Stream<List<Map<String, dynamic>>> watchMessages(String chatId) {
+    return supabase
+        .from('shop_chat_messages')
+        .stream(primaryKey: ['id'])
+        .eq('chat_id', chatId)
+        .order('created_at', ascending: false)
+        .map((rows) => [for (final row in rows) messageMap(row)]);
+  }
+
+  Future<String> _ensure(
+    String kind,
+    String providerId,
+    String name, [
+    Map<String, dynamic> context = const {},
+  ]) async {
+    final id = await supabase.rpc(
+      'ensure_chat',
+      params: {
+        'p_kind': kind,
+        'p_provider': providerId,
+        'p_provider_name': name,
+        'p_context': context,
+      },
+    );
+    return id.toString();
   }
 
   Future<String> ensureConversation({
@@ -48,134 +106,59 @@ class ShopChatService {
     String? productName,
     String? productImageUrl,
     double? productPrice,
-  }) async {
-    final chatId = conversationId(sellerId: sellerId, customerId: customerId);
-    final customer = await _db.collection('users').doc(customerId).get();
-    final customerData = customer.data() ?? const <String, dynamic>{};
-    final customerName =
-        (customerData['displayName'] ??
-                _auth.currentUser?.displayName ??
-                _auth.currentUser?.email?.split('@').first ??
-                'Customer')
-            .toString();
-    final customerImage =
-        (customerData['profileImageURL'] ??
-                customerData['profileImageUrl'] ??
-                _auth.currentUser?.photoURL ??
-                '')
-            .toString();
-
-    final chatData = <String, dynamic>{
-      'sellerId': sellerId,
-      'customerId': customerId,
-      'participantIds': [sellerId, customerId],
-      'conversationType': 'shop',
-      'shopName': shopName,
-      'customerName': customerName,
-      'customerImageUrl': customerImage,
+  }) {
+    return _ensure('shop', sellerId, shopName, {
       if (productId?.isNotEmpty == true) 'productId': productId,
       if (productName?.isNotEmpty == true) 'productName': productName,
       if (productImageUrl?.isNotEmpty == true)
         'productImageUrl': productImageUrl,
-      'updatedAt': FieldValue.serverTimestamp(),
-      'createdAt': FieldValue.serverTimestamp(),
-    };
-    if (productPrice != null) {
-      chatData['productPrice'] = productPrice;
-    }
-
-    await _db
-        .collection('shop_chats')
-        .doc(chatId)
-        .set(chatData, SetOptions(merge: true));
-    return chatId;
+      'productPrice': ?productPrice,
+    });
   }
 
   Future<String> ensureDesignerConversation({
     required String designerId,
     required String customerId,
     required String designerName,
-  }) async {
-    final chatId = designerConversationId(
-      designerId: designerId,
-      customerId: customerId,
-    );
-    final customer = await _db.collection('users').doc(customerId).get();
-    final customerData = customer.data() ?? const <String, dynamic>{};
-    final customerName =
-        (customerData['displayName'] ??
-                _auth.currentUser?.displayName ??
-                _auth.currentUser?.email?.split('@').first ??
-                'Customer')
-            .toString();
-    final customerImage =
-        (customerData['profileImageURL'] ??
-                customerData['profileImageUrl'] ??
-                _auth.currentUser?.photoURL ??
-                '')
-            .toString();
-
-    await _db.collection('shop_chats').doc(chatId).set({
-      'sellerId': designerId,
-      'designerId': designerId,
-      'customerId': customerId,
-      'participantIds': [designerId, customerId],
-      'conversationType': 'designer',
-      'designerName': designerName,
-      'shopName': designerName,
-      'customerName': customerName,
-      'customerImageUrl': customerImage,
-      'updatedAt': FieldValue.serverTimestamp(),
-      'createdAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
-    return chatId;
-  }
-
-  String salonConversationId({
-    required String salonId,
-    required String customerId,
-  }) {
-    return 'salon_${salonId}_$customerId';
-  }
+  }) => _ensure('designer', designerId, designerName);
 
   /// A conversation with a hair salon (a verified hair agent). The salon sits
-  /// in the seller slot, so the inbox, rules and unread counters work as-is.
+  /// in the seller slot, so the inbox and unread counters work as-is.
   Future<String> ensureSalonConversation({
     required String salonId,
     required String customerId,
     required String salonName,
-  }) async {
-    final chatId = salonConversationId(
-      salonId: salonId,
-      customerId: customerId,
-    );
-    final customer = await _db.collection('users').doc(customerId).get();
-    final customerData = customer.data() ?? const <String, dynamic>{};
-    final customerName =
-        (customerData['displayName'] ??
-                _auth.currentUser?.displayName ??
-                _auth.currentUser?.email?.split('@').first ??
-                'Customer')
-            .toString();
-    final customerImage =
-        (customerData['profileImageURL'] ??
-                customerData['profileImageUrl'] ??
-                _auth.currentUser?.photoURL ??
-                '')
-            .toString();
+  }) => _ensure('salon', salonId, salonName);
 
-    await _db.collection('shop_chats').doc(chatId).set({
-      'sellerId': salonId,
-      'customerId': customerId,
-      'participantIds': [salonId, customerId],
-      'conversationType': 'salon',
-      'shopName': salonName,
-      'customerName': customerName,
-      'customerImageUrl': customerImage,
-      'updatedAt': FieldValue.serverTimestamp(),
-      'createdAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
-    return chatId;
+  Future<void> _send(
+    String chatId,
+    String text,
+    String senderType, {
+    Map<String, dynamic> data = const {},
+    Map<String, dynamic> chatContext = const {},
+  }) async {
+    await supabase.rpc(
+      'send_chat_message',
+      params: {
+        'p_chat': chatId,
+        'p_text': text,
+        'p_sender_type': senderType,
+        'p_data': data,
+        'p_chat_context': chatContext,
+      },
+    );
+  }
+
+  Future<String> _senderName() async {
+    final profile = await supabase
+        .from('profiles')
+        .select('display_name')
+        .eq('id', _userId)
+        .maybeSingle();
+    final name = (profile?['display_name'] ?? '').toString();
+    return name.isNotEmpty
+        ? name
+        : (AppAuth.instance.currentUser?.displayName ?? 'Someone');
   }
 
   /// Sends a forwarded look (its picture and caption) into a conversation and
@@ -185,64 +168,22 @@ class ShopChatService {
     required String imageUrl,
     String caption = '',
   }) async {
-    final senderId = _auth.currentUser?.uid ?? '';
-    if (senderId.isEmpty) throw Exception('Sign in to forward looks.');
+    if (_userId.isEmpty) throw Exception('Sign in to forward looks.');
     if (imageUrl.trim().isEmpty) throw Exception('This look has no picture.');
 
-    final chatRef = _db.collection('shop_chats').doc(chatId);
-    final chat = await chatRef.get();
-    final data = chat.data();
-    if (data == null ||
-        !(List<String>.from(data['participantIds'] ?? []).contains(senderId))) {
+    final chat = await getChat(chatId);
+    if (chat == null)
       throw Exception('You do not have access to this conversation.');
-    }
-
-    final sellerId = (data['sellerId'] ?? '').toString();
-    final customerId = (data['customerId'] ?? '').toString();
-    final conversationType = (data['conversationType'] ?? 'shop').toString();
-    final receiverId = senderId == sellerId ? customerId : sellerId;
     final text = caption.trim().isEmpty
         ? 'Forwarded a look'
         : 'Forwarded a look: ${caption.trim()}';
-    final batch = _db.batch();
-    batch.set(chatRef.collection('messages').doc(), {
-      'senderId': senderId,
-      'senderType': 'look_reference',
-      'text': text,
-      'lookImageUrl': imageUrl.trim(),
-      'createdAt': FieldValue.serverTimestamp(),
-    });
-    batch.set(chatRef, {
-      'lastMessage': text,
-      'lastMessageAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-      senderId == sellerId ? 'unreadByCustomer' : 'unreadBySeller':
-          FieldValue.increment(1),
-    }, SetOptions(merge: true));
-    await batch.commit();
-
-    final sender = await _db.collection('users').doc(senderId).get();
-    final senderName =
-        (sender.data()?['displayName'] ??
-                _auth.currentUser?.displayName ??
-                'Someone')
-            .toString();
-    await _notifications.addNotification(
-      receiverId: receiverId,
-      title: 'New Message',
-      body: '$senderName forwarded you a look.',
-      type: conversationType == 'designer'
-          ? 'designer_message'
-          : 'shop_message',
-      extraData: {
-        'fromId': senderId,
-        'fromName': senderName,
-        'conversationType': conversationType,
-        'sellerId': sellerId,
-        'customerId': customerId,
-        'chatId': chatId,
-      },
+    await _send(
+      chatId,
+      text,
+      'look_reference',
+      data: {'lookImageUrl': imageUrl.trim()},
     );
+    await _notifyOtherSide(chat, 'forwarded you a look.');
   }
 
   Future<void> addProductReference({
@@ -253,54 +194,23 @@ class ShopChatService {
     double? productPrice,
   }) async {
     if (productId.trim().isEmpty && productName.trim().isEmpty) return;
+    if (_userId.isEmpty) return;
 
-    final senderId = _auth.currentUser?.uid ?? '';
-    if (senderId.isEmpty) return;
-
-    final chatRef = _db.collection('shop_chats').doc(chatId);
-    final chat = await chatRef.get();
-    final data = chat.data();
-    if (data == null ||
-        !(List<String>.from(data['participantIds'] ?? []).contains(senderId))) {
-      throw Exception('You do not have access to this conversation.');
-    }
-
-    final sellerId = (data['sellerId'] ?? '').toString();
-    final messageRef = chatRef.collection('messages').doc();
     final title = productName.trim().isEmpty ? 'this product' : productName;
-    final batch = _db.batch();
-    final messageData = <String, dynamic>{
-      'senderId': senderId,
-      'senderType': 'product_reference',
-      'text': 'Asked about $title',
+    final details = {
       'productId': productId.trim(),
       'productName': title,
       if (productImageUrl?.isNotEmpty == true)
         'productImageUrl': productImageUrl,
-      'createdAt': FieldValue.serverTimestamp(),
+      'productPrice': ?productPrice,
     };
-    if (productPrice != null) {
-      messageData['productPrice'] = productPrice;
-    }
-
-    final chatUpdate = <String, dynamic>{
-      'productId': productId.trim(),
-      'productName': title,
-      if (productImageUrl?.isNotEmpty == true)
-        'productImageUrl': productImageUrl,
-      'lastMessage': 'Asked about $title',
-      'lastMessageAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-      senderId == sellerId ? 'unreadByCustomer' : 'unreadBySeller':
-          FieldValue.increment(1),
-    };
-    if (productPrice != null) {
-      chatUpdate['productPrice'] = productPrice;
-    }
-
-    batch.set(messageRef, messageData);
-    batch.set(chatRef, chatUpdate, SetOptions(merge: true));
-    await batch.commit();
+    await _send(
+      chatId,
+      'Asked about $title',
+      'product_reference',
+      data: details,
+      chatContext: details,
+    );
   }
 
   Future<void> addDesignRequestReference({
@@ -312,98 +222,58 @@ class ShopChatService {
     String? status,
   }) async {
     if (requestId.trim().isEmpty) return;
+    if (_userId.isEmpty) return;
 
-    final senderId = _auth.currentUser?.uid ?? '';
-    if (senderId.isEmpty) return;
-
-    final chatRef = _db.collection('shop_chats').doc(chatId);
-    final chat = await chatRef.get();
-    final data = chat.data();
-    if (data == null ||
-        !(List<String>.from(data['participantIds'] ?? []).contains(senderId))) {
-      throw Exception('You do not have access to this conversation.');
-    }
-
-    final sellerId = (data['sellerId'] ?? '').toString();
     final title = occasion.trim().isEmpty ? 'Custom design' : occasion.trim();
-    final batch = _db.batch();
-    final messageRef = chatRef.collection('messages').doc();
-    batch.set(messageRef, {
-      'senderId': senderId,
-      'senderType': 'design_request_reference',
-      'text': 'Asked about $title',
-      'requestId': requestId.trim(),
-      'occasion': title,
-      if (budget?.trim().isNotEmpty == true) 'budget': budget!.trim(),
-      if (deadline?.trim().isNotEmpty == true) 'deadline': deadline!.trim(),
-      if (status?.trim().isNotEmpty == true) 'status': status!.trim(),
-      'createdAt': FieldValue.serverTimestamp(),
-    });
-    batch.set(chatRef, {
-      'requestId': requestId.trim(),
-      'requestOccasion': title,
-      'lastMessage': 'Asked about $title',
-      'lastMessageAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-      senderId == sellerId ? 'unreadByCustomer' : 'unreadBySeller':
-          FieldValue.increment(1),
-    }, SetOptions(merge: true));
-    await batch.commit();
+    await _send(
+      chatId,
+      'Asked about $title',
+      'design_request_reference',
+      data: {
+        'requestId': requestId.trim(),
+        'occasion': title,
+        if (budget?.trim().isNotEmpty == true) 'budget': budget!.trim(),
+        if (deadline?.trim().isNotEmpty == true) 'deadline': deadline!.trim(),
+        if (status?.trim().isNotEmpty == true) 'status': status!.trim(),
+      },
+      chatContext: {'requestId': requestId.trim(), 'requestOccasion': title},
+    );
   }
 
   Future<void> sendMessage({
     required String chatId,
     required String text,
   }) async {
-    final senderId = _auth.currentUser?.uid ?? '';
-    if (senderId.isEmpty || text.trim().isEmpty) return;
+    if (_userId.isEmpty || text.trim().isEmpty) return;
 
-    final chatRef = _db.collection('shop_chats').doc(chatId);
-    final chat = await chatRef.get();
-    final data = chat.data();
-    if (data == null ||
-        !(List<String>.from(data['participantIds'] ?? []).contains(senderId))) {
+    final chat = await getChat(chatId);
+    if (chat == null)
       throw Exception('You do not have access to this conversation.');
-    }
+    await _send(chatId, text.trim(), 'text');
+    await _notifyOtherSide(chat, 'sent you a message.');
+  }
 
-    final sellerId = (data['sellerId'] ?? '').toString();
-    final customerId = (data['customerId'] ?? '').toString();
-    final conversationType = (data['conversationType'] ?? 'shop').toString();
-    final shopName = (data['shopName'] ?? 'Boutique').toString();
-    final designerName = (data['designerName'] ?? shopName).toString();
-    final receiverId = senderId == sellerId ? customerId : sellerId;
-    final messageRef = chatRef.collection('messages').doc();
-    final batch = _db.batch();
-    batch.set(messageRef, {
-      'senderId': senderId,
-      'text': text.trim(),
-      'createdAt': FieldValue.serverTimestamp(),
-    });
-    batch.update(chatRef, {
-      'lastMessage': text.trim(),
-      'lastMessageAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-      senderId == sellerId ? 'unreadByCustomer' : 'unreadBySeller':
-          FieldValue.increment(1),
-    });
-    await batch.commit();
-
-    final sender = await _db.collection('users').doc(senderId).get();
-    final senderName =
-        (sender.data()?['displayName'] ??
-                _auth.currentUser?.displayName ??
-                'Someone')
-            .toString();
+  Future<void> _notifyOtherSide(
+    Map<String, dynamic> chat,
+    String action,
+  ) async {
+    final sellerId = (chat['sellerId'] ?? '').toString();
+    final customerId = (chat['customerId'] ?? '').toString();
+    final conversationType = (chat['conversationType'] ?? 'shop').toString();
+    final shopName = (chat['shopName'] ?? 'Boutique').toString();
+    final designerName = (chat['designerName'] ?? shopName).toString();
+    final receiverId = _userId == sellerId ? customerId : sellerId;
+    final senderName = await _senderName();
     await _notifications.addNotification(
       receiverId: receiverId,
       title: 'New Message',
-      body: '$senderName sent you a message.',
+      body: '$senderName $action',
       type: conversationType == 'designer'
           ? 'designer_message'
           : 'shop_message',
       extraData: {
-        'fromId': senderId,
-        'fromName': senderId == sellerId
+        'fromId': _userId,
+        'fromName': _userId == sellerId
             ? (conversationType == 'designer' ? designerName : shopName)
             : senderName,
         'conversationType': conversationType,
@@ -412,7 +282,7 @@ class ShopChatService {
         'sellerId': sellerId,
         if (conversationType == 'designer') 'designerId': sellerId,
         'customerId': customerId,
-        'chatId': chatId,
+        'chatId': chat['id'],
       },
     );
   }
@@ -425,39 +295,25 @@ class ShopChatService {
     String? orderId,
   }) async {
     if (text.trim().isEmpty) return;
-
-    final chatRef = _db.collection('shop_chats').doc(chatId);
-    final messageRef = chatRef.collection('messages').doc();
-    final update = <String, dynamic>{
-      'lastMessage': text.trim(),
-      'lastMessageAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-    };
-    if (unreadForSeller) {
-      update['unreadBySeller'] = FieldValue.increment(1);
-    }
-    if (unreadForCustomer) {
-      update['unreadByCustomer'] = FieldValue.increment(1);
-    }
-
-    final batch = _db.batch();
-    batch.set(messageRef, {
-      'senderId': 'system',
-      'senderType': 'system',
-      'text': text.trim(),
-      if (orderId?.isNotEmpty == true) 'orderId': orderId,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
-    batch.set(chatRef, update, SetOptions(merge: true));
-    await batch.commit();
+    await supabase.rpc(
+      'post_system_message',
+      params: {
+        'p_chat': chatId,
+        'p_text': text.trim(),
+        'p_order': orderId?.isNotEmpty == true ? orderId : null,
+        'p_unread_seller': unreadForSeller,
+        'p_unread_customer': unreadForCustomer,
+      },
+    );
   }
 
   Future<void> markRead({
     required String chatId,
     required bool asSeller,
   }) async {
-    await _db.collection('shop_chats').doc(chatId).set({
-      asSeller ? 'unreadBySeller' : 'unreadByCustomer': 0,
-    }, SetOptions(merge: true));
+    await supabase.rpc(
+      'mark_chat_read',
+      params: {'p_chat': chatId, 'p_as_seller': asSeller},
+    );
   }
 }

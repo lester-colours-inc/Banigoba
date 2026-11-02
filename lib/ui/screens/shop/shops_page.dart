@@ -5,7 +5,8 @@
 // in the public marketplace.
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import '../../../core/supabase/app_auth.dart';
+import '../../../data/services/profile_service.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/app_routes.dart';
@@ -114,7 +115,7 @@ class _ShopsPageState extends State<ShopsPage> {
           ),
           const SizedBox(height: 14),
           Expanded(
-            child: StreamBuilder<QuerySnapshot>(
+            child: StreamBuilder<List<Map<String, dynamic>>>(
               stream: _productService.getProducts(),
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
@@ -123,14 +124,7 @@ class _ShopsPageState extends State<ShopsPage> {
                 if (!snapshot.hasData) {
                   return const Center(child: CircularProgressIndicator());
                 }
-                final products = snapshot.data!.docs
-                    .map((doc) {
-                      final data = Map<String, dynamic>.from(
-                        doc.data() as Map<String, dynamic>,
-                      );
-                      data['id'] = doc.id;
-                      return data;
-                    })
+                final products = snapshot.data!
                     .where((product) => productMatchesQuery(product, _query))
                     .toList();
 
@@ -213,9 +207,7 @@ class _ShopsPageState extends State<ShopsPage> {
                         'Boutique')
                     .toString();
             final description = (shop['description'] ?? '').toString();
-            final imageUrl =
-                (user['profileImageURL'] ?? user['profileImageUrl'] ?? '')
-                    .toString();
+            final imageUrl = (user['profileImageUrl'] ?? '').toString();
 
             return Card(
               clipBehavior: Clip.antiAlias,
@@ -298,11 +290,8 @@ class _ShopsPageState extends State<ShopsPage> {
     // against the seller user documents before rendering public listings.
     final entries = await Future.wait(
       sellerIds.map((sellerId) async {
-        final doc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(sellerId)
-            .get();
-        return MapEntry(sellerId, doc.data() ?? const <String, dynamic>{});
+        final profile = await ProfileService().get(sellerId);
+        return MapEntry(sellerId, profile);
       }),
     );
     return Map<String, Map<String, dynamic>>.fromEntries(entries);
@@ -436,7 +425,7 @@ class BoutiqueDetailPage extends StatelessWidget {
   }
 
   Future<void> _messageBoutique(BuildContext context) async {
-    final customer = FirebaseAuth.instance.currentUser;
+    final customer = AppAuth.instance.currentUser;
     if (customer == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Sign in to send messages.')),

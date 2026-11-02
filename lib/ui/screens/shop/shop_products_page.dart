@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../data/services/product_service.dart';
 import 'package:flutter/material.dart';
 
 import '../../widgets/safe_product_image.dart';
@@ -18,11 +18,8 @@ class ShopProductsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(shopName.isEmpty ? 'Boutique' : shopName)),
-      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-        stream: FirebaseFirestore.instance
-            .collection('products')
-            .where('uploaderId', isEqualTo: sellerId)
-            .snapshots(),
+      body: StreamBuilder<List<Map<String, dynamic>>>(
+        stream: ProductService().getAdminProducts(sellerId),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
             return const Center(child: Text('Unable to load products.'));
@@ -30,7 +27,7 @@ class ShopProductsPage extends StatelessWidget {
           if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
           }
-          final products = snapshot.data!.docs;
+          final products = snapshot.data!;
           if (products.isEmpty) {
             return const Center(child: Text('No products listed yet.'));
           }
@@ -45,15 +42,14 @@ class ShopProductsPage extends StatelessWidget {
             ),
             itemCount: products.length,
             itemBuilder: (context, index) {
-              final doc = products[index];
-              final product = doc.data();
+              final product = products[index];
               return _ShopProductTile(
                 product: product,
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute<void>(
                     builder: (_) => ProductDetailPage(
-                      productId: doc.id,
+                      productId: product['id'].toString(),
                       productData: product,
                     ),
                   ),

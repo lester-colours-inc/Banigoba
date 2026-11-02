@@ -1,6 +1,7 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+
+import '../../../core/supabase/app_auth.dart';
+import '../../../data/supabase/rows.dart';
 
 import '../../../data/models/delivery.dart';
 import '../../../data/services/order_service.dart';
@@ -13,7 +14,7 @@ class SellerOrdersPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final sellerId = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final sellerId = AppAuth.instance.currentUser?.uid ?? '';
     final orderService = OrderService();
     return Scaffold(
       appBar: AppBar(
@@ -23,7 +24,7 @@ class SellerOrdersPage extends StatelessWidget {
       ),
       body: sellerId.isEmpty
           ? const Center(child: Text('Sign in to view orders.'))
-          : StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+          : StreamBuilder<List<Map<String, dynamic>>>(
               stream: orderService.watchSellerOrders(sellerId),
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
@@ -32,10 +33,10 @@ class SellerOrdersPage extends StatelessWidget {
                 if (!snapshot.hasData) {
                   return const Center(child: CircularProgressIndicator());
                 }
-                final orders = snapshot.data!.docs.toList()
+                final orders = snapshot.data!.toList()
                   ..sort((a, b) {
-                    final aTime = a.data()['createdAt'] as Timestamp?;
-                    final bTime = b.data()['createdAt'] as Timestamp?;
+                    final aTime = asDateTime(a['createdAt']);
+                    final bTime = asDateTime(b['createdAt']);
                     return (bTime?.millisecondsSinceEpoch ?? 0).compareTo(
                       aTime?.millisecondsSinceEpoch ?? 0,
                     );
@@ -49,10 +50,10 @@ class SellerOrdersPage extends StatelessWidget {
                   itemCount: orders.length,
                   separatorBuilder: (_, _) => const SizedBox(height: 12),
                   itemBuilder: (context, index) {
-                    final doc = orders[index];
+                    final order = orders[index];
                     return _OrderCard(
-                      orderId: doc.id,
-                      order: doc.data(),
+                      orderId: order['id'].toString(),
+                      order: order,
                       orderService: orderService,
                     );
                   },

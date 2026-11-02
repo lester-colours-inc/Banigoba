@@ -1,9 +1,11 @@
 // Manages the signed-in user's wardrobe, uploads, filters, and product actions.
 import 'dart:io';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
+import '../../../core/supabase/app_auth.dart';
+import '../../../data/services/profile_service.dart';
+import '../../../data/supabase/rows.dart';
 import '../../../core/app_routes.dart';
 import '../../../data/models/body_profile.dart';
 import '../../../data/models/piece_details.dart';
@@ -35,7 +37,7 @@ class WardrobePage extends StatefulWidget {
 
 class _WardrobePageState extends State<WardrobePage> {
   final ProductService _productService = ProductService();
-  final String _currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
+  final String _currentUserId = AppAuth.instance.currentUser?.uid ?? '';
   late int _selectedTabIndex = widget.initialTab.index;
   final ImagePicker _picker = ImagePicker();
   static Color primaryColor = Color(0xFF0D0140);
@@ -260,10 +262,10 @@ class _WardrobePageState extends State<WardrobePage> {
   }
 
   /// Shared helper to build a scrollable list of products grouped by category
-  Widget _buildGroupedProductList(List<QueryDocumentSnapshot> items) {
-    final Map<String, List<QueryDocumentSnapshot>> groupedItems = {};
+  Widget _buildGroupedProductList(List<Map<String, dynamic>> items) {
+    final Map<String, List<Map<String, dynamic>>> groupedItems = {};
     for (var item in items) {
-      final data = item.data() as Map<String, dynamic>;
+      final data = item;
       final category = (data['category']?.toString() ?? 'Other').toLowerCase();
       if (!groupedItems.containsKey(category)) groupedItems[category] = [];
       groupedItems[category]!.add(item);
@@ -303,11 +305,9 @@ class _WardrobePageState extends State<WardrobePage> {
               ),
               itemCount: categoryItems.length,
               itemBuilder: (context, index) {
-                final data = Map<String, dynamic>.from(
-                  categoryItems[index].data() as Map<String, dynamic>,
+                return _buildWardrobeCard(
+                  Map<String, dynamic>.from(categoryItems[index]),
                 );
-                data['id'] = categoryItems[index].id;
-                return _buildWardrobeCard(data);
               },
             ),
           ],
@@ -318,23 +318,21 @@ class _WardrobePageState extends State<WardrobePage> {
 
   /// Tab showing user's own items (uploaded and saved)
   Widget _buildMineTab() {
-    return StreamBuilder<QuerySnapshot>(
+    return StreamBuilder<List<Map<String, dynamic>>>(
       stream: _productService.getUserProducts(_currentUserId),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting)
           return Center(child: CircularProgressIndicator());
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
           return Center(
             child: Text("Your wardrobe is empty. Upload some items!"),
           );
         }
 
-        final items = List<QueryDocumentSnapshot>.from(snapshot.data!.docs);
+        final items = List<Map<String, dynamic>>.from(snapshot.data!);
         items.sort((a, b) {
-          final aTime =
-              (a.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
-          final bTime =
-              (b.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
+          final aTime = asDateTime(a['createdAt']);
+          final bTime = asDateTime(b['createdAt']);
           if (aTime == null) return -1;
           if (bTime == null) return 1;
           return bTime.compareTo(aTime);
@@ -418,16 +416,12 @@ class _WardrobePageState extends State<WardrobePage> {
                   SizedBox(height: 2),
                   // Display original poster name if not admin
                   if (posterId != null)
-                    StreamBuilder<DocumentSnapshot>(
-                      stream: FirebaseFirestore.instance
-                          .collection('users')
-                          .doc(posterId)
-                          .snapshots(),
+                    StreamBuilder<Map<String, dynamic>>(
+                      stream: ProfileService().watch(posterId),
                       builder: (context, snapshot) {
-                        if (!snapshot.hasData || !snapshot.data!.exists)
+                        if (!snapshot.hasData || snapshot.data!.isEmpty)
                           return SizedBox.shrink();
-                        final userData =
-                            snapshot.data!.data() as Map<String, dynamic>;
+                        final userData = snapshot.data!;
 
                         // Check if user is admin
                         final bool isAdmin =
@@ -510,7 +504,7 @@ class _WardrobePageState extends State<WardrobePage> {
       messenger.showSnackBar(
         const SnackBar(content: Text('Noted: worn today.')),
       );
-    } on FirebaseException catch (error) {
+    } on PostgrestException catch (error) {
       messenger.showSnackBar(
         SnackBar(content: Text('Could not save that: ${error.message}')),
       );
@@ -981,7 +975,7 @@ class _WardrobePageState extends State<WardrobePage> {
                           'API returned empty processed image URL',
                         );
 
-                      // Save record to Firestore
+                      // Save the piece to the wardrobe
                       await _productService.uploadUserProduct(
                         userId: _currentUserId,
                         name: nameController.text,

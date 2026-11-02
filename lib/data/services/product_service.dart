@@ -1,18 +1,82 @@
 // Coordinates catalog and wardrobe product storage, queries, updates, and uploads.
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+//
+// Shop pieces live in `products` (open to read, written by the shop that owns
+// them); a person's own pieces and saved catalogue pieces live in
+// `user_products`, private unless marked public. Screens read both as plain
+// maps with an `id` and camelCase fields.
+import 'dart:convert';
 import 'dart:io';
-import 'notification_service.dart';
+
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import 'dart:convert';
-import '../models/piece_details.dart';
 
-/// Service handling all product-related operations with Firestore and Storage.
+import '../../core/supabase/app_auth.dart';
+import '../../core/supabase/supabase_config.dart';
+import '../models/piece_details.dart';
+import '../supabase/rows.dart';
+import '../supabase/storage_files.dart';
+import 'notification_service.dart';
+
+/// Columns of `products` that fields map onto; anything else is kept in the
+/// row's free-form `data`.
+const Set<String> _productColumns = {
+  'name',
+  'description',
+  'category',
+  'subcategory',
+  'price',
+  'stock',
+  'size_inventory',
+  'colours',
+  'gender',
+  'image_url',
+  'raw_image_url',
+  'extra_image_urls',
+  'style_tag',
+  'weather_tags',
+  'functional_tags',
+  'user_id',
+};
+
+/// Columns of `user_products`.
+const Set<String> _userProductColumns = {
+  'user_id',
+  'name',
+  'category',
+  'subcategory',
+  'style_tag',
+  'colours',
+  'gender',
+  'size',
+  'weather_tags',
+  'functional_tags',
+  'image_url',
+  'raw_image_url',
+  'visibility',
+};
+
+const Map<String, String> _imageAliases = {
+  'imageURL': 'image_url',
+  'imageUrl': 'image_url',
+  'rawImageUrl': 'raw_image_url',
+  'uploaderId': 'user_id',
+  'userId': 'user_id',
+};
+
+/// A `products` or `user_products` row as the screens read it.
+Map<String, dynamic> productMap(Map<String, dynamic> row) {
+  final flat = flattenRow(row);
+  return {
+    ...flat,
+    'id': row['id'].toString(),
+    'uploaderId': row['user_id']?.toString(),
+    'userId': row['user_id']?.toString(),
+    'imageURL': flat['imageUrl'],
+  };
+}
+
+/// Service handling all product-related operations.
 class ProductService {
-  final _db = FirebaseFirestore.instance;
-  final _storage = FirebaseStorage.instance;
   final _notificationService = NotificationService();
 
   static const String _bgRemoverUrl =
@@ -84,32 +148,24 @@ class ProductService {
     }
   }
 
-  /// Copies raw and processed images into productImages/ in Firebase Storage.
+  /// Copies raw and processed images into the product-images bucket.
   Future<Map<String, String>> _storeProductImages({
     required File sourceImage,
     required String processedImageUrl,
     String? customFilename,
   }) async {
-    final userId = FirebaseAuth.instance.currentUser?.uid;
+    final userId = AppAuth.instance.currentUser?.uid;
     if (userId == null || userId.isEmpty) {
       throw Exception('You must be signed in to upload product images');
     }
 
-    final uploadId = DateTime.now().millisecondsSinceEpoch.toString();
     final safeName = _safeStorageName(customFilename);
-    final productDirectory = _storage
-        .ref()
-        .child('productImages')
-        .child(userId)
-        .child(uploadId);
+    final directory = '$userId/${DateTime.now().millisecondsSinceEpoch}';
 
-    final rawRef = productDirectory.child('${safeName}_raw.jpg');
-    await rawRef.putData(
-      await sourceImage.readAsBytes(),
-      SettableMetadata(
-        contentType: 'image/jpeg',
-        customMetadata: {'imageType': 'raw'},
-      ),
+    final rawUrl = await StorageFiles.upload(
+      bucket: Buckets.productImages,
+      path: '$directory/${safeName}_raw.jpg',
+      bytes: await sourceImage.readAsBytes(),
     );
 
     final processedResponse = await http.get(Uri.parse(processedImageUrl));
@@ -126,26 +182,15 @@ class ProductService {
     final processedExtension = processedContentType.contains('jpeg')
         ? 'jpg'
         : 'png';
-    final processedRef = productDirectory.child(
-      '${safeName}_processed.$processedExtension',
+    final processedUrlStored = await StorageFiles.upload(
+      bucket: Buckets.productImages,
+      path: '$directory/${safeName}_processed.$processedExtension',
+      bytes: processedResponse.bodyBytes,
+      contentType: processedContentType,
     );
-    await processedRef.putData(
-      processedResponse.bodyBytes,
-      SettableMetadata(
-        contentType: processedContentType,
-        customMetadata: {'imageType': 'processed'},
-      ),
-    );
+    debugPrint('Product images stored: $directory');
 
-    final urls = await Future.wait([
-      rawRef.getDownloadURL(),
-      processedRef.getDownloadURL(),
-    ]);
-    debugPrint(
-      'Product images stored in Firebase Storage: ${productDirectory.fullPath}',
-    );
-
-    return {'raw_url': urls[0], 'processed_url': urls[1]};
+    return {'raw_url': rawUrl, 'processed_url': processedUrlStored};
   }
 
   String _safeStorageName(String? value) {
@@ -158,37 +203,35 @@ class ProductService {
     return normalized.isEmpty ? 'product' : normalized;
   }
 
-  /// Get stream of all products in the main collection
-  Stream<QuerySnapshot> getProducts() {
-    return _db.collection('products').snapshots();
+  /// Every shop piece, live.
+  Stream<List<Map<String, dynamic>>> getProducts() {
+    return supabase
+        .from('products')
+        .stream(primaryKey: ['id'])
+        .map((rows) => [for (final row in rows) productMap(row)]);
   }
 
   Future<List<Map<String, dynamic>>> getCatalogProducts() async {
-    return _loadTryOnCollection(_db.collection('products'), 'catalog');
+    final rows = await supabase.from('products').select();
+    return _forTryOn(rows, 'catalog');
   }
 
+  /// The signed-in user's own wardrobe pieces.
   Future<List<Map<String, dynamic>>> getWardrobeProducts(String userId) async {
-    return _loadTryOnCollection(
-      _db.collection('users').doc(userId).collection('wardrobe'),
-      'wardrobe',
-    );
+    final rows = await supabase
+        .from('user_products')
+        .select()
+        .eq('user_id', userId);
+    return _forTryOn(rows, 'wardrobe');
   }
 
-  Future<List<Map<String, dynamic>>> _loadTryOnCollection(
-    Query<Map<String, dynamic>> query,
+  List<Map<String, dynamic>> _forTryOn(
+    List<Map<String, dynamic>> rows,
     String source,
-  ) async {
-    final snapshot = await query.get();
-    return snapshot.docs
-        .map(
-          (doc) => <String, dynamic>{
-            ...doc.data(),
-            'id': doc.id,
-            'tryOnSource': source,
-          },
-        )
-        .where((product) => _tryOnImageUrl(product).isNotEmpty)
-        .toList();
+  ) {
+    return [
+      for (final row in rows) {...productMap(row), 'tryOnSource': source},
+    ].where((product) => _tryOnImageUrl(product).isNotEmpty).toList();
   }
 
   /// Load products that can be selected for avatar try-on.
@@ -196,19 +239,15 @@ class ProductService {
   /// Catalog products and the user's wardrobe are queried independently so a
   /// permission or connectivity failure in one source does not empty the picker.
   Future<List<Map<String, dynamic>>> getTryOnProducts(String userId) async {
-    Future<List<Map<String, dynamic>>> loadCollection(
-      Query<Map<String, dynamic>> query,
+    Future<List<Map<String, dynamic>>> load(
+      Future<List<Map<String, dynamic>>> query,
       String source,
     ) async {
       try {
-        final snapshot = await query.get();
-        return snapshot.docs.map((doc) {
-          return <String, dynamic>{
-            ...doc.data(),
-            'id': doc.id,
-            'tryOnSource': source,
-          };
-        }).toList();
+        final rows = await query;
+        return [
+          for (final row in rows) {...productMap(row), 'tryOnSource': source},
+        ];
       } catch (error) {
         debugPrint('Unable to load $source products for try-on: $error');
         return <Map<String, dynamic>>[];
@@ -216,19 +255,13 @@ class ProductService {
     }
 
     final results = await Future.wait([
-      loadCollection(_db.collection('products'), 'catalog'),
-      loadCollection(
-        _db.collection('users').doc(userId).collection('wardrobe'),
+      load(supabase.from('products').select(), 'catalog'),
+      load(
+        supabase.from('user_products').select().eq('user_id', userId),
         'wardrobe',
       ),
-      loadCollection(
-        _db.collection('user_products').where('userId', isEqualTo: userId),
-        'uploads',
-      ),
-      loadCollection(
-        _db
-            .collection('user_products')
-            .where('visibility', isEqualTo: 'public'),
+      load(
+        supabase.from('user_products').select().eq('visibility', 'public'),
         'community',
       ),
     ]);
@@ -270,34 +303,30 @@ class ProductService {
   }
 
   /// Get products filtered by weather tags
-  Stream<QuerySnapshot> getRecommendedProducts(List<String> tags) {
+  Stream<List<Map<String, dynamic>>> getRecommendedProducts(List<String> tags) {
     if (tags.isEmpty) return getProducts();
-    // Firestore 'array-contains-any' can match any of the provided tags
-    return _db
-        .collection('products')
-        .where('weatherTags', arrayContainsAny: tags)
-        .snapshots();
+    return getProducts().map(
+      (products) => [
+        for (final product in products)
+          if ((product['weatherTags'] as List? ?? const []).any(
+            (tag) => tags.contains(tag),
+          ))
+            product,
+      ],
+    );
   }
 
   /// Get product recommendations that match weather first, then user style.
-  Stream<List<QueryDocumentSnapshot<Map<String, dynamic>>>>
-  getRecommendedProductDocs({
+  Stream<List<Map<String, dynamic>>> getRecommendedProductDocs({
     List<String> weatherTags = const [],
     String? stylePreference,
   }) {
-    Query<Map<String, dynamic>> query = _db.collection('products');
-    if (weatherTags.isNotEmpty) {
-      query = query.where('weatherTags', arrayContainsAny: weatherTags);
-    }
-
     final normalizedStyle = (stylePreference ?? '').toLowerCase().trim();
-    return query.snapshots().map((snapshot) {
+    return getRecommendedProducts(weatherTags).map((products) {
       if (normalizedStyle.isEmpty || normalizedStyle == 'all') {
-        return snapshot.docs;
+        return products;
       }
-
-      return snapshot.docs.where((doc) {
-        final data = doc.data();
+      return products.where((data) {
         final productStyle = (data['styleTag'] ?? data['style'] ?? 'casual')
             .toString()
             .toLowerCase()
@@ -308,43 +337,77 @@ class ProductService {
   }
 
   /// Get stream of products added by a specific admin
-  Stream<QuerySnapshot> getAdminProducts(String adminId) {
-    return _db
-        .collection('products')
-        .where('uploaderId', isEqualTo: adminId)
-        .snapshots();
+  Stream<List<Map<String, dynamic>>> getAdminProducts(String adminId) {
+    return supabase
+        .from('products')
+        .stream(primaryKey: ['id'])
+        .eq('user_id', adminId)
+        .map((rows) => [for (final row in rows) productMap(row)]);
   }
 
   /// Add a new product to the main products collection
   Future<void> addProduct(Map<String, dynamic> product) async {
-    await _db.collection('products').add(product);
+    final userId = AppAuth.instance.currentUser?.uid;
+    final row = toStoredRow(
+      {'userId': userId, ...product},
+      columns: _productColumns,
+      aliases: _imageAliases,
+    );
+    await supabase.from('products').insert(row);
   }
 
-  /// Update an existing catalog product
+  /// Update an existing catalog product. A field set to [kRemoveField] is
+  /// cleared.
   Future<void> updateCatalogProduct(
     String productId,
     Map<String, dynamic> updatedData,
   ) async {
-    await _db.collection('products').doc(productId).update(updatedData);
+    final removed = {
+      for (final entry in updatedData.entries)
+        if (identical(entry.value, kRemoveField)) entry.key,
+    };
+    final row = toStoredRow(
+      {
+        for (final entry in updatedData.entries)
+          if (!removed.contains(entry.key)) entry.key: entry.value,
+      },
+      columns: _productColumns,
+      aliases: _imageAliases,
+    )..remove('user_id');
+    if (removed.contains('sizeInventory')) row['size_inventory'] = {};
+    final extra = row.remove('data');
+    final dropped = removed.difference({'sizeInventory'});
+    if ((extra is Map && extra.isNotEmpty) || dropped.isNotEmpty) {
+      final current = await supabase
+          .from('products')
+          .select('data')
+          .eq('id', productId)
+          .maybeSingle();
+      final merged = {
+        ...Map<String, dynamic>.from(current?['data'] as Map? ?? {}),
+        if (extra is Map) ...Map<String, dynamic>.from(extra),
+      }..removeWhere((key, _) => dropped.contains(key));
+      row['data'] = merged;
+    }
+    if (row.isEmpty) return;
+    await supabase.from('products').update(row).eq('id', productId);
   }
 
   /// Delete a product from the main products collection
   Future<void> deleteProduct(String productId) async {
-    await _db.collection('products').doc(productId).delete();
+    await supabase.from('products').delete().eq('id', productId);
   }
 
-  /// Upload a user product image to Firebase Storage
-  Future<String> uploadProductImage(String userId, File image) async {
-    final ref = _storage
-        .ref()
-        .child('user_products')
-        .child(userId)
-        .child('${DateTime.now().millisecondsSinceEpoch}.jpg');
-    await ref.putFile(image);
-    return await ref.getDownloadURL();
+  /// Upload a user product image
+  Future<String> uploadProductImage(String userId, File image) {
+    return StorageFiles.upload(
+      bucket: Buckets.userImages,
+      path: '$userId/user_products/${randomFileName()}',
+      bytes: image.readAsBytesSync(),
+    );
   }
 
-  /// Upload a seller catalog product image directly to Firebase Storage.
+  /// Upload a seller catalog product image.
   Future<String> uploadCatalogProductImage({
     required String userId,
     required File image,
@@ -354,49 +417,20 @@ class ProductService {
       throw Exception('You must be signed in to upload product images');
     }
 
-    final uploadId = DateTime.now().millisecondsSinceEpoch.toString();
     final safeName = _safeStorageName(customFilename);
-    final ref = _storage
-        .ref()
-        .child('productImages')
-        .child(userId)
-        .child('${uploadId}_$safeName.jpg');
-
-    debugPrint(
-      '[ProductUpload] Starting catalog image upload: '
-      'userId=$userId, path=${ref.fullPath}, file=${image.path}',
-    );
+    final path =
+        '$userId/${DateTime.now().millisecondsSinceEpoch}_$safeName.jpg';
+    debugPrint('[ProductUpload] Starting catalog image upload: $path');
 
     try {
       final bytes = await image.readAsBytes();
-      debugPrint('[ProductUpload] Read image bytes: ${bytes.length}');
-
-      final snapshot = await ref.putData(
-        bytes,
-        SettableMetadata(
-          contentType: 'image/jpeg',
-          customMetadata: {'imageType': 'catalog'},
-        ),
+      final url = await StorageFiles.upload(
+        bucket: Buckets.productImages,
+        path: path,
+        bytes: bytes,
       );
-      debugPrint(
-        '[ProductUpload] Storage upload complete: '
-        'state=${snapshot.state}, bytesTransferred=${snapshot.bytesTransferred}, '
-        'totalBytes=${snapshot.totalBytes}',
-      );
-
-      final downloadUrl = await ref.getDownloadURL();
-      debugPrint(
-        '[ProductUpload] Download URL created: '
-        '${downloadUrl.split('?').first}',
-      );
-      return downloadUrl;
-    } on FirebaseException catch (error, stackTrace) {
-      debugPrint(
-        '[ProductUpload] Firebase Storage upload failed: '
-        'code=${error.code}, message=${error.message}, path=${ref.fullPath}',
-      );
-      debugPrintStack(stackTrace: stackTrace);
-      rethrow;
+      debugPrint('[ProductUpload] Uploaded ${bytes.length} bytes');
+      return url;
     } catch (error, stackTrace) {
       debugPrint('[ProductUpload] Catalog image upload failed: $error');
       debugPrintStack(stackTrace: stackTrace);
@@ -404,7 +438,8 @@ class ProductService {
     }
   }
 
-  /// Upload a user's own product to Firestore and their personal wardrobe
+  /// Upload a user's own product to their wardrobe (and the community list
+  /// when it is public).
   Future<void> uploadUserProduct({
     required String userId,
     required String name,
@@ -444,51 +479,60 @@ class ProductService {
       'functionalTags': functionalTags ?? [],
       if (size.trim().isNotEmpty) 'size': size.trim(),
       ...details.toMap(),
-      'createdAt': FieldValue.serverTimestamp(),
       'visibility': visibility,
     };
 
-    // Save to community list and user's private wardrobe tracker
-    final docRef = await _db.collection('user_products').add(data);
+    await supabase
+        .from('user_products')
+        .insert(
+          toStoredRow(
+            data,
+            columns: _userProductColumns,
+            aliases: _imageAliases,
+          ),
+        );
     if (visibility == 'public') {
       await _notificationService.notifyFollowersNewPost(name);
     }
-    await _db
-        .collection('users')
-        .doc(userId)
-        .collection('wardrobe')
-        .doc(docRef.id)
-        .set(data);
   }
 
   /// Get stream of items uploaded by a specific user
-  Stream<QuerySnapshot> getUserProducts(String userId) {
-    return _db
-        .collection('user_products')
-        .where('userId', isEqualTo: userId)
-        .snapshots();
+  Stream<List<Map<String, dynamic>>> getUserProducts(String userId) {
+    return supabase
+        .from('user_products')
+        .stream(primaryKey: ['id'])
+        .eq('user_id', userId)
+        .map((rows) => [for (final row in rows) productMap(row)]);
   }
 
   /// Records that the owner wore this wardrobe item today (W-7).
-  Future<void> markUserProductWorn(String userProductId) {
-    return _db.collection('user_products').doc(userProductId).update({
-      'lastWornAt': FieldValue.serverTimestamp(),
-      'wearCount': FieldValue.increment(1),
-    });
+  Future<void> markUserProductWorn(String userProductId) async {
+    final row = await supabase
+        .from('user_products')
+        .select('data')
+        .eq('id', userProductId)
+        .maybeSingle();
+    final data = Map<String, dynamic>.from(row?['data'] as Map? ?? {});
+    final count = (data['wearCount'] as num?)?.toInt() ?? 0;
+    await supabase
+        .from('user_products')
+        .update({
+          'data': {
+            ...data,
+            'lastWornAt': DateTime.now().toUtc().toIso8601String(),
+            'wearCount': count + 1,
+          },
+        })
+        .eq('id', userProductId);
   }
 
-  /// Delete a user's uploaded product from both 'user_products' and their wardrobe tracker
+  /// Delete a user's uploaded product.
   Future<void> deleteUserProduct(String userId, String userProductId) async {
-    // 1. Delete from community/global user_products list
-    await _db.collection('user_products').doc(userProductId).delete();
-
-    // 2. Delete from user's personal wardrobe tracker
-    await _db
-        .collection('users')
-        .doc(userId)
-        .collection('wardrobe')
-        .doc(userProductId)
-        .delete();
+    await supabase
+        .from('user_products')
+        .delete()
+        .eq('id', userProductId)
+        .eq('user_id', userId);
   }
 
   /// Update an existing user product
@@ -497,118 +541,130 @@ class ProductService {
     required String userId,
     required Map<String, dynamic> updatedData,
   }) async {
-    // Ensure the uploader ID and other essential fields are preserved/not overwritten incorrectly if needed
-    updatedData['updatedAt'] = FieldValue.serverTimestamp();
-
-    // 1. Update in community/global user_products list
-    await _db
-        .collection('user_products')
-        .doc(userProductId)
-        .update(updatedData);
-
-    // 2. Update in user's personal wardrobe tracker
-    await _db
-        .collection('users')
-        .doc(userId)
-        .collection('wardrobe')
-        .doc(userProductId)
-        .update(updatedData);
+    final row = toStoredRow(
+      updatedData,
+      columns: _userProductColumns,
+      aliases: _imageAliases,
+    )..remove('user_id');
+    final extra = row.remove('data');
+    if (extra is Map && extra.isNotEmpty) {
+      final current = await supabase
+          .from('user_products')
+          .select('data')
+          .eq('id', userProductId)
+          .maybeSingle();
+      row['data'] = {
+        ...Map<String, dynamic>.from(current?['data'] as Map? ?? {}),
+        ...Map<String, dynamic>.from(extra),
+      };
+    }
+    if (row.isEmpty) return;
+    await supabase
+        .from('user_products')
+        .update(row)
+        .eq('id', userProductId)
+        .eq('user_id', userId);
   }
 
-  /// Toggle an item in the user's personal wardrobe (save/remove)
+  /// Toggle a catalogue piece in the user's wardrobe (save/remove). A saved
+  /// piece is a `user_products` row remembering which catalogue piece it came
+  /// from.
   Future<void> toggleWardrobeItem({
     required String userId,
     required String productId,
     required Map<String, dynamic> productData,
   }) async {
-    final wardrobeRef = _db
-        .collection('users')
-        .doc(userId)
-        .collection('wardrobe')
-        .doc(productId);
-    final doc = await wardrobeRef.get();
+    final existing = await supabase
+        .from('user_products')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('data->>originalProductId', productId);
 
-    if (doc.exists) {
-      // If already saved, delete from wardrobe tracker and user_products
-      await wardrobeRef.delete();
-      final userProdQuery = await _db
-          .collection('user_products')
-          .where('userId', isEqualTo: userId)
-          .where('originalProductId', isEqualTo: productId)
-          .get();
-
-      for (var d in userProdQuery.docs) {
-        await d.reference.delete();
-      }
-    } else {
-      // If not saved, flatten color data and add to wardrobe tracker and user_products
-      List<String> finalColours = [];
-      final dynamic rawColours = productData['colours'];
-      final dynamic rawColour = productData['colour'];
-
-      if (rawColours is List) {
-        for (var item in rawColours) {
-          if (item is String) {
-            finalColours.add(item);
-          } else if (item is List) {
-            finalColours.addAll(item.whereType<String>());
-          }
-        }
-      } else if (rawColours != null) {
-        finalColours.add(rawColours.toString());
-      } else if (rawColour != null) {
-        if (rawColour is List) {
-          finalColours.addAll(rawColour.whereType<String>());
-        } else {
-          finalColours.add(rawColour.toString());
-        }
-      }
-
-      final data = {
-        'userId': userId,
-        'originalProductId': productId,
-        'originalPosterId': productData['userId'],
-        'name': productData['name'] ?? 'No Name',
-        'imageUrl': productData['imageUrl'] ?? productData['imageURL'] ?? '',
-        'rawImageUrl':
-            productData['rawImageUrl'] ??
-            productData['imageUrl'] ??
-            productData['imageURL'] ??
-            '',
-        'category': productData['category'] ?? 'other',
-        'subcategory': productData['subcategory'] ?? '',
-        'styleTag': productData['styleTag'] ?? productData['style'] ?? 'casual',
-        'colours': finalColours,
-        'gender': productData['gender'] ?? 'unisex',
-        'weatherTags': productData['weatherTags'] ?? [],
-        'functionalTags': productData['functionalTags'] ?? [],
-        'createdAt': FieldValue.serverTimestamp(),
-        'visibility': 'public',
-      };
-
-      await wardrobeRef.set(data);
-      await _db.collection('user_products').add(data);
+    if (existing.isNotEmpty) {
+      await supabase
+          .from('user_products')
+          .delete()
+          .eq('user_id', userId)
+          .eq('data->>originalProductId', productId);
+      return;
     }
+
+    // Flatten colour data
+    List<String> finalColours = [];
+    final dynamic rawColours = productData['colours'];
+    final dynamic rawColour = productData['colour'];
+
+    if (rawColours is List) {
+      for (var item in rawColours) {
+        if (item is String) {
+          finalColours.add(item);
+        } else if (item is List) {
+          finalColours.addAll(item.whereType<String>());
+        }
+      }
+    } else if (rawColours != null) {
+      finalColours.add(rawColours.toString());
+    } else if (rawColour != null) {
+      if (rawColour is List) {
+        finalColours.addAll(rawColour.whereType<String>());
+      } else {
+        finalColours.add(rawColour.toString());
+      }
+    }
+
+    final data = {
+      'userId': userId,
+      'originalProductId': productId,
+      'originalPosterId': productData['userId'] ?? productData['uploaderId'],
+      'name': productData['name'] ?? 'No Name',
+      'imageUrl': productData['imageUrl'] ?? productData['imageURL'] ?? '',
+      'rawImageUrl':
+          productData['rawImageUrl'] ??
+          productData['imageUrl'] ??
+          productData['imageURL'] ??
+          '',
+      'category': productData['category'] ?? 'other',
+      'subcategory': productData['subcategory'] ?? '',
+      'styleTag': productData['styleTag'] ?? productData['style'] ?? 'casual',
+      'colours': finalColours,
+      'gender': productData['gender'] ?? 'unisex',
+      'weatherTags': productData['weatherTags'] ?? [],
+      'functionalTags': productData['functionalTags'] ?? [],
+      'visibility': 'public',
+    };
+    await supabase
+        .from('user_products')
+        .insert(
+          toStoredRow(
+            data,
+            columns: _userProductColumns,
+            aliases: _imageAliases,
+          ),
+        );
   }
 
-  /// Check if a product is currently in the user's wardrobe
+  /// Check if a catalogue piece is currently in the user's wardrobe
   Stream<bool> isInWardrobe(String userId, String productId) {
-    return _db
-        .collection('users')
-        .doc(userId)
-        .collection('wardrobe')
-        .doc(productId)
-        .snapshots()
-        .map((snapshot) => snapshot.exists);
+    return supabase
+        .from('user_products')
+        .stream(primaryKey: ['id'])
+        .eq('user_id', userId)
+        .map(
+          (rows) => rows.any((row) {
+            final data = row['data'];
+            return row['id'].toString() == productId ||
+                (data is Map && data['originalProductId'] == productId);
+          }),
+        );
   }
 
   /// Helper to fetch unique values for a field (e.g. all available categories)
   Future<List<String>> getUniqueValues(String field) async {
     try {
-      final snapshot = await _db.collection('products').get();
+      final rows = await supabase.from('products').select();
       final Set<String> uniqueValues = {'all'};
-      for (var doc in snapshot.docs) {
-        final data = doc.data();
+      for (final row in rows) {
+        final data = productMap(row);
         if (data.containsKey(field) && data[field] != null) {
           final dynamic val = data[field];
           if (val is List) {
@@ -637,8 +693,16 @@ class ProductService {
     }
   }
 
-  /// Get general app settings/metadata from Firestore
-  Stream<DocumentSnapshot> getAppMetadata() {
-    return _db.collection('metadata').doc('settings').snapshots();
+  /// General app settings/metadata (catalogue filter facets).
+  Stream<Map<String, dynamic>> getAppMetadata() {
+    return supabase
+        .from('catalog_metadata')
+        .stream(primaryKey: ['id'])
+        .eq('id', 'settings')
+        .map(
+          (rows) => rows.isEmpty
+              ? const <String, dynamic>{}
+              : Map<String, dynamic>.from(rows.first['data'] as Map? ?? {}),
+        );
   }
 }

@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import '../../../core/supabase/app_auth.dart';
+import '../../../data/supabase/rows.dart';
 import 'package:flutter/material.dart';
 
 import '../../../data/services/shop_chat_service.dart';
@@ -14,24 +15,24 @@ class ShopChatInboxPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = AppAuth.instance.currentUser;
     final service = ShopChatService();
     return Scaffold(
       appBar: AppBar(title: const Text('Messages')),
       body: user == null
           ? const Center(child: Text('Sign in to view messages.'))
-          : StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+          : StreamBuilder<List<Map<String, dynamic>>>(
               stream: service.watchConversations(user.uid),
               builder: (context, snapshot) {
                 if (!snapshot.hasData) {
                   return const Center(child: CircularProgressIndicator());
                 }
                 final chats =
-                    snapshot.data!.docs.where((doc) {
-                      return !sellerOnly || doc.data()['sellerId'] == user.uid;
+                    snapshot.data!.where((chat) {
+                      return !sellerOnly || chat['sellerId'] == user.uid;
                     }).toList()..sort((a, b) {
-                      final aTime = a.data()['lastMessageAt'] as Timestamp?;
-                      final bTime = b.data()['lastMessageAt'] as Timestamp?;
+                      final aTime = asDateTime(a['lastMessageAt']);
+                      final bTime = asDateTime(b['lastMessageAt']);
                       return (bTime?.millisecondsSinceEpoch ?? 0).compareTo(
                         aTime?.millisecondsSinceEpoch ?? 0,
                       );
@@ -51,8 +52,7 @@ class ShopChatInboxPage extends StatelessWidget {
                   itemCount: chats.length,
                   separatorBuilder: (_, _) => const Divider(),
                   itemBuilder: (context, index) {
-                    final doc = chats[index];
-                    final data = doc.data();
+                    final data = chats[index];
                     final isSeller = data['sellerId'] == user.uid;
                     final conversationType =
                         (data['conversationType'] ?? 'shop').toString();
@@ -90,7 +90,7 @@ class ShopChatInboxPage extends StatelessWidget {
                         context,
                         MaterialPageRoute<void>(
                           builder: (_) => ShopChatPage(
-                            chatId: doc.id,
+                            chatId: data['id'].toString(),
                             title: title,
                             asSeller: isSeller,
                           ),
@@ -548,11 +548,7 @@ String _formatConversationTimestamp(Map<String, dynamic> data) {
 
 DateTime? _conversationDateTime(Map<String, dynamic> data) {
   final value = data['lastMessageAt'] ?? data['updatedAt'] ?? data['createdAt'];
-  return value is Timestamp
-      ? value.toDate()
-      : value is DateTime
-      ? value
-      : null;
+  return asDateTime(value);
 }
 
 void _openDesignerDetail(BuildContext context, String designerId) {
@@ -577,11 +573,7 @@ String _formatMessageTimestamp(Map<String, dynamic> data) {
 
 DateTime? _messageDateTime(Map<String, dynamic> data) {
   final value = data['createdAt'];
-  return value is Timestamp
-      ? value.toDate()
-      : value is DateTime
-      ? value
-      : null;
+  return asDateTime(value);
 }
 
 String _formatMessageDateLabel(Map<String, dynamic> data) {
@@ -732,19 +724,19 @@ class _ShopChatPageState extends State<ShopChatPage> {
 
   @override
   Widget build(BuildContext context) {
-    final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final currentUserId = AppAuth.instance.currentUser?.uid ?? '';
     return Scaffold(
       appBar: AppBar(title: _buildTitle(context)),
       body: Column(
         children: [
           Expanded(
-            child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+            child: StreamBuilder<List<Map<String, dynamic>>>(
               stream: _service.watchMessages(widget.chatId),
               builder: (context, snapshot) {
                 if (!snapshot.hasData) {
                   return const Center(child: CircularProgressIndicator());
                 }
-                final messages = snapshot.data!.docs;
+                final messages = snapshot.data!;
                 if (messages.isEmpty) {
                   return const Center(child: Text('Send the first message.'));
                 }
@@ -753,7 +745,7 @@ class _ShopChatPageState extends State<ShopChatPage> {
                   padding: const EdgeInsets.all(16),
                   itemCount: messages.length,
                   itemBuilder: (context, index) {
-                    final data = messages[index].data();
+                    final data = messages[index];
                     final isSystem = data['senderType'] == 'system';
                     final isProductReference =
                         data['senderType'] == 'product_reference';
@@ -764,7 +756,7 @@ class _ShopChatPageState extends State<ShopChatPage> {
                     final mine = data['senderId'] == currentUserId;
                     final timestamp = _formatMessageTimestamp(data);
                     final nextOlderData = index + 1 < messages.length
-                        ? messages[index + 1].data()
+                        ? messages[index + 1]
                         : null;
                     final showDateSeparator =
                         nextOlderData == null ||
@@ -926,13 +918,10 @@ class _ShopChatPageState extends State<ShopChatPage> {
   Widget _buildTitle(BuildContext context) {
     if (widget.asSeller) return Text(widget.title);
 
-    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      stream: FirebaseFirestore.instance
-          .collection('shop_chats')
-          .doc(widget.chatId)
-          .snapshots(),
+    return StreamBuilder<Map<String, dynamic>?>(
+      stream: _service.watchChat(widget.chatId),
       builder: (context, snapshot) {
-        final data = snapshot.data?.data();
+        final data = snapshot.data;
         final conversationType = (data?['conversationType'] ?? 'shop')
             .toString();
         if (conversationType == 'designer') {
