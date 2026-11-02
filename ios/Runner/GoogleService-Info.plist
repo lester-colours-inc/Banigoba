@@ -3,23 +3,23 @@
 <plist version="1.0">
 <dict>
 	<key>CLIENT_ID</key>
-	<string>379405824371-bej13ghpsuglcgmujgsehfeolrf3qe8i.apps.googleusercontent.com</string>
+	<string>828873019132-s25ak26s6e7p5bhc126og95bt321oit5.apps.googleusercontent.com</string>
 	<key>REVERSED_CLIENT_ID</key>
-	<string>com.googleusercontent.apps.379405824371-bej13ghpsuglcgmujgsehfeolrf3qe8i</string>
+	<string>com.googleusercontent.apps.828873019132-s25ak26s6e7p5bhc126og95bt321oit5</string>
 	<key>ANDROID_CLIENT_ID</key>
-	<string>379405824371-0nuk4dqvovthttl23koqlkravn7mim2p.apps.googleusercontent.com</string>
+	<string>828873019132-s2c303bok6okhnbqp7s9rte4ihrenapk.apps.googleusercontent.com</string>
 	<key>API_KEY</key>
-	<string>AIzaSyB3efYBdzd_O_GMMhntia-Ur90NzN-26Ec</string>
+	<string>AIzaSyA-9W9IcS8qwZSM12Ib0TnsOz9foZ-Hv2U</string>
 	<key>GCM_SENDER_ID</key>
-	<string>379405824371</string>
+	<string>828873019132</string>
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.banigoba</string>
+	<string>com.coloursinc.banigoba</string>
 	<key>PROJECT_ID</key>
-	<string>appdemo-b9e3e</string>
+	<string>banigoba-bbfe8</string>
 	<key>STORAGE_BUCKET</key>
-	<string>appdemo-b9e3e.appspot.com</string>
+	<string>banigoba-bbfe8.firebasestorage.app</string>
 	<key>IS_ADS_ENABLED</key>
 	<false></false>
 	<key>IS_ANALYTICS_ENABLED</key>
@@ -31,8 +31,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:379405824371:ios:8f07de4b03475321685506</string>
-	<key>DATABASE_URL</key>
-	<string>https://appdemo-b9e3e.firebaseio.com</string>
+	<string>1:828873019132:ios:deb58a800d71cabc62d179</string>
 </dict>
 </plist>

@@ -1,117 +1,56 @@
 {
   "project_info": {
-    "project_number": "379405824371",
-    "firebase_url": "https://appdemo-b9e3e.firebaseio.com",
-    "project_id": "appdemo-b9e3e",
-    "storage_bucket": "appdemo-b9e3e.appspot.com"
+    "project_number": "828873019132",
+    "project_id": "banigoba-bbfe8",
+    "storage_bucket": "banigoba-bbfe8.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:379405824371:android:3d51ac0fb0ec085c685506",
+        "mobilesdk_app_id": "1:828873019132:android:8eb37d40de0489e862d179",
         "android_client_info": {
-          "package_name": "com.banigoba"
+          "package_name": "com.coloursinc.banigoba"
         }
       },
       "oauth_client": [
         {
-          "client_id": "379405824371-kf677g195hrbd54bgabpvpiuuit22q1l.apps.googleusercontent.com",
+          "client_id": "828873019132-s2c303bok6okhnbqp7s9rte4ihrenapk.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
-            "package_name": "com.banigoba",
+            "package_name": "com.coloursinc.banigoba",
             "certificate_hash": "512e95a45b76010f51bd0705f31b3077fce27396"
           }
         },
         {
-          "client_id": "379405824371-i657b4cj9ahacjl3j2u1v3df6erfm5a2.apps.googleusercontent.com",
+          "client_id": "828873019132-vcc4bi96u2sruumlnr36v0h47vo0bnve.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.coloursinc.banigoba",
+            "certificate_hash": "57b5a197595150bcce14a6db684daf37e8b96cf6"
+          }
+        },
+        {
+          "client_id": "828873019132-dhmqpfb1naiak95ijg2ikv5flnlb1tld.apps.googleusercontent.com",
           "client_type": 3
         }
       ],
       "api_key": [
         {
-          "current_key": "AIzaSyC4yKLG2OH4334nXEUii7W90DoyR2kGcZk"
+          "current_key": "AIzaSyALHjMwbtbveD-_CtiMWRBoL9C6Q-7Vq-E"
         }
       ],
       "services": {
         "appinvite_service": {
           "other_platform_oauth_client": [
             {
-              "client_id": "379405824371-3q8i0kq1a6g1es8sqrek9me7hi2d63l7.apps.googleusercontent.com",
+              "client_id": "828873019132-dhmqpfb1naiak95ijg2ikv5flnlb1tld.apps.googleusercontent.com",
               "client_type": 3
             },
             {
-              "client_id": "379405824371-3i0domiemedqsmdd0jl7vkcet0roaa9c.apps.googleusercontent.com",
+              "client_id": "828873019132-s25ak26s6e7p5bhc126og95bt321oit5.apps.googleusercontent.com",
               "client_type": 2,
               "ios_info": {
-                "bundle_id": "com.tembaa.app"
-              }
-            }
-          ]
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:379405824371:android:ded3503a7d6028b1685506",
-        "android_client_info": {
-          "package_name": "com.beecrumbs.app"
-        }
-      },
-      "oauth_client": [
-        {
-          "client_id": "379405824371-7dshc79hhrunc821r74pmc9n8r6f6alo.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.beecrumbs.app",
-            "certificate_hash": "ff2447a5c1d44b3ad947d8bf4a383eefac19328b"
-          }
-        },
-        {
-          "client_id": "379405824371-k4n2bf4lpakh9fokcbd9qvbejbm9gc6g.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.beecrumbs.app",
-            "certificate_hash": "512e95a45b76010f51bd0705f31b3077fce27396"
-          }
-        },
-        {
-          "client_id": "379405824371-umtcgjif97liml8kgc6imcvi1ovkm682.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.beecrumbs.app",
-            "certificate_hash": "f5ce28335366293644198acacea9c9694680851b"
-          }
-        },
-        {
-          "client_id": "379405824371-uo9mjcsd6659bjbl6i8o44jif3ccseqs.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.beecrumbs.app",
-            "certificate_hash": "8055c58b8b3896b0867693d7a5f5840b301ba9ac"
-          }
-        },
-        {
-          "client_id": "379405824371-i657b4cj9ahacjl3j2u1v3df6erfm5a2.apps.googleusercontent.com",
-          "client_type": 3
-        }
-      ],
-      "api_key": [
-        {
-          "current_key": "AIzaSyC4yKLG2OH4334nXEUii7W90DoyR2kGcZk"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": [
-            {
-              "client_id": "379405824371-3q8i0kq1a6g1es8sqrek9me7hi2d63l7.apps.googleusercontent.com",
-              "client_type": 3
-            },
-            {
-              "client_id": "379405824371-3i0domiemedqsmdd0jl7vkcet0roaa9c.apps.googleusercontent.com",
-              "client_type": 2,
-              "ios_info": {
-                "bundle_id": "com.tembaa.app"
+                "bundle_id": "com.coloursinc.banigoba"
               }
             }
           ]

@@ -7,8 +7,12 @@
 import 'package:flutter/foundation.dart';
 
 /// Where shared links open: the Banigoba web app, which hands over to the
-/// installed app on a phone. Change to a custom domain here when there is one.
-const String kShareHost = 'https://appdemo-b9e3e.web.app';
+/// installed app on a phone. Set SHARE_HOST in dart_defines.json to change it
+/// (for example to a custom domain).
+const String kShareHost = String.fromEnvironment(
+  'SHARE_HOST',
+  defaultValue: 'https://banigoba.vercel.app',
+);
 
 /// The most pieces one picked link can hold.
 const int kMaxSharedPieces = 60;

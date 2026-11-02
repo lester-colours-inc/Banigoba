@@ -1,63 +1,31 @@
 {
-  "firestore": {
-    "rules": "firestore.rules"
-  },
-  "functions": {
-    "source": "functions"
-  },
-  "storage": {
-    "rules": "storage.rules"
-  },
   "flutter": {
     "platforms": {
       "android": {
         "default": {
-          "projectId": "appdemo-b9e3e",
-          "appId": "1:379405824371:android:3d51ac0fb0ec085c685506",
+          "projectId": "banigoba-bbfe8",
+          "appId": "1:828873019132:android:8eb37d40de0489e862d179",
           "fileOutput": "android/app/google-services.json"
         }
       },
       "ios": {
         "default": {
-          "projectId": "appdemo-b9e3e",
-          "appId": "1:379405824371:ios:8f07de4b03475321685506",
+          "projectId": "banigoba-bbfe8",
+          "appId": "1:828873019132:ios:deb58a800d71cabc62d179",
           "uploadDebugSymbols": false,
           "fileOutput": "ios/Runner/GoogleService-Info.plist"
         }
       },
       "dart": {
         "lib/firebase_options.dart": {
-          "projectId": "appdemo-b9e3e",
+          "projectId": "banigoba-bbfe8",
           "configurations": {
-            "android": "1:379405824371:android:3d51ac0fb0ec085c685506",
-            "ios": "1:379405824371:ios:8f07de4b03475321685506"
+            "android": "1:828873019132:android:8eb37d40de0489e862d179",
+            "ios": "1:828873019132:ios:deb58a800d71cabc62d179",
+            "web": "1:828873019132:web:79c25bbdc1a92c2062d179"
           }
         }
       }
     }
-  },
-  "hosting": {
-    "public": "build/web",
-    "ignore": [
-      "firebase.json",
-      "**/node_modules/**"
-    ],
-    "rewrites": [
-      {
-        "source": "**",
-        "destination": "/index.html"
-      }
-    ],
-    "headers": [
-      {
-        "source": "/.well-known/assetlinks.json",
-        "headers": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ]
-      }
-    ]
   }
 }
