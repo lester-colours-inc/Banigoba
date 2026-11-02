@@ -1,4 +1,4 @@
-// Registers a new account and creates its initial Firestore user profile.
+// Registers a new account; the database creates its profile.
 import 'package:flutter/material.dart';
 
 import '../../../data/services/auth_service.dart';

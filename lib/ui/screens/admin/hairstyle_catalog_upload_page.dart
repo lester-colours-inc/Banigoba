@@ -1,8 +1,8 @@
 // Curators' hairstyle catalogue: upload, edit and browse the hairstyles the
 // AI hair makeover offers. Moved here from the retired My Hair Style flow
 // (October 2026 review, F-4); only the curators' workspace opens it.
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import '../../../core/supabase/app_auth.dart';
+import '../../../data/supabase/rows.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -277,7 +277,7 @@ class _TemporaryHairstyleUploadPageState
       return;
     }
 
-    final user = FirebaseAuth.instance.currentUser;
+    final user = AppAuth.instance.currentUser;
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Sign in to upload hairstyles.')),
@@ -685,7 +685,7 @@ class _UploadedHairstylesSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final userId = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final userId = AppAuth.instance.currentUser?.uid ?? '';
     if (userId.isEmpty) return const SizedBox.shrink();
 
     return Column(
@@ -696,13 +696,10 @@ class _UploadedHairstylesSection extends StatelessWidget {
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
         ),
         const SizedBox(height: 10),
-        StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-          stream: curatorMode
-              ? FirebaseFirestore.instance.collection('hairstyles').snapshots()
-              : FirebaseFirestore.instance
-                    .collection('hairstyles')
-                    .where('createdBy', isEqualTo: userId)
-                    .snapshots(),
+        StreamBuilder<List<Map<String, dynamic>>>(
+          stream: HairstyleService().watchCatalog(
+            uploaderId: curatorMode ? null : userId,
+          ),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Padding(
@@ -719,16 +716,14 @@ class _UploadedHairstylesSection extends StatelessWidget {
               );
             }
 
-            final docs = snapshot.data?.docs.toList() ?? [];
+            final docs = snapshot.data?.toList() ?? [];
             docs.sort((a, b) {
-              final aTime = a.data()['createdAt'];
-              final bTime = b.data()['createdAt'];
-              final aDate = aTime is Timestamp
-                  ? aTime.toDate()
-                  : DateTime.fromMillisecondsSinceEpoch(0);
-              final bDate = bTime is Timestamp
-                  ? bTime.toDate()
-                  : DateTime.fromMillisecondsSinceEpoch(0);
+              final aDate =
+                  asDateTime(a['createdAt']) ??
+                  DateTime.fromMillisecondsSinceEpoch(0);
+              final bDate =
+                  asDateTime(b['createdAt']) ??
+                  DateTime.fromMillisecondsSinceEpoch(0);
               return bDate.compareTo(aDate);
             });
 
@@ -743,8 +738,8 @@ class _UploadedHairstylesSection extends StatelessWidget {
             return Column(
               children: docs.map((doc) {
                 return _UploadedHairstyleTile(
-                  data: doc.data(),
-                  onEdit: () => onEdit(doc.id, doc.data()),
+                  data: doc,
+                  onEdit: () => onEdit(doc['id'].toString(), doc),
                 );
               }).toList(),
             );

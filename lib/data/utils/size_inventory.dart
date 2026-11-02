@@ -1,6 +1,6 @@
 // Shared helpers for boutique size inventory.
 //
-// Firestore stores product sizes as a dynamic map, but cart and order logic
+// The database stores product sizes as a dynamic map, but cart and order logic
 // need predictable labels and integer quantities. Keeping the normalization
 // here makes the customer UI, cart, and checkout agree on the same size keys.
 

@@ -4,11 +4,12 @@
 // uploads, events, designers, boutiques, and agents. Verification flags stored
 // on nested user profile maps control whether those profiles are visible in the
 // customer marketplace.
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import '../../../core/supabase/app_auth.dart';
+import '../../../data/services/auth_service.dart';
+import '../../../data/services/profile_service.dart';
+import '../../../data/supabase/rows.dart';
 import 'package:flutter/material.dart';
 
-import '../../../data/services/auth_service.dart';
 import '../../../data/services/event_service.dart';
 import '../../../data/services/notification_service.dart';
 import '../events/events_page.dart';
@@ -19,18 +20,15 @@ class CuratorsWorkspacePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = AppAuth.instance.currentUser;
     if (user == null) {
       return const Scaffold(
         body: Center(child: Text('Sign in as an admin to continue.')),
       );
     }
 
-    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      stream: FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .snapshots(),
+    return StreamBuilder<Map<String, dynamic>>(
+      stream: ProfileService().watch(user.uid),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
           return const Scaffold(
@@ -38,7 +36,7 @@ class CuratorsWorkspacePage extends StatelessWidget {
           );
         }
 
-        final data = snapshot.data?.data() ?? const <String, dynamic>{};
+        final data = snapshot.data ?? const <String, dynamic>{};
         final isAdmin = data['isAdmin'] == true || data['role'] == 'admin';
         if (!isAdmin) {
           return Scaffold(
@@ -377,8 +375,8 @@ class _ProfileVerificationList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: FirebaseFirestore.instance.collection('users').snapshots(),
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: ProfileService().watchAll(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return Center(
@@ -393,9 +391,9 @@ class _ProfileVerificationList extends StatelessWidget {
         // field, but the verification card can render all of them using the
         // same normalized shape.
         final profiles =
-            snapshot.data!.docs.where((doc) {
+            snapshot.data!.where((doc) {
               final profile = Map<String, dynamic>.from(
-                doc.data()[profileField] as Map? ?? const {},
+                doc[profileField] as Map? ?? const {},
               );
               if (profile.isEmpty) return false;
               final name = (profile['name'] ?? '').toString().trim();
@@ -407,16 +405,16 @@ class _ProfileVerificationList extends StatelessWidget {
               return !requireActive || profile['active'] == true;
             }).toList()..sort((a, b) {
               final aProfile = Map<String, dynamic>.from(
-                a.data()[profileField] as Map? ?? const {},
+                a[profileField] as Map? ?? const {},
               );
               final bProfile = Map<String, dynamic>.from(
-                b.data()[profileField] as Map? ?? const {},
+                b[profileField] as Map? ?? const {},
               );
               return _profileName(
                 aProfile,
-                a.data(),
+                a,
                 titleFallback,
-              ).compareTo(_profileName(bProfile, b.data(), titleFallback));
+              ).compareTo(_profileName(bProfile, b, titleFallback));
             });
 
         if (profiles.isEmpty) {
@@ -432,13 +430,12 @@ class _ProfileVerificationList extends StatelessWidget {
           itemCount: profiles.length,
           separatorBuilder: (_, _) => const SizedBox(height: 12),
           itemBuilder: (context, index) {
-            final doc = profiles[index];
-            final data = doc.data();
+            final data = profiles[index];
             final profile = Map<String, dynamic>.from(
               data[profileField] as Map? ?? const {},
             );
             return _ProfileVerificationCard(
-              userId: doc.id,
+              userId: data['id'].toString(),
               profileField: profileField,
               profileTypeLabel: profileTypeLabel,
               title: _profileName(profile, data, titleFallback),
@@ -499,14 +496,19 @@ class _ProfileVerificationCard extends StatelessWidget {
 
   Future<void> _setVerified(BuildContext context, bool value) async {
     try {
-      final adminId = FirebaseAuth.instance.currentUser?.uid;
-      // Use update() for dotted paths so Firestore changes the nested profile
-      // map that marketplace screens read, e.g. shop.verified.
-      await FirebaseFirestore.instance.collection('users').doc(userId).update({
-        '$profileField.verified': value,
-        '$profileField.verificationStatus': value ? 'verified' : 'unverified',
-        '$profileField.verifiedAt': value ? FieldValue.serverTimestamp() : null,
-        '$profileField.verifiedBy': value ? adminId : null,
+      final adminId = AppAuth.instance.currentUser?.uid;
+      // The profile map (e.g. shop) carries the details marketplace screens
+      // read; `verified` itself is a guarded column only curators can set.
+      final profiles = ProfileService();
+      final current = await profiles.get(userId);
+      await profiles.update(userId, {
+        profileField: {
+          ...Map<String, dynamic>.from(current[profileField] as Map? ?? {}),
+          'verified': value,
+          'verificationStatus': value ? 'verified' : 'unverified',
+          'verifiedAt': value ? DateTime.now().toUtc().toIso8601String() : null,
+          'verifiedBy': value ? adminId : null,
+        },
       });
 
       if (value && profileField == 'shop') {
@@ -644,7 +646,7 @@ class _PendingEventsList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+    return StreamBuilder<List<Map<String, dynamic>>>(
       stream: service.watchPendingEvents(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
@@ -654,10 +656,10 @@ class _PendingEventsList extends StatelessWidget {
           return const Center(child: CircularProgressIndicator());
         }
 
-        final events = snapshot.data!.docs.toList()
+        final events = snapshot.data!.toList()
           ..sort((a, b) {
-            final aTime = a.data()['submittedAt'] as Timestamp?;
-            final bTime = b.data()['submittedAt'] as Timestamp?;
+            final aTime = asDateTime(a['submittedAt']);
+            final bTime = asDateTime(b['submittedAt']);
             return (bTime?.millisecondsSinceEpoch ?? 0).compareTo(
               aTime?.millisecondsSinceEpoch ?? 0,
             );
@@ -676,14 +678,15 @@ class _PendingEventsList extends StatelessWidget {
           itemCount: events.length,
           separatorBuilder: (_, _) => const SizedBox(height: 14),
           itemBuilder: (context, index) {
-            final doc = events[index];
+            final event = events[index];
+            final eventId = event['id'].toString();
             return EventCard(
-              data: doc.data(),
+              data: event,
               adminActions: Row(
                 children: [
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: () => service.disapproveEvent(doc.id),
+                      onPressed: () => service.disapproveEvent(eventId),
                       icon: const Icon(Icons.close),
                       label: const Text('Disapprove'),
                     ),
@@ -691,7 +694,7 @@ class _PendingEventsList extends StatelessWidget {
                   const SizedBox(width: 10),
                   Expanded(
                     child: FilledButton.icon(
-                      onPressed: () => service.approveEvent(doc.id),
+                      onPressed: () => service.approveEvent(eventId),
                       icon: const Icon(Icons.check),
                       label: const Text('Approve'),
                       style: FilledButton.styleFrom(
@@ -716,7 +719,7 @@ class _ApprovedEventsManagementList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+    return StreamBuilder<List<Map<String, dynamic>>>(
       stream: service.watchApprovedManageableEvents(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
@@ -728,12 +731,12 @@ class _ApprovedEventsManagementList extends StatelessWidget {
 
         final now = DateTime.now();
         final events =
-            snapshot.data!.docs.where((doc) {
-              final eventDate = doc.data()['eventDateTime'] as Timestamp?;
-              return eventDate == null || eventDate.toDate().isAfter(now);
+            snapshot.data!.where((event) {
+              final eventDate = asDateTime(event['eventDateTime']);
+              return eventDate == null || eventDate.isAfter(now);
             }).toList()..sort((a, b) {
-              final aTime = a.data()['eventDateTime'] as Timestamp?;
-              final bTime = b.data()['eventDateTime'] as Timestamp?;
+              final aTime = asDateTime(a['eventDateTime']);
+              final bTime = asDateTime(b['eventDateTime']);
               return (aTime?.millisecondsSinceEpoch ?? 0).compareTo(
                 bTime?.millisecondsSinceEpoch ?? 0,
               );
@@ -752,14 +755,15 @@ class _ApprovedEventsManagementList extends StatelessWidget {
           itemCount: events.length,
           separatorBuilder: (_, _) => const SizedBox(height: 14),
           itemBuilder: (context, index) {
-            final doc = events[index];
+            final event = events[index];
+            final eventId = event['id'].toString();
             return EventCard(
-              data: doc.data(),
+              data: event,
               adminActions: Row(
                 children: [
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: () => service.disapproveEvent(doc.id),
+                      onPressed: () => service.disapproveEvent(eventId),
                       icon: const Icon(Icons.visibility_off_outlined),
                       label: const Text('Unpublish'),
                     ),
@@ -767,7 +771,7 @@ class _ApprovedEventsManagementList extends StatelessWidget {
                   const SizedBox(width: 10),
                   Expanded(
                     child: FilledButton.icon(
-                      onPressed: () => service.removeEvent(doc.id),
+                      onPressed: () => service.removeEvent(eventId),
                       icon: const Icon(Icons.delete_outline),
                       label: const Text('Remove'),
                       style: FilledButton.styleFrom(

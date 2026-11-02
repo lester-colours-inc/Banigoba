@@ -23,8 +23,7 @@ class ContentService implements ContentSource {
       return [
         for (final row in rows)
           if (ContentItem.fromMap(row['id'].toString(), camelizeRow(row))
-              case final item
-              when item.title.isNotEmpty && item.opensSafely)
+              case final item when item.title.isNotEmpty && item.opensSafely)
             item,
       ];
     } on PostgrestException {

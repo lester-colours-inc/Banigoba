@@ -1,5 +1,4 @@
 // Provides planning shortcuts for future outfits and wardrobe activities.
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/supabase/app_auth.dart';
 import '../../../data/supabase/rows.dart';
 import 'package:flutter/material.dart';

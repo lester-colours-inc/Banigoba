@@ -1,5 +1,5 @@
 // Generates, displays, and saves the completed AI-styled look.
-import 'package:firebase_auth/firebase_auth.dart';
+import '../../../core/supabase/app_auth.dart';
 import 'package:flutter/material.dart';
 import '../../../core/app_routes.dart';
 import '../../../data/services/makeover_service.dart';
@@ -29,7 +29,7 @@ class _StyledLookPageState extends State<StyledLookPage> {
   bool _isSaving = false;
 
   Future<void> _saveLook() async {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = AppAuth.instance.currentUser;
     if (user == null) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

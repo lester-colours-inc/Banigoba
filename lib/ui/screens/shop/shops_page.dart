@@ -4,7 +4,6 @@
 // seller profiles by shop.verified so only admin-approved boutiques are visible
 // in the public marketplace.
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/supabase/app_auth.dart';
 import '../../../data/services/profile_service.dart';
 import 'package:flutter/material.dart';

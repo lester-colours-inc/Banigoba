@@ -1,6 +1,6 @@
 // Opens a shop's shared link (K-9) from a web address, a QR code, a
 // notification or the Community strip.
-import 'package:firebase_auth/firebase_auth.dart';
+import '../../../core/supabase/app_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../../data/models/shop_link.dart';
@@ -31,7 +31,7 @@ class _SharedStockPageState extends State<SharedStockPage> {
 
   bool get _signedIn {
     try {
-      return FirebaseAuth.instance.currentUser != null;
+      return AppAuth.instance.currentUser != null;
     } on Object {
       return false;
     }

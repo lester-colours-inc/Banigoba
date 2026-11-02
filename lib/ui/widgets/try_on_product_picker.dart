@@ -1,5 +1,5 @@
 // Presents catalog and wardrobe products for building an avatar outfit.
-import 'package:firebase_auth/firebase_auth.dart';
+import '../../core/supabase/app_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../data/services/product_service.dart';
@@ -10,7 +10,7 @@ Future<List<Map<String, dynamic>>?> showTryOnProductPicker(
   List<Map<String, dynamic>> initialProducts = const [],
   String outfitLabel = 'Outfit',
 }) async {
-  final user = FirebaseAuth.instance.currentUser;
+  final user = AppAuth.instance.currentUser;
   if (user == null) {
     ScaffoldMessenger.of(
       context,

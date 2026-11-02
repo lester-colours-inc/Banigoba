@@ -14,10 +14,10 @@
 //
 // There is no product catalogue here: people see themselves first and buy
 // afterwards ("Find pieces", then "Get this look" in Phase 5).
+import '../../../core/supabase/app_auth.dart';
 import 'dart:async';
 import 'dart:typed_data';
 
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
@@ -144,7 +144,7 @@ class _MakeoverPageState extends State<MakeoverPage> {
 
   String _error = '';
 
-  String get _userId => FirebaseAuth.instance.currentUser?.uid ?? '';
+  String get _userId => AppAuth.instance.currentUser?.uid ?? '';
 
   bool get _isEditing => widget.editingPostId != null;
 

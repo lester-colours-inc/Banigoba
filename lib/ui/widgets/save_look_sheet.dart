@@ -5,7 +5,7 @@
 //
 // When the look is an edit of a saved post, the user can also update that
 // post in place instead of adding a second one.
-import 'package:firebase_auth/firebase_auth.dart';
+import '../../core/supabase/app_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/main_tab.dart';
@@ -65,7 +65,7 @@ Future<bool> saveLookToTimeline(
   final navigator = Navigator.of(context);
 
   try {
-    final userId = FirebaseAuth.instance.currentUser?.uid;
+    final userId = AppAuth.instance.currentUser?.uid;
     if (userId == null) throw const SignInRequiredException();
     final postService = posts ?? PostService();
     final outfitService = outfits ?? OutfitService();

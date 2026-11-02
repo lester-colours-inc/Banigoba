@@ -4,7 +4,7 @@
 // Who sees a look in the feeds is a separate action, "Post" (share audience
 // sheet). The two used to overlap here; the October 2026 review (P-4) kept
 // both and separated them.
-import 'package:firebase_auth/firebase_auth.dart';
+import '../../core/supabase/app_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -88,7 +88,7 @@ Future<void> _forwardInApp(
   required String imageUrl,
   required String caption,
 }) async {
-  final user = FirebaseAuth.instance.currentUser;
+  final user = AppAuth.instance.currentUser;
   if (user == null) {
     _showMessage(context, 'Sign in to forward looks.');
     return;

@@ -183,6 +183,25 @@ class HairstyleService {
         );
   }
 
+  /// The hairstyle catalogue, live: everything for curators, or just the
+  /// ones [uploaderId] added. Maps carry `id`, `name`, `imageUrl`, the
+  /// catalogue fields, and `createdBy`.
+  Stream<List<Map<String, dynamic>>> watchCatalog({String? uploaderId}) {
+    final base = supabase.from('hairstyles').stream(primaryKey: ['id']);
+    final source = uploaderId == null
+        ? base
+        : supabase
+              .from('hairstyles')
+              .stream(primaryKey: ['id'])
+              .eq('uploader_id', uploaderId);
+    return source.map(
+      (rows) => [
+        for (final row in rows)
+          {...flattenRow(row), 'createdBy': row['uploader_id']},
+      ],
+    );
+  }
+
   /// The catalogue fields every hairstyle carries beyond its name and picture.
   Map<String, dynamic> _catalogDetails({
     required String length,

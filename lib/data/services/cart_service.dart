@@ -6,7 +6,6 @@
 // sizes into cart rows, and keeps cart totals reactive. Items are identified
 // by their cart row id.
 import '../../core/supabase/supabase_config.dart';
-import '../supabase/rows.dart';
 import '../utils/size_inventory.dart';
 import 'product_service.dart';
 

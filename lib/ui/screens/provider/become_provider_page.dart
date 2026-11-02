@@ -1,7 +1,7 @@
 // One door for shops, designers and salons (S-4): tick what you offer, give a
 // business name and a place, and provider mode opens. Roles already held are
 // shown ticked and left as they are.
-import 'package:firebase_auth/firebase_auth.dart';
+import '../../../core/supabase/app_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../../data/models/provider_roles.dart';
@@ -73,7 +73,7 @@ class _BecomeProviderPageState extends State<BecomeProviderPage> {
       setState(() => _error = 'Enter your business name.');
       return;
     }
-    final user = FirebaseAuth.instance.currentUser;
+    final user = AppAuth.instance.currentUser;
     if (user == null) {
       setState(() => _error = 'Sign in to become a provider.');
       return;

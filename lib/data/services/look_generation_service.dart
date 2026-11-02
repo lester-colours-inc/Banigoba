@@ -89,8 +89,7 @@ class LookGenerationService {
   }) : _generator = generator ?? GeminiLookGenerator(),
        _upload = upload ?? StorageService().uploadTryOnResultBytes,
        _currentUserId =
-           currentUserId ??
-           (() => AppAuth.instance.currentUser?.uid ?? '');
+           currentUserId ?? (() => AppAuth.instance.currentUser?.uid ?? '');
 
   final LookImageGenerator _generator;
   final LookUploader _upload;

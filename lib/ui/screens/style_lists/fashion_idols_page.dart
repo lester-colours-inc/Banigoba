@@ -4,7 +4,8 @@
 //
 // Under the list, "In the news" shows the stories from the fashion-content
 // engine that name an idol.
-import 'package:firebase_auth/firebase_auth.dart';
+import '../../../core/supabase/app_auth.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
 import 'package:flutter/material.dart';
 
 import '../../../data/services/style_lists_service.dart';
@@ -22,7 +23,7 @@ class FashionIdolsPage extends StatefulWidget {
 
 class _FashionIdolsPageState extends State<FashionIdolsPage> {
   final StyleListsService _lists = StyleListsService();
-  final String _userId = FirebaseAuth.instance.currentUser?.uid ?? '';
+  final String _userId = AppAuth.instance.currentUser?.uid ?? '';
   late final Stream<List<StyleListEntry>> _idols = _lists.watch(
     _userId,
     StyleList.idols,
@@ -48,7 +49,7 @@ class _FashionIdolsPageState extends State<FashionIdolsPage> {
       );
       _name.clear();
       setState(() {});
-    } on FirebaseException catch (error) {
+    } on PostgrestException catch (error) {
       messenger.showSnackBar(
         SnackBar(content: Text('Could not add $name: ${error.message}')),
       );

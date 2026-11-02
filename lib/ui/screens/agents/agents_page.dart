@@ -1,6 +1,9 @@
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import '../../../core/supabase/app_auth.dart';
+import '../../../data/services/notification_service.dart';
+import '../../../data/services/profile_service.dart';
+import '../../../data/services/request_service.dart';
+import '../../../data/supabase/rows.dart';
 import 'package:flutter/material.dart';
 
 import '../../../data/models/provider_roles.dart';
@@ -114,13 +117,17 @@ class _AgentsPageState extends State<AgentsPage> {
   }
 
   Widget _buildAgents() {
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: FirebaseFirestore.instance
-          .collection('users')
-          .where('agentProfile.active', isEqualTo: true)
-          .where('agentProfile.verified', isEqualTo: true)
-          .where('agentProfile.type', isEqualTo: _selectedAgentType)
-          .snapshots(),
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: ProfileService()
+          .watchVerifiedProviders('salon')
+          .map(
+            (agents) => [
+              for (final agent in agents)
+                if ((agent['agentProfile'] as Map?)?['type'] ==
+                    _selectedAgentType)
+                  agent,
+            ],
+          ),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return const _AgentEmptyState(
@@ -133,8 +140,8 @@ class _AgentsPageState extends State<AgentsPage> {
         }
 
         final agents =
-            snapshot.data!.docs
-                .map((doc) => _AgentSummary.fromDoc(doc))
+            snapshot.data!
+                .map((profile) => _AgentSummary.fromProfile(profile))
                 .where(_matchesQuery)
                 .toList()
               ..sort((a, b) => a.name.compareTo(b.name));
@@ -302,7 +309,7 @@ class _AgentRequestPageState extends State<_AgentRequestPage> {
   }
 
   Future<void> _submit() async {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = AppAuth.instance.currentUser;
     if (user == null) {
       _message('Sign in to request an agent.');
       return;
@@ -311,35 +318,29 @@ class _AgentRequestPageState extends State<_AgentRequestPage> {
 
     setState(() => _saving = true);
     try {
-      await FirebaseFirestore.instance.collection('agent_requests').add({
-        'agentId': widget.agent.id,
-        'agentName': widget.agent.name,
-        'agentType': widget.agent.type,
-        'customerId': user.uid,
-        'customerName': user.displayName ?? user.email ?? 'Customer',
-        'service': _serviceController.text.trim(),
-        'preferredDate': _dateController.text.trim(),
-        'budget': _budgetController.text.trim(),
-        'location': _locationController.text.trim(),
-        'notes': _notesController.text.trim(),
-        'status': 'pending',
-        'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+      await const RequestService(RequestKind.hair).create(
+        customerId: user.uid,
+        providerId: widget.agent.id,
+        details: {
+          'agentName': widget.agent.name,
+          'agentType': widget.agent.type,
+          'customerName': user.displayName ?? user.email ?? 'Customer',
+          'service': _serviceController.text.trim(),
+          'preferredDate': _dateController.text.trim(),
+          'budget': _budgetController.text.trim(),
+          'location': _locationController.text.trim(),
+          'notes': _notesController.text.trim(),
+        },
+      );
 
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(widget.agent.id)
-          .collection('notifications')
-          .add({
-            'type': 'agent_request',
-            'title': 'New agent request',
-            'body':
-                '${user.displayName ?? user.email ?? 'A customer'} requested ${_serviceController.text.trim()}.',
-            'isRead': false,
-            'createdAt': FieldValue.serverTimestamp(),
-            'extraData': {'agentId': widget.agent.id, 'customerId': user.uid},
-          });
+      await NotificationService().addNotification(
+        receiverId: widget.agent.id,
+        title: 'New agent request',
+        body:
+            '${user.displayName ?? user.email ?? 'A customer'} requested ${_serviceController.text.trim()}.',
+        type: 'agent_request',
+        extraData: {'agentId': widget.agent.id, 'customerId': user.uid},
+      );
 
       if (!mounted) return;
       _message('Agent request sent.');
@@ -451,7 +452,7 @@ class _AgentRequestsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = AppAuth.instance.currentUser;
     return Scaffold(
       appBar: AppBar(title: const Text('My Agent Requests')),
       body: user == null
@@ -459,12 +460,18 @@ class _AgentRequestsPage extends StatelessWidget {
               icon: Icons.lock_outline,
               title: 'Sign in to see your agent requests.',
             )
-          : StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-              stream: FirebaseFirestore.instance
-                  .collection('agent_requests')
-                  .where('customerId', isEqualTo: user.uid)
-                  .orderBy('createdAt', descending: true)
-                  .snapshots(),
+          : StreamBuilder<List<Map<String, dynamic>>>(
+              stream: const RequestService(RequestKind.hair)
+                  .watchForCustomer(user.uid)
+                  .map(
+                    (requests) => requests.toList()
+                      ..sort(
+                        (a, b) => (asDateTime(b['createdAt']) ?? DateTime(0))
+                            .compareTo(
+                              asDateTime(a['createdAt']) ?? DateTime(0),
+                            ),
+                      ),
+                  ),
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
                   return const _AgentEmptyState(
@@ -475,7 +482,7 @@ class _AgentRequestsPage extends StatelessWidget {
                 if (!snapshot.hasData) {
                   return const Center(child: CircularProgressIndicator());
                 }
-                final requests = snapshot.data!.docs;
+                final requests = snapshot.data!;
                 if (requests.isEmpty) {
                   return const _AgentEmptyState(
                     icon: Icons.assignment_outlined,
@@ -487,7 +494,7 @@ class _AgentRequestsPage extends StatelessWidget {
                   itemCount: requests.length,
                   separatorBuilder: (_, _) => const SizedBox(height: 12),
                   itemBuilder: (context, index) =>
-                      _AgentRequestCard(data: requests[index].data()),
+                      _AgentRequestCard(data: requests[index]),
                 );
               },
             ),
@@ -530,16 +537,12 @@ class AgentProfileEditorPageState extends State<AgentProfileEditorPage> {
   }
 
   Future<void> _loadProfile() async {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = AppAuth.instance.currentUser;
     if (user == null) {
       setState(() => _loading = false);
       return;
     }
-    final snapshot = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .get();
-    final data = snapshot.data() ?? const <String, dynamic>{};
+    final data = await ProfileService().get(user.uid);
     final profile = Map<String, dynamic>.from(
       data['agentProfile'] as Map? ?? const {},
     );
@@ -557,7 +560,7 @@ class AgentProfileEditorPageState extends State<AgentProfileEditorPage> {
   }
 
   Future<void> _save() async {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = AppAuth.instance.currentUser;
     if (user == null) {
       _message('Sign in to create an agent profile.');
       return;
@@ -566,19 +569,16 @@ class AgentProfileEditorPageState extends State<AgentProfileEditorPage> {
 
     setState(() => _saving = true);
     try {
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-        'isAgent': true,
-        'agentProfile': {
-          'active': true,
-          'type': _type,
-          'name': _nameController.text.trim(),
-          'bio': _bioController.text.trim(),
-          'location': _locationController.text.trim(),
-          'services': _splitCsv(_servicesController.text),
-          'rate': _rateController.text.trim(),
-          'updatedAt': FieldValue.serverTimestamp(),
-        },
-      }, SetOptions(merge: true));
+      await ProfileService().mergeSection(user.uid, 'agentProfile', {
+        'active': true,
+        'type': _type,
+        'name': _nameController.text.trim(),
+        'bio': _bioController.text.trim(),
+        'location': _locationController.text.trim(),
+        'services': _splitCsv(_servicesController.text),
+        'rate': _rateController.text.trim(),
+        'updatedAt': DateTime.now().toUtc().toIso8601String(),
+      });
 
       if (!mounted) return;
       _message('Agent profile saved.');
@@ -900,8 +900,7 @@ class _AgentSummary {
 
   String get typeLabel => type == 'hair' ? 'Hair Agent' : 'Clothes Agent';
 
-  factory _AgentSummary.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
-    final data = doc.data() ?? const <String, dynamic>{};
+  factory _AgentSummary.fromProfile(Map<String, dynamic> data) {
     final profile = Map<String, dynamic>.from(
       data['agentProfile'] as Map? ?? const {},
     );
@@ -909,14 +908,10 @@ class _AgentSummary {
         ? 'clothes'
         : 'hair';
     final name = (profile['name'] ?? data['displayName'] ?? 'Agent').toString();
-    final avatar =
-        (profile['avatarUrl'] ??
-                data['profileImageURL'] ??
-                data['profileImageUrl'] ??
-                '')
-            .toString();
+    final avatar = (profile['avatarUrl'] ?? data['profileImageUrl'] ?? '')
+        .toString();
     return _AgentSummary(
-      id: doc.id,
+      id: data['id'].toString(),
       type: type,
       name: name,
       bio: (profile['bio'] ?? '').toString(),

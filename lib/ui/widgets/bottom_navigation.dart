@@ -6,10 +6,10 @@
 // No destination carries a count of anything social. The only badge is the
 // unread notification indicator on Home, which is a signal to the user about
 // their own activity, not a public total.
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/main_tab.dart';
+import '../../core/supabase/app_auth.dart';
 import '../../data/services/notification_service.dart';
 
 class CustomBottomNavigation extends StatelessWidget {
@@ -117,8 +117,8 @@ class _UnreadBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // No badge without Firebase (widget tests and previews).
-    if (Firebase.apps.isEmpty) return const SizedBox.shrink();
+    // No badge without a signed-in user (widget tests and previews).
+    if (AppAuth.instance.currentUser == null) return const SizedBox.shrink();
     return StreamBuilder<int>(
       stream: NotificationService().getUnreadCount(),
       builder: (context, snapshot) {

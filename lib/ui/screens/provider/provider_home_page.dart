@@ -1,8 +1,8 @@
 // The provider side of the app: one card per role the user holds, each
 // opening the screen that already exists for it. "Switch to customer" returns
 // to the normal app without signing out.
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import '../../../core/supabase/app_auth.dart';
+import '../../../data/services/profile_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -24,7 +24,7 @@ class ProviderHomePage extends StatelessWidget {
   static const Color _primary = Color(0xFF0D0140);
 
   Future<void> _switchToCustomer() async {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = AppAuth.instance.currentUser;
     if (user == null) return;
     await ProviderService().setMode(user.uid, provider: false);
   }
@@ -56,7 +56,7 @@ class ProviderHomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = AppAuth.instance.currentUser;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Provider mode'),
@@ -76,13 +76,10 @@ class ProviderHomePage extends StatelessWidget {
       ),
       body: user == null
           ? const SizedBox.shrink()
-          : StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-              stream: FirebaseFirestore.instance
-                  .collection('users')
-                  .doc(user.uid)
-                  .snapshots(),
+          : StreamBuilder<Map<String, dynamic>>(
+              stream: ProfileService().watch(user.uid),
               builder: (context, snapshot) {
-                final data = snapshot.data?.data() ?? const {};
+                final data = snapshot.data ?? const <String, dynamic>{};
                 final roles = providerRolesOf(data);
                 final name = (data['displayName'] ?? '').toString();
                 return ListView(

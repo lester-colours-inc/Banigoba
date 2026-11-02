@@ -72,10 +72,11 @@ class LookPurchaseService implements LookPurchaseSource {
         ? rawStyles.map((style) => style.toString()).toList()
         : const <String>[];
     final wardrobe = [
-      for (final row in await supabase
-          .from('user_products')
-          .select()
-          .eq('user_id', userId))
+      for (final row
+          in await supabase
+              .from('user_products')
+              .select()
+              .eq('user_id', userId))
         productMap(row),
     ];
     final body = await _loadBody();

@@ -5,7 +5,6 @@
 //
 // TODO(content-engine): "Trending" and "Style idols" sources need the
 // fashion-content engine (review item E-2).
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../core/supabase/app_auth.dart';
 import '../../../../data/services/profile_service.dart';
 import 'package:flutter/foundation.dart';

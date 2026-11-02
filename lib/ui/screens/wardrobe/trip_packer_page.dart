@@ -1,5 +1,4 @@
 // Builds packing checklists from the garments in selected saved outfits.
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/supabase/app_auth.dart';
 import 'package:flutter/material.dart';
 

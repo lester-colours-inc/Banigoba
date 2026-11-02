@@ -16,9 +16,9 @@
 // UNCLEAR: this class is still called DailyDressUpPage although it is Home.
 // Daily Dress Up is meant to be a separate feature whose role after the
 // review is undecided; rename once that is settled.
+import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
 import 'dart:async';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/supabase/app_auth.dart';
 import '../../../data/services/profile_service.dart';
 import 'package:flutter/foundation.dart';
@@ -1454,7 +1454,7 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
     var categories = const <String>[];
     try {
       categories = await _outfitService.savedLookCategories(userId);
-    } on FirebaseException catch (error) {
+    } on PostgrestException catch (error) {
       // Still show the sheet, with the starter categories.
       debugPrint('Unable to load look categories: ${error.message}');
     }
@@ -1477,7 +1477,7 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
         postId: postId,
         category: category,
       );
-    } on FirebaseException catch (error) {
+    } on PostgrestException catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Unable to add to $category: ${error.message}')),
@@ -1501,7 +1501,7 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Removed from your Smart Wardrobe.')),
       );
-    } on FirebaseException catch (error) {
+    } on PostgrestException catch (error) {
       if (!mounted) return;
       setState(() => _savedPostIds = previous);
       ScaffoldMessenger.of(context).showSnackBar(

@@ -27,7 +27,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/supabase/app_auth.dart';
 import '../../core/supabase/supabase_config.dart';
-import '../supabase/rows.dart';
 import '../supabase/storage_files.dart' show randomFileName;
 
 import '../models/makeover_job.dart';
@@ -138,14 +137,15 @@ class CoordinatedMakeoverService {
         .stream(primaryKey: ['user_id', 'kind', 'id'])
         .eq('user_id', userId)
         .map((rows) {
-          final jobs = [
-            for (final row in rows)
-              if (row['kind'] == _kind) _readJob(row),
-          ]..sort(
-            (a, b) => (b.createdAt ?? DateTime(0)).compareTo(
-              a.createdAt ?? DateTime(0),
-            ),
-          );
+          final jobs =
+              [
+                for (final row in rows)
+                  if (row['kind'] == _kind) _readJob(row),
+              ]..sort(
+                (a, b) => (b.createdAt ?? DateTime(0)).compareTo(
+                  a.createdAt ?? DateTime(0),
+                ),
+              );
           return jobs.take(limit).toList();
         });
   }

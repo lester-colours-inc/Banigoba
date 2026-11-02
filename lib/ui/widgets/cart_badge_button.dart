@@ -1,5 +1,4 @@
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
+import '../../core/supabase/app_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/app_routes.dart';
@@ -21,10 +20,8 @@ class CartBadgeButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // No badge without Firebase (widget tests and previews).
-    final user = Firebase.apps.isEmpty
-        ? null
-        : FirebaseAuth.instance.currentUser;
+    // No badge without a backend (widget tests and previews).
+    final user = AppAuth.instance.currentUser;
     final iconButton = IconButton(
       tooltip: tooltip,
       onPressed:

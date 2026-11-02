@@ -109,4 +109,47 @@ class ProfileService {
     };
     return [for (final row in rows) profileMap(row)];
   }
+
+  /// Every profile, live (for the curators' verification lists).
+  Stream<List<Map<String, dynamic>>> watchAll() {
+    return supabase
+        .from(_table)
+        .stream(primaryKey: ['id'])
+        .map((rows) => [for (final row in rows) profileMap(row)]);
+  }
+
+  /// Adds [patch] to the provider section [field] (`shop`, `designerProfile`
+  /// or `agentProfile`), keeping everything else already saved in it. Never
+  /// writes `verified`.
+  Future<void> mergeSection(
+    String userId,
+    String field,
+    Map<String, dynamic> patch,
+  ) async {
+    final current = await get(userId);
+    final merged = {
+      if (current[field] is Map)
+        ...Map<String, dynamic>.from(current[field] as Map),
+      ...patch,
+    }..remove('verified');
+    await update(userId, {field: merged});
+  }
+
+  /// Verified, active providers of [kind] ('designer' or 'salon'), live.
+  Stream<List<Map<String, dynamic>>> watchVerifiedProviders(String kind) {
+    final isDesigner = kind == 'designer';
+    final section = isDesigner ? 'designerProfile' : 'agentProfile';
+    return supabase
+        .from(_table)
+        .stream(primaryKey: ['id'])
+        .eq(isDesigner ? 'designer_verified' : 'agent_verified', true)
+        .map(
+          (rows) => [
+            for (final row in rows)
+              if (profileMap(row)[section] case final Map profile
+                  when profile['active'] == true)
+                profileMap(row),
+          ],
+        );
+  }
 }

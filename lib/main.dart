@@ -1,6 +1,4 @@
 // Initializes Supabase (data and sign-in) and Firebase (push only), then starts the Banigoba Flutter application.
-// import 'package:cloud_firestore/cloud_firestore.dart';
-// import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';

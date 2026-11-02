@@ -1,6 +1,6 @@
 // Lets users choose styling options and adds optional weather context to the makeover.
+import '../../../core/supabase/app_auth.dart';
 import 'dart:typed_data';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import '../../../core/app_routes.dart';
@@ -53,7 +53,7 @@ class _StyleSelectionPageState extends State<StyleSelectionPage> {
   }
 
   Future<void> _loadUpcomingEvent() async {
-    final userId = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final userId = AppAuth.instance.currentUser?.uid ?? '';
     if (userId.isEmpty) {
       if (!mounted) return;
       setState(() => _isLoadingEvent = false);

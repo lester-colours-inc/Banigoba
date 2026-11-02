@@ -2,8 +2,8 @@
 // style is like yours. Find them by name or @username, add them, and they
 // are followed too, so their looks come into your feeds (no separate
 // timeline, F-4).
+import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/supabase/app_auth.dart';
 import '../../../data/services/profile_service.dart';
 import 'package:flutter/material.dart';
@@ -41,8 +41,7 @@ class _FashionTwinsPageState extends State<FashionTwinsPage> {
           id: uid,
           name: name,
           username: (data['username'] ?? '').toString(),
-          imageUrl: (data['profileImageUrl'] ?? '')
-              .toString(),
+          imageUrl: (data['profileImageUrl'] ?? '').toString(),
         ),
       );
       // Twins' looks reach your feeds through following them.
@@ -58,7 +57,7 @@ class _FashionTwinsPageState extends State<FashionTwinsPage> {
           ),
         ),
       );
-    } on FirebaseException catch (error) {
+    } on PostgrestException catch (error) {
       messenger.showSnackBar(
         SnackBar(content: Text('Could not add $name: ${error.message}')),
       );

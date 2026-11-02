@@ -25,7 +25,7 @@ enum _PhotoAction { camera, gallery, remove }
 class BodyProfilePage extends StatefulWidget {
   const BodyProfilePage({super.key, this.store, this.pickImage});
 
-  /// Injected in tests; defaults to the signed-in user's Firebase data.
+  /// Injected in tests; defaults to the signed-in user's saved details.
   final BodyProfileStore? store;
 
   /// Injected in tests; defaults to the device camera and gallery.

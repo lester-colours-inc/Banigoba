@@ -4,7 +4,6 @@
 // adds products to wardrobe/cart, and starts the product-context boutique chat.
 // Owners can also edit or delete their own products from here.
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/supabase/app_auth.dart';
 import '../../../data/services/profile_service.dart';
 import '../../../core/app_routes.dart';

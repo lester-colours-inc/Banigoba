@@ -1,7 +1,7 @@
 // The Customer / Provider switch at the top of the menu (S-1). Without a
 // provider role it offers "Become a provider" instead.
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import '../../core/supabase/app_auth.dart';
+import '../../data/services/profile_service.dart';
 import 'package:flutter/material.dart';
 
 import '../../data/models/provider_roles.dart';
@@ -13,16 +13,13 @@ class ProviderModeSwitch extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = AppAuth.instance.currentUser;
     if (user == null) return const SizedBox.shrink();
-    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      stream: FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .snapshots(),
+    return StreamBuilder<Map<String, dynamic>>(
+      stream: ProfileService().watch(user.uid),
       builder: (context, snapshot) {
-        final data = snapshot.data?.data();
-        if (data == null) return const SizedBox.shrink();
+        final data = snapshot.data;
+        if (data == null || data.isEmpty) return const SizedBox.shrink();
         final roles = providerRolesOf(data);
         return Padding(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),

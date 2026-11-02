@@ -11,12 +11,19 @@ class AppUser {
     this.email,
     this.displayName,
     this.photoURL,
+    this.providers = const [],
   });
 
   final String uid;
   final String? email;
   final String? displayName;
   final String? photoURL;
+
+  /// How the account signs in, e.g. `email`, `google`, `facebook`.
+  final List<String> providers;
+
+  /// Whether the account has a password to change.
+  bool get hasPassword => providers.contains('email');
 
   factory AppUser.fromSupabase(User user) {
     final meta = user.userMetadata ?? const <String, dynamic>{};
@@ -30,6 +37,10 @@ class AppUser {
       email: user.email,
       displayName: text(meta['full_name'] ?? meta['name']),
       photoURL: text(meta['avatar_url'] ?? meta['picture']),
+      providers: [
+        if (user.appMetadata['providers'] case final List list)
+          for (final provider in list) provider.toString(),
+      ],
     );
   }
 }

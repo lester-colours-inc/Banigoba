@@ -1,6 +1,6 @@
 // Collects or reuses a full-body image before the user selects a makeover style.
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
+import '../../../core/supabase/app_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -31,7 +31,6 @@ class AiUploadPage extends StatefulWidget {
 class _AiUploadPageState extends State<AiUploadPage> {
   final ImagePicker _picker = ImagePicker();
   final StorageService _storageService = StorageService();
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   Uint8List? _selectedImageBytes;
   Uint8List? _existingFullBodyImageBytes;
@@ -59,7 +58,7 @@ class _AiUploadPageState extends State<AiUploadPage> {
   }
 
   Future<void> _loadExistingFullBodyImage() async {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = AppAuth.instance.currentUser;
     if (user == null) {
       debugPrint('[AiUpload] Cannot load image: no authenticated user');
       return;
@@ -74,32 +73,10 @@ class _AiUploadPageState extends State<AiUploadPage> {
     });
 
     try {
-      final userSnapshot = await _firestore
-          .collection('users')
-          .doc(user.uid)
-          .get();
-      final userData = userSnapshot.data();
-      final savedFullBodyUrl = userData?['latestFullBodyImageUrl'];
-      debugPrint(
-        '[AiUpload] User document exists=${userSnapshot.exists}, '
-        'latestFullBodyImageUrl type=${savedFullBodyUrl.runtimeType}',
+      // The newest full-body photo in the person's own folder.
+      final existingUrl = await _storageService.getLatestFullBodyImageUrl(
+        user.uid,
       );
-      var existingUrl =
-          savedFullBodyUrl is String && savedFullBodyUrl.isNotEmpty
-          ? savedFullBodyUrl
-          : null;
-
-      // Older accounts may have images in Storage without the Firestore field.
-      if (existingUrl == null) {
-        debugPrint(
-          '[AiUpload] Firestore URL is missing or empty; checking Storage directory',
-        );
-        existingUrl = await _storageService.getLatestFullBodyImageUrl(user.uid);
-      } else {
-        debugPrint(
-          '[AiUpload] Firestore URL found: ${StorageService.describeDownloadUrl(existingUrl)}',
-        );
-      }
 
       if (existingUrl != null) {
         await _storageService.debugImageAccess(existingUrl);
@@ -108,16 +85,12 @@ class _AiUploadPageState extends State<AiUploadPage> {
             '[AiUpload] Web detected; using an HTML image element to bypass CORS byte-fetch restrictions',
           );
         } else {
-          debugPrint(
-            '[AiUpload] Downloading saved image through Firebase Storage SDK',
-          );
+          debugPrint('[AiUpload] Downloading saved image');
           final existingBytes = await _storageService.downloadImageBytes(
             existingUrl,
           );
           if (existingBytes == null) {
-            throw StateError(
-              'Firebase Storage returned no bytes for the saved image.',
-            );
+            throw StateError('Storage returned no bytes for the saved image.');
           }
           debugPrint(
             '[AiUpload] Saved image bytes loaded: ${existingBytes.length}',
@@ -132,9 +105,9 @@ class _AiUploadPageState extends State<AiUploadPage> {
       setState(() {
         _existingFullBodyImageUrl = existingUrl;
       });
-    } on FirebaseException catch (e, stackTrace) {
+    } on PostgrestException catch (e, stackTrace) {
       debugPrint(
-        '[AiUpload] Firestore image lookup failed: code=${e.code}, message=${e.message}',
+        '[AiUpload] Image lookup failed: code=${e.code}, message=${e.message}',
       );
       debugPrintStack(stackTrace: stackTrace);
       if (!mounted) return;
@@ -211,7 +184,7 @@ class _AiUploadPageState extends State<AiUploadPage> {
   }
 
   Future<void> _saveFullBodyImageToUserDocument(Uint8List imageBytes) async {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = AppAuth.instance.currentUser;
     if (user == null) {
       return;
     }
@@ -224,12 +197,8 @@ class _AiUploadPageState extends State<AiUploadPage> {
       '[AiUpload] Upload returned URL: ${StorageService.describeDownloadUrl(imageUrl)}',
     );
 
-    await _firestore.collection('users').doc(user.uid).set({
-      'latestFullBodyImageUrl': imageUrl,
-      'fullBodyImageUrls': FieldValue.arrayUnion([imageUrl]),
-      'fullBodyImageUploadedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
-    debugPrint('[AiUpload] Saved latestFullBodyImageUrl to users/${user.uid}');
+    // The newest file in the person's folder is their current full-body photo.
+    debugPrint('[AiUpload] Saved full-body photo for ${user.uid}');
   }
 
   @override
@@ -581,7 +550,7 @@ class _AiUploadPageState extends State<AiUploadPage> {
 
     if (kIsWeb) {
       debugPrint(
-        '[AiUpload] Passing saved Firebase URL to style selection on web',
+        '[AiUpload] Passing saved image URL to style selection on web',
       );
       if (!mounted) return;
       Navigator.push(

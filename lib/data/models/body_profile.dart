@@ -65,7 +65,7 @@ enum BodyMeasurement {
     this.howToMeasure,
   );
 
-  /// Field name in Firestore.
+  /// Field name in the stored data.
   final String key;
   final String label;
   final String unit;

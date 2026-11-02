@@ -1,12 +1,12 @@
 // Generates a clothing try-on using the signed-in user's saved avatar.
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
+import '../../../core/supabase/app_auth.dart';
+import '../../../data/services/storage_service.dart';
 import 'package:flutter/material.dart';
 
 import '../../../data/services/gemini_image_api.dart';
 import '../../../data/services/outfit_service.dart';
-import '../../../data/services/storage_service.dart';
 import '../../widgets/before_after_view.dart';
 import '../../widgets/safe_product_image.dart';
 import 'ai_upload_page.dart';
@@ -171,7 +171,7 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
   }
 
   Future<void> _loadAvatar() async {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = AppAuth.instance.currentUser;
     if (user == null) {
       setState(() {
         _error = 'Sign in to use avatar try-on.';
@@ -181,11 +181,7 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
     }
 
     try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .get();
-      final url = snapshot.data()?['latestFullBodyImageUrl'];
+      final url = await StorageService().getLatestFullBodyImageUrl(user.uid);
       if (!mounted) return;
       setState(() {
         _avatarImageUrl = url is String && url.isNotEmpty ? url : null;
@@ -292,7 +288,7 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
   Future<void> _turnAround(TryOnProvider provider) async {
     final frontUrl = _results[provider];
     final avatarUrl = _avatarImageUrl;
-    final user = FirebaseAuth.instance.currentUser;
+    final user = AppAuth.instance.currentUser;
     if (frontUrl == null || avatarUrl == null || user == null) return;
     if (_geminiApiKey.isEmpty) {
       setState(
@@ -363,7 +359,7 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
         outfitId: outfitId,
         views: views,
       );
-    } on FirebaseException catch (error) {
+    } on PostgrestException catch (error) {
       debugPrint('Could not keep the angles: ${error.message}');
     }
   }
@@ -434,7 +430,7 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
     );
     if (inputs == null) return;
 
-    final user = FirebaseAuth.instance.currentUser;
+    final user = AppAuth.instance.currentUser;
     if (user == null) {
       setState(() => _error = 'Sign in to use avatar try-on.');
       return;
@@ -588,7 +584,7 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
   }
 
   Future<void> _saveCompletedOutfit(TryOnProvider provider) async {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = AppAuth.instance.currentUser;
     final avatarUrl = _avatarImageUrl;
     final resultUrl = _results[provider];
     if (user == null || avatarUrl == null || resultUrl == null) return;

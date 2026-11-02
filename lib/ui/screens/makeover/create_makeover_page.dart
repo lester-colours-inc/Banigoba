@@ -13,7 +13,7 @@
 //
 // Deliberately absent: any score, rating, ranking or "best look" marker. The
 // compare step offers alternatives and an explanation of what changed.
-import 'package:firebase_auth/firebase_auth.dart';
+import '../../../core/supabase/app_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -71,7 +71,7 @@ class _CreateMakeoverPageState extends State<CreateMakeoverPage> {
     super.dispose();
   }
 
-  String get _userId => FirebaseAuth.instance.currentUser?.uid ?? '';
+  String get _userId => AppAuth.instance.currentUser?.uid ?? '';
 
   Future<void> _loadExistingPhoto() async {
     final userId = _userId;

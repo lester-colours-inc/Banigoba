@@ -1,8 +1,8 @@
 // Calibrates body proportions before outfit generation and recommendations.
 import 'dart:typed_data';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import '../../../core/supabase/app_auth.dart';
+import '../../../core/supabase/supabase_config.dart';
 import 'package:flutter/material.dart';
 
 import '../makeover/style_selection_page.dart';
@@ -43,16 +43,14 @@ class _MeasurementPageState extends State<MeasurementPage> {
     setState(() => _isSaving = true);
 
     try {
-      final user = FirebaseAuth.instance.currentUser;
+      final user = AppAuth.instance.currentUser;
       if (user != null) {
-        await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-          'bodyCalibration': {
-            'height': _height,
-            'waist': _waist,
-            'shoulders': _shoulders,
-          },
-          'bodyCalibrationUpdatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
+        await supabase.from('user_documents').upsert({
+          'user_id': user.uid,
+          'kind': 'bodyCalibration',
+          'id': 'latest',
+          'data': {'height': _height, 'waist': _waist, 'shoulders': _shoulders},
+        });
       }
 
       if (!mounted) return;

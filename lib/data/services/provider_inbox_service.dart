@@ -111,7 +111,10 @@ class ProviderInboxService {
       InboxKind.hair => 'agent_requests',
       InboxKind.order => throw ArgumentError('Orders are answered in Orders.'),
     };
-    await supabase.from(collection).update({'status': status}).eq('id', item.id);
+    await supabase
+        .from(collection)
+        .update({'status': status})
+        .eq('id', item.id);
 
     if (item.customerId.isEmpty || item.status == status) return;
     final what = item.kind == InboxKind.design ? 'design' : 'hair';

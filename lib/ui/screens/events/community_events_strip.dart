@@ -40,8 +40,8 @@ class CommunityEventsStrip extends StatefulWidget {
 }
 
 class _CommunityEventsStripState extends State<CommunityEventsStrip> {
-  late final Stream<List<Map<String, dynamic>>> _events =
-      EventService().watchApprovedEvents();
+  late final Stream<List<Map<String, dynamic>>> _events = EventService()
+      .watchApprovedEvents();
 
   void _addEvent() => Navigator.push(
     context,

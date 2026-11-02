@@ -9,7 +9,6 @@ import '../../../core/supabase/app_auth.dart';
 import '../../../core/supabase/supabase_config.dart';
 import '../../../data/services/profile_service.dart';
 import '../../../data/supabase/rows.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../data/models/body_profile.dart';

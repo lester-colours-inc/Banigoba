@@ -92,6 +92,19 @@ class AuthService {
     }
   }
 
+  /// Changes the password after checking the current one.
+  Future<void> changePassword({
+    required String email,
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    await _client.auth.signInWithPassword(
+      email: email,
+      password: currentPassword,
+    );
+    await _client.auth.updateUser(UserAttributes(password: newPassword));
+  }
+
   /// Sign out
   Future<void> signOut() async {
     try {

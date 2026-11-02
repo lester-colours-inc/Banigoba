@@ -1,7 +1,11 @@
 // Lets the signed-in user manage account details, profile photo, and address.
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:supabase_flutter/supabase_flutter.dart'
+    show AuthException, PostgrestException;
+import '../../../core/supabase/app_auth.dart';
+import '../../../data/services/auth_service.dart';
+import '../../../data/services/private_account_service.dart';
+import '../../../data/services/profile_service.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -71,19 +75,15 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _openStylePreferences() async {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = AppAuth.instance.currentUser;
     if (user == null) return;
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
 
     final Map<String, dynamic> userData;
     try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .get();
-      userData = snapshot.data() ?? const {};
-    } on FirebaseException catch (error) {
+      userData = await ProfileService().get(user.uid);
+    } on PostgrestException catch (error) {
       messenger.showSnackBar(
         SnackBar(content: Text('Unable to load preferences: ${error.message}')),
       );
@@ -107,28 +107,18 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _load() async {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = AppAuth.instance.currentUser;
     if (user == null) {
       if (mounted) setState(() => _loading = false);
       return;
     }
-    final snapshot = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .get();
-    final data = snapshot.data() ?? const <String, dynamic>{};
-    final address = Map<String, dynamic>.from(
-      data['address'] as Map? ?? const {},
-    );
+    final data = await ProfileService().get(user.uid);
+    final address = await PrivateAccountService().address(user.uid);
     if (!mounted) return;
     _nameController.text = (data['displayName'] ?? user.displayName ?? '')
         .toString();
-    _profileImageUrl =
-        (data['profileImageURL'] ??
-                data['profileImageUrl'] ??
-                user.photoURL ??
-                '')
-            .toString();
+    _profileImageUrl = (data['profileImageUrl'] ?? user.photoURL ?? '')
+        .toString();
     _username = (data['username'] ?? '').toString();
     _streetController.text = (address['street'] ?? '').toString();
     _cityController.text = (data['city'] ?? address['city'] ?? '').toString();
@@ -149,7 +139,7 @@ class _SettingsPageState extends State<SettingsPage> {
   /// "Near me" from the phone's location: turning on explains first, asks the
   /// phone, and keeps only a rough area; turning off deletes it.
   Future<void> _setUseLocation(bool on) async {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = AppAuth.instance.currentUser;
     if (user == null) return;
     if (!on) {
       await _area.disable(user.uid);
@@ -193,14 +183,12 @@ class _SettingsPageState extends State<SettingsPage> {
 
   /// Trending-look pushes on or off (at most one a day).
   Future<void> _setNotifyTrending(bool on) async {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = AppAuth.instance.currentUser;
     if (user == null) return;
     setState(() => _notifyTrending = on);
     try {
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-        'notifyTrending': on,
-      }, SetOptions(merge: true));
-    } on FirebaseException catch (error) {
+      await ProfileService().update(user.uid, {'notifyTrending': on});
+    } on PostgrestException catch (error) {
       if (mounted) setState(() => _notifyTrending = !on);
       _showMessage('Unable to change this: ${error.message}');
     }
@@ -209,7 +197,7 @@ class _SettingsPageState extends State<SettingsPage> {
   /// Opens provider mode, or the one-time sign-up when the user holds no
   /// provider role yet.
   Future<void> _openProviderMode() async {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = AppAuth.instance.currentUser;
     if (user == null || _saving) return;
     if (_providerRoles.isEmpty) {
       await Navigator.of(context).push(
@@ -232,7 +220,7 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _changeUsername() async {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = AppAuth.instance.currentUser;
     if (user == null) return;
     final usernames = UsernameService();
     final name = _nameController.text;
@@ -267,7 +255,7 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _saveProfile() async {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = AppAuth.instance.currentUser;
     if (user == null || _saving) return;
     final name = _nameController.text.trim();
     if (name.isEmpty) {
@@ -277,24 +265,25 @@ class _SettingsPageState extends State<SettingsPage> {
 
     setState(() => _saving = true);
     try {
+      final existingAddress = await PrivateAccountService().address(user.uid);
       await Future.wait([
-        user.updateDisplayName(name),
-        FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+        ProfileService().update(user.uid, {
           'displayName': name,
           // The city alone is public, so people near you can find each
           // other (the rest of the address is for delivery).
           'city': _cityController.text.trim(),
           // How people in the same city are matched, spelling aside.
           'cityKey': normalizeCity(_cityController.text),
-          'address': {
-            'street': _streetController.text.trim(),
-            'city': _cityController.text.trim(),
-            'state': _stateController.text.trim(),
-            'postalCode': _postalController.text.trim(),
-            'country': _countryController.text.trim(),
-          },
-          'accountUpdatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true)),
+        }),
+        // The address is private, for delivery only.
+        PrivateAccountService().saveAddress(user.uid, {
+          ...existingAddress,
+          'street': _streetController.text.trim(),
+          'city': _cityController.text.trim(),
+          'state': _stateController.text.trim(),
+          'postalCode': _postalController.text.trim(),
+          'country': _countryController.text.trim(),
+        }),
       ]);
       _showMessage('Account settings saved.');
     } catch (error) {
@@ -305,7 +294,7 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _changePassword() async {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = AppAuth.instance.currentUser;
     final email = user?.email;
     if (user == null || email == null) return;
     final currentPassword = _currentPasswordController.text;
@@ -319,15 +308,16 @@ class _SettingsPageState extends State<SettingsPage> {
 
     setState(() => _saving = true);
     try {
-      await user.reauthenticateWithCredential(
-        EmailAuthProvider.credential(email: email, password: currentPassword),
+      await AuthService().changePassword(
+        email: email,
+        currentPassword: currentPassword,
+        newPassword: newPassword,
       );
-      await user.updatePassword(newPassword);
       _currentPasswordController.clear();
       _newPasswordController.clear();
       _showMessage('Password updated.');
-    } on FirebaseAuthException catch (error) {
-      _showMessage(error.message ?? 'Unable to update password.');
+    } on AuthException catch (error) {
+      _showMessage(error.message);
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -342,12 +332,8 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
-    final hasPasswordProvider =
-        user?.providerData.any(
-          (provider) => provider.providerId == 'password',
-        ) ??
-        false;
+    final user = AppAuth.instance.currentUser;
+    final hasPasswordProvider = user?.hasPassword ?? false;
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
       body: _loading

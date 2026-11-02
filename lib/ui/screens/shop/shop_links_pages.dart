@@ -2,8 +2,9 @@
 // and sending one.
 import 'dart:ui' as ui;
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import '../../../core/supabase/app_auth.dart';
+import '../../../data/services/product_service.dart';
+import '../../../data/services/profile_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -27,7 +28,7 @@ class ShopLinksPage extends StatefulWidget {
 
 class _ShopLinksPageState extends State<ShopLinksPage> {
   final ShopLinkService _service = ShopLinkService();
-  final String _userId = FirebaseAuth.instance.currentUser?.uid ?? '';
+  final String _userId = AppAuth.instance.currentUser?.uid ?? '';
   late Future<List<ShopLink>> _links = _service.mine(_userId);
 
   void _reload() => setState(() => _links = _service.mine(_userId));
@@ -124,26 +125,17 @@ class CreateShopLinkPage extends StatefulWidget {
 
 class _CreateShopLinkPageState extends State<CreateShopLinkPage> {
   final ShopLinkService _service = ShopLinkService();
-  final String _userId = FirebaseAuth.instance.currentUser?.uid ?? '';
+  final String _userId = AppAuth.instance.currentUser?.uid ?? '';
   late final Future<(String, List<Map<String, dynamic>>)> _data = _load();
 
   Future<(String, List<Map<String, dynamic>>)> _load() async {
-    final db = FirebaseFirestore.instance;
-    final user = (await db.collection('users').doc(_userId).get()).data();
-    final shop = user?['shop'];
+    final user = await ProfileService().get(_userId);
+    final shop = user['shop'];
     final name = shop is Map && (shop['name'] ?? '').toString().isNotEmpty
         ? shop['name'].toString()
-        : (user?['displayName'] ?? 'My shop').toString();
-    final products = await db
-        .collection('products')
-        .where('uploaderId', isEqualTo: _userId)
-        .get();
-    return (
-      name,
-      [
-        for (final doc in products.docs) {...doc.data(), 'id': doc.id},
-      ],
-    );
+        : (user['displayName'] ?? 'My shop').toString();
+    final products = await ProductService().getAdminProducts(_userId).first;
+    return (name, products);
   }
 
   Future<void> _create(ShopLink draft) async {

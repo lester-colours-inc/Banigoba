@@ -3,7 +3,7 @@
 // credited link previews. Events with a date come first, soonest first; a
 // story that names one of the person's idols is lifted into "From your idols".
 // Hidden while loading and when there is nothing to show.
-import 'package:firebase_auth/firebase_auth.dart';
+import '../../core/supabase/app_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../data/models/content_item.dart';
@@ -39,7 +39,7 @@ class FashionNewsSection extends StatefulWidget {
 
 Future<List<String>> _signedInIdolNames() async {
   try {
-    final userId = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final userId = AppAuth.instance.currentUser?.uid ?? '';
     final idols = await StyleListsService()
         .watch(userId, StyleList.idols)
         .first;

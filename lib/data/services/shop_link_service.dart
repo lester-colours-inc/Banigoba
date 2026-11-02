@@ -73,10 +73,7 @@ class ShopLinkService implements ShopLinkSource {
       }
       return [for (final id in link.productIds) ?found[id]];
     }
-    var query = supabase
-        .from('products')
-        .select()
-        .eq('user_id', link.ownerId);
+    var query = supabase.from('products').select().eq('user_id', link.ownerId);
     if (link.scope == ShareScope.category) {
       query = query.eq('category', link.category);
     }

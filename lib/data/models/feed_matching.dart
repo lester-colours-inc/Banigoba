@@ -5,7 +5,7 @@
 //   2. it is in stock in their size (or a size the fit check says fits),
 //   3. it suits a style they chose, or fills a gap in their wardrobe.
 // Pure functions, so the rules are easy to test and to run on a server later.
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../supabase/rows.dart';
 import 'package:flutter/foundation.dart';
 
 import '../utils/size_inventory.dart';
@@ -184,13 +184,7 @@ FeedMatch? matchProduct(Map<String, dynamic> product, ShopperProfile shopper) {
 }
 
 DateTime _createdAt(Map<String, dynamic> product) =>
-    switch (product['createdAt']) {
-      Timestamp(:final seconds) => DateTime.fromMillisecondsSinceEpoch(
-        seconds * 1000,
-      ),
-      final DateTime date => date,
-      _ => DateTime.fromMillisecondsSinceEpoch(0),
-    };
+    asDateTime(product['createdAt']) ?? DateTime.fromMillisecondsSinceEpoch(0);
 
 /// Today's cards: the best matches (highest score, then newest), at most
 /// [limit], skipping anything in [alreadyShown].

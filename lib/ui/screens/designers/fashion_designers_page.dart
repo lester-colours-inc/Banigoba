@@ -1,6 +1,8 @@
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import '../../../core/supabase/app_auth.dart';
+import '../../../data/services/profile_service.dart';
+import '../../../data/services/request_service.dart';
+import '../../../data/supabase/rows.dart';
 import 'package:flutter/material.dart';
 
 import '../../../data/models/piece_details.dart';
@@ -128,12 +130,8 @@ class _FashionDesignersPageState extends State<FashionDesignersPage> {
   }
 
   Widget _buildDesigners() {
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: FirebaseFirestore.instance
-          .collection('users')
-          .where('designerProfile.active', isEqualTo: true)
-          .where('designerProfile.verified', isEqualTo: true)
-          .snapshots(),
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: ProfileService().watchVerifiedProviders('designer'),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return const _DesignerEmptyState(
@@ -146,8 +144,8 @@ class _FashionDesignersPageState extends State<FashionDesignersPage> {
         }
 
         final designers =
-            snapshot.data!.docs
-                .map((doc) => _DesignerSummary.fromDoc(doc))
+            snapshot.data!
+                .map((profile) => _DesignerSummary.fromProfile(profile))
                 .where(_matchesQuery)
                 .toList()
               ..sort((a, b) => a.name.compareTo(b.name));
@@ -201,7 +199,7 @@ class _FashionDesignersPageState extends State<FashionDesignersPage> {
   }
 
   Widget _buildCustomerRequests() {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = AppAuth.instance.currentUser;
     if (user == null) {
       return const _DesignerEmptyState(
         icon: Icons.lock_outline,
@@ -209,11 +207,10 @@ class _FashionDesignersPageState extends State<FashionDesignersPage> {
       );
     }
 
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: FirebaseFirestore.instance
-          .collection('design_requests')
-          .where('customerId', isEqualTo: user.uid)
-          .snapshots(),
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: const RequestService(
+        RequestKind.design,
+      ).watchForCustomer(user.uid),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return const _DesignerEmptyState(
@@ -224,7 +221,7 @@ class _FashionDesignersPageState extends State<FashionDesignersPage> {
         if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
-        final requests = snapshot.data!.docs.toList()
+        final requests = snapshot.data!.toList()
           ..sort(_compareRequestsNewestFirst);
         if (requests.isEmpty) {
           return const _DesignerEmptyState(
@@ -238,8 +235,7 @@ class _FashionDesignersPageState extends State<FashionDesignersPage> {
           itemCount: requests.length,
           separatorBuilder: (_, _) => const SizedBox(height: 12),
           itemBuilder: (context, index) {
-            final doc = requests[index];
-            final data = doc.data();
+            final data = requests[index];
             return _RequestCard(
               data: data,
               onMessage: () => _openDesignerConversation(
@@ -248,7 +244,7 @@ class _FashionDesignersPageState extends State<FashionDesignersPage> {
                 customerId: user.uid,
                 customerName: (data['customerName'] ?? 'Customer').toString(),
                 asDesigner: false,
-                requestId: doc.id,
+                requestId: data['id'].toString(),
                 requestData: data,
               ),
             );
@@ -259,7 +255,7 @@ class _FashionDesignersPageState extends State<FashionDesignersPage> {
   }
 
   Widget _buildDesignerWorkspace() {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = AppAuth.instance.currentUser;
     if (user == null) {
       return const _DesignerEmptyState(
         icon: Icons.lock_outline,
@@ -307,13 +303,10 @@ class _FashionDesignersPageState extends State<FashionDesignersPage> {
   }
 
   Widget _buildDesignerProfilePanel(String userId) {
-    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      stream: FirebaseFirestore.instance
-          .collection('users')
-          .doc(userId)
-          .snapshots(),
+    return StreamBuilder<Map<String, dynamic>>(
+      stream: ProfileService().watch(userId),
       builder: (context, snapshot) {
-        final data = snapshot.data?.data() ?? const <String, dynamic>{};
+        final data = snapshot.data ?? const <String, dynamic>{};
         final profile = Map<String, dynamic>.from(
           data['designerProfile'] as Map? ?? const {},
         );
@@ -391,11 +384,10 @@ class _FashionDesignersPageState extends State<FashionDesignersPage> {
   }
 
   Widget _buildIncomingDesignerRequests(String designerId) {
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: FirebaseFirestore.instance
-          .collection('design_requests')
-          .where('designerId', isEqualTo: designerId)
-          .snapshots(),
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: const RequestService(
+        RequestKind.design,
+      ).watchForProvider(designerId),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return const _DesignerEmptyState(
@@ -406,7 +398,7 @@ class _FashionDesignersPageState extends State<FashionDesignersPage> {
         if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
-        final requests = snapshot.data!.docs.toList()
+        final requests = snapshot.data!.toList()
           ..sort(_compareRequestsNewestFirst);
         if (requests.isEmpty) {
           return const _DesignerEmptyState(
@@ -421,22 +413,22 @@ class _FashionDesignersPageState extends State<FashionDesignersPage> {
           itemCount: requests.length,
           separatorBuilder: (_, _) => const SizedBox(height: 12),
           itemBuilder: (context, index) {
-            final doc = requests[index];
+            final data = requests[index];
+            final requestId = data['id'].toString();
             return _RequestCard(
-              data: doc.data(),
+              data: data,
               designerView: true,
               onMessage: () => _openDesignerConversation(
                 designerId: designerId,
                 designerName: 'Designer',
-                customerId: (doc.data()['customerId'] ?? '').toString(),
-                customerName: (doc.data()['customerName'] ?? 'Customer')
-                    .toString(),
+                customerId: (data['customerId'] ?? '').toString(),
+                customerName: (data['customerName'] ?? 'Customer').toString(),
                 asDesigner: true,
-                requestId: doc.id,
-                requestData: doc.data(),
+                requestId: requestId,
+                requestData: data,
               ),
               onStatusSelected: (status) =>
-                  _updateRequestStatus(doc.id, status, doc.data()),
+                  _updateRequestStatus(requestId, status, data),
             );
           },
         );
@@ -449,15 +441,9 @@ class _FashionDesignersPageState extends State<FashionDesignersPage> {
     String status,
     Map<String, dynamic> requestData,
   ) async {
-    final requestRef = FirebaseFirestore.instance
-        .collection('design_requests')
-        .doc(requestId);
     final currentStatus = (requestData['status'] ?? 'pending').toString();
 
-    await requestRef.set({
-      'status': status,
-      'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    await const RequestService(RequestKind.design).setStatus(requestId, status);
 
     if (currentStatus == status) return;
 
@@ -499,17 +485,15 @@ class _FashionDesignersPageState extends State<FashionDesignersPage> {
   }
 
   int _compareRequestsNewestFirst(
-    QueryDocumentSnapshot<Map<String, dynamic>> a,
-    QueryDocumentSnapshot<Map<String, dynamic>> b,
+    Map<String, dynamic> a,
+    Map<String, dynamic> b,
   ) {
-    return _requestCreatedAt(b.data()).compareTo(_requestCreatedAt(a.data()));
+    return _requestCreatedAt(b).compareTo(_requestCreatedAt(a));
   }
 
   DateTime _requestCreatedAt(Map<String, dynamic> data) {
-    final value = data['createdAt'];
-    if (value is Timestamp) return value.toDate();
-    if (value is DateTime) return value;
-    return DateTime.fromMillisecondsSinceEpoch(0);
+    return asDateTime(data['createdAt']) ??
+        DateTime.fromMillisecondsSinceEpoch(0);
   }
 
   Future<void> _openDesignerConversation({
@@ -556,11 +540,8 @@ class DesignerDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      stream: FirebaseFirestore.instance
-          .collection('users')
-          .doc(designerId)
-          .snapshots(),
+    return StreamBuilder<Map<String, dynamic>>(
+      stream: ProfileService().watch(designerId),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return const Scaffold(
@@ -575,7 +556,7 @@ class DesignerDetailPage extends StatelessWidget {
             body: Center(child: CircularProgressIndicator()),
           );
         }
-        if (!snapshot.data!.exists) {
+        if (snapshot.data!.isEmpty) {
           return const Scaffold(
             body: _DesignerEmptyState(
               icon: Icons.design_services_outlined,
@@ -585,7 +566,7 @@ class DesignerDetailPage extends StatelessWidget {
         }
 
         return _DesignerDetailPage(
-          designer: _DesignerSummary.fromDoc(snapshot.data!),
+          designer: _DesignerSummary.fromProfile(snapshot.data!),
         );
       },
     );
@@ -702,7 +683,7 @@ class _DesignerDetailPage extends StatelessWidget {
   }
 
   Future<void> _openDesignerConversation(BuildContext context) async {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = AppAuth.instance.currentUser;
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Sign in to message this designer.')),
@@ -756,7 +737,7 @@ class _DesignRequestPageState extends State<_DesignRequestPage> {
   }
 
   Future<void> _submit() async {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = AppAuth.instance.currentUser;
     if (user == null) {
       _message('Sign in to request a custom design.');
       return;
@@ -765,38 +746,29 @@ class _DesignRequestPageState extends State<_DesignRequestPage> {
 
     setState(() => _saving = true);
     try {
-      await FirebaseFirestore.instance.collection('design_requests').add({
-        'designerId': widget.designer.id,
-        'designerName': widget.designer.name,
-        'customerId': user.uid,
-        'customerName': user.displayName ?? user.email ?? 'Customer',
-        'occasion': _occasionController.text.trim(),
-        'budget': _budgetController.text.trim(),
-        'deadline': _deadlineController.text.trim(),
-        'measurements': _measurementsController.text.trim(),
-        'inspirationUrls': _splitCsv(_inspirationController.text),
-        'notes': _notesController.text.trim(),
-        'status': 'pending',
-        'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+      await const RequestService(RequestKind.design).create(
+        customerId: user.uid,
+        providerId: widget.designer.id,
+        details: {
+          'designerName': widget.designer.name,
+          'customerName': user.displayName ?? user.email ?? 'Customer',
+          'occasion': _occasionController.text.trim(),
+          'budget': _budgetController.text.trim(),
+          'deadline': _deadlineController.text.trim(),
+          'measurements': _measurementsController.text.trim(),
+          'inspirationUrls': _splitCsv(_inspirationController.text),
+          'notes': _notesController.text.trim(),
+        },
+      );
 
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(widget.designer.id)
-          .collection('notifications')
-          .add({
-            'type': 'designer_collection',
-            'title': 'New custom design request',
-            'body':
-                '${user.displayName ?? user.email ?? 'A customer'} requested a custom design.',
-            'isRead': false,
-            'createdAt': FieldValue.serverTimestamp(),
-            'extraData': {
-              'customerId': user.uid,
-              'designerId': widget.designer.id,
-            },
-          });
+      await NotificationService().addNotification(
+        receiverId: widget.designer.id,
+        title: 'New custom design request',
+        body:
+            '${user.displayName ?? user.email ?? 'A customer'} requested a custom design.',
+        type: 'designer_collection',
+        extraData: {'customerId': user.uid, 'designerId': widget.designer.id},
+      );
 
       if (!mounted) return;
       _message('Custom design request sent.');
@@ -947,16 +919,12 @@ class DesignerProfileEditorPageState extends State<DesignerProfileEditorPage> {
   }
 
   Future<void> _loadProfile() async {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = AppAuth.instance.currentUser;
     if (user == null) {
       setState(() => _loading = false);
       return;
     }
-    final snapshot = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .get();
-    final data = snapshot.data() ?? const <String, dynamic>{};
+    final data = await ProfileService().get(user.uid);
     final profile = Map<String, dynamic>.from(
       data['designerProfile'] as Map? ?? const {},
     );
@@ -990,7 +958,7 @@ class DesignerProfileEditorPageState extends State<DesignerProfileEditorPage> {
   }
 
   Future<void> _save() async {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = AppAuth.instance.currentUser;
     if (user == null) {
       _message('Sign in to create a designer profile.');
       return;
@@ -1003,26 +971,23 @@ class DesignerProfileEditorPageState extends State<DesignerProfileEditorPage> {
           .map((entry) => entry.toPiece())
           .where((piece) => !piece.isEmpty)
           .toList();
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-        'isDesigner': true,
-        'designerProfile': {
-          'active': true,
-          'name': _nameController.text.trim(),
-          'bio': _bioController.text.trim(),
-          'location': _locationController.text.trim(),
-          'specialties': _splitCsv(_specialtiesController.text),
-          'priceRange': _priceRangeController.text.trim(),
-          'portfolioPieces': pieces.map((piece) => piece.toMap()).toList(),
-          // Kept so anything still reading the flat list (and this editor,
-          // for a profile last saved before pieces existed) sees the same
-          // pictures.
-          'portfolioImages': pieces
-              .map((piece) => piece.imageUrl)
-              .where((url) => url.isNotEmpty)
-              .toList(),
-          'updatedAt': FieldValue.serverTimestamp(),
-        },
-      }, SetOptions(merge: true));
+      await ProfileService().mergeSection(user.uid, 'designerProfile', {
+        'active': true,
+        'name': _nameController.text.trim(),
+        'bio': _bioController.text.trim(),
+        'location': _locationController.text.trim(),
+        'specialties': _splitCsv(_specialtiesController.text),
+        'priceRange': _priceRangeController.text.trim(),
+        'portfolioPieces': pieces.map((piece) => piece.toMap()).toList(),
+        // Kept so anything still reading the flat list (and this editor,
+        // for a profile last saved before pieces existed) sees the same
+        // pictures.
+        'portfolioImages': pieces
+            .map((piece) => piece.imageUrl)
+            .where((url) => url.isNotEmpty)
+            .toList(),
+        'updatedAt': DateTime.now().toUtc().toIso8601String(),
+      });
 
       if (!mounted) return;
       _message('Designer profile saved.');
@@ -1655,8 +1620,7 @@ class _DesignerSummary {
   final List<PortfolioPiece> portfolioPieces;
   final String avatarUrl;
 
-  factory _DesignerSummary.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
-    final data = doc.data() ?? const <String, dynamic>{};
+  factory _DesignerSummary.fromProfile(Map<String, dynamic> data) {
     final profile = Map<String, dynamic>.from(
       data['designerProfile'] as Map? ?? const {},
     );
@@ -1665,12 +1629,11 @@ class _DesignerSummary {
     final portfolioPieces = PortfolioPiece.listFromProfile(profile);
     final avatar =
         (profile['avatarUrl'] ??
-                data['profileImageURL'] ??
                 data['profileImageUrl'] ??
                 (portfolioPieces.isEmpty ? '' : portfolioPieces.first.imageUrl))
             .toString();
     return _DesignerSummary(
-      id: doc.id,
+      id: data['id'].toString(),
       name: name,
       bio: (profile['bio'] ?? '').toString(),
       location: (profile['location'] ?? '').toString(),

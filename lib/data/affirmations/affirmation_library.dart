@@ -7,7 +7,7 @@
 //
 // Cultural affirmations (praise names, proverbs, blessings, praise poetry,
 // songs, local slang) are deliberately NOT defined here. They are
-// curator-managed records in the `affirmation_library` Firestore collection,
+// curator-managed records in the `affirmation_library` table,
 // each requiring language, meaning, provenance, contributor rights and review
 // before it may be served. That collection starts empty; until a curator
 // fills it, users see the universal set only. See AffirmationService.

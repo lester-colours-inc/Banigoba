@@ -3,9 +3,10 @@
 // Boutique owners use this screen to maintain storefront details, manage their
 // products, review orders, and open customer conversations. Storefront edits
 // intentionally preserve admin verification fields.
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+
+import '../../../core/supabase/app_auth.dart';
+import '../../../data/services/profile_service.dart';
 
 import '../../../data/models/delivery.dart';
 import '../../widgets/delivery_settings_card.dart';
@@ -44,13 +45,9 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
   }
 
   Future<void> _loadShop() async {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = AppAuth.instance.currentUser;
     if (user == null) return;
-    final snapshot = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .get();
-    final data = snapshot.data() ?? const <String, dynamic>{};
+    final data = await ProfileService().get(user.uid);
     final shop = Map<String, dynamic>.from(data['shop'] as Map? ?? const {});
     _shopName.text =
         (shop['name'] ?? data['displayName'] ?? user.displayName ?? '')
@@ -64,15 +61,15 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
   /// Saves only the delivery settings, leaving the rest of the shop (and its
   /// verification) untouched.
   Future<void> _saveDelivery(DeliverySettings settings) async {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = AppAuth.instance.currentUser;
     if (user == null) throw Exception('Sign in first.');
-    await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-      'shop': {'delivery': settings.toMap()},
-    }, SetOptions(merge: true));
+    await ProfileService().mergeSection(user.uid, 'shop', {
+      'delivery': settings.toMap(),
+    });
   }
 
   Future<void> _saveShop() async {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = AppAuth.instance.currentUser;
     if (user == null || _saving) return;
     if (_shopName.text.trim().isEmpty) {
       _message('Enter your shop or boutique name.');
@@ -80,32 +77,14 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
     }
     setState(() => _saving = true);
     try {
-      final userRef = FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid);
-      // Keep verification metadata intact by updating only the editable
-      // storefront fields inside the nested shop map.
-      await userRef.update({
-        'isSeller': true,
-        'shop.name': _shopName.text.trim(),
-        'shop.description': _description.text.trim(),
-        'shop.contact': _contact.text.trim(),
-        'shop.updatedAt': FieldValue.serverTimestamp(),
+      // Keep verification intact by changing only the editable storefront
+      // fields inside the shop section.
+      await ProfileService().mergeSection(user.uid, 'shop', {
+        'name': _shopName.text.trim(),
+        'description': _description.text.trim(),
+        'contact': _contact.text.trim(),
+        'updatedAt': DateTime.now().toUtc().toIso8601String(),
       });
-      _message('Boutique details saved.');
-    } on FirebaseException catch (error) {
-      if (error.code != 'not-found') rethrow;
-      // Very old accounts may not have a user document yet; create the nested
-      // shop map in that one case.
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-        'isSeller': true,
-        'shop': {
-          'name': _shopName.text.trim(),
-          'description': _description.text.trim(),
-          'contact': _contact.text.trim(),
-          'updatedAt': FieldValue.serverTimestamp(),
-        },
-      }, SetOptions(merge: true));
       _message('Boutique details saved.');
     } finally {
       if (mounted) setState(() => _saving = false);

@@ -2,8 +2,9 @@
 // page. Keep your salons and stylists (My Circle) and the hairstyles you
 // like, from your photos or camera. "Try this on me" opens the hair
 // makeover with that style; its result goes to the normal feeds (F-4).
+import '../../../core/supabase/app_auth.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -27,7 +28,7 @@ class _MyHairStylistsPageState extends State<MyHairStylistsPage> {
   final StyleListsService _lists = StyleListsService();
   final CircleService _circle = CircleService();
   final ImagePicker _picker = ImagePicker();
-  final String _userId = FirebaseAuth.instance.currentUser?.uid ?? '';
+  final String _userId = AppAuth.instance.currentUser?.uid ?? '';
   late final Stream<List<CircleMember>> _members = _circle.watch(_userId);
   late final Stream<List<StyleListEntry>> _hairstyles = _lists.watch(
     _userId,
@@ -48,7 +49,7 @@ class _MyHairStylistsPageState extends State<MyHairStylistsPage> {
       messenger.showSnackBar(
         SnackBar(content: Text('${salon.name} is in My Circle.')),
       );
-    } on FirebaseException catch (error) {
+    } on PostgrestException catch (error) {
       messenger.showSnackBar(
         SnackBar(
           content: Text('Could not add ${salon.name}: ${error.message}'),
@@ -76,7 +77,7 @@ class _MyHairStylistsPageState extends State<MyHairStylistsPage> {
         StyleList.hairstyles,
         StyleListEntry(id: '', name: '', imageUrl: url),
       );
-    } on FirebaseException catch (error) {
+    } on PostgrestException catch (error) {
       messenger.showSnackBar(
         SnackBar(content: Text('Could not add that photo: ${error.message}')),
       );

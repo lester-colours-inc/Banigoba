@@ -1,5 +1,5 @@
 // "Orders & requests": one inbox for every role a provider holds (S-3).
-import 'package:firebase_auth/firebase_auth.dart';
+import '../../../core/supabase/app_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../../data/models/provider_inbox.dart';
@@ -26,7 +26,7 @@ class _ProviderInboxPageState extends State<ProviderInboxPage> {
   @override
   void initState() {
     super.initState();
-    final user = FirebaseAuth.instance.currentUser;
+    final user = AppAuth.instance.currentUser;
     _items = user == null ? null : _service.watch(user.uid, widget.roles);
   }
 
@@ -45,7 +45,7 @@ class _ProviderInboxPageState extends State<ProviderInboxPage> {
         item: item,
         status: status,
         providerName:
-            FirebaseAuth.instance.currentUser?.displayName ?? 'Your provider',
+            AppAuth.instance.currentUser?.displayName ?? 'Your provider',
       ),
     );
   }

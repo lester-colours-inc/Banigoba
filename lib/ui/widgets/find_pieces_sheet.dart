@@ -5,7 +5,7 @@
 // the whole look made. For clothes, shoes and accessories the sheet first
 // checks the person's wardrobe and offers verified-shop pieces in their size
 // ("Get this look", K-4); when that cannot load it falls back to these links.
-import 'package:firebase_auth/firebase_auth.dart';
+import '../../core/supabase/app_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/app_routes.dart';
@@ -103,7 +103,7 @@ PieceLink _linkFor(LookPart part) => switch (part) {
 
 String? _signedInUserId() {
   try {
-    return FirebaseAuth.instance.currentUser?.uid;
+    return AppAuth.instance.currentUser?.uid;
   } on Object {
     return null;
   }

@@ -10,7 +10,7 @@ import 'safe_product_image.dart';
 class ShopDropsStrip extends StatefulWidget {
   const ShopDropsStrip({super.key, this.load, this.onOpen});
 
-  /// The public links; the real one reads Firestore.
+  /// The public links; the real one reads the database.
   final Future<List<ShopLink>> Function()? load;
   final ValueChanged<ShopLink>? onOpen;
 
