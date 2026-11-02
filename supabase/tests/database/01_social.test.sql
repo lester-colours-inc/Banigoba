@@ -1,5 +1,5 @@
 begin;
-select plan(24);
+select plan(22);
 
 -- Helpers (rolled back with the test).
 create function pg_temp.mkuser(n text) returns uuid language plpgsql as $$
@@ -64,7 +64,10 @@ select throws_ok($$insert into public.posts (author_id) values (pg_temp.u('bob')
 
 select pg_temp.as_user(pg_temp.u('bob'));
 select is((select count(*) from public.posts)::int, 2, 'follower sees public + followers posts (not friends/private)');
-insert into public.follows (follower_id, followee_id) values (pg_temp.u('ann'), pg_temp.u('bob')) ;
+select pg_temp.as_user(pg_temp.u('ann'));
+insert into public.follows (follower_id, followee_id) values (pg_temp.u('ann'), pg_temp.u('bob'));
+select pg_temp.as_user(pg_temp.u('bob'));
+select is((select count(*) from public.posts)::int, 3, 'a friend also sees friends-only posts');
 select pg_temp.as_user(pg_temp.u('cat'));
 select is((select count(*) from public.posts)::int, 1, 'stranger sees only public');
 select pg_temp.as_anon();
