@@ -1,4 +1,4 @@
-package com.banigoba
+package com.coloursinc.banigoba
 
 import io.flutter.embedding.android.FlutterActivity
 

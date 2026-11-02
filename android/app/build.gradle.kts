@@ -14,7 +14,7 @@ val keystoreProperties = java.util.Properties().apply {
 }
 
 android {
-    namespace = "com.banigoba"
+    namespace = "com.coloursinc.banigoba"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -25,7 +25,7 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.banigoba"
+        applicationId = "com.coloursinc.banigoba"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
