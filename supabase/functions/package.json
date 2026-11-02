@@ -1,0 +1,7 @@
+{
+  "name": "banigoba-edge-functions",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node --test _shared/test/" },
+  "dependencies": { "fast-xml-parser": "^5.11.2" }
+}

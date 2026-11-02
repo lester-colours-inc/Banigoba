@@ -394,3 +394,19 @@ s3_secret_key = "env(S3_SECRET_KEY)"
 # declarative_schema_path = "./declarative"
 # JSON string passed through to pg-delta SQL formatting.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":80,\"commaStyle\":\"trailing\"}"
+
+# Edge Functions share one import map (supabase/functions/deno.json).
+[functions.send-push]
+import_map = "./functions/deno.json"
+
+[functions.match-new-stock]
+import_map = "./functions/deno.json"
+
+[functions.notify-trending]
+import_map = "./functions/deno.json"
+
+[functions.refresh-content]
+import_map = "./functions/deno.json"
+
+[functions.generate-makeover]
+import_map = "./functions/deno.json"
