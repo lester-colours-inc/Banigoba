@@ -1,50 +1,47 @@
 // Loads and saves a user's personal profile details (BodyProfile).
 //
-// Stored at users/{uid}/private/bodyProfile. The user document itself is
-// readable by every signed-in user (see firestore.rules), so measurements and
-// body photos are never written there; everything under a user's document
-// other than the public subcollections is owner-only through the rules'
-// catch-all. The photos live under userImages/{uid}/, also owner-only.
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+// Stored in `body_profiles` (one private row per user, readable by its owner
+// only), so measurements and body photos never sit on the public profile. The
+// photos live under user-images/{uid}/, with unguessable names.
 import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/supabase/app_auth.dart';
+import '../../core/supabase/supabase_config.dart';
 import '../models/body_profile.dart';
 import 'storage_service.dart';
 
 class BodyProfileService {
-  BodyProfileService({FirebaseFirestore? firestore})
-    : _db = firestore ?? FirebaseFirestore.instance;
-
-  final FirebaseFirestore _db;
-
-  DocumentReference<Map<String, dynamic>> _doc(String userId) => _db
-      .collection('users')
-      .doc(userId)
-      .collection('private')
-      .doc('bodyProfile');
-
   Future<BodyProfile> load(String userId) async {
-    final snapshot = await _doc(userId).get();
-    return BodyProfile.fromMap(snapshot.data());
+    final row = await supabase
+        .from('body_profiles')
+        .select('data')
+        .eq('user_id', userId)
+        .maybeSingle();
+    final data = row?['data'];
+    return BodyProfile.fromMap(
+      data is Map ? Map<String, dynamic>.from(data) : null,
+    );
   }
 
   /// Replaces the saved profile, so cleared values are removed too.
-  Future<void> save(String userId, BodyProfile profile) {
-    return _doc(
-      userId,
-    ).set({...profile.toMap(), 'updatedAt': FieldValue.serverTimestamp()});
+  Future<void> save(String userId, BodyProfile profile) async {
+    await supabase.from('body_profiles').upsert({
+      'user_id': userId,
+      'data': profile.toMap(),
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+    });
   }
 
   /// The signed-in user's profile for features that only use it when it
   /// exists (makeovers, try-on, size hints). Empty when signed out or when
   /// it cannot be read, so those features still work without it.
   Future<BodyProfile> loadForCurrentUser() async {
-    final userId = FirebaseAuth.instance.currentUser?.uid;
+    final userId = AppAuth.instance.currentUser?.uid;
     if (userId == null) return const BodyProfile();
     try {
       return await load(userId);
-    } on FirebaseException catch (error) {
+    } on PostgrestException catch (error) {
       debugPrint('Unable to load profile details: ${error.code}');
       return const BodyProfile();
     }
@@ -62,7 +59,7 @@ class BodyProfileException implements Exception {
 }
 
 /// What the profile details page needs to load, save and upload. Injected
-/// so the page can be tested without Firebase.
+/// so the page can be tested without a backend.
 abstract interface class BodyProfileStore {
   Future<BodyProfile> load();
   Future<void> save(BodyProfile profile);
@@ -75,21 +72,18 @@ abstract interface class BodyProfileStore {
 }
 
 /// [BodyProfileStore] for the signed-in user.
-class FirebaseBodyProfileStore implements BodyProfileStore {
-  FirebaseBodyProfileStore({
+class SupabaseBodyProfileStore implements BodyProfileStore {
+  SupabaseBodyProfileStore({
     BodyProfileService? service,
     StorageService? storage,
-    FirebaseAuth? auth,
   }) : _service = service ?? BodyProfileService(),
-       _storage = storage ?? StorageService(),
-       _auth = auth ?? FirebaseAuth.instance;
+       _storage = storage ?? StorageService();
 
   final BodyProfileService _service;
   final StorageService _storage;
-  final FirebaseAuth _auth;
 
   String get _userId {
-    final userId = _auth.currentUser?.uid;
+    final userId = AppAuth.instance.currentUser?.uid;
     if (userId == null) {
       throw const BodyProfileException(
         'Sign in to manage your profile details.',

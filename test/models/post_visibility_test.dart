@@ -73,8 +73,8 @@ void main() {
     });
 
     test('only a dress-up writes its kind', () {
-      expect(_post().toFirestore().containsKey('kind'), isFalse);
-      expect(_post(kind: PostKind.dressUp).toFirestore()['kind'], 'dressUp');
+      expect(_post().toRow().containsKey('kind'), isFalse);
+      expect(_post(kind: PostKind.dressUp).toRow()['kind'], 'dressUp');
     });
   });
 

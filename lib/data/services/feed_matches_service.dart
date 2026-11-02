@@ -5,7 +5,10 @@
 //
 // Runs on the phone for now. A server job could do the same when a shop adds
 // stock, so the cards are ready before the app opens.
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../../core/supabase/supabase_config.dart';
+import '../supabase/rows.dart';
 
 import '../models/body_profile.dart';
 import '../models/feed_matching.dart';
@@ -20,13 +23,13 @@ class FeedItem {
   final FeedMatch match;
 }
 
-/// Firestore's `whereIn` takes at most this many values.
+/// The most values sent in one `in` filter.
 const int kWhereInLimit = 30;
 
 /// Pieces fetched per group of followed shops.
 const int kStockPerBatch = 60;
 
-/// Splits [ids] into groups Firestore will accept in one `whereIn`.
+/// Splits [ids] into groups small enough for one `in` filter.
 List<List<String>> batchesOf(Iterable<String> ids, [int size = kWhereInLimit]) {
   final list = ids.toList();
   return [
@@ -61,13 +64,7 @@ List<FeedItem> cardsFromServer(
     final product = doc['product'];
     if (id.isEmpty || product is! Map) continue;
     // A card whose timestamp has not landed yet was written just now.
-    final created = switch (doc['createdAt']) {
-      Timestamp(:final seconds) => DateTime.fromMillisecondsSinceEpoch(
-        seconds * 1000,
-      ),
-      final DateTime date => date,
-      _ => now,
-    };
+    final created = asDateTime(doc['createdAt']) ?? now;
     if (now.difference(created) > kServerCardLife) continue;
     final reasons = [
       for (final reason in (doc['reasons'] as List? ?? const []))
@@ -93,7 +90,7 @@ List<FeedItem> cardsFromServer(
   return List.unmodifiable(cards.take(kDailyFeedCards).map((card) => card.$1));
 }
 
-/// What the feed strip needs; the real one reads Firestore, tests use a fake.
+/// What the feed strip needs; the real one reads the database, tests use a fake.
 abstract interface class FeedSource {
   Future<List<FeedItem>> loadToday(String userId);
   Future<void> dismiss(String userId, String productId);
@@ -101,36 +98,34 @@ abstract interface class FeedSource {
 
 class FeedMatchesService implements FeedSource {
   FeedMatchesService({
-    FirebaseFirestore? db,
     FriendService? friends,
     Future<BodyProfile> Function()? loadBody,
-  }) : _db = db ?? FirebaseFirestore.instance,
-       _friends = friends ?? FriendService(),
+  }) : _friends = friends ?? FriendService(),
        _loadBody = loadBody ?? BodyProfileService().loadForCurrentUser;
 
-  final FirebaseFirestore _db;
   final FriendService _friends;
   final Future<BodyProfile> Function() _loadBody;
-
-  CollectionReference<Map<String, dynamic>> _dismissed(String userId) =>
-      _db.collection('users').doc(userId).collection('feedDismissed');
-
-  CollectionReference<Map<String, dynamic>> _cards(String userId) =>
-      _db.collection('users').doc(userId).collection('feedCards');
 
   /// The cards the server prepared when a followed shop added stock. Empty
   /// when there are none (or they cannot be read), and the phone works it out
   /// itself instead.
   Future<List<FeedItem>> _serverCards(String userId) async {
     try {
-      final snapshot = await _cards(
-        userId,
-      ).orderBy('createdAt', descending: true).limit(20).get();
-      return cardsFromServer(
-        snapshot.docs.map((doc) => doc.data()),
-        DateTime.now(),
-      );
-    } on FirebaseException {
+      final rows = await supabase
+          .from('feed_cards')
+          .select()
+          .eq('user_id', userId)
+          .order('created_at', ascending: false)
+          .limit(20);
+      return cardsFromServer([
+        for (final row in rows)
+          {
+            ...Map<String, dynamic>.from(row['data'] as Map? ?? const {}),
+            'productId': row['id'],
+            'createdAt': row['created_at'],
+          },
+      ], DateTime.now());
+    } on PostgrestException {
       return const [];
     }
   }
@@ -144,28 +139,35 @@ class FeedMatchesService implements FeedSource {
     final followed = (await _friends.getFollowingIds().first).toSet();
     if (followed.isEmpty) return const [];
 
-    final userDoc = await _db.collection('users').doc(userId).get();
-    final rawStyles = userDoc.data()?['stylePreferences'];
+    final profile = await supabase
+        .from('profiles')
+        .select('style_preferences')
+        .eq('id', userId)
+        .maybeSingle();
+    final rawStyles = profile?['style_preferences'];
     final styles = rawStyles is Iterable
         ? rawStyles.map((style) => style.toString()).toList()
         : const <String>[];
 
-    final wardrobe = await _db
-        .collection('user_products')
-        .where('userId', isEqualTo: userId)
-        .get();
-    final dismissed = await _dismissed(userId).get();
+    final wardrobe = await supabase
+        .from('user_products')
+        .select('category')
+        .eq('user_id', userId);
+    final dismissed = await supabase
+        .from('feed_dismissed')
+        .select('card_id')
+        .eq('user_id', userId);
     final body = await _loadBody();
 
     final stock = <Map<String, dynamic>>[];
     for (final batch in batchesOf(followed)) {
-      final snapshot = await _db
-          .collection('products')
-          .where('uploaderId', whereIn: batch)
-          .limit(kStockPerBatch)
-          .get();
-      for (final doc in snapshot.docs) {
-        stock.add({...doc.data(), 'id': doc.id});
+      final rows = await supabase
+          .from('products')
+          .select()
+          .inFilter('user_id', batch)
+          .limit(kStockPerBatch);
+      for (final row in rows) {
+        stock.add({...camelizeRow(row), 'uploaderId': row['user_id']});
       }
     }
 
@@ -173,13 +175,13 @@ class FeedMatchesService implements FeedSource {
       userId: userId,
       body: body,
       styles: styles,
-      ownedByCategory: ownedCounts(wardrobe.docs.map((doc) => doc.data())),
+      ownedByCategory: ownedCounts(wardrobe),
       followedSellerIds: followed,
     );
     final matches = pickDailyMatches(
       stock,
       shopper,
-      alreadyShown: {for (final doc in dismissed.docs) doc.id},
+      alreadyShown: {for (final row in dismissed) row['card_id'].toString()},
     );
     final byId = {
       for (final product in stock) product['id'] as String: product,
@@ -193,9 +195,14 @@ class FeedMatchesService implements FeedSource {
   /// "Not for me": this piece will not come back.
   @override
   Future<void> dismiss(String userId, String productId) async {
-    await _dismissed(
-      userId,
-    ).doc(productId).set({'dismissedAt': FieldValue.serverTimestamp()});
-    await _cards(userId).doc(productId).delete();
+    await supabase.from('feed_dismissed').upsert({
+      'user_id': userId,
+      'card_id': productId,
+    });
+    await supabase
+        .from('feed_cards')
+        .delete()
+        .eq('user_id', userId)
+        .eq('id', productId);
   }
 }

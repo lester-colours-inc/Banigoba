@@ -3,15 +3,17 @@
 // Laid out like the Home feed's lookbook: a cover (pastel banner, photo,
 // name), the follow controls, then the person's public looks as the same
 // studio-frame cards Home uses.
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../core/app_routes.dart';
 import '../../../core/main_tab.dart';
 import '../../../data/models/affirmation.dart';
 import '../../../data/models/post.dart';
+import '../../../core/supabase/app_auth.dart';
+import '../../../core/supabase/supabase_config.dart';
+import '../../../data/services/auth_service.dart';
 import '../../../data/services/friend_service.dart';
+import '../../../data/services/profile_service.dart';
 import '../../../data/services/post_service.dart';
 import '../../widgets/affirmation_composer_sheet.dart';
 import '../../widgets/affirmation_row.dart';
@@ -42,7 +44,7 @@ class ProfilePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+    final currentUserId = AppAuth.instance.currentUser?.uid;
     final targetUserId = userId ?? currentUserId;
     final FriendService friendService = FriendService();
 
@@ -52,32 +54,27 @@ class ProfilePage extends StatelessWidget {
 
     final bool isMe = targetUserId == currentUserId;
 
-    return StreamBuilder<DocumentSnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('users')
-          .doc(targetUserId)
-          .snapshots(),
+    return StreamBuilder<Map<String, dynamic>>(
+      stream: ProfileService().watch(targetUserId),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
             body: Center(child: CircularProgressIndicator()),
           );
         }
-        if (!snapshot.hasData || !snapshot.data!.exists) {
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
           return const Scaffold(body: Center(child: Text("User not found")));
         }
 
-        final userData = snapshot.data!.data() as Map<String, dynamic>;
+        final userData = snapshot.data!;
         final userName = (userData['displayName'] ?? 'User').toString();
         // Your own email, from your sign-in; it is not on the public
         // profile (U-5).
         final userEmail = isMe
-            ? (FirebaseAuth.instance.currentUser?.email ?? '')
+            ? (AppAuth.instance.currentUser?.email ?? '')
             : '';
         final username = (userData['username'] ?? '').toString();
-        final profileImageUrl =
-            (userData['profileImageURL'] ?? userData['profileImageUrl'] ?? '')
-                .toString();
+        final profileImageUrl = (userData['profileImageUrl'] ?? '').toString();
 
         return StreamBuilder<bool>(
           stream: friendService.isFollowing(targetUserId),
@@ -129,7 +126,7 @@ class ProfilePage extends StatelessWidget {
                     IconButton(
                       icon: const Icon(Icons.logout),
                       tooltip: 'Sign out',
-                      onPressed: () => FirebaseAuth.instance.signOut(),
+                      onPressed: () => AuthService().signOut(),
                     ),
                   ],
                 ],
@@ -383,15 +380,21 @@ class ProfilePage extends StatelessWidget {
     String userName,
     String profileImageUrl,
   ) {
-    final stream = FirebaseFirestore.instance
-        .collection('posts')
-        .where('authorId', isEqualTo: userId)
-        .where('isPublic', isEqualTo: true)
-        .snapshots();
+    final stream = supabase
+        .from('posts')
+        .stream(primaryKey: ['id'])
+        .eq('author_id', userId)
+        .map(
+          (rows) => [
+            for (final row in rows)
+              if (row['visibility'] == PostVisibility.public.value)
+                Post.fromRow(row),
+          ],
+        );
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 30),
-      child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      child: StreamBuilder<List<Post>>(
         stream: stream,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -410,8 +413,7 @@ class ProfilePage extends StatelessWidget {
             );
           }
 
-          final posts =
-              snapshot.data?.docs.map(Post.fromFirestore).toList() ?? <Post>[];
+          final posts = [...?snapshot.data];
           posts.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
           if (posts.isEmpty) return _buildEmptyLookbook(context);
@@ -477,7 +479,7 @@ class ProfilePage extends StatelessWidget {
     String userName,
     String profileImageUrl,
   ) {
-    final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final currentUserId = AppAuth.instance.currentUser?.uid ?? '';
     final isOwner = currentUserId == post.authorId;
     final caption = post.caption.trim().isEmpty
         ? 'Daily dress-up'
@@ -643,7 +645,7 @@ class ProfilePage extends StatelessWidget {
       return;
     }
     final messenger = ScaffoldMessenger.of(context);
-    if (FirebaseAuth.instance.currentUser == null) {
+    if (AppAuth.instance.currentUser == null) {
       messenger.showSnackBar(
         const SnackBar(content: Text('Sign in to affirm looks.')),
       );
@@ -677,7 +679,7 @@ class ProfilePage extends StatelessWidget {
   }
 
   Future<void> _tryOnPost(BuildContext context, Post post) async {
-    if (FirebaseAuth.instance.currentUser == null) {
+    if (AppAuth.instance.currentUser == null) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Please sign in first.')));
@@ -826,33 +828,29 @@ class FollowRequestsPage extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(title: const Text("Follow Requests")),
-      body: StreamBuilder<QuerySnapshot>(
+      body: StreamBuilder<List<String>>(
         stream: friendService.getIncomingRequests(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          if (!snapshot.hasData || snapshot.data!.isEmpty) {
             return const Center(child: Text("No pending requests"));
           }
 
-          final requests = snapshot.data!.docs;
+          final requests = snapshot.data!;
 
           return ListView.builder(
             itemCount: requests.length,
             itemBuilder: (context, index) {
-              final requesterId = requests[index].id;
-              return StreamBuilder<DocumentSnapshot>(
-                stream: FirebaseFirestore.instance
-                    .collection('users')
-                    .doc(requesterId)
-                    .snapshots(),
+              final requesterId = requests[index];
+              return StreamBuilder<Map<String, dynamic>>(
+                stream: ProfileService().watch(requesterId),
                 builder: (context, userSnapshot) {
-                  if (!userSnapshot.hasData || !userSnapshot.data!.exists) {
+                  if (!userSnapshot.hasData || userSnapshot.data!.isEmpty) {
                     return const SizedBox.shrink();
                   }
-                  final userData =
-                      userSnapshot.data!.data() as Map<String, dynamic>;
+                  final userData = userSnapshot.data!;
                   final name = userData['displayName'] ?? 'User';
 
                   return ListTile(
@@ -909,36 +907,28 @@ class UserListPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(title)),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('users')
-            .doc(userId)
-            .collection(type)
-            .snapshots(),
+      body: StreamBuilder<List<String>>(
+        stream: FriendService().listUserIds(userId, type),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          if (!snapshot.hasData || snapshot.data!.isEmpty) {
             return Center(child: Text("No $title yet"));
           }
 
-          final userIds = snapshot.data!.docs.map((doc) => doc.id).toList();
+          final userIds = snapshot.data!;
 
           return ListView.builder(
             itemCount: userIds.length,
             itemBuilder: (context, index) {
-              return StreamBuilder<DocumentSnapshot>(
-                stream: FirebaseFirestore.instance
-                    .collection('users')
-                    .doc(userIds[index])
-                    .snapshots(),
+              return StreamBuilder<Map<String, dynamic>>(
+                stream: ProfileService().watch(userIds[index]),
                 builder: (context, userSnapshot) {
-                  if (!userSnapshot.hasData || !userSnapshot.data!.exists) {
+                  if (!userSnapshot.hasData || userSnapshot.data!.isEmpty) {
                     return const SizedBox.shrink();
                   }
-                  final userData =
-                      userSnapshot.data!.data() as Map<String, dynamic>;
+                  final userData = userSnapshot.data!;
                   final name = userData['displayName'] ?? 'User';
                   return ListTile(
                     leading: CircleAvatar(

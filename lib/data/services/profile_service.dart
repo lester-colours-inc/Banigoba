@@ -37,4 +37,42 @@ class ProfileService {
   /// Stamps "last seen"; best effort.
   Future<void> touchLastSeen(String userId) =>
       update(userId, {'lastSeen': DateTime.now().toUtc().toIso8601String()});
+
+  /// People whose name or @username contains [query], A to Z by name.
+  /// Returns camelCase maps with an `id`.
+  Future<List<Map<String, dynamic>>> searchPeople(
+    String query, {
+    int limit = 40,
+  }) async {
+    // Characters that would change the meaning of the filter are dropped.
+    final text = query.trim().replaceAll(RegExp(r'[%,()*\\]'), ' ').trim();
+    final needle = text.startsWith('@') ? text.substring(1).trim() : text;
+    if (needle.isEmpty) return const [];
+    final rows = await supabase
+        .from(_table)
+        .select()
+        .or('display_name.ilike.%$needle%,username.ilike.%$needle%')
+        .order('display_name')
+        .limit(limit);
+    return [for (final row in rows) camelizeRow(row)];
+  }
+
+  /// Verified providers of [kind] ('salon', 'shop' or 'designer') as
+  /// camelCase maps with an `id`. Salons and designers must also be active.
+  Future<List<Map<String, dynamic>>> verifiedProviders(String kind) async {
+    final base = supabase.from(_table).select();
+    final rows = switch (kind) {
+      'salon' =>
+        await base
+            .eq('agent_verified', true)
+            .eq('agent_profile->>active', 'true')
+            .eq('agent_profile->>type', 'hair'),
+      'designer' =>
+        await base
+            .eq('designer_verified', true)
+            .eq('designer_profile->>active', 'true'),
+      _ => await base.eq('shop_verified', true),
+    };
+    return [for (final row in rows) camelizeRow(row)];
+  }
 }

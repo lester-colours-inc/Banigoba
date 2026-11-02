@@ -1,11 +1,11 @@
 // "From your friends today": daily dress-ups that friends and people you
 // follow chose to share, shown at the top of My Daily Dress Up so the feed
 // is not only your own things (October 2026 review, D-2).
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../data/models/post.dart';
 import '../../../../data/services/friend_service.dart';
+import '../../../../data/services/profile_service.dart';
 import '../../../../data/services/visible_posts.dart';
 import '../../../widgets/app_network_image.dart';
 import '../../../widgets/look_viewer_page.dart';
@@ -56,11 +56,8 @@ class _FriendsDressUpsState extends State<FriendsDressUps> {
   final Map<String, Future<String>> _names = {};
 
   Future<String> _nameOf(String userId) => _names.putIfAbsent(userId, () async {
-    final doc = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(userId)
-        .get();
-    final name = (doc.data()?['displayName'] ?? '').toString().trim();
+    final profile = await ProfileService().get(userId);
+    final name = (profile['displayName'] ?? '').toString().trim();
     return name.isEmpty ? 'A friend' : name;
   });
 

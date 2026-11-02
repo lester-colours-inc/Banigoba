@@ -6,7 +6,8 @@
 // TODO(content-engine): "Trending" and "Style idols" sources need the
 // fashion-content engine (review item E-2).
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import '../../../../core/supabase/app_auth.dart';
+import '../../../../data/services/profile_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -153,7 +154,7 @@ class _LookYouLovePicker extends StatefulWidget {
 }
 
 class _LookYouLovePickerState extends State<_LookYouLovePicker> {
-  final String _userId = FirebaseAuth.instance.currentUser?.uid ?? '';
+  final String _userId = AppAuth.instance.currentUser?.uid ?? '';
   final FriendService _friends = FriendService();
   late final Stream<List<Post>> _posts = watchVisiblePosts(
     viewerId: _userId,
@@ -165,8 +166,8 @@ class _LookYouLovePickerState extends State<_LookYouLovePicker> {
     _userId,
     StyleList.twins,
   );
-  late final Stream<QuerySnapshot<Map<String, dynamic>>> _saved =
-      OutfitService().watchSavedOutfits(_userId);
+  late final Stream<List<Map<String, dynamic>>> _saved = OutfitService()
+      .watchSavedOutfits(_userId);
   late final Stream<Set<String>> _affirmed = AffirmationService()
       .watchAffirmedPostIds();
 
@@ -180,8 +181,7 @@ class _LookYouLovePickerState extends State<_LookYouLovePicker> {
   void _loadNames(Iterable<String> authorIds) {
     for (final id in authorIds) {
       if (id.isEmpty || !_requestedNames.add(id)) continue;
-      FirebaseFirestore.instance.collection('users').doc(id).get().then((doc) {
-        final data = doc.data() ?? const <String, dynamic>{};
+      ProfileService().get(id).then((data) {
         final name = (data['displayName'] ?? '').toString();
         final username = (data['username'] ?? '').toString();
         if (!mounted) return;
@@ -202,7 +202,7 @@ class _LookYouLovePickerState extends State<_LookYouLovePicker> {
         builder: (context, following) => StreamBuilder<List<StyleListEntry>>(
           stream: _twins,
           builder: (context, twins) =>
-              StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              StreamBuilder<List<Map<String, dynamic>>>(
                 stream: _saved,
                 builder: (context, saved) => StreamBuilder<Set<String>>(
                   stream: _affirmed,
@@ -213,12 +213,12 @@ class _LookYouLovePickerState extends State<_LookYouLovePicker> {
                       twins: {for (final t in twins.data ?? const []) t.id},
                       affirmed: affirmed.data ?? const {},
                       saved: [
-                        for (final doc in saved.data?.docs ?? const [])
+                        for (final look in saved.data ?? const [])
                           PickableLook(
-                            id: doc.id,
-                            imageUrl: (doc.data()['imageUrl'] ?? '').toString(),
-                            caption: (doc.data()['name'] ?? '').toString(),
-                            category: (doc.data()['category'] ?? '').toString(),
+                            id: look['id'].toString(),
+                            imageUrl: (look['imageUrl'] ?? '').toString(),
+                            caption: (look['name'] ?? '').toString(),
+                            category: (look['category'] ?? '').toString(),
                           ),
                       ],
                     );

@@ -1,5 +1,5 @@
-// Represents an in-app notification stored in Cloud Firestore.
-import 'package:cloud_firestore/cloud_firestore.dart';
+// Represents an in-app notification read from the `notifications` table.
+import '../supabase/rows.dart';
 
 class AppNotification {
   final String id;
@@ -22,31 +22,18 @@ class AppNotification {
     this.timestamp,
   });
 
-  factory AppNotification.fromFirestore(DocumentSnapshot doc) {
-    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+  factory AppNotification.fromRow(Map<String, dynamic> row) {
+    final data = camelizeRow(row);
+    final extra = data['extraData'];
     return AppNotification(
-      id: doc.id,
-      title: data['title'] ?? '',
-      body: data['body'] ?? '',
-      type: data['type'] ?? '',
-      senderId: data['senderId'] ?? '',
-      extraData: data['extraData'],
-      isRead: data['isRead'] ?? false,
-      timestamp: (data['timestamp'] as Timestamp?)?.toDate(),
+      id: (data['id'] ?? '').toString(),
+      title: (data['title'] ?? '').toString(),
+      body: (data['body'] ?? '').toString(),
+      type: (data['type'] ?? '').toString(),
+      senderId: (data['senderId'] ?? '').toString(),
+      extraData: extra is Map ? Map<String, dynamic>.from(extra) : null,
+      isRead: data['isRead'] == true,
+      timestamp: asDateTime(data['createdAt']),
     );
-  }
-
-  Map<String, dynamic> toFirestore() {
-    return {
-      'title': title,
-      'body': body,
-      'type': type,
-      'senderId': senderId,
-      'extraData': extraData,
-      'isRead': isRead,
-      'timestamp': timestamp != null
-          ? Timestamp.fromDate(timestamp!)
-          : FieldValue.serverTimestamp(),
-    };
   }
 }

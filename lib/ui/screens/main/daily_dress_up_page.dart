@@ -19,7 +19,8 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import '../../../core/supabase/app_auth.dart';
+import '../../../data/services/profile_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../../data/models/affirmation.dart';
@@ -98,7 +99,7 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
       initialIndex: (_takeFeedRequest() ?? HomeFeed.myMakeover).index,
     )..addListener(_unfoldFab);
     DailyDressUpPage._feedRequests.addListener(_handleFeedRequest);
-    final userId = FirebaseAuth.instance.currentUser?.uid;
+    final userId = AppAuth.instance.currentUser?.uid;
     if (userId != null) {
       _visiblePostsSub =
           watchVisiblePosts(
@@ -184,7 +185,7 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
   final OutfitService _outfitService = OutfitService();
   final FriendService _friendService = FriendService();
   final ProductService _productService = ProductService();
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final ProfileService _profiles = ProfileService();
   final Map<String, Future<_PostAuthor>> _authorProfiles = {};
 
   // Every post this user may see, for the My Fashion Makeover and Community
@@ -217,7 +218,7 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
   Future<void> _openTryOnProductPicker({
     Map<String, dynamic>? fallbackProduct,
   }) async {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = AppAuth.instance.currentUser;
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Please sign in to choose a product.')),
@@ -723,7 +724,7 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
   }
 
   Future<void> _tryOnPost(Post post) async {
-    if (FirebaseAuth.instance.currentUser == null) {
+    if (AppAuth.instance.currentUser == null) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Please sign in first.')));
@@ -770,7 +771,7 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
       final selectedProducts = await showTryOnProductPicker(
         context,
         initialProducts: products,
-        outfitLabel: post.authorId == FirebaseAuth.instance.currentUser?.uid
+        outfitLabel: post.authorId == AppAuth.instance.currentUser?.uid
             ? 'This Look'
             : "Friend's Look",
       );
@@ -1092,7 +1093,7 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
 
   /// "Use my location": explain, ask the phone, and say what happened.
   Future<void> _useLocation() async {
-    final userId = FirebaseAuth.instance.currentUser?.uid;
+    final userId = AppAuth.instance.currentUser?.uid;
     if (userId == null) return;
     final messenger = ScaffoldMessenger.of(context);
     final agreed = await showConsentSheet(
@@ -1119,7 +1120,7 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
   /// Opens Settings to add a city, then picks up the answer.
   Future<void> _addCity() async {
     await Navigator.pushNamed(context, AppRoutes.settings);
-    final userId = FirebaseAuth.instance.currentUser?.uid;
+    final userId = AppAuth.instance.currentUser?.uid;
     if (userId != null && mounted) await _loadViewerCity(userId);
   }
 
@@ -1146,7 +1147,7 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
     // Daily dress-ups live in My Daily Dress Up, not the makeover feeds.
     // My Fashion Makeover shows yours and everyone else's (H-5); Community
     // shows only other people's.
-    final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final currentUserId = AppAuth.instance.currentUser?.uid ?? '';
     final isMyMakeover = feed == HomeFeed.myMakeover;
     final candidates = visiblePosts.where(
       (post) =>
@@ -1219,7 +1220,7 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
       builder: (context, authorSnapshot) {
         final author =
             authorSnapshot.data ?? _PostAuthor.fallback(post.authorId);
-        final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
+        final currentUserId = AppAuth.instance.currentUser?.uid ?? '';
         final isOwner = currentUserId == post.authorId;
         final isMineTab = feed == HomeFeed.myMakeover;
         final imageUrl = post.imageURL.isNotEmpty
@@ -1429,7 +1430,7 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
       );
       return;
     }
-    if (FirebaseAuth.instance.currentUser == null) {
+    if (AppAuth.instance.currentUser == null) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Sign in to affirm looks.')));
@@ -1485,7 +1486,7 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
   }
 
   Future<void> _removeFromWardrobe(Post post) async {
-    final userId = FirebaseAuth.instance.currentUser?.uid;
+    final userId = AppAuth.instance.currentUser?.uid;
     if (userId == null) return;
     final previous = _savedPostIds;
     setState(
@@ -1514,7 +1515,7 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
     String imageUrl,
     String caption,
   ) async {
-    final userId = FirebaseAuth.instance.currentUser?.uid;
+    final userId = AppAuth.instance.currentUser?.uid;
     if (userId == null) {
       ScaffoldMessenger.of(
         context,
@@ -1808,18 +1809,19 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
     if (authorId.isEmpty) return _PostAuthor.fallback(authorId);
 
     try {
-      final snapshot = await _firestore.collection('users').doc(authorId).get();
-      final data = snapshot.data();
-      if (data == null) return _PostAuthor.fallback(authorId);
+      final data = await _profiles.get(authorId);
+      if (data.isEmpty) return _PostAuthor.fallback(authorId);
 
+      final styles = data['stylePreferences'];
+      final displayName = (data['displayName'] ?? '').toString();
       return _PostAuthor(
-        displayName: (data['displayName'] ?? data['name'] ?? 'User').toString(),
-        fullBodyImageUrl: (data['latestFullBodyImageUrl'] ?? '').toString(),
-        profileImageUrl:
-            (data['profileImageURL'] ?? data['profileImageUrl'] ?? '')
-                .toString(),
-        stylePreference: (data['stylePreference'] ?? data['style'] ?? '')
-            .toString(),
+        displayName: displayName.isEmpty ? 'User' : displayName,
+        // Body photos are private; never used to stand in for an avatar.
+        fullBodyImageUrl: '',
+        profileImageUrl: (data['profileImageUrl'] ?? '').toString(),
+        stylePreference: styles is List && styles.isNotEmpty
+            ? styles.first.toString()
+            : '',
       );
     } catch (error) {
       debugPrint('Unable to load post author $authorId: $error');

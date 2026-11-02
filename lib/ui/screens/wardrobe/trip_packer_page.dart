@@ -1,6 +1,6 @@
 // Builds packing checklists from the garments in selected saved outfits.
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import '../../../core/supabase/app_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../../data/services/outfit_service.dart';
@@ -20,7 +20,7 @@ class _TripPackerPageState extends State<TripPackerPage> {
   bool _isSaving = false;
 
   Future<void> _saveList(List<_PackingOutfit> outfits) async {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = AppAuth.instance.currentUser;
     if (user == null || _selectedIds.isEmpty) return;
     final nameController = TextEditingController(text: 'My Trip');
     final name = await showDialog<String>(
@@ -77,19 +77,19 @@ class _TripPackerPageState extends State<TripPackerPage> {
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = AppAuth.instance.currentUser;
     return Scaffold(
       appBar: AppBar(title: const Text('Trip Packer')),
       body: user == null
           ? const Center(child: Text('Sign in to create a packing list.'))
-          : StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+          : StreamBuilder<List<Map<String, dynamic>>>(
               stream: _outfitService.watchSavedOutfits(user.uid),
               builder: (context, snapshot) {
                 if (!snapshot.hasData) {
                   return const Center(child: CircularProgressIndicator());
                 }
-                final outfits = snapshot.data!.docs
-                    .map((doc) => _PackingOutfit(doc.id, doc.data()))
+                final outfits = snapshot.data!
+                    .map((doc) => _PackingOutfit(doc['id'].toString(), doc))
                     .where((outfit) => outfit.itemNames.isNotEmpty)
                     .toList();
                 if (outfits.isEmpty) {

@@ -4,7 +4,8 @@
 // timeline, F-4).
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import '../../../core/supabase/app_auth.dart';
+import '../../../data/services/profile_service.dart';
 import 'package:flutter/material.dart';
 
 import '../../../data/services/friend_service.dart';
@@ -22,7 +23,7 @@ class FashionTwinsPage extends StatefulWidget {
 class _FashionTwinsPageState extends State<FashionTwinsPage> {
   final StyleListsService _lists = StyleListsService();
   final FriendService _friends = FriendService();
-  final String _userId = FirebaseAuth.instance.currentUser?.uid ?? '';
+  final String _userId = AppAuth.instance.currentUser?.uid ?? '';
   late final Stream<List<StyleListEntry>> _twins = _lists.watch(
     _userId,
     StyleList.twins,
@@ -139,8 +140,8 @@ class _FashionTwinsPageState extends State<FashionTwinsPage> {
   }
 
   Widget _buildResults(Set<String> twinIds) {
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: FirebaseFirestore.instance.collection('users').snapshots(),
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: ProfileService().searchPeople(_query),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
           return const Padding(
@@ -148,10 +149,11 @@ class _FashionTwinsPageState extends State<FashionTwinsPage> {
             child: Center(child: CircularProgressIndicator()),
           );
         }
-        final people = snapshot.data!.docs
+        final people = snapshot.data!
             .where(
-              (doc) =>
-                  doc.id != _userId && matchesPersonSearch(doc.data(), _query),
+              (person) =>
+                  person['id'] != _userId &&
+                  matchesPersonSearch(person, _query),
             )
             .take(20)
             .toList();
@@ -165,20 +167,17 @@ class _FashionTwinsPageState extends State<FashionTwinsPage> {
           children: [
             for (final person in people)
               _PersonTile(
-                key: ValueKey('twin_result_${person.id}'),
-                name: (person.data()['displayName'] ?? 'User').toString(),
-                username: (person.data()['username'] ?? '').toString(),
-                imageUrl:
-                    (person.data()['profileImageURL'] ??
-                            person.data()['profileImageUrl'] ??
-                            '')
-                        .toString(),
-                onTap: () => _openProfile(person.id),
-                trailing: twinIds.contains(person.id)
+                key: ValueKey('twin_result_${person['id']}'),
+                name: (person['displayName'] ?? 'User').toString(),
+                username: (person['username'] ?? '').toString(),
+                imageUrl: (person['profileImageUrl'] ?? '').toString(),
+                onTap: () => _openProfile(person['id'].toString()),
+                trailing: twinIds.contains(person['id'])
                     ? const Chip(label: Text('Twin'))
                     : FilledButton.tonal(
-                        key: ValueKey('add_twin_${person.id}'),
-                        onPressed: () => _addTwin(person.id, person.data()),
+                        key: ValueKey('add_twin_${person['id']}'),
+                        onPressed: () =>
+                            _addTwin(person['id'].toString(), person),
                         child: const Text('Add'),
                       ),
               ),

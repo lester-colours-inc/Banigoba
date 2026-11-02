@@ -1,6 +1,7 @@
 // Provides planning shortcuts for future outfits and wardrobe activities.
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import '../../../core/supabase/app_auth.dart';
+import '../../../data/supabase/rows.dart';
 import 'package:flutter/material.dart';
 
 import '../../../data/services/outfit_service.dart';
@@ -21,7 +22,7 @@ class _PlanAheadPageState extends State<PlanAheadPage> {
   final OutfitService _outfitService = OutfitService();
 
   Future<void> _createEvent() async {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = AppAuth.instance.currentUser;
     if (user == null) return;
     final controller = TextEditingController();
     DateTimeRange? range;
@@ -202,20 +203,20 @@ class _PlanAheadPageState extends State<PlanAheadPage> {
   }
 
   Widget _buildUpcomingPlans(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = AppAuth.instance.currentUser;
     if (user == null) return _buildEmptyState(context);
 
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+    return StreamBuilder<List<Map<String, dynamic>>>(
       stream: _outfitService.watchEventPlans(user.uid),
       builder: (context, eventSnapshot) {
-        return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+        return StreamBuilder<List<Map<String, dynamic>>>(
           stream: _outfitService.watchPackingLists(user.uid),
           builder: (context, packingSnapshot) {
             final plans = <_UpcomingPlan>[
-              for (final doc in eventSnapshot.data?.docs ?? const [])
-                _UpcomingPlan.event(doc.id, doc.data()),
-              for (final doc in packingSnapshot.data?.docs ?? const [])
-                _UpcomingPlan.packing(doc.id, doc.data()),
+              for (final doc in eventSnapshot.data ?? const [])
+                _UpcomingPlan.event(doc['id'].toString(), doc),
+              for (final doc in packingSnapshot.data ?? const [])
+                _UpcomingPlan.packing(doc['id'].toString(), doc),
             ]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
             if (plans.isEmpty) return _buildEmptyState(context);
@@ -294,7 +295,7 @@ class _PlanAheadPageState extends State<PlanAheadPage> {
   }
 
   Future<void> _showPackingList(_UpcomingPlan plan) async {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = AppAuth.instance.currentUser;
     if (user == null) return;
     final items = plan.packingItems
         .map((item) => Map<String, dynamic>.from(item))
@@ -455,8 +456,8 @@ class _UpcomingPlan {
   factory _UpcomingPlan.event(String id, Map<String, dynamic> data) {
     final start = data['startDate'];
     final end = data['endDate'];
-    final startDate = start is Timestamp ? start.toDate() : DateTime.now();
-    final endDate = end is Timestamp ? end.toDate() : startDate;
+    final startDate = asDateTime(start) ?? DateTime.now();
+    final endDate = asDateTime(end) ?? startDate;
     return _UpcomingPlan(
       id: id,
       name: (data['name'] ?? 'Event Series').toString(),
@@ -514,5 +515,5 @@ class _UpcomingPlan {
   final List<Map<String, dynamic>> packingItems;
 
   static DateTime _timestamp(dynamic value) =>
-      value is Timestamp ? value.toDate() : DateTime(1970);
+      asDateTime(value) ?? DateTime(1970);
 }

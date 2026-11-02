@@ -1,9 +1,9 @@
-// Defines social post and comment data read from Cloud Firestore.
+// Defines social post and comment data read from the database.
 //
 // Posts intentionally expose no reaction count. Qualitative affirmations are a
 // separate object (see models/affirmation.dart) and are never aggregated onto
 // the post, so nothing here can be rendered as a popularity total.
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../supabase/rows.dart';
 
 /// Who can see a post beyond its owner, narrowest first.
 ///
@@ -117,23 +117,19 @@ class Post {
     };
   }
 
-  factory Post.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>? ?? const {};
-    final rawCreatedAt = data['createdAt'];
+  /// Builds a post from a `posts` row (snake_case columns).
+  factory Post.fromRow(Map<String, dynamic> row) {
+    final data = camelizeRow(row);
     final rawProductIds = data['productIds'];
-    final rawProducts = data['products'] ?? data['outfitProducts'];
+    final rawProducts = data['products'];
 
     return Post(
-      id: doc.id,
-      authorId: (data['authorID'] ?? data['authorId'] ?? '').toString(),
+      id: (data['id'] ?? '').toString(),
+      authorId: (data['authorId'] ?? '').toString(),
       caption: (data['caption'] ?? '').toString(),
       commentCount: _asInt(data['commentCount']),
-      createdAt: rawCreatedAt is Timestamp
-          ? rawCreatedAt.toDate()
-          : rawCreatedAt is DateTime
-          ? rawCreatedAt
-          : DateTime.now(),
-      imageURL: (data['imageURL'] ?? data['imageUrl'] ?? '').toString(),
+      createdAt: asDateTime(data['createdAt']) ?? DateTime.now(),
+      imageURL: (data['imageUrl'] ?? '').toString(),
       outfitId: (data['outfitId'] ?? '').toString(),
       productIds: rawProductIds is Iterable
           ? rawProductIds
@@ -149,7 +145,7 @@ class Post {
           : const [],
       visibility: PostVisibility.fromValue(
         data['visibility'],
-        legacyIsPublic: data['isPublic'] == true,
+        legacyIsPublic: false,
       ),
       kind: PostKind.fromValue(data['kind']),
       repostOfId: (data['repostOfId'] ?? '').toString(),
@@ -158,25 +154,22 @@ class Post {
     );
   }
 
-  Map<String, dynamic> toFirestore() {
+  /// The columns to write for this post (snake_case, empty values left out).
+  Map<String, dynamic> toRow() {
     return {
-      'authorId': authorId,
-      'authorID': authorId,
+      'author_id': authorId,
       'caption': caption,
-      'commentCount': commentCount,
-      'createdAt': Timestamp.fromDate(createdAt),
-      'imageURL': imageURL,
-      if (outfitId.isNotEmpty) 'outfitId': outfitId,
-      if (productIds.isNotEmpty) 'productIds': productIds,
+      'image_url': imageURL,
+      if (outfitId.isNotEmpty) 'outfit_id': outfitId,
+      if (productIds.isNotEmpty) 'product_ids': productIds,
       if (products.isNotEmpty) 'products': products,
-      'isPublic': isPublic,
       'visibility': visibility.value,
       if (isDressUp) 'kind': kind.value,
       if (isRepost) ...{
-        'repostOfId': repostOfId,
-        'repostOfAuthorId': repostOfAuthorId,
+        'repost_of_id': repostOfId,
+        'repost_of_author_id': repostOfAuthorId,
       },
-      if (quoteText.isNotEmpty) 'quoteText': quoteText,
+      if (quoteText.isNotEmpty) 'quote_text': quoteText,
     };
   }
 
@@ -202,25 +195,16 @@ class PostComment {
     required this.username,
   });
 
-  factory PostComment.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
+  /// Builds a comment from a `comments` row (snake_case columns).
+  factory PostComment.fromRow(Map<String, dynamic> row) {
+    final data = camelizeRow(row);
     return PostComment(
-      id: doc.id,
-      authorId: data['authorId'] ?? '',
-      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      profileImageURL: data['profileImageURL'] ?? '',
-      text: data['text'] ?? '',
-      username: data['username'] ?? '',
+      id: (data['id'] ?? '').toString(),
+      authorId: (data['authorId'] ?? '').toString(),
+      createdAt: asDateTime(data['createdAt']) ?? DateTime.now(),
+      profileImageURL: (data['authorImageUrl'] ?? '').toString(),
+      text: (data['text'] ?? '').toString(),
+      username: (data['authorName'] ?? '').toString(),
     );
-  }
-
-  Map<String, dynamic> toFirestore() {
-    return {
-      'authorId': authorId,
-      'createdAt': Timestamp.fromDate(createdAt),
-      'profileImageURL': profileImageURL,
-      'text': text,
-      'username': username,
-    };
   }
 }

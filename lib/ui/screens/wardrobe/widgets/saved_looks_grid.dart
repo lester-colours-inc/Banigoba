@@ -2,10 +2,11 @@
 // a makeover), grouped by the category they chose when saving. This is where
 // a "Save to Smart Wardrobe" goes, so it never feels like a dark hole
 // (October 2026 review, P-3 and W-1).
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
 
 import '../../../../data/models/wear_tracking.dart';
+import '../../../../data/supabase/rows.dart';
 import '../../../../data/services/turn_around_service.dart';
 import '../../../../data/services/outfit_service.dart';
 import '../../../widgets/app_network_image.dart';
@@ -26,9 +27,9 @@ class SavedLooksGrid extends StatefulWidget {
 }
 
 class _SavedLooksGridState extends State<SavedLooksGrid> {
-  late final Stream<QuerySnapshot<Map<String, dynamic>>> _wear =
+  late final Stream<List<Map<String, dynamic>>> _wear =
       (widget.outfits ?? OutfitService()).watchWearHistory(widget.userId);
-  late final Stream<QuerySnapshot<Map<String, dynamic>>> _looks =
+  late final Stream<List<Map<String, dynamic>>> _looks =
       (widget.outfits ?? OutfitService()).watchSavedOutfits(widget.userId);
 
   @override
@@ -37,13 +38,10 @@ class _SavedLooksGridState extends State<SavedLooksGrid> {
       return const _Message('Sign in to see the looks you have saved.');
     }
     // When each look was last worn (W-7), from "Wear today".
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+    return StreamBuilder<List<Map<String, dynamic>>>(
       stream: _wear,
-      builder: (context, wearSnapshot) => _buildLooks(
-        lastWornByOutfit(
-          (wearSnapshot.data?.docs ?? const []).map((doc) => doc.data()),
-        ),
-      ),
+      builder: (context, wearSnapshot) =>
+          _buildLooks(lastWornByOutfit(wearSnapshot.data ?? const [])),
     );
   }
 
@@ -78,7 +76,7 @@ class _SavedLooksGridState extends State<SavedLooksGrid> {
           ),
         ),
       );
-    } on FirebaseException catch (error) {
+    } on PostgrestException catch (error) {
       messenger.showSnackBar(
         SnackBar(content: Text('Could not move it: ${error.message}')),
       );
@@ -86,7 +84,7 @@ class _SavedLooksGridState extends State<SavedLooksGrid> {
   }
 
   Widget _buildLooks(Map<String, DateTime> lastWorn) {
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+    return StreamBuilder<List<Map<String, dynamic>>>(
       stream: _looks,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
@@ -95,9 +93,7 @@ class _SavedLooksGridState extends State<SavedLooksGrid> {
         if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
-        final groups = groupLooksByCategory(
-          snapshot.data!.docs.map((doc) => {...doc.data(), 'id': doc.id}),
-        );
+        final groups = groupLooksByCategory(snapshot.data!);
         if (groups.isEmpty) {
           return const _Message(
             'Looks you save from the feed or a makeover appear here. Tap the '
@@ -173,12 +169,8 @@ Map<String, List<Map<String, dynamic>>> groupLooksByCategory(
   };
 }
 
-DateTime _createdAt(Map<String, dynamic> look) => switch (look['createdAt']) {
-  Timestamp(:final seconds) => DateTime.fromMillisecondsSinceEpoch(
-    seconds * 1000,
-  ),
-  _ => DateTime.fromMillisecondsSinceEpoch(0),
-};
+DateTime _createdAt(Map<String, dynamic> look) =>
+    asDateTime(look['createdAt']) ?? DateTime.fromMillisecondsSinceEpoch(0);
 
 class _LookTile extends StatelessWidget {
   const _LookTile({

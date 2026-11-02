@@ -1,40 +1,113 @@
-// Stores completed avatar outfits for the signed-in user.
-import 'package:cloud_firestore/cloud_firestore.dart';
+// Stores completed avatar outfits for the signed-in user, and the plans built
+// from them (wear history, event plans, packing lists).
+//
+// Outfits are rows in `outfits`; the rest are private documents in
+// `user_documents`, keyed by kind. Screens read them as plain maps with an
+// `id` and camelCase fields, dates as ISO strings (see asDateTime).
+import '../../core/supabase/supabase_config.dart';
+import '../supabase/rows.dart';
+import '../supabase/storage_files.dart' show randomFileName;
+
+const String _wearHistory = 'wearHistory';
+const String _eventPlans = 'eventPlans';
+const String _packingLists = 'packingLists';
+const String _eventDays = 'eventDays';
 
 class OutfitService {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
-
-  Stream<QuerySnapshot<Map<String, dynamic>>> watchSavedOutfits(String userId) {
-    return _db
-        .collection('users')
-        .doc(userId)
-        .collection('outfits')
-        .snapshots();
+  /// An `outfits` row as the screens read it.
+  static Map<String, dynamic> outfitMap(Map<String, dynamic> row) {
+    final data = camelizeRow(row);
+    final extra = data['data'];
+    return {
+      if (extra is Map) ...Map<String, dynamic>.from(extra),
+      ...data,
+      'imageUrl': data['imageUrl'],
+    };
   }
 
-  Stream<QuerySnapshot<Map<String, dynamic>>> watchWearHistory(String userId) {
-    return _db
-        .collection('users')
-        .doc(userId)
-        .collection('wearHistory')
-        .snapshots();
+  /// A private document as the screens read it.
+  static Map<String, dynamic> documentMap(Map<String, dynamic> row) {
+    final data = row['data'];
+    return {
+      if (data is Map) ...Map<String, dynamic>.from(data),
+      'id': row['id'],
+      'createdAt': row['created_at'],
+      'updatedAt': row['updated_at'],
+    };
   }
 
-  Stream<QuerySnapshot<Map<String, dynamic>>> watchEventPlans(String userId) {
-    return _db
-        .collection('users')
-        .doc(userId)
-        .collection('eventPlans')
-        .snapshots();
+  Stream<List<Map<String, dynamic>>> watchSavedOutfits(String userId) {
+    return supabase
+        .from('outfits')
+        .stream(primaryKey: ['id'])
+        .eq('user_id', userId)
+        .map((rows) => [for (final row in rows) outfitMap(row)]);
   }
 
-  Stream<QuerySnapshot<Map<String, dynamic>>> watchPackingLists(String userId) {
-    return _db
-        .collection('users')
-        .doc(userId)
-        .collection('packingLists')
-        .snapshots();
+  Stream<List<Map<String, dynamic>>> _watchDocuments(
+    String userId,
+    String kind,
+  ) {
+    return supabase
+        .from('user_documents')
+        .stream(primaryKey: ['user_id', 'kind', 'id'])
+        .eq('user_id', userId)
+        .map(
+          (rows) => [
+            for (final row in rows)
+              if (row['kind'] == kind) documentMap(row),
+          ],
+        );
   }
+
+  Stream<List<Map<String, dynamic>>> watchWearHistory(String userId) =>
+      _watchDocuments(userId, _wearHistory);
+
+  Stream<List<Map<String, dynamic>>> watchEventPlans(String userId) =>
+      _watchDocuments(userId, _eventPlans);
+
+  Stream<List<Map<String, dynamic>>> watchPackingLists(String userId) =>
+      _watchDocuments(userId, _packingLists);
+
+  Future<void> _saveDocument(
+    String userId,
+    String kind,
+    String id,
+    Map<String, dynamic> data,
+  ) async {
+    await supabase.from('user_documents').upsert({
+      'user_id': userId,
+      'kind': kind,
+      'id': id,
+      'data': data,
+    });
+  }
+
+  Future<Map<String, dynamic>> _readDocument(
+    String userId,
+    String kind,
+    String id,
+  ) async {
+    final row = await supabase
+        .from('user_documents')
+        .select('data')
+        .eq('user_id', userId)
+        .eq('kind', kind)
+        .eq('id', id)
+        .maybeSingle();
+    final data = row?['data'];
+    return data is Map ? Map<String, dynamic>.from(data) : {};
+  }
+
+  static String _dayString(DateTime date) =>
+      DateTime(date.year, date.month, date.day).toIso8601String();
+
+  static String _dateKey(DateTime date) =>
+      '${date.year.toString().padLeft(4, '0')}-'
+      '${date.month.toString().padLeft(2, '0')}-'
+      '${date.day.toString().padLeft(2, '0')}';
+
+  static String _newId() => randomFileName('x').split('.').first;
 
   Future<String> createEventPlan({
     required String userId,
@@ -42,22 +115,13 @@ class OutfitService {
     required DateTime startDate,
     required DateTime endDate,
   }) async {
-    final ref = _db
-        .collection('users')
-        .doc(userId)
-        .collection('eventPlans')
-        .doc();
-    await ref.set({
+    final id = _newId();
+    await _saveDocument(userId, _eventPlans, id, {
       'name': name.trim(),
-      'startDate': Timestamp.fromDate(
-        DateTime(startDate.year, startDate.month, startDate.day),
-      ),
-      'endDate': Timestamp.fromDate(
-        DateTime(endDate.year, endDate.month, endDate.day),
-      ),
-      'createdAt': FieldValue.serverTimestamp(),
+      'startDate': _dayString(startDate),
+      'endDate': _dayString(endDate),
     });
-    return ref.id;
+    return id;
   }
 
   Future<String> createPackingList({
@@ -66,12 +130,8 @@ class OutfitService {
     required List<String> outfitIds,
     required List<String> itemNames,
   }) async {
-    final ref = _db
-        .collection('users')
-        .doc(userId)
-        .collection('packingLists')
-        .doc();
-    await ref.set({
+    final id = _newId();
+    await _saveDocument(userId, _packingLists, id, {
       'name': name.trim(),
       'outfitIds': outfitIds,
       'items': itemNames
@@ -79,9 +139,8 @@ class OutfitService {
           .where((item) => (item['name'] as String).isNotEmpty)
           .toList(),
       'checkedItems': <String>[],
-      'createdAt': FieldValue.serverTimestamp(),
     });
-    return ref.id;
+    return id;
   }
 
   Future<void> updatePackingItemPacked({
@@ -94,24 +153,37 @@ class OutfitService {
         .map((item) => (item['name'] ?? '').toString())
         .where((name) => name.isNotEmpty)
         .toList();
-    await _db
-        .collection('users')
-        .doc(userId)
-        .collection('packingLists')
-        .doc(packingListId)
-        .update({
-          'items': items
-              .map(
-                (item) => {
-                  'name': (item['name'] ?? '').toString(),
-                  'packed': item['packed'] == true,
-                },
-              )
-              .where((item) => (item['name'] as String).isNotEmpty)
-              .toList(),
-          'checkedItems': checkedItems,
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
+    final existing = await _readDocument(userId, _packingLists, packingListId);
+    await _saveDocument(userId, _packingLists, packingListId, {
+      ...existing,
+      'items': items
+          .map(
+            (item) => {
+              'name': (item['name'] ?? '').toString(),
+              'packed': item['packed'] == true,
+            },
+          )
+          .where((item) => (item['name'] as String).isNotEmpty)
+          .toList(),
+      'checkedItems': checkedItems,
+    });
+  }
+
+  Future<void> _addPlannedOutfit(
+    String userId,
+    String eventId,
+    String outfitId,
+  ) async {
+    final plan = await _readDocument(userId, _eventPlans, eventId);
+    final planned = {
+      ...((plan['plannedOutfitIds'] as List?)?.map((e) => e.toString()) ??
+          const <String>[]),
+      outfitId,
+    }.toList();
+    await _saveDocument(userId, _eventPlans, eventId, {
+      ...plan,
+      'plannedOutfitIds': planned,
+    });
   }
 
   Future<void> reuseOutfitOnDate({
@@ -122,21 +194,11 @@ class OutfitService {
     String? eventId,
     String? eventName,
   }) async {
-    final normalizedDate = DateTime(date.year, date.month, date.day);
-    final dateKey =
-        '${date.year.toString().padLeft(4, '0')}-'
-        '${date.month.toString().padLeft(2, '0')}-'
-        '${date.day.toString().padLeft(2, '0')}';
-
-    final wearRef = _db
-        .collection('users')
-        .doc(userId)
-        .collection('wearHistory')
-        .doc(dateKey);
+    final dateKey = _dateKey(date);
     final data = {
       'userId': userId,
       'outfitId': outfitId,
-      'wearDate': Timestamp.fromDate(normalizedDate),
+      'wearDate': _dayString(date),
       'outfitName': (outfit['name'] ?? 'Completed Look').toString(),
       'imageUrl': (outfit['imageUrl'] ?? '').toString(),
       'avatarImageUrl': (outfit['avatarImageUrl'] ?? '').toString(),
@@ -145,35 +207,13 @@ class OutfitService {
           : const [],
       'eventId': ?eventId,
       'eventName': ?eventName,
-      'reusedAt': FieldValue.serverTimestamp(),
+      'reusedAt': DateTime.now().toUtc().toIso8601String(),
     };
-    final batch = _db.batch();
-    batch.set(wearRef, data);
+    await _saveDocument(userId, _wearHistory, dateKey, data);
     if (eventId != null) {
-      batch.set(
-        _db
-            .collection('users')
-            .doc(userId)
-            .collection('eventPlans')
-            .doc(eventId)
-            .collection('days')
-            .doc(dateKey),
-        data,
-      );
-      batch.set(
-        _db
-            .collection('users')
-            .doc(userId)
-            .collection('eventPlans')
-            .doc(eventId),
-        {
-          'plannedOutfitIds': FieldValue.arrayUnion([outfitId]),
-          'updatedAt': FieldValue.serverTimestamp(),
-        },
-        SetOptions(merge: true),
-      );
+      await _saveDocument(userId, _eventDays, '$eventId/$dateKey', data);
+      await _addPlannedOutfit(userId, eventId, outfitId);
     }
-    await batch.commit();
   }
 
   /// Keeps the turned-around angles with a saved look ("Turn me around").
@@ -181,13 +221,12 @@ class OutfitService {
     required String userId,
     required String outfitId,
     required Map<String, String> views,
-  }) {
-    return _db
-        .collection('users')
-        .doc(userId)
-        .collection('outfits')
-        .doc(outfitId)
-        .update({'turnViews': views});
+  }) async {
+    await supabase
+        .from('outfits')
+        .update({'turn_views': views})
+        .eq('id', outfitId)
+        .eq('user_id', userId);
   }
 
   Future<String> saveOutfitForDate({
@@ -201,46 +240,31 @@ class OutfitService {
     String? eventName,
     Map<String, String> turnViews = const {},
   }) async {
-    final outfitRef = _db
-        .collection('users')
-        .doc(userId)
-        .collection('outfits')
-        .doc();
-    final normalizedDate = DateTime(date.year, date.month, date.day);
-    final dateKey =
-        '${date.year.toString().padLeft(4, '0')}-'
-        '${date.month.toString().padLeft(2, '0')}-'
-        '${date.day.toString().padLeft(2, '0')}';
-    final wearRef = _db
-        .collection('users')
-        .doc(userId)
-        .collection('wearHistory')
-        .doc(dateKey);
+    final dateKey = _dateKey(date);
     final productSnapshots = products.map(_productSnapshot).toList();
-    final batch = _db.batch();
+    final row = await supabase
+        .from('outfits')
+        .insert({
+          'user_id': userId,
+          'name': 'Planned Look',
+          'avatar_image_url': avatarImageUrl,
+          'image_url': resultImageUrl,
+          'products': productSnapshots,
+          'preview_type': previewType,
+          'planned_date': dateKey,
+          'event_id': eventId,
+          'event_name': eventName,
+          if (turnViews.isNotEmpty) 'turn_views': turnViews,
+          'data': {'apiIntegrationStatus': _integrationStatus(previewType)},
+        })
+        .select('id')
+        .single();
+    final outfitId = row['id'].toString();
 
-    final outfitData = {
+    await _saveDocument(userId, _wearHistory, dateKey, {
       'userId': userId,
-      'name': 'Planned Look',
-      'avatarImageUrl': avatarImageUrl,
-      'imageUrl': resultImageUrl,
-      'products': productSnapshots,
-      'previewType': previewType,
-      'apiIntegrationStatus': previewType == 'mock_collage'
-          ? 'pending_replacement'
-          : 'generated',
-      'plannedDate': Timestamp.fromDate(normalizedDate),
-      'eventId': ?eventId,
-      'eventName': ?eventName,
-      if (turnViews.isNotEmpty) 'turnViews': turnViews,
-      'createdAt': FieldValue.serverTimestamp(),
-    };
-
-    batch.set(outfitRef, outfitData);
-    batch.set(wearRef, {
-      'userId': userId,
-      'outfitId': outfitRef.id,
-      'wearDate': Timestamp.fromDate(normalizedDate),
+      'outfitId': outfitId,
+      'wearDate': _dayString(date),
       'outfitName': 'Planned Look',
       'imageUrl': resultImageUrl,
       'avatarImageUrl': avatarImageUrl,
@@ -248,30 +272,23 @@ class OutfitService {
       'planned': true,
       'eventId': ?eventId,
       'eventName': ?eventName,
-      'reusedAt': FieldValue.serverTimestamp(),
+      'reusedAt': DateTime.now().toUtc().toIso8601String(),
     });
     if (eventId != null) {
-      final eventRef = _db
-          .collection('users')
-          .doc(userId)
-          .collection('eventPlans')
-          .doc(eventId);
-      batch.set(eventRef.collection('days').doc(dateKey), {
-        'outfitId': outfitRef.id,
-        'wearDate': Timestamp.fromDate(normalizedDate),
+      await _saveDocument(userId, _eventDays, '$eventId/$dateKey', {
+        'outfitId': outfitId,
+        'wearDate': _dayString(date),
         'outfitName': 'Planned Look',
         'imageUrl': resultImageUrl,
         'products': productSnapshots,
       });
-      batch.set(eventRef, {
-        'plannedOutfitIds': FieldValue.arrayUnion([outfitRef.id]),
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      await _addPlannedOutfit(userId, eventId, outfitId);
     }
-
-    await batch.commit();
-    return outfitRef.id;
+    return outfitId;
   }
+
+  static String _integrationStatus(String previewType) =>
+      previewType == 'mock_collage' ? 'pending_replacement' : 'generated';
 
   Future<String> saveOutfit({
     required String userId,
@@ -280,24 +297,20 @@ class OutfitService {
     required List<Map<String, dynamic>> products,
     String previewType = 'generated',
   }) async {
-    final outfitRef = _db
-        .collection('users')
-        .doc(userId)
-        .collection('outfits')
-        .doc();
-    await outfitRef.set({
-      'userId': userId,
-      'name': 'Completed Look',
-      'avatarImageUrl': avatarImageUrl,
-      'imageUrl': resultImageUrl,
-      'products': products.map(_productSnapshot).toList(),
-      'previewType': previewType,
-      'apiIntegrationStatus': previewType == 'mock_collage'
-          ? 'pending_replacement'
-          : 'generated',
-      'createdAt': FieldValue.serverTimestamp(),
-    });
-    return outfitRef.id;
+    final row = await supabase
+        .from('outfits')
+        .insert({
+          'user_id': userId,
+          'name': 'Completed Look',
+          'avatar_image_url': avatarImageUrl,
+          'image_url': resultImageUrl,
+          'products': products.map(_productSnapshot).toList(),
+          'preview_type': previewType,
+          'data': {'apiIntegrationStatus': _integrationStatus(previewType)},
+        })
+        .select('id')
+        .single();
+    return row['id'].toString();
   }
 
   Future<String> saveOutfitToDailyDressUp({
@@ -309,55 +322,48 @@ class OutfitService {
     String caption = 'My completed try-on look',
     Map<String, String> turnViews = const {},
   }) async {
-    final outfitRef = _db
-        .collection('users')
-        .doc(userId)
-        .collection('outfits')
-        .doc();
-    final postRef = _db.collection('posts').doc();
     final productSnapshots = products.map(_productSnapshot).toList();
     final productIds = productSnapshots
         .map((product) => product['id'].toString())
         .where((id) => id.isNotEmpty)
         .toList();
-    final batch = _db.batch();
 
-    batch.set(outfitRef, {
-      'userId': userId,
-      'name': 'Completed Look',
-      'avatarImageUrl': avatarImageUrl,
-      'imageUrl': resultImageUrl,
-      'products': productSnapshots,
-      'previewType': previewType,
-      'apiIntegrationStatus': previewType == 'mock_collage'
-          ? 'pending_replacement'
-          : 'generated',
-      'dailyDressUpPostId': postRef.id,
-      if (turnViews.isNotEmpty) 'turnViews': turnViews,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
-    batch.set(postRef, {
-      'authorID': userId,
-      'authorId': userId,
-      'caption': caption.trim().isEmpty
-          ? 'My completed try-on look'
-          : caption.trim(),
-      'commentCount': 0,
-      'createdAt': FieldValue.serverTimestamp(),
-      'imageURL': resultImageUrl,
-      'isPublic': false,
-      'visibility': 'private',
-      'outfitId': outfitRef.id,
-      'productIds': productIds,
-      'products': productSnapshots,
-      'previewType': previewType,
-      'apiIntegrationStatus': previewType == 'mock_collage'
-          ? 'pending_replacement'
-          : 'generated',
-    });
+    final outfit = await supabase
+        .from('outfits')
+        .insert({
+          'user_id': userId,
+          'name': 'Completed Look',
+          'avatar_image_url': avatarImageUrl,
+          'image_url': resultImageUrl,
+          'products': productSnapshots,
+          'preview_type': previewType,
+          if (turnViews.isNotEmpty) 'turn_views': turnViews,
+          'data': {'apiIntegrationStatus': _integrationStatus(previewType)},
+        })
+        .select('id')
+        .single();
+    final outfitId = outfit['id'].toString();
 
-    await batch.commit();
-    return outfitRef.id;
+    final post = await supabase
+        .from('posts')
+        .insert({
+          'author_id': userId,
+          'caption': caption.trim().isEmpty
+              ? 'My completed try-on look'
+              : caption.trim(),
+          'image_url': resultImageUrl,
+          'visibility': 'private',
+          'outfit_id': outfitId,
+          'product_ids': productIds,
+          'products': productSnapshots,
+        })
+        .select('id')
+        .single();
+    await supabase
+        .from('outfits')
+        .update({'daily_dress_up_post_id': post['id']})
+        .eq('id', outfitId);
+    return outfitId;
   }
 
   /// Saves a feed look into the user's Smart Wardrobe (their saved outfits).
@@ -369,36 +375,30 @@ class OutfitService {
     String name = 'Saved Look',
     List<Map<String, dynamic>> products = const [],
   }) async {
-    await _db
-        .collection('users')
-        .doc(userId)
-        .collection('outfits')
-        .doc('post_$postId')
-        .set({
-          'userId': userId,
-          'name': name,
-          'avatarImageUrl': imageUrl,
-          'imageUrl': imageUrl,
-          'products': products.map(_productSnapshot).toList(),
-          'previewType': 'saved_post',
-          'apiIntegrationStatus': 'generated',
-          'sourcePostId': postId,
-          'createdAt': FieldValue.serverTimestamp(),
-        });
+    await supabase.from('outfits').upsert({
+      'user_id': userId,
+      'source_post_id': postId,
+      'name': name,
+      'avatar_image_url': imageUrl,
+      'image_url': imageUrl,
+      'products': products.map(_productSnapshot).toList(),
+      'preview_type': 'saved_post',
+      'data': {'apiIntegrationStatus': 'generated'},
+    }, onConflict: 'user_id,source_post_id');
   }
 
   /// Ids of the feed posts this user has saved to their Smart Wardrobe.
   Stream<Set<String>> watchSavedPostIds(String userId) {
-    return _db
-        .collection('users')
-        .doc(userId)
-        .collection('outfits')
-        .where('previewType', isEqualTo: 'saved_post')
-        .snapshots()
+    return supabase
+        .from('outfits')
+        .stream(primaryKey: ['id'])
+        .eq('user_id', userId)
         .map(
-          (snapshot) => {
-            for (final doc in snapshot.docs)
-              if (doc.data()['sourcePostId'] case final String id) id,
+          (rows) => {
+            for (final row in rows)
+              if (row['preview_type'] == 'saved_post' &&
+                  row['source_post_id'] != null)
+                row['source_post_id'].toString(),
           },
         );
   }
@@ -409,11 +409,13 @@ class OutfitService {
     required String userId,
     required String postId,
     required String category,
-  }) => setOutfitCategory(
-    userId: userId,
-    outfitId: 'post_$postId',
-    category: category,
-  );
+  }) async {
+    await supabase
+        .from('outfits')
+        .update({'category': category.trim()})
+        .eq('user_id', userId)
+        .eq('source_post_id', postId);
+  }
 
   /// Moves any saved look (from a feed post or a makeover) to [category]; an
   /// empty one clears it.
@@ -421,27 +423,24 @@ class OutfitService {
     required String userId,
     required String outfitId,
     required String category,
-  }) {
-    final name = category.trim();
-    return _db
-        .collection('users')
-        .doc(userId)
-        .collection('outfits')
-        .doc(outfitId)
-        .update({'category': name.isEmpty ? FieldValue.delete() : name});
+  }) async {
+    await supabase
+        .from('outfits')
+        .update({'category': category.trim()})
+        .eq('id', outfitId)
+        .eq('user_id', userId);
   }
 
   /// The categories the user has already filed saved looks under, A to Z.
   Future<List<String>> savedLookCategories(String userId) async {
-    final snapshot = await _db
-        .collection('users')
-        .doc(userId)
-        .collection('outfits')
-        .get();
+    final rows = await supabase
+        .from('outfits')
+        .select('category')
+        .eq('user_id', userId);
     final names = {
-      for (final doc in snapshot.docs)
-        if ((doc.data()['category'] ?? '').toString().trim()
-            case final String name when name.isNotEmpty)
+      for (final row in rows)
+        if ((row['category'] ?? '').toString().trim() case final String name
+            when name.isNotEmpty)
           name,
     }.toList()..sort();
     return List.unmodifiable(names);
@@ -450,13 +449,12 @@ class OutfitService {
   Future<void> removeLookFromWardrobe({
     required String userId,
     required String postId,
-  }) {
-    return _db
-        .collection('users')
-        .doc(userId)
-        .collection('outfits')
-        .doc('post_$postId')
-        .delete();
+  }) async {
+    await supabase
+        .from('outfits')
+        .delete()
+        .eq('user_id', userId)
+        .eq('source_post_id', postId);
   }
 
   Future<void> shareOutfitAsPost({
@@ -466,17 +464,13 @@ class OutfitService {
     required String caption,
     required List<Map<String, dynamic>> products,
   }) async {
-    await _db.collection('posts').add({
-      'authorID': userId,
-      'authorId': userId,
+    await supabase.from('posts').insert({
+      'author_id': userId,
       'caption': caption,
-      'commentCount': 0,
-      'createdAt': FieldValue.serverTimestamp(),
-      'imageURL': resultImageUrl,
-      'isPublic': false,
+      'image_url': resultImageUrl,
       'visibility': 'private',
-      'outfitId': outfitId,
-      'productIds': products
+      'outfit_id': outfitId,
+      'product_ids': products
           .map((product) => (product['id'] ?? '').toString())
           .where((id) => id.isNotEmpty)
           .toList(),

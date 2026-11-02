@@ -5,14 +5,14 @@
 //
 //   * [AffirmationDefinition] — a library entry describing an expression that
 //     may be sent. Universal entries ship as code constants; cultural entries
-//     are curator-managed records loaded from Firestore.
+//     are curator-managed records loaded from the database.
 //   * [Affirmation] — one interaction: this person affirmed that look.
 //
 // Field groups follow the Affirmation Object Contract in BNG SRS 001
 // (identity, language, cultural context, usage context, media, governance,
 // interaction). Fields the lean MVP does not populate are still modelled so
 // curator tooling can fill them without a schema change.
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../supabase/rows.dart';
 
 /// Spec categories for affirmation expressions.
 enum AffirmationCategory {
@@ -118,7 +118,7 @@ class AffirmationProvenance {
       contributor: (data['contributor'] ?? '').toString(),
       contributorRights: (data['contributorRights'] ?? '').toString(),
       curator: (data['curator'] ?? '').toString(),
-      reviewedAt: reviewedAt is Timestamp ? reviewedAt.toDate() : null,
+      reviewedAt: asDateTime(reviewedAt),
     );
   }
 
@@ -127,7 +127,7 @@ class AffirmationProvenance {
     'contributor': contributor,
     'contributorRights': contributorRights,
     'curator': curator,
-    if (reviewedAt != null) 'reviewedAt': Timestamp.fromDate(reviewedAt!),
+    if (reviewedAt != null) 'reviewedAt': reviewedAt!.toIso8601String(),
   };
 }
 
@@ -215,9 +215,13 @@ class AffirmationDefinition {
       category.requiresCuratorReview &&
       (meaning.isNotEmpty || translation.isNotEmpty);
 
-  factory AffirmationDefinition.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>? ?? const {};
-    return AffirmationDefinition.fromMap(data, id: doc.id);
+  /// Builds an entry from an `affirmation_library` row.
+  factory AffirmationDefinition.fromRow(Map<String, dynamic> row) {
+    final data = row['data'];
+    return AffirmationDefinition.fromMap(
+      data is Map ? Map<String, dynamic>.from(data) : const {},
+      id: (row['id'] ?? '').toString(),
+    );
   }
 
   factory AffirmationDefinition.fromMap(
@@ -345,11 +349,11 @@ class Affirmation {
 
   bool get isVisible => moderationState != 'removed';
 
-  factory Affirmation.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>? ?? const {};
-    final rawCreatedAt = data['createdAt'];
+  /// Builds an affirmation from an `affirmations` row (snake_case columns).
+  factory Affirmation.fromRow(Map<String, dynamic> row) {
+    final data = camelizeRow(row);
     return Affirmation(
-      id: doc.id,
+      id: (data['id'] ?? '').toString(),
       senderId: (data['senderId'] ?? '').toString(),
       senderName: (data['senderName'] ?? '').toString(),
       targetType:
@@ -369,11 +373,7 @@ class Affirmation {
       personalMessage: (data['personalMessage'] ?? '').toString(),
       moderationState: (data['moderationState'] ?? 'clear').toString(),
       migratedFromLike: data['migratedFromLike'] == true,
-      createdAt: rawCreatedAt is Timestamp
-          ? rawCreatedAt.toDate()
-          : rawCreatedAt is DateTime
-          ? rawCreatedAt
-          : DateTime.now(),
+      createdAt: asDateTime(data['createdAt']) ?? DateTime.now(),
     );
   }
 }

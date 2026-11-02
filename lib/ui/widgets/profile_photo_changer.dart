@@ -1,11 +1,12 @@
 // Changing the signed-in user's profile photo: pick from camera or gallery,
-// upload, then save the URL on the user's auth profile and Firestore record.
+// upload, then save the URL on the user's profile.
 // Shared by the Profile page avatar and Settings.
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/supabase/app_auth.dart';
+import '../../data/services/profile_service.dart';
 import '../../data/services/storage_service.dart';
 
 /// Asks where the photo should come from, uploads it and saves it.
@@ -16,7 +17,7 @@ Future<String?> changeProfilePhoto(
   ImagePicker? picker,
   StorageService? storage,
 }) async {
-  final user = FirebaseAuth.instance.currentUser;
+  final user = AppAuth.instance.currentUser;
   if (user == null) return null;
 
   final source = await showModalBottomSheet<ImageSource>(
@@ -54,17 +55,10 @@ Future<String?> changeProfilePhoto(
       await image.readAsBytes(),
       user.uid,
     );
-    await Future.wait([
-      user.updatePhotoURL(url),
-      FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-        'profileImageURL': url,
-        'profileImageUrl': url,
-        'profileImageUpdatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true)),
-    ]);
+    await ProfileService().update(user.uid, {'profileImageUrl': url});
     return url;
-  } on FirebaseException catch (error) {
-    debugPrint('Profile photo update failed: ${error.code} ${error.message}');
+  } on Object catch (error) {
+    debugPrint('Profile photo update failed: $error');
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(

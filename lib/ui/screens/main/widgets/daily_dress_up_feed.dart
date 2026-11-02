@@ -5,9 +5,11 @@
 // TODO(daily-dress-up): also feed in Smart Wardrobe AI suggestions and looks
 // from the user's chosen Fashion Twins and Fashion Idols (docs/WORK_PLAN.md,
 // "Backlog"). Neither exists in the data yet.
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
+
+import '../../../../core/supabase/app_auth.dart';
+import '../../../../data/supabase/rows.dart';
 
 import '../../../../data/models/post.dart';
 import '../../../../data/services/outfit_service.dart';
@@ -35,8 +37,8 @@ class DailyDressUpFeed extends StatefulWidget {
 
 class _DailyDressUpFeedState extends State<DailyDressUpFeed> {
   final OutfitService _outfits = OutfitService();
-  final String _userId = FirebaseAuth.instance.currentUser?.uid ?? '';
-  late final Stream<QuerySnapshot<Map<String, dynamic>>> _looks = _outfits
+  final String _userId = AppAuth.instance.currentUser?.uid ?? '';
+  late final Stream<List<Map<String, dynamic>>> _looks = _outfits
       .watchSavedOutfits(_userId);
 
   @override
@@ -47,7 +49,7 @@ class _DailyDressUpFeedState extends State<DailyDressUpFeed> {
         'Sign in to dress up from your Smart Wardrobe.',
       );
     }
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+    return StreamBuilder<List<Map<String, dynamic>>>(
       stream: _looks,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
@@ -60,10 +62,8 @@ class _DailyDressUpFeedState extends State<DailyDressUpFeed> {
           return const Center(child: CircularProgressIndicator());
         }
         final looks =
-            snapshot.data!.docs
-                .where(
-                  (doc) => (doc.data()['imageUrl'] ?? '').toString().isNotEmpty,
-                )
+            snapshot.data!
+                .where((look) => (look['imageUrl'] ?? '').toString().isNotEmpty)
                 .toList()
               ..sort((a, b) => _createdAt(b).compareTo(_createdAt(a)));
         if (looks.isEmpty) {
@@ -97,18 +97,15 @@ class _DailyDressUpFeedState extends State<DailyDressUpFeed> {
     );
   }
 
-  Widget _buildLook(
-    QueryDocumentSnapshot<Map<String, dynamic>> look,
-    int index,
-  ) {
-    final data = look.data();
+  Widget _buildLook(Map<String, dynamic> look, int index) {
+    final data = look;
     final imageUrl = (data['imageUrl'] ?? '').toString();
     final name = (data['name'] ?? '').toString().trim();
     final title = name.isEmpty ? 'Saved look' : name;
     final fromPost = (data['sourcePostId'] ?? '').toString().isNotEmpty;
 
     return DressUpPostCard(
-      key: ValueKey('daily_dress_up_${look.id}'),
+      key: ValueKey('daily_dress_up_${look['id']}'),
       isMineLayout: true,
       title: 'Smart Wardrobe',
       subtitle: title,
@@ -138,7 +135,7 @@ class _DailyDressUpFeedState extends State<DailyDressUpFeed> {
         DressUpCardAction(
           icon: Icons.send_outlined,
           label: "Post as today's dress-up",
-          onTap: () => _postDressUp(look.id, imageUrl, title),
+          onTap: () => _postDressUp(look['id'].toString(), imageUrl, title),
         ),
       ],
       trailingAction: DressUpCardAction(
@@ -195,23 +192,21 @@ class _DailyDressUpFeedState extends State<DailyDressUpFeed> {
       messenger.showSnackBar(
         const SnackBar(content: Text('Sign in to share your dress-up.')),
       );
-    } on FirebaseException catch (error) {
+    } on PostgrestException catch (error) {
       messenger.showSnackBar(
         SnackBar(content: Text('Unable to share: ${error.message}')),
       );
     }
   }
 
-  Future<void> _wearToday(
-    QueryDocumentSnapshot<Map<String, dynamic>> look,
-  ) async {
+  Future<void> _wearToday(Map<String, dynamic> look) async {
     final messenger = ScaffoldMessenger.of(context);
     try {
       await _outfits.reuseOutfitOnDate(
         userId: _userId,
-        outfitId: look.id,
+        outfitId: look['id'].toString(),
         date: DateTime.now(),
-        outfit: look.data(),
+        outfit: look,
       );
       messenger.showSnackBar(
         const SnackBar(content: Text('Added to today in your wardrobe.')),
@@ -223,10 +218,8 @@ class _DailyDressUpFeedState extends State<DailyDressUpFeed> {
     }
   }
 
-  static DateTime _createdAt(QueryDocumentSnapshot<Map<String, dynamic>> doc) {
-    final value = doc.data()['createdAt'];
-    return value is Timestamp ? value.toDate() : DateTime(2000);
-  }
+  static DateTime _createdAt(Map<String, dynamic> look) =>
+      asDateTime(look['createdAt']) ?? DateTime(2000);
 
   static String _formatDate(DateTime date) =>
       date.year == 2000 ? '' : '${date.day}/${date.month}/${date.year}';

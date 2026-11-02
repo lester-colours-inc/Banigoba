@@ -2,7 +2,8 @@
 import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import '../../../core/supabase/app_auth.dart';
+import '../../../data/supabase/rows.dart';
 import 'package:flutter/material.dart';
 
 import '../../../data/services/outfit_service.dart';
@@ -99,7 +100,7 @@ class _WardrobeCalendarPageState extends State<WardrobeCalendarPage> {
     try {
       final snapshot = await _outfitService.watchWearHistory(userId).first;
       final history = <String, Map<String, dynamic>>{
-        for (final doc in snapshot.docs) doc.id: doc.data(),
+        for (final doc in snapshot) doc['id'].toString(): doc,
       };
       if (!mounted) return;
       await _openFullCalendar(history);
@@ -112,7 +113,7 @@ class _WardrobeCalendarPageState extends State<WardrobeCalendarPage> {
   }
 
   Future<void> _reuseOutfit(_SavedOutfit outfit) async {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = AppAuth.instance.currentUser;
     if (user == null) {
       ScaffoldMessenger.of(
         context,
@@ -163,7 +164,7 @@ class _WardrobeCalendarPageState extends State<WardrobeCalendarPage> {
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = AppAuth.instance.currentUser;
     final colors = Theme.of(context).colorScheme;
 
     return Scaffold(
@@ -199,12 +200,12 @@ class _WardrobeCalendarPageState extends State<WardrobeCalendarPage> {
       ),
       body: user == null
           ? const Center(child: Text('Sign in to view your worn outfits.'))
-          : StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+          : StreamBuilder<List<Map<String, dynamic>>>(
               stream: _outfitService.watchWearHistory(user.uid),
               builder: (context, historySnapshot) {
                 final history = <String, Map<String, dynamic>>{
-                  for (final doc in historySnapshot.data?.docs ?? const [])
-                    doc.id: doc.data(),
+                  for (final doc in historySnapshot.data ?? const [])
+                    doc['id'].toString(): doc,
                 };
 
                 return CustomScrollView(
@@ -425,7 +426,7 @@ class _WardrobeCalendarPageState extends State<WardrobeCalendarPage> {
   }
 
   Widget _buildSavedOutfits(String userId) {
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+    return StreamBuilder<List<Map<String, dynamic>>>(
       stream: _outfitService.watchSavedOutfits(userId),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
@@ -440,8 +441,8 @@ class _WardrobeCalendarPageState extends State<WardrobeCalendarPage> {
         }
 
         final outfits =
-            snapshot.data!.docs
-                .map((doc) => _SavedOutfit(doc.id, doc.data()))
+            snapshot.data!
+                .map((doc) => _SavedOutfit(doc['id'].toString(), doc))
                 .toList()
               ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
@@ -985,6 +986,6 @@ class _SavedOutfit {
 
   DateTime get createdAt {
     final value = data['createdAt'];
-    return value is Timestamp ? value.toDate() : DateTime(1970);
+    return asDateTime(value) ?? DateTime(1970);
   }
 }

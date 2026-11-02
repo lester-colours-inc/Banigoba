@@ -1,9 +1,9 @@
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../core/supabase/app_auth.dart';
 import '../../data/models/post.dart';
+import '../../data/services/profile_service.dart';
 import '../../data/services/post_service.dart';
 import 'quick_reply_bar.dart';
 
@@ -16,22 +16,14 @@ Future<void> sendPostComment(
   String text, {
   PostService? postService,
 }) async {
-  final user = FirebaseAuth.instance.currentUser;
+  final user = AppAuth.instance.currentUser;
   if (user == null) throw StateError('Sign in to reply.');
 
-  final userSnapshot = await FirebaseFirestore.instance
-      .collection('users')
-      .doc(user.uid)
-      .get();
-  final userData = userSnapshot.data() ?? const <String, dynamic>{};
+  final userData = await ProfileService().get(user.uid);
   final username = (userData['displayName'] ?? user.displayName ?? 'User')
       .toString();
-  final profileImageUrl =
-      (userData['profileImageURL'] ??
-              userData['profileImageUrl'] ??
-              user.photoURL ??
-              '')
-          .toString();
+  final profileImageUrl = (userData['profileImageUrl'] ?? user.photoURL ?? '')
+      .toString();
 
   await (postService ?? PostService()).addComment(
     postId: post.id,
@@ -86,7 +78,7 @@ class _PostCommentsSheetState extends State<_PostCommentsSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = AppAuth.instance.currentUser;
     final colors = Theme.of(context).colorScheme;
     return SizedBox(
       height: MediaQuery.sizeOf(context).height * 0.72,

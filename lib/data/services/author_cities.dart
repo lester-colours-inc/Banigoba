@@ -1,17 +1,15 @@
-// The city each post author chose (a public field on their user document),
+// The city each post author chose (a public field on their profile),
 // loaded once per author and kept, so the feeds can rank and filter by "near
 // me" (A-5, P-5). An author with no city is remembered as '' so they are not
 // asked for again.
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../../core/supabase/supabase_config.dart';
 
 import '../models/geo_cell.dart';
 import 'feed_matches_service.dart' show batchesOf;
 
 class AuthorCities {
-  AuthorCities({FirebaseFirestore? db})
-    : _db = db ?? FirebaseFirestore.instance;
-
-  final FirebaseFirestore _db;
   final Map<String, String> _cities = {};
   final Map<String, GeoCell> _cells = {};
 
@@ -34,18 +32,18 @@ class AuthorCities {
     }
     for (final batch in batchesOf(missing)) {
       try {
-        final snapshot = await _db
-            .collection('users')
-            .where(FieldPath.documentId, whereIn: batch)
-            .get();
-        for (final doc in snapshot.docs) {
-          _cities[doc.id] = (doc.data()['city'] ?? '').toString();
-          if (GeoCell.tryParse(doc.data()['areaCell']?.toString())
-              case final cell?) {
-            _cells[doc.id] = cell;
+        final rows = await supabase
+            .from('profiles')
+            .select('id, city, area_cell')
+            .inFilter('id', batch);
+        for (final row in rows) {
+          final id = row['id'].toString();
+          _cities[id] = (row['city'] ?? '').toString();
+          if (GeoCell.tryParse(row['area_cell']?.toString()) case final cell?) {
+            _cells[id] = cell;
           }
         }
-      } on FirebaseException {
+      } on PostgrestException {
         // Leave them as unknown; the feed still works, just without "near".
       }
     }
@@ -55,12 +53,21 @@ class AuthorCities {
   /// The signed-in person's own city, '' when none is set.
   Future<String> cityOf(String userId) async {
     try {
-      final data = (await _db.collection('users').doc(userId).get()).data();
-      final city = (data?['city'] ?? '').toString();
+      final profile = await supabase
+          .from('profiles')
+          .select('city')
+          .eq('id', userId)
+          .maybeSingle();
+      final city = (profile?['city'] ?? '').toString();
       if (city.isNotEmpty) return city;
-      final address = data?['address'];
+      final account = await supabase
+          .from('private_account')
+          .select('address')
+          .eq('id', userId)
+          .maybeSingle();
+      final address = account?['address'];
       return address is Map ? (address['city'] ?? '').toString() : '';
-    } on FirebaseException {
+    } on PostgrestException {
       return '';
     }
   }

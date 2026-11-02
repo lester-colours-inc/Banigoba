@@ -1,16 +1,42 @@
 // User notification data access.
 //
-// Notifications are stored under users/{uid}/notifications and grouped by type
-// in the UI tabs. extraData carries routing IDs such as sellerId, chatId, or
-// designerId so tapping a notification can open the right screen.
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+// Notifications live in the `notifications` table, one row per recipient, and
+// are grouped by type in the UI tabs. extraData carries routing IDs such as
+// sellerId, chatId, or designerId so tapping a notification can open the
+// right screen. Only the recipient can read, mark or delete a notification.
+import '../../core/supabase/app_auth.dart';
+import '../../core/supabase/supabase_config.dart';
+import '../supabase/rows.dart';
 
 class NotificationService {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  String get currentUserId => AppAuth.instance.currentUser?.uid ?? '';
 
-  String get currentUserId => _auth.currentUser?.uid ?? '';
+  /// The notification types shown on each tab; 'all' shows everything.
+  static const Map<String, List<String>> categoryTypes = {
+    'friends': [
+      'follow_request',
+      'follow_accepted',
+      'new_post',
+      'like',
+      'comment',
+      'try_on',
+      'repost',
+      'quote',
+    ],
+    'shops': [
+      'order_update',
+      'shop_promo',
+      'shop_new_item',
+      'shop_message',
+      'shop_approval',
+    ],
+    'designers': [
+      'designer_update',
+      'designer_collection',
+      'designer_message',
+      'designer_request_status',
+    ],
+  };
 
   Future<void> addNotification({
     required String receiverId,
@@ -23,152 +49,116 @@ class NotificationService {
       return; // Don't notify self unless it's a post logic helper
     }
 
-    await _db
-        .collection('users')
-        .doc(receiverId)
-        .collection('notifications')
-        .add({
-          'title': title,
-          'body': body,
-          'type': type,
-          'senderId': currentUserId,
-          'extraData': extraData,
-          'isRead': false,
-          'timestamp': FieldValue.serverTimestamp(),
-        });
+    await supabase.from('notifications').insert({
+      'user_id': receiverId,
+      'sender_id': currentUserId,
+      'title': title,
+      'body': body,
+      'type': type,
+      'extra_data': extraData ?? <String, dynamic>{},
+    });
   }
 
-  Stream<QuerySnapshot> getNotifications({String category = 'all'}) {
-    // We always order by timestamp
-    Query query = _db
-        .collection('users')
-        .doc(currentUserId)
-        .collection('notifications')
-        .orderBy('timestamp', descending: true);
+  /// A notification row as the screens read it: camelCase fields, plus `id`,
+  /// `timestamp` (a [DateTime]) and `response` (from extraData).
+  static Map<String, dynamic> toMap(Map<String, dynamic> row) {
+    final data = camelizeRow(row);
+    final extra = data['extraData'];
+    return {
+      ...data,
+      'timestamp': asDateTime(data['createdAt']),
+      'response': extra is Map ? extra['response'] : null,
+    };
+  }
 
-    // If 'all', return the full stream
-    if (category == 'all') {
-      return query.snapshots();
-    }
-
-    // For specific categories, we filter by 'type'
-    // Note: 'whereIn' combined with 'orderBy' on a different field requires a composite index.
-    // To ensure the UI isn't empty due to a missing index, we can filter client-side or
-    // simply define the allowed types.
-    List<String> allowedTypes = [];
-    if (category == 'friends') {
-      allowedTypes = [
-        'follow_request',
-        'follow_accepted',
-        'new_post',
-        'like',
-        'comment',
-        'try_on',
-      ];
-    } else if (category == 'shops') {
-      allowedTypes = [
-        'order_update',
-        'shop_promo',
-        'shop_new_item',
-        'shop_message',
-        'shop_approval',
-      ];
-    } else if (category == 'designers') {
-      allowedTypes = [
-        'designer_update',
-        'designer_collection',
-        'designer_message',
-        'designer_request_status',
-      ];
-    }
-
-    // Return the stream, and the UI will filter the documents if needed
-    // or we can use the Firestore where clause if the index exists.
-    // For now, let's use the where clause but add a check.
-    if (allowedTypes.isNotEmpty) {
-      return _db
-          .collection('users')
-          .doc(currentUserId)
-          .collection('notifications')
-          .where('type', whereIn: allowedTypes)
-          .orderBy('timestamp', descending: true)
-          .snapshots();
-    }
-
-    return query.snapshots();
+  /// The signed-in user's notifications, newest first.
+  Stream<List<Map<String, dynamic>>> getNotifications({
+    String category = 'all',
+  }) {
+    if (currentUserId.isEmpty) return Stream.value(const []);
+    final types = categoryTypes[category];
+    return supabase
+        .from('notifications')
+        .stream(primaryKey: ['id'])
+        .eq('user_id', currentUserId)
+        .order('created_at', ascending: false)
+        .map(
+          (rows) => [
+            for (final row in rows)
+              if (types == null || types.contains(row['type'])) toMap(row),
+          ],
+        );
   }
 
   Stream<int> getUnreadCount() {
-    return _db
-        .collection('users')
-        .doc(currentUserId)
-        .collection('notifications')
-        .snapshots()
-        .map((snap) {
-          return snap.docs.where((doc) {
-            final data = doc.data();
-            return data['isRead'] != true;
-          }).length;
-        });
+    if (currentUserId.isEmpty) return Stream.value(0);
+    return supabase
+        .from('notifications')
+        .stream(primaryKey: ['id'])
+        .eq('user_id', currentUserId)
+        .map((rows) => rows.where((row) => row['is_read'] != true).length);
   }
 
   Future<void> markAsRead(String notificationId) async {
-    await _db
-        .collection('users')
-        .doc(currentUserId)
-        .collection('notifications')
-        .doc(notificationId)
-        .update({'isRead': true});
+    await supabase
+        .from('notifications')
+        .update({'is_read': true})
+        .eq('id', notificationId);
   }
 
   Future<void> markAllAsRead() async {
-    final unread = await _db
-        .collection('users')
-        .doc(currentUserId)
-        .collection('notifications')
-        .get();
-
-    final batch = _db.batch();
-    for (var doc in unread.docs) {
-      final data = doc.data();
-      if (data['isRead'] != true) {
-        batch.update(doc.reference, {'isRead': true});
-      }
-    }
-    await batch.commit();
+    if (currentUserId.isEmpty) return;
+    await supabase
+        .from('notifications')
+        .update({'is_read': true})
+        .eq('user_id', currentUserId)
+        .eq('is_read', false);
   }
 
-  Future<void> updateNotification({
+  /// Records how the person answered a notification (e.g. a follow request)
+  /// and marks it read.
+  Future<void> recordResponse({
     required String notificationId,
-    required Map<String, dynamic> data,
+    required String response,
   }) async {
-    await _db
-        .collection('users')
-        .doc(currentUserId)
-        .collection('notifications')
-        .doc(notificationId)
-        .update(data);
+    final row = await supabase
+        .from('notifications')
+        .select('extra_data')
+        .eq('id', notificationId)
+        .maybeSingle();
+    final extra = Map<String, dynamic>.from(row?['extra_data'] as Map? ?? {});
+    await supabase
+        .from('notifications')
+        .update({
+          'is_read': true,
+          'extra_data': {
+            ...extra,
+            'response': response,
+            'respondedAt': DateTime.now().toUtc().toIso8601String(),
+          },
+        })
+        .eq('id', notificationId);
   }
 
   // Helper to notify all followers about a new post
   Future<void> notifyFollowersNewPost(String itemName) async {
-    final followers = await _db
-        .collection('users')
-        .doc(currentUserId)
-        .collection('followers')
-        .get();
+    if (currentUserId.isEmpty) return;
+    final followers = await supabase
+        .from('follows')
+        .select('follower_id')
+        .eq('followee_id', currentUserId);
+    final me = await supabase
+        .from('profiles')
+        .select('display_name')
+        .eq('id', currentUserId)
+        .maybeSingle();
+    final userName = (me?['display_name'] ?? '').toString().isEmpty
+        ? (AppAuth.instance.currentUser?.email?.split('@')[0] ?? 'Your friend')
+        : me!['display_name'].toString();
 
-    // Fetch current user's name from Firestore
-    final userDoc = await _db.collection('users').doc(currentUserId).get();
-    final userData = userDoc.data();
-    final userName =
-        userData?['displayName'] ??
-        _auth.currentUser?.email?.split('@')[0] ??
-        'Your friend';
-
-    for (var doc in followers.docs) {
+    for (final row in followers) {
       await addNotification(
-        receiverId: doc.id,
+        receiverId: row['follower_id'].toString(),
         title: 'New Post!',
         body: '$userName just added a new item: $itemName',
         type: 'new_post',

@@ -1,6 +1,7 @@
 // Builds the authenticated navigation drawer and account controls.
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import '../../core/supabase/app_auth.dart';
+import '../../data/services/auth_service.dart';
+import '../../data/services/profile_service.dart';
 import 'package:flutter/material.dart';
 import '../../core/theme_provider.dart';
 import '../../core/app_routes.dart';
@@ -110,7 +111,7 @@ class AppDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = AppAuth.instance.currentUser;
     final userEmail = user?.email ?? '';
     final userName =
         user?.displayName ??
@@ -187,7 +188,7 @@ class AppDrawer extends StatelessWidget {
                   Icons.logout,
                   'Logout',
                   onTap: () {
-                    FirebaseAuth.instance.signOut();
+                    AuthService().signOut();
                   },
                 ),
               ],
@@ -203,21 +204,15 @@ class AppDrawer extends StatelessWidget {
               '',
             )
           else
-            StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-              stream: FirebaseFirestore.instance
-                  .collection('users')
-                  .doc(user.uid)
-                  .snapshots(),
+            StreamBuilder<Map<String, dynamic>>(
+              stream: ProfileService().watch(user.uid),
               builder: (context, snapshot) {
-                final data = snapshot.data?.data();
+                final data = snapshot.data;
                 final liveName =
                     (data?['displayName'] ?? user.displayName ?? userName)
                         .toString();
                 final profileImageUrl =
-                    (data?['profileImageURL'] ??
-                            data?['profileImageUrl'] ??
-                            user.photoURL ??
-                            '')
+                    (data?['profileImageUrl'] ?? user.photoURL ?? '')
                         .toString();
                 final liveInitial = liveName.trim().isNotEmpty
                     ? liveName.trim()[0].toUpperCase()

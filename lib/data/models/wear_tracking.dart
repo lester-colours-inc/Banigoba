@@ -1,7 +1,7 @@
 // How long since a piece or a look was worn (October 2026 review, W-7):
 // "You haven't worn this shirt in 10 months". Pure functions so the wording
 // is the same everywhere and easy to test.
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../supabase/rows.dart';
 import 'package:flutter/foundation.dart';
 
 /// Not worn for this long (or never, once owned this long) is worth a nudge.
@@ -68,14 +68,12 @@ Map<String, DateTime> lastWornByOutfit(
   final latest = <String, DateTime>{};
   for (final entry in wearHistory) {
     final id = (entry['outfitId'] ?? '').toString();
-    final date = entry['wearDate'];
-    if (id.isEmpty || date is! Timestamp) continue;
-    final worn = date.toDate();
+    final worn = asDateTime(entry['wearDate']);
+    if (id.isEmpty || worn == null) continue;
     if (latest[id] case final seen? when !worn.isAfter(seen)) continue;
     latest[id] = worn;
   }
   return Map.unmodifiable(latest);
 }
 
-DateTime? timestampToDate(Object? value) =>
-    value is Timestamp ? value.toDate() : null;
+DateTime? timestampToDate(Object? value) => asDateTime(value);

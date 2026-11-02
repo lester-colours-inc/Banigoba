@@ -1,9 +1,10 @@
 // My Circle: the salons, shops and designers a user has added as their own,
 // so they come first whenever a look is sent (October 2026 review, P-6 and
-// P-7). Stored privately under users/{uid}/circle/{memberId}; only the owner
-// can read or change it (the users/{uid} private catch-all rule).
-import 'package:cloud_firestore/cloud_firestore.dart';
+// P-7). Stored privately in circle_entries; only the owner
+// can read or change it (row-level security on circle_entries).
 import 'package:flutter/foundation.dart';
+
+import '../../core/supabase/supabase_config.dart';
 
 /// What a Circle member is to the user.
 enum CircleKind {
@@ -57,35 +58,52 @@ class CircleMember {
     'name': name,
     'avatarUrl': avatarUrl,
     'detail': detail,
-    'addedAt': FieldValue.serverTimestamp(),
   };
 }
 
 class CircleService {
-  CircleService({FirebaseFirestore? db})
-    : _db = db ?? FirebaseFirestore.instance;
-
-  final FirebaseFirestore _db;
-
-  CollectionReference<Map<String, dynamic>> _circle(String userId) =>
-      _db.collection('users').doc(userId).collection('circle');
-
   /// Everyone in the user's Circle, A to Z.
   Stream<List<CircleMember>> watch(String userId) {
     if (userId.isEmpty) return Stream.value(const []);
-    return _circle(userId).snapshots().map((snapshot) {
-      final members = [
-        for (final doc in snapshot.docs)
-          if (CircleMember.fromMap(doc.id, doc.data()) case final member?)
-            member,
-      ]..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
-      return List.unmodifiable(members);
+    return supabase
+        .from('circle_entries')
+        .stream(primaryKey: ['user_id', 'kind', 'target_id'])
+        .eq('user_id', userId)
+        .map((rows) {
+          final members =
+              [
+                for (final row in rows)
+                  if (CircleMember.fromMap(row['target_id'].toString(), {
+                        'kind': row['kind'],
+                        'name': row['name'],
+                        'avatarUrl': row['avatar_url'],
+                        'detail': row['detail'],
+                      })
+                      case final member?)
+                    member,
+              ]..sort(
+                (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+              );
+          return List<CircleMember>.unmodifiable(members);
+        });
+  }
+
+  Future<void> add(String userId, CircleMember member) async {
+    await supabase.from('circle_entries').upsert({
+      'user_id': userId,
+      'kind': member.kind.value,
+      'target_id': member.id,
+      'name': member.name,
+      'avatar_url': member.avatarUrl,
+      'detail': member.detail,
     });
   }
 
-  Future<void> add(String userId, CircleMember member) =>
-      _circle(userId).doc(member.id).set(member.toMap());
-
-  Future<void> remove(String userId, String memberId) =>
-      _circle(userId).doc(memberId).delete();
+  Future<void> remove(String userId, String memberId) async {
+    await supabase
+        .from('circle_entries')
+        .delete()
+        .eq('user_id', userId)
+        .eq('target_id', memberId);
+  }
 }

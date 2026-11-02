@@ -46,26 +46,26 @@ void main() {
     final post = _post(visibility: PostVisibility.followers);
     expect(post.isShared, isTrue);
     expect(post.isPublic, isFalse);
-    expect(post.toFirestore()['visibility'], 'followers');
+    expect(post.toRow()['visibility'], 'followers');
   });
 
   test('a plain repost is not a quote', () {
     final post = _post(repostOfId: 'p1');
     expect(post.isRepost, isTrue);
     expect(post.isQuote, isFalse);
-    expect(post.toFirestore(), containsPair('repostOfId', 'p1'));
-    expect(post.toFirestore().containsKey('quoteText'), isFalse);
+    expect(post.toRow(), containsPair('repost_of_id', 'p1'));
+    expect(post.toRow().containsKey('quote_text'), isFalse);
   });
 
   test('a repost with words is a quote', () {
     final post = _post(repostOfId: 'p1', quoteText: 'This colour!');
     expect(post.isQuote, isTrue);
-    expect(post.toFirestore(), containsPair('quoteText', 'This colour!'));
+    expect(post.toRow(), containsPair('quote_text', 'This colour!'));
   });
 
   test('an original post carries no repost fields', () {
-    final data = _post().toFirestore();
-    expect(data.containsKey('repostOfId'), isFalse);
-    expect(data.containsKey('repostOfAuthorId'), isFalse);
+    final data = _post().toRow();
+    expect(data.containsKey('repost_of_id'), isFalse);
+    expect(data.containsKey('repost_of_author_id'), isFalse);
   });
 }

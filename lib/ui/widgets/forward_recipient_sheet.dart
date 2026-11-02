@@ -4,11 +4,12 @@
 // search, and anyone can be added to or removed from My Circle here
 // (October 2026 review, P-6 and P-7).
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
 
+import '../../core/supabase/app_auth.dart';
 import '../../data/services/circle_service.dart';
+import '../../data/services/profile_service.dart';
 
 enum ForwardRecipientKind {
   salon(
@@ -90,27 +91,13 @@ Future<ForwardRecipient?> showForwardRecipientSheet(
   );
 }
 
-Query<Map<String, dynamic>> _recipientQuery(ForwardRecipientKind kind) {
-  final users = FirebaseFirestore.instance.collection('users');
-  return switch (kind) {
-    ForwardRecipientKind.salon =>
-      users
-          .where('agentProfile.active', isEqualTo: true)
-          .where('agentProfile.verified', isEqualTo: true)
-          .where('agentProfile.type', isEqualTo: 'hair'),
-    ForwardRecipientKind.shop => users.where('shop.verified', isEqualTo: true),
-    ForwardRecipientKind.designer =>
-      users
-          .where('designerProfile.active', isEqualTo: true)
-          .where('designerProfile.verified', isEqualTo: true),
-  };
-}
+Future<List<Map<String, dynamic>>> _loadRecipients(ForwardRecipientKind kind) =>
+    ProfileService().verifiedProviders(kind.name);
 
-ForwardRecipient _recipientFromDoc(
+ForwardRecipient _recipientFromProfile(
   ForwardRecipientKind kind,
-  QueryDocumentSnapshot<Map<String, dynamic>> doc,
+  Map<String, dynamic> data,
 ) {
-  final data = doc.data();
   final profileKey = switch (kind) {
     ForwardRecipientKind.salon => 'agentProfile',
     ForwardRecipientKind.shop => 'shop',
@@ -125,14 +112,10 @@ ForwardRecipient _recipientFromDoc(
     ForwardRecipientKind.designer => 'Designer',
   };
   return ForwardRecipient(
-    id: doc.id,
+    id: data['id'].toString(),
     name: (profile['name'] ?? data['displayName'] ?? fallbackName).toString(),
-    avatarUrl:
-        (profile['avatarUrl'] ??
-                data['profileImageURL'] ??
-                data['profileImageUrl'] ??
-                '')
-            .toString(),
+    avatarUrl: (profile['avatarUrl'] ?? data['profileImageUrl'] ?? '')
+        .toString(),
     detail: (profile['location'] ?? profile['description'] ?? '').toString(),
   );
 }
@@ -150,10 +133,11 @@ class _ForwardRecipientSheet extends StatefulWidget {
 }
 
 class _ForwardRecipientSheetState extends State<_ForwardRecipientSheet> {
-  late final Stream<QuerySnapshot<Map<String, dynamic>>> _recipients =
-      _recipientQuery(widget.kind).snapshots();
+  late final Future<List<Map<String, dynamic>>> _recipients = _loadRecipients(
+    widget.kind,
+  );
   final CircleService _circle = CircleService();
-  final String _userId = FirebaseAuth.instance.currentUser?.uid ?? '';
+  final String _userId = AppAuth.instance.currentUser?.uid ?? '';
   late final Stream<List<CircleMember>> _members = _circle.watch(_userId);
   String _query = '';
 
@@ -168,7 +152,7 @@ class _ForwardRecipientSheetState extends State<_ForwardRecipientSheet> {
           recipient.toCircleMember(widget.kind.circleKind),
         );
       }
-    } on FirebaseException catch (error) {
+    } on PostgrestException catch (error) {
       messenger.showSnackBar(
         SnackBar(content: Text('Could not update My Circle: ${error.message}')),
       );
@@ -182,7 +166,7 @@ class _ForwardRecipientSheetState extends State<_ForwardRecipientSheet> {
   }
 
   Widget _buildList(
-    AsyncSnapshot<QuerySnapshot<Map<String, dynamic>>> snapshot,
+    AsyncSnapshot<List<Map<String, dynamic>>> snapshot,
     String currentUserId,
     Set<String> circleIds,
   ) {
@@ -195,9 +179,9 @@ class _ForwardRecipientSheetState extends State<_ForwardRecipientSheet> {
     if (!snapshot.hasData) {
       return const Center(child: CircularProgressIndicator());
     }
-    final all = snapshot.data!.docs
-        .where((doc) => doc.id != currentUserId)
-        .map((doc) => _recipientFromDoc(widget.kind, doc))
+    final all = snapshot.data!
+        .where((profile) => profile['id'] != currentUserId)
+        .map((profile) => _recipientFromProfile(widget.kind, profile))
         .toList();
     final split = splitByCircle(all.where(_matches).toList(), circleIds);
     final circleAll = splitByCircle(all, circleIds).circle;
@@ -282,7 +266,7 @@ class _ForwardRecipientSheetState extends State<_ForwardRecipientSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final currentUserId = AppAuth.instance.currentUser?.uid ?? '';
     final height = MediaQuery.sizeOf(context).height * 0.7;
 
     return SizedBox(
@@ -326,8 +310,8 @@ class _ForwardRecipientSheetState extends State<_ForwardRecipientSheet> {
                         in circleSnapshot.data ?? const <CircleMember>[])
                       if (member.kind == widget.kind.circleKind) member.id,
                   };
-                  return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                    stream: _recipients,
+                  return FutureBuilder<List<Map<String, dynamic>>>(
+                    future: _recipients,
                     builder: (context, snapshot) =>
                         _buildList(snapshot, currentUserId, circleIds),
                   );

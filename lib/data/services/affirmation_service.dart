@@ -11,34 +11,25 @@
 //   2. Cultural library entries are withheld unless a curator has approved
 //      them AND provenance is present. The client cannot serve heritage
 //      content that nobody signed off.
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../../core/supabase/app_auth.dart';
+import '../../core/supabase/supabase_config.dart';
 
 import '../affirmations/affirmation_library.dart';
 import '../models/affirmation.dart';
 import 'notification_service.dart';
 
 class AffirmationService {
-  AffirmationService({
-    FirebaseFirestore? firestore,
-    FirebaseAuth? auth,
-    NotificationService? notifications,
-  }) : _db = firestore ?? FirebaseFirestore.instance,
-       _auth = auth ?? FirebaseAuth.instance,
-       _notifications = notifications ?? NotificationService();
+  AffirmationService({NotificationService? notifications})
+    : _notifications = notifications ?? NotificationService();
 
-  final FirebaseFirestore _db;
-  final FirebaseAuth _auth;
   final NotificationService _notifications;
 
-  static const String affirmationsCollection = 'affirmations';
-  static const String libraryCollection = 'affirmation_library';
+  String get _currentUserId => AppAuth.instance.currentUser?.uid ?? '';
 
-  String get _currentUserId => _auth.currentUser?.uid ?? '';
-
-  CollectionReference<Map<String, dynamic>> get _affirmations =>
-      _db.collection(affirmationsCollection);
+  SupabaseQueryBuilder get _affirmations => supabase.from('affirmations');
 
   /// Deterministic document id, so sending the same affirmation twice is a
   /// no-op rather than a duplicate. Also makes the legacy-like backfill
@@ -68,16 +59,16 @@ class AffirmationService {
 
   Future<List<AffirmationDefinition>> _servableCuratedDefinitions() async {
     try {
-      final snapshot = await _db
-          .collection(libraryCollection)
-          .where('reviewState', isEqualTo: AffirmationReviewState.approved.id)
-          .get();
+      final rows = await supabase
+          .from('affirmation_library')
+          .select()
+          .eq('review_state', AffirmationReviewState.approved.id);
 
-      return snapshot.docs
-          .map(AffirmationDefinition.fromFirestore)
+      return rows
+          .map(AffirmationDefinition.fromRow)
           .where((definition) => definition.isServable)
           .toList();
-    } on FirebaseException catch (error) {
+    } on PostgrestException catch (error) {
       debugPrint('Affirmation library unavailable: ${error.code}');
       return const [];
     }
@@ -124,24 +115,23 @@ class AffirmationService {
       definitionId: definition.id,
     );
 
-    await _affirmations.doc(docId).set({
-      'senderId': senderId,
-      'senderName': senderName,
-      'targetType': targetType.id,
-      'targetId': targetId,
-      'targetOwnerId': targetOwnerId,
-      'definitionId': definition.id,
+    // Same id for the same affirmation, so sending twice changes nothing.
+    await _affirmations.upsert({
+      'id': docId,
+      'sender_id': senderId,
+      'sender_name': senderName,
+      'target_type': targetType.id,
+      'target_id': targetId,
+      'target_owner_id': targetOwnerId,
+      'definition_id': definition.id,
       'emoji': definition.emoji,
-      'shortLabel': definition.shortLabel,
+      'short_label': definition.shortLabel,
       'text': definition.text,
       'category': definition.category.id,
       'language': definition.language,
       'meaning': definition.meaning,
-      'personalMessage': personalMessage.trim(),
-      'moderationState': 'clear',
-      'migratedFromLike': false,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
+      'personal_message': personalMessage.trim(),
+    }, ignoreDuplicates: true);
 
     await _notifyRecipient(
       recipientId: targetOwnerId,
@@ -161,16 +151,15 @@ class AffirmationService {
     final senderId = _currentUserId;
     if (senderId.isEmpty) return;
 
-    await _affirmations
-        .doc(
-          documentIdFor(
-            targetType: targetType,
-            targetId: targetId,
-            senderId: senderId,
-            definitionId: definitionId,
-          ),
-        )
-        .delete();
+    await _affirmations.delete().eq(
+      'id',
+      documentIdFor(
+        targetType: targetType,
+        targetId: targetId,
+        senderId: senderId,
+        definitionId: definitionId,
+      ),
+    );
   }
 
   /// Deletes every affirmation attached to a target. Called when the owner
@@ -179,17 +168,10 @@ class AffirmationService {
     required AffirmationTargetType targetType,
     required String targetId,
   }) async {
-    final snapshot = await _affirmations
-        .where('targetType', isEqualTo: targetType.id)
-        .where('targetId', isEqualTo: targetId)
-        .get();
-    if (snapshot.docs.isEmpty) return;
-
-    final batch = _db.batch();
-    for (final doc in snapshot.docs) {
-      batch.delete(doc.reference);
-    }
-    await batch.commit();
+    await _affirmations
+        .delete()
+        .eq('target_type', targetType.id)
+        .eq('target_id', targetId);
   }
 
   // ── Reading ─────────────────────────────────────────────────────────────
@@ -202,13 +184,13 @@ class AffirmationService {
     if (targetId.isEmpty) return Stream.value(const []);
 
     return _affirmations
-        .where('targetType', isEqualTo: targetType.id)
-        .where('targetId', isEqualTo: targetId)
-        .snapshots()
+        .stream(primaryKey: ['id'])
+        .eq('target_id', targetId)
         .map(
-          (snapshot) =>
-              snapshot.docs
-                  .map(Affirmation.fromFirestore)
+          (rows) =>
+              rows
+                  .where((row) => row['target_type'] == targetType.id)
+                  .map(Affirmation.fromRow)
                   .where((affirmation) => affirmation.isVisible)
                   .toList()
                 ..sort((a, b) => b.createdAt.compareTo(a.createdAt)),
@@ -241,13 +223,16 @@ class AffirmationService {
     }
 
     return _affirmations
-        .where('targetType', isEqualTo: targetType.id)
-        .where('targetId', isEqualTo: targetId)
-        .where('senderId', isEqualTo: senderId)
-        .snapshots()
+        .stream(primaryKey: ['id'])
+        .eq('target_id', targetId)
         .map(
-          (snapshot) => snapshot.docs
-              .map((doc) => (doc.data()['definitionId'] ?? '').toString())
+          (rows) => rows
+              .where(
+                (row) =>
+                    row['target_type'] == targetType.id &&
+                    row['sender_id'] == senderId,
+              )
+              .map((row) => (row['definition_id'] ?? '').toString())
               .where((id) => id.isNotEmpty)
               .toSet(),
         );
@@ -259,15 +244,14 @@ class AffirmationService {
     final senderId = _currentUserId;
     if (senderId.isEmpty) return Stream.value(const <String>{});
     return _affirmations
-        .where('senderId', isEqualTo: senderId)
-        .where('targetType', isEqualTo: AffirmationTargetType.post.id)
-        .snapshots()
+        .stream(primaryKey: ['id'])
+        .eq('sender_id', senderId)
         .map(
-          (snapshot) => {
-            for (final doc in snapshot.docs)
-              if ((doc.data()['targetId'] ?? '').toString() case final id
-                  when id.isNotEmpty)
-                id,
+          (rows) => {
+            for (final row in rows)
+              if (row['target_type'] == AffirmationTargetType.post.id &&
+                  (row['target_id'] ?? '').toString().isNotEmpty)
+                row['target_id'].toString(),
           },
         );
   }
@@ -280,12 +264,12 @@ class AffirmationService {
     if (ownerId.isEmpty) return Stream.value(const []);
 
     return _affirmations
-        .where('targetOwnerId', isEqualTo: ownerId)
-        .snapshots()
+        .stream(primaryKey: ['id'])
+        .eq('target_owner_id', ownerId)
         .map(
-          (snapshot) =>
-              snapshot.docs
-                  .map(Affirmation.fromFirestore)
+          (rows) =>
+              rows
+                  .map(Affirmation.fromRow)
                   .where((affirmation) => affirmation.isVisible)
                   .toList()
                 ..sort((a, b) => b.createdAt.compareTo(a.createdAt)),
@@ -295,17 +279,20 @@ class AffirmationService {
   // ── Internals ───────────────────────────────────────────────────────────
 
   Future<String> _resolveSenderName(String senderId) async {
+    final current = AppAuth.instance.currentUser;
     final fallback =
-        _auth.currentUser?.displayName ??
-        _auth.currentUser?.email?.split('@').first ??
-        'Someone';
+        current?.displayName ?? current?.email?.split('@').first ?? 'Someone';
     try {
-      final user = await _db.collection('users').doc(senderId).get();
-      final displayName = user.data()?['displayName'];
+      final user = await supabase
+          .from('profiles')
+          .select('display_name')
+          .eq('id', senderId)
+          .maybeSingle();
+      final displayName = user?['display_name'];
       if (displayName is String && displayName.trim().isNotEmpty) {
         return displayName.trim();
       }
-    } on FirebaseException catch (error) {
+    } on PostgrestException catch (error) {
       debugPrint('Unable to resolve sender name: ${error.code}');
     }
     return fallback;
@@ -332,7 +319,7 @@ class AffirmationService {
           'definitionId': definition.id,
         },
       );
-    } on FirebaseException catch (error) {
+    } on PostgrestException catch (error) {
       // A missed notification must not fail the affirmation itself.
       debugPrint('Unable to notify affirmation recipient: ${error.code}');
     }

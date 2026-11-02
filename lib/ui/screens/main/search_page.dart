@@ -1,7 +1,8 @@
 // Searches community members and opens their social profiles.
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import '../../../core/supabase/app_auth.dart';
+import '../../../data/services/profile_service.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/app_routes.dart';
@@ -206,9 +207,20 @@ class _SearchPageState extends State<SearchPage> {
     );
   }
 
+  /// People matching the search, plus the person whose full email was typed.
+  Future<List<Map<String, dynamic>>> _loadPeople(String emailMatchId) async {
+    final profiles = ProfileService();
+    final people = await profiles.searchPeople(_searchQuery);
+    if (emailMatchId.isEmpty || people.any((p) => p['id'] == emailMatchId)) {
+      return people;
+    }
+    final match = await profiles.get(emailMatchId);
+    return match.isEmpty ? people : [...people, match];
+  }
+
   Widget _buildPeopleResults(String emailMatchId) {
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: FirebaseFirestore.instance.collection('users').snapshots(),
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _loadPeople(emailMatchId),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return const Center(
@@ -219,15 +231,15 @@ class _SearchPageState extends State<SearchPage> {
           return const Center(child: CircularProgressIndicator());
         }
 
-        final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+        final currentUserId = AppAuth.instance.currentUser?.uid;
         final people =
-            (snapshot.data?.docs ?? []).where((doc) {
-              if (doc.id == currentUserId) return false;
-              return doc.id == emailMatchId ||
-                  matchesPersonSearch(doc.data(), _searchQuery);
+            (snapshot.data ?? []).where((person) {
+              if (person['id'] == currentUserId) return false;
+              return person['id'] == emailMatchId ||
+                  matchesPersonSearch(person, _searchQuery);
             }).toList()..sort((a, b) {
-              final aName = (a.data()['displayName'] ?? '').toString();
-              final bName = (b.data()['displayName'] ?? '').toString();
+              final aName = (a['displayName'] ?? '').toString();
+              final bName = (b['displayName'] ?? '').toString();
               return aName.toLowerCase().compareTo(bName.toLowerCase());
             });
 
@@ -245,7 +257,7 @@ class _SearchPageState extends State<SearchPage> {
           separatorBuilder: (_, _) => const SizedBox(height: 12),
           itemBuilder: (context, index) {
             final person = people[index];
-            final data = person.data();
+            final data = person;
             final name = (data['displayName'] ?? data['name'] ?? 'User')
                 .toString()
                 .trim();
@@ -262,7 +274,8 @@ class _SearchPageState extends State<SearchPage> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => ProfilePage(userId: person.id),
+                      builder: (_) =>
+                          ProfilePage(userId: person['id'].toString()),
                     ),
                   );
                 },
@@ -332,10 +345,7 @@ class _SearchPageState extends State<SearchPage> {
 
   String _profileImageUrl(Map<String, dynamic> data) {
     final value =
-        data['profileImageURL'] ??
-        data['profileImageUrl'] ??
-        data['photoURL'] ??
-        data['photoUrl'];
+        data['profileImageUrl'] ?? data['photoURL'] ?? data['photoUrl'];
     return value is String ? value.trim() : '';
   }
 

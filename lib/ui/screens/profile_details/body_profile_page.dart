@@ -39,7 +39,7 @@ class BodyProfilePage extends StatefulWidget {
 
 class _BodyProfilePageState extends State<BodyProfilePage> {
   late final BodyProfileStore _store =
-      widget.store ?? FirebaseBodyProfileStore();
+      widget.store ?? SupabaseBodyProfileStore();
   final _formKey = GlobalKey<FormState>();
   final _shoeSizeController = TextEditingController();
   final _notesController = TextEditingController();

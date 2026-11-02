@@ -1,41 +1,40 @@
-// Manages follows, follow requests, and related social notifications in Firestore.
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+// Manages follows, follow requests, and related social notifications.
+//
+// A follow is one row in `follows` (follower → followee); friends are people
+// who follow each other. A request waits in `follow_requests` until the other
+// person accepts it, which the database does in one step.
+import 'package:flutter/foundation.dart';
+
+import '../../core/supabase/app_auth.dart';
+import '../../core/supabase/supabase_config.dart';
 import 'notification_service.dart';
 
 class FriendService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
   final NotificationService _notificationService = NotificationService();
 
-  String get currentUserId => _auth.currentUser?.uid ?? '';
+  String get currentUserId => AppAuth.instance.currentUser?.uid ?? '';
+
+  Future<String> _nameOf(String userId, String fallback) async {
+    final row = await supabase
+        .from('profiles')
+        .select('display_name')
+        .eq('id', userId)
+        .maybeSingle();
+    final name = (row?['display_name'] ?? '').toString();
+    if (name.isNotEmpty) return name;
+    return AppAuth.instance.currentUser?.email?.split('@')[0] ?? fallback;
+  }
 
   // --- Follow Request Actions ---
 
   Future<void> sendFollowRequest(String targetUserId) async {
     if (currentUserId.isEmpty) return;
-    await _firestore
-        .collection('users')
-        .doc(targetUserId)
-        .collection('follow_requests')
-        .doc(currentUserId)
-        .set({
-          'from': currentUserId,
-          'timestamp': FieldValue.serverTimestamp(),
-          'status': 'pending',
-        });
+    await supabase.from('follow_requests').upsert({
+      'requester_id': currentUserId,
+      'target_id': targetUserId,
+    });
 
-    // Fetch current user's name from Firestore for the notification
-    final userDoc = await _firestore
-        .collection('users')
-        .doc(currentUserId)
-        .get();
-    final userData = userDoc.data() as Map<String, dynamic>?;
-    final senderName =
-        userData?['displayName'] ??
-        _auth.currentUser?.email?.split('@')[0] ??
-        'Someone';
-
+    final senderName = await _nameOf(currentUserId, 'Someone');
     await _notificationService.addNotification(
       receiverId: targetUserId,
       title: 'New Follow Request',
@@ -47,56 +46,21 @@ class FriendService {
 
   Future<void> cancelFollowRequest(String targetUserId) async {
     if (currentUserId.isEmpty) return;
-    await _firestore
-        .collection('users')
-        .doc(targetUserId)
-        .collection('follow_requests')
-        .doc(currentUserId)
-        .delete();
+    await supabase
+        .from('follow_requests')
+        .delete()
+        .eq('requester_id', currentUserId)
+        .eq('target_id', targetUserId);
   }
 
   Future<void> acceptFollowRequest(String requesterId) async {
     if (currentUserId.isEmpty) return;
+    await supabase.rpc(
+      'accept_follow_request',
+      params: {'requester': requesterId},
+    );
 
-    final batch = _firestore.batch();
-
-    // 1. Add to requester's following
-    final followingRef = _firestore
-        .collection('users')
-        .doc(requesterId)
-        .collection('following')
-        .doc(currentUserId);
-    batch.set(followingRef, {'timestamp': FieldValue.serverTimestamp()});
-
-    // 2. Add to my followers
-    final followerRef = _firestore
-        .collection('users')
-        .doc(currentUserId)
-        .collection('followers')
-        .doc(requesterId);
-    batch.set(followerRef, {'timestamp': FieldValue.serverTimestamp()});
-
-    // 3. Delete the request
-    final requestRef = _firestore
-        .collection('users')
-        .doc(currentUserId)
-        .collection('follow_requests')
-        .doc(requesterId);
-    batch.delete(requestRef);
-
-    await batch.commit();
-
-    // Fetch current user's name from Firestore for the notification
-    final userDoc = await _firestore
-        .collection('users')
-        .doc(currentUserId)
-        .get();
-    final userData = userDoc.data() as Map<String, dynamic>?;
-    final myName =
-        userData?['displayName'] ??
-        _auth.currentUser?.email?.split('@')[0] ??
-        'Your friend';
-
+    final myName = await _nameOf(currentUserId, 'Your friend');
     await _notificationService.addNotification(
       receiverId: requesterId,
       title: 'Follow Request Accepted',
@@ -108,142 +72,115 @@ class FriendService {
 
   Future<void> declineFollowRequest(String requesterId) async {
     if (currentUserId.isEmpty) return;
-    await _firestore
-        .collection('users')
-        .doc(currentUserId)
-        .collection('follow_requests')
-        .doc(requesterId)
-        .delete();
+    await supabase
+        .from('follow_requests')
+        .delete()
+        .eq('requester_id', requesterId)
+        .eq('target_id', currentUserId);
   }
 
   // --- Follow/Unfollow Actions (Already Following) ---
 
   Future<void> unfollowUser(String targetUserId) async {
     if (currentUserId.isEmpty) return;
-
-    final batch = _firestore.batch();
-
-    final followingRef = _firestore
-        .collection('users')
-        .doc(currentUserId)
-        .collection('following')
-        .doc(targetUserId);
-    batch.delete(followingRef);
-
-    final followerRef = _firestore
-        .collection('users')
-        .doc(targetUserId)
-        .collection('followers')
-        .doc(currentUserId);
-    batch.delete(followerRef);
-
-    await batch.commit();
+    await supabase
+        .from('follows')
+        .delete()
+        .eq('follower_id', currentUserId)
+        .eq('followee_id', targetUserId);
   }
 
   // --- Streams ---
 
   Stream<bool> isFollowing(String targetUserId) {
     if (currentUserId.isEmpty) return Stream.value(false);
-    return _firestore
-        .collection('users')
-        .doc(currentUserId)
-        .collection('following')
-        .doc(targetUserId)
-        .snapshots()
-        .map((snapshot) => snapshot.exists);
+    return supabase
+        .from('follows')
+        .stream(primaryKey: ['follower_id', 'followee_id'])
+        .eq('follower_id', currentUserId)
+        .map((rows) => rows.any((r) => r['followee_id'] == targetUserId));
   }
 
   Stream<bool> hasPendingRequest(String targetUserId) {
     if (currentUserId.isEmpty) return Stream.value(false);
-    return _firestore
-        .collection('users')
-        .doc(targetUserId)
-        .collection('follow_requests')
-        .doc(currentUserId)
-        .snapshots()
-        .map((snapshot) => snapshot.exists);
+    return supabase
+        .from('follow_requests')
+        .stream(primaryKey: ['requester_id', 'target_id'])
+        .eq('requester_id', currentUserId)
+        .map((rows) => rows.any((r) => r['target_id'] == targetUserId));
   }
 
-  Stream<QuerySnapshot> getIncomingRequests() {
-    return _firestore
-        .collection('users')
-        .doc(currentUserId)
-        .collection('follow_requests')
-        .orderBy('timestamp', descending: true)
-        .snapshots();
-  }
-
-  Stream<QuerySnapshot> getAllUsers() {
-    return _firestore
-        .collection('users')
-        .where('uid', isNotEqualTo: currentUserId)
-        .snapshots();
+  /// The people waiting for the current user to accept them, newest first.
+  Stream<List<String>> getIncomingRequests() {
+    if (currentUserId.isEmpty) return Stream.value(const []);
+    return supabase
+        .from('follow_requests')
+        .stream(primaryKey: ['requester_id', 'target_id'])
+        .eq('target_id', currentUserId)
+        .order('created_at', ascending: false)
+        .map((rows) => [for (final r in rows) r['requester_id'].toString()]);
   }
 
   Stream<int> getFollowersCount(String userId) {
-    return _firestore
-        .collection('users')
-        .doc(userId)
-        .collection('followers')
-        .snapshots()
-        .map((snapshot) => snapshot.docs.length);
+    return supabase
+        .from('follows')
+        .stream(primaryKey: ['follower_id', 'followee_id'])
+        .eq('followee_id', userId)
+        .map((rows) => rows.length);
   }
 
   Stream<int> getFollowingCount(String userId) {
-    return _firestore
-        .collection('users')
-        .doc(userId)
-        .collection('following')
-        .snapshots()
-        .map((snapshot) => snapshot.docs.length);
+    return supabase
+        .from('follows')
+        .stream(primaryKey: ['follower_id', 'followee_id'])
+        .eq('follower_id', userId)
+        .map((rows) => rows.length);
   }
 
-  Stream<int> getRequestsCount() {
-    return _firestore
-        .collection('users')
-        .doc(currentUserId)
-        .collection('follow_requests')
-        .snapshots()
-        .map((snapshot) => snapshot.docs.length);
+  /// The people who follow [userId] ('followers') or whom [userId] follows
+  /// ('following').
+  Stream<List<String>> listUserIds(String userId, String type) {
+    final followers = type == 'followers';
+    return supabase
+        .from('follows')
+        .stream(primaryKey: ['follower_id', 'followee_id'])
+        .eq(followers ? 'followee_id' : 'follower_id', userId)
+        .map(
+          (rows) => [
+            for (final r in rows)
+              r[followers ? 'follower_id' : 'followee_id'].toString(),
+          ],
+        );
   }
+
+  Stream<int> getRequestsCount() => getIncomingRequests().map((r) => r.length);
 
   /// Everyone the current user follows, mutual or not.
   Stream<List<String>> getFollowingIds() {
     if (currentUserId.isEmpty) return Stream.value([]);
-    return _firestore
-        .collection('users')
-        .doc(currentUserId)
-        .collection('following')
-        .snapshots()
-        .map((snapshot) => snapshot.docs.map((doc) => doc.id).toList());
+    return supabase
+        .from('follows')
+        .stream(primaryKey: ['follower_id', 'followee_id'])
+        .eq('follower_id', currentUserId)
+        .map((rows) => [for (final r in rows) r['followee_id'].toString()]);
   }
 
+  /// People the current user follows who follow them back.
   Stream<List<String>> getMutualFriendsIds() {
     if (currentUserId.isEmpty) return Stream.value([]);
-
-    return _firestore
-        .collection('users')
-        .doc(currentUserId)
-        .collection('following')
-        .snapshots()
-        .asyncMap((followingSnap) async {
-          final followingIds = followingSnap.docs.map((doc) => doc.id).toList();
-          if (followingIds.isEmpty) return [];
-
-          // Check each followed user to see if they follow current user back
-          final mutualIds = <String>[];
-          for (final id in followingIds) {
-            final doc = await _firestore
-                .collection('users')
-                .doc(currentUserId)
-                .collection('followers')
-                .doc(id)
-                .get();
-            if (doc.exists) {
-              mutualIds.add(id);
-            }
-          }
-          return mutualIds;
-        });
+    return getFollowingIds().asyncMap((following) async {
+      if (following.isEmpty) return <String>[];
+      try {
+        final back = await supabase
+            .from('follows')
+            .select('follower_id')
+            .eq('followee_id', currentUserId)
+            .inFilter('follower_id', following);
+        return [for (final r in back) r['follower_id'].toString()];
+      } on Exception catch (error) {
+        debugPrint('Unable to read friends: $error');
+        return <String>[];
+      }
+    });
   }
 }

@@ -2,8 +2,10 @@
 import 'package:flutter/gestures.dart';
 import '../../widgets/look_viewer_page.dart';
 import '../shop/shared_stock_page.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import '../../../core/supabase/app_auth.dart';
+import '../../../data/services/post_service.dart';
+import '../../../data/services/profile_service.dart';
+import '../../../data/services/shop_chat_service.dart';
 import 'package:flutter/material.dart';
 import '../../../core/app_routes.dart';
 import '../../../data/services/notification_service.dart';
@@ -38,24 +40,17 @@ class _NotificationsPageState extends State<NotificationsPage> {
   }
 
   Future<void> _captureUnreadNotifications() async {
-    final userId = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final userId = AppAuth.instance.currentUser?.uid ?? '';
     if (userId.isEmpty) return;
 
-    final unread = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(userId)
-        .collection('notifications')
-        .get();
+    final unread = await notificationService.getNotifications().first;
     if (!mounted) return;
 
     setState(() {
       _newNotificationIds.addAll(
-        unread.docs
-            .where((doc) {
-              final data = doc.data();
-              return data['isRead'] != true;
-            })
-            .map((doc) => doc.id),
+        unread
+            .where((data) => data['isRead'] != true)
+            .map((data) => data['id'].toString()),
       );
     });
   }
@@ -233,11 +228,11 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
   /// Manages switching between loading, empty, and list states
   Widget _buildNotificationsContent() {
-    return StreamBuilder<QuerySnapshot>(
+    return StreamBuilder<List<Map<String, dynamic>>>(
       stream: notificationService.getNotifications(category: 'all'),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
-          debugPrint("Firestore Error: ${snapshot.error}");
+          debugPrint("Notifications error: ${snapshot.error}");
           return Center(
             child: Text(
               "Error loading notifications. Please try again.",
@@ -250,14 +245,13 @@ class _NotificationsPageState extends State<NotificationsPage> {
           return Center(child: CircularProgressIndicator());
         }
 
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
           return _buildEmptyState();
         }
 
         // Filter notifications client-side based on the selected tab
-        final allNotifications = snapshot.data!.docs;
-        final filteredNotifications = allNotifications.where((doc) {
-          final data = doc.data() as Map<String, dynamic>;
+        final allNotifications = snapshot.data!;
+        final filteredNotifications = allNotifications.where((data) {
           final type = data['type'] ?? '';
 
           if (_selectedTabIndex == 0) return true; // All
@@ -305,12 +299,12 @@ class _NotificationsPageState extends State<NotificationsPage> {
             color: Theme.of(context).colorScheme.outlineVariant,
           ),
           itemBuilder: (context, index) {
-            final doc = filteredNotifications[index];
-            final data = doc.data() as Map<String, dynamic>;
+            final data = filteredNotifications[index];
+            final id = data['id'].toString();
             return _buildNotificationItem(
-              doc.id,
+              id,
               data,
-              _newNotificationIds.contains(doc.id) || data['isRead'] == false,
+              _newNotificationIds.contains(id) || data['isRead'] == false,
             );
           },
         );
@@ -365,7 +359,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
   ) {
     final String type = data['type'] ?? '';
     final extraData = data['extraData'] as Map<String, dynamic>?;
-    final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final currentUserId = AppAuth.instance.currentUser?.uid ?? '';
     final String? title = data['title']?.toString();
     final String? body = data['body'];
     final fromName = _notificationSenderName(
@@ -390,7 +384,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
       currentUserId: currentUserId,
     );
     final response = data['response'] as String?;
-    final timestamp = data['timestamp'] as Timestamp?;
+    final timestamp = data['timestamp'] as DateTime?;
 
     // Style elements based on notification type
     IconData? typeIcon;
@@ -576,17 +570,12 @@ class _NotificationsPageState extends State<NotificationsPage> {
       return _buildInitialAvatar(fallbackName);
     }
 
-    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      stream: FirebaseFirestore.instance
-          .collection('users')
-          .doc(senderId)
-          .snapshots(),
+    return StreamBuilder<Map<String, dynamic>>(
+      stream: ProfileService().watch(senderId),
       builder: (context, snapshot) {
-        final data = snapshot.data?.data();
+        final data = snapshot.data;
         final name = (data?['displayName'] ?? fallbackName).toString();
-        final imageUrl =
-            (data?['profileImageURL'] ?? data?['profileImageUrl'] ?? '')
-                .toString();
+        final imageUrl = (data?['profileImageUrl'] ?? '').toString();
 
         if (imageUrl.isEmpty) return _buildInitialAvatar(name);
 
@@ -646,13 +635,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
       } else {
         await friendService.declineFollowRequest(requesterId);
       }
-      await notificationService.updateNotification(
+      await notificationService.recordResponse(
         notificationId: notificationId,
-        data: {
-          'response': accept ? 'accepted' : 'declined',
-          'isRead': true,
-          'respondedAt': FieldValue.serverTimestamp(),
-        },
+        response: accept ? 'accepted' : 'declined',
       );
     } catch (error) {
       if (!mounted) return;
@@ -828,10 +813,10 @@ class _NotificationsPageState extends State<NotificationsPage> {
     );
   }
 
-  /// Formats the Firestore timestamp into a relative string (e.g., 4h ago, 13d ago)
-  String _formatTimestamp(Timestamp? timestamp) {
+  /// Formats the timestamp into a relative string (e.g., 4h ago, 13d ago)
+  String _formatTimestamp(DateTime? timestamp) {
     if (timestamp == null) return "now";
-    final dt = timestamp.toDate();
+    final dt = timestamp;
     final now = DateTime.now();
     final diff = now.difference(dt);
     if (diff.inMinutes < 60) return "${diff.inMinutes}m ago";
@@ -860,18 +845,13 @@ class _NotificationsPageState extends State<NotificationsPage> {
     if (type == 'trending_look') {
       final postId = (extraData['postId'] ?? '').toString();
       if (postId.isEmpty) return;
-      final post = await FirebaseFirestore.instance
-          .collection('posts')
-          .doc(postId)
-          .get();
-      if (!context.mounted || !post.exists) return;
-      final data = post.data() ?? const <String, dynamic>{};
-      final imageUrl = (data['imageURL'] ?? data['imageUrl'] ?? '').toString();
-      if (imageUrl.isEmpty) return;
+      final post = await PostService().getPost(postId);
+      if (!context.mounted || post == null) return;
+      if (post.imageURL.isEmpty) return;
       await openLookViewer(
         context,
-        imageUrl: imageUrl,
-        caption: (data['caption'] ?? '').toString(),
+        imageUrl: post.imageURL,
+        caption: post.caption,
       );
       return;
     }
@@ -880,13 +860,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
         type == 'order_update') {
       final chatId = (extraData['chatId'] ?? '').toString();
       if (chatId.isEmpty) return;
-      final chat = await FirebaseFirestore.instance
-          .collection('shop_chats')
-          .doc(chatId)
-          .get();
-      if (!context.mounted || !chat.exists) return;
-      final data = chat.data() ?? const <String, dynamic>{};
-      final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
+      final data = await ShopChatService().getChat(chatId);
+      if (!context.mounted || data == null) return;
+      final currentUserId = AppAuth.instance.currentUser?.uid ?? '';
       final asSeller = data['sellerId'] == currentUserId;
       final conversationType = (data['conversationType'] ?? 'shop').toString();
       final title = asSeller

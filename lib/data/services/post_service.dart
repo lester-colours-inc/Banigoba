@@ -3,11 +3,12 @@
 // Posts carry no like or reaction counter. Qualitative affirmations are stored
 // separately by AffirmationService so no aggregate lands on the post document
 // and no public total can be derived from it.
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import '../../core/supabase/app_auth.dart';
+import '../../core/supabase/supabase_config.dart';
 import '../models/affirmation.dart';
 import '../models/post.dart';
+import '../supabase/rows.dart';
 import 'affirmation_service.dart';
 import 'notification_service.dart';
 
@@ -22,11 +23,19 @@ class SignInRequiredException implements Exception {
 }
 
 class PostService {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
   final AffirmationService _affirmations = AffirmationService();
 
-  String get _currentUserId => _auth.currentUser?.uid ?? '';
+  String get _currentUserId => AppAuth.instance.currentUser?.uid ?? '';
+
+  /// One post, or null if it does not exist or the viewer may not see it.
+  Future<Post?> getPost(String postId) async {
+    final row = await supabase
+        .from('posts')
+        .select()
+        .eq('id', postId)
+        .maybeSingle();
+    return row == null ? null : Post.fromRow(row);
+  }
 
   /// Creates a new post, private unless [visibility] says otherwise.
   ///
@@ -44,28 +53,28 @@ class PostService {
       throw const SignInRequiredException();
     }
 
-    final ref = await _db.collection('posts').add({
-      'authorID': _currentUserId,
-      'authorId': _currentUserId,
-      'caption': caption,
-      'commentCount': 0,
-      'createdAt': FieldValue.serverTimestamp(),
-      'imageURL': imageURL,
-      'isPublic': visibility == PostVisibility.public,
-      'visibility': visibility.value,
-      if (kind == PostKind.dressUp) 'kind': kind.value,
-      if (visibility != PostVisibility.private)
-        'publishedAt': FieldValue.serverTimestamp(),
-      if (outfitId?.isNotEmpty == true) 'outfitId': outfitId,
-      if (products.isNotEmpty) ...{
-        'products': products,
-        'productIds': products
-            .map((product) => (product['id'] ?? '').toString())
-            .where((id) => id.isNotEmpty)
-            .toList(),
-      },
-    });
-    return ref.id;
+    final row = await supabase
+        .from('posts')
+        .insert({
+          'author_id': _currentUserId,
+          'caption': caption,
+          'image_url': imageURL,
+          'visibility': visibility.value,
+          'kind': kind.value,
+          if (visibility != PostVisibility.private)
+            'published_at': DateTime.now().toUtc().toIso8601String(),
+          if (outfitId?.isNotEmpty == true) 'outfit_id': outfitId,
+          if (products.isNotEmpty) ...{
+            'products': products,
+            'product_ids': products
+                .map((product) => (product['id'] ?? '').toString())
+                .where((id) => id.isNotEmpty)
+                .toList(),
+          },
+        })
+        .select('id')
+        .single();
+    return row['id'].toString();
   }
 
   /// Replaces the picture of one of the user's own posts with an edited
@@ -74,17 +83,13 @@ class PostService {
     if (_currentUserId.isEmpty) {
       throw const SignInRequiredException();
     }
-    final ref = _db.collection('posts').doc(postId);
-    final snapshot = await ref.get();
-    final data = snapshot.data();
-    if (!snapshot.exists ||
-        (data?['authorId'] ?? data?['authorID']) != _currentUserId) {
-      throw Exception('You can only edit your own look.');
-    }
-    await ref.update({
-      'imageURL': imageURL,
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
+    final updated = await supabase
+        .from('posts')
+        .update({'image_url': imageURL})
+        .eq('id', postId)
+        .eq('author_id', _currentUserId)
+        .select('id');
+    if (updated.isEmpty) throw Exception('You can only edit your own look.');
   }
 
   Future<void> makePostPublic(String postId) =>
@@ -115,47 +120,43 @@ class PostService {
     final sourceAuthorId = original.isRepost
         ? original.repostOfAuthorId
         : original.authorId;
-    final ref = await _db.collection('posts').add({
-      'authorID': _currentUserId,
-      'authorId': _currentUserId,
-      'caption': original.caption,
-      'commentCount': 0,
-      'createdAt': FieldValue.serverTimestamp(),
-      'publishedAt': FieldValue.serverTimestamp(),
-      'imageURL': original.imageURL,
-      'isPublic': audience == PostVisibility.public,
-      'visibility': audience.value,
-      'repostOfId': sourceId,
-      'repostOfAuthorId': sourceAuthorId,
-      if (quote.trim().isNotEmpty) 'quoteText': quote.trim(),
-      if (original.products.isNotEmpty) 'products': original.products,
-      if (original.productIds.isNotEmpty) 'productIds': original.productIds,
-    });
+    final row = await supabase
+        .from('posts')
+        .insert({
+          'author_id': _currentUserId,
+          'caption': original.caption,
+          'image_url': original.imageURL,
+          'visibility': audience.value,
+          'published_at': DateTime.now().toUtc().toIso8601String(),
+          'repost_of_id': sourceId,
+          'repost_of_author_id': sourceAuthorId,
+          'quote_text': quote.trim(),
+          if (original.products.isNotEmpty) 'products': original.products,
+          if (original.productIds.isNotEmpty)
+            'product_ids': original.productIds,
+        })
+        .select('id')
+        .single();
     await _notifyPostAuthor(
-      postData: {'authorId': sourceAuthorId},
+      authorId: sourceAuthorId,
       postId: sourceId,
       type: quote.trim().isEmpty ? 'repost' : 'quote',
       body: quote.trim().isEmpty
           ? 'reposted your look.'
           : 'quoted your look: "${quote.trim()}"',
     );
-    return ref.id;
+    return row['id'].toString();
   }
 
   Future<void> makePostPrivate(String postId) async {
     if (_currentUserId.isEmpty) return;
-    final ref = _db.collection('posts').doc(postId);
-    final snapshot = await ref.get();
-    if (!snapshot.exists ||
-        (snapshot.data()?['authorId'] ?? snapshot.data()?['authorID']) !=
-            _currentUserId) {
-      throw Exception('You can only private your own post.');
-    }
-    await ref.update({
-      'isPublic': false,
-      'visibility': PostVisibility.private.value,
-      'privatedAt': FieldValue.serverTimestamp(),
-    });
+    final updated = await supabase
+        .from('posts')
+        .update({'visibility': PostVisibility.private.value})
+        .eq('id', postId)
+        .eq('author_id', _currentUserId)
+        .select('id');
+    if (updated.isEmpty) throw Exception('You can only private your own post.');
   }
 
   Future<void> _setVisibility(
@@ -164,60 +165,39 @@ class PostService {
     required String action,
   }) async {
     if (_currentUserId.isEmpty) return;
-    final ref = _db.collection('posts').doc(postId);
-    final snapshot = await ref.get();
-    if (!snapshot.exists ||
-        (snapshot.data()?['authorId'] ?? snapshot.data()?['authorID']) !=
-            _currentUserId) {
-      throw Exception('You can only $action your own post.');
-    }
-    await ref.update({
-      'isPublic': visibility == PostVisibility.public,
-      'visibility': visibility.value,
-      'publishedAt': FieldValue.serverTimestamp(),
-    });
+    final updated = await supabase
+        .from('posts')
+        .update({
+          'visibility': visibility.value,
+          'published_at': DateTime.now().toUtc().toIso8601String(),
+        })
+        .eq('id', postId)
+        .eq('author_id', _currentUserId)
+        .select('id');
+    if (updated.isEmpty) throw Exception('You can only $action your own post.');
   }
 
   Future<void> deletePost(String postId) async {
     if (_currentUserId.isEmpty) return;
-    final postRef = _db.collection('posts').doc(postId);
-    final snapshot = await postRef.get();
-    final data = snapshot.data();
-    if (!snapshot.exists ||
-        (data?['authorId'] ?? data?['authorID']) != _currentUserId) {
+    final post = await supabase
+        .from('posts')
+        .select('author_id, outfit_id')
+        .eq('id', postId)
+        .maybeSingle();
+    if (post == null || post['author_id'] != _currentUserId) {
       throw Exception('You can only delete your own post.');
     }
 
-    final comments = await postRef.collection('comments').get();
-    // Legacy subcollection from the removed like implementation. Still cleaned
-    // up on delete so old documents do not leave orphans behind.
-    final legacyLikes = await postRef.collection('likes').get();
-    final outfitId = (data?['outfitId'] ?? '').toString();
-    final outfitRef = outfitId.isEmpty
-        ? null
-        : _db
-              .collection('users')
-              .doc(_currentUserId)
-              .collection('outfits')
-              .doc(outfitId);
-    final outfitSnapshot = outfitRef == null ? null : await outfitRef.get();
-
-    final batch = _db.batch();
-    for (final comment in comments.docs) {
-      batch.delete(comment.reference);
+    final outfitId = (post['outfit_id'] ?? '').toString();
+    if (outfitId.isNotEmpty) {
+      await _unlinkOutfit(outfitId, postId);
     }
-    for (final like in legacyLikes.docs) {
-      batch.delete(like.reference);
-    }
-    if (outfitRef != null && outfitSnapshot?.exists == true) {
-      batch.update(outfitRef, {
-        'dailyDressUpPostId': FieldValue.delete(),
-        'deletedDailyDressUpPostId': postId,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-    }
-    batch.delete(postRef);
-    await batch.commit();
+    await supabase
+        .from('comments')
+        .delete()
+        .eq('target_type', 'post')
+        .eq('target_id', postId);
+    await supabase.from('posts').delete().eq('id', postId);
 
     // Affirmations must not outlive the look they were about.
     await _affirmations.deleteAllForTarget(
@@ -226,42 +206,57 @@ class PostService {
     );
   }
 
+  /// The saved look no longer points at a post that is gone.
+  Future<void> _unlinkOutfit(String outfitId, String postId) async {
+    final outfit = await supabase
+        .from('outfits')
+        .select('data')
+        .eq('id', outfitId)
+        .eq('user_id', _currentUserId)
+        .maybeSingle();
+    if (outfit == null) return;
+    final data = Map<String, dynamic>.from(outfit['data'] as Map? ?? {})
+      ..remove('dailyDressUpPostId')
+      ..['deletedDailyDressUpPostId'] = postId;
+    await supabase
+        .from('outfits')
+        .update({'data': data})
+        .eq('id', outfitId)
+        .eq('user_id', _currentUserId);
+  }
+
   /// Resolves the garments used by a Daily Dress Up post.
   Future<List<Map<String, dynamic>>> getPostOutfitProducts(Post post) async {
     if (post.products.isNotEmpty) return post.products;
 
     if (post.outfitId.isNotEmpty && post.authorId.isNotEmpty) {
-      final outfit = await _db
-          .collection('users')
-          .doc(post.authorId)
-          .collection('outfits')
-          .doc(post.outfitId)
-          .get();
-      final products = _embeddedProducts(outfit.data()?['products']);
+      final outfit = await supabase
+          .from('outfits')
+          .select('products')
+          .eq('id', post.outfitId)
+          .maybeSingle();
+      final products = _embeddedProducts(outfit?['products']);
       if (products.isNotEmpty) return products;
     }
 
     if (post.productIds.isNotEmpty) {
-      final products = <Map<String, dynamic>>[];
-      for (final productId in post.productIds) {
-        final product = await _db.collection('products').doc(productId).get();
-        if (product.exists && product.data() != null) {
-          products.add({...product.data()!, 'id': product.id});
-        }
-      }
+      final rows = await supabase
+          .from('products')
+          .select()
+          .inFilter('id', post.productIds);
+      final products = [for (final row in rows) camelizeRow(row)];
       if (products.isNotEmpty) return products;
     }
 
     if (post.authorId.isNotEmpty && post.imageURL.isNotEmpty) {
-      final outfits = await _db
-          .collection('users')
-          .doc(post.authorId)
-          .collection('outfits')
-          .where('imageUrl', isEqualTo: post.imageURL)
-          .limit(1)
-          .get();
-      if (outfits.docs.isNotEmpty) {
-        return _embeddedProducts(outfits.docs.first.data()['products']);
+      final outfits = await supabase
+          .from('outfits')
+          .select('products')
+          .eq('user_id', post.authorId)
+          .eq('image_url', post.imageURL)
+          .limit(1);
+      if (outfits.isNotEmpty) {
+        return _embeddedProducts(outfits.first['products']);
       }
     }
 
@@ -276,7 +271,7 @@ class PostService {
         .toList();
   }
 
-  /// Adds a comment to a post
+  /// Adds a comment to a post. Comments need a post someone else can see.
   Future<void> addComment({
     required String postId,
     required String text,
@@ -285,30 +280,21 @@ class PostService {
   }) async {
     if (_currentUserId.isEmpty) return;
 
-    final postRef = _db.collection('posts').doc(postId);
-
-    await _db.runTransaction((transaction) async {
-      final post = await transaction.get(postRef);
-      if (post.data()?['isPublic'] != true) {
-        throw Exception('Private posts cannot be commented on.');
-      }
-      // Add comment to subcollection
-      final commentRef = postRef.collection('comments').doc();
-      transaction.set(commentRef, {
-        'authorId': _currentUserId,
-        'createdAt': FieldValue.serverTimestamp(),
-        'profileImageURL': profileImageURL,
-        'text': text,
-        'username': username,
-      });
-
-      // Update comment count on post
-      transaction.update(postRef, {'commentCount': FieldValue.increment(1)});
+    final post = await getPost(postId);
+    if (post == null || !post.isShared) {
+      throw Exception('Private posts cannot be commented on.');
+    }
+    await supabase.from('comments').insert({
+      'target_type': 'post',
+      'target_id': postId,
+      'author_id': _currentUserId,
+      'author_name': username,
+      'author_image_url': profileImageURL,
+      'text': text,
     });
 
-    final post = await postRef.get();
     await _notifyPostAuthor(
-      postData: post.data(),
+      authorId: post.authorId,
       postId: postId,
       type: 'comment',
       body: 'commented on your Daily Dress Up.',
@@ -319,7 +305,7 @@ class PostService {
     if (_currentUserId.isEmpty || post.authorId == _currentUserId) return;
 
     await _notifyPostAuthor(
-      postData: {'authorId': post.authorId},
+      authorId: post.authorId,
       postId: post.id,
       type: 'try_on',
       body: 'tried on your Daily Dress Up.',
@@ -327,24 +313,24 @@ class PostService {
   }
 
   Future<void> _notifyPostAuthor({
-    required Map<String, dynamic>? postData,
+    required String authorId,
     required String postId,
     required String type,
     required String body,
   }) async {
-    final authorId = (postData?['authorId'] ?? postData?['authorID'] ?? '')
-        .toString();
     if (authorId.isEmpty || authorId == _currentUserId) return;
 
     try {
-      final user = await _db.collection('users').doc(_currentUserId).get();
-      final userData = user.data();
-      final senderName =
-          (userData?['displayName'] ??
-                  _auth.currentUser?.displayName ??
-                  _auth.currentUser?.email?.split('@').first ??
-                  'Someone')
-              .toString();
+      final me = await supabase
+          .from('profiles')
+          .select('display_name')
+          .eq('id', _currentUserId)
+          .maybeSingle();
+      final senderName = (me?['display_name'] ?? '').toString().isNotEmpty
+          ? me!['display_name'].toString()
+          : (AppAuth.instance.currentUser?.displayName ??
+                AppAuth.instance.currentUser?.email?.split('@').first ??
+                'Someone');
 
       await NotificationService().addNotification(
         receiverId: authorId,
@@ -363,23 +349,23 @@ class PostService {
           'postId': postId,
         },
       );
-    } catch (error) {
+    } on Exception catch (error) {
       debugPrint('Unable to create $type notification: $error');
     }
   }
 
-  /// Gets a stream of comments for a specific post
+  /// Gets a stream of comments for a specific post, newest first.
   Stream<List<PostComment>> getComments(String postId) {
-    return _db
-        .collection('posts')
-        .doc(postId)
-        .collection('comments')
-        .orderBy('createdAt', descending: true)
-        .snapshots()
+    return supabase
+        .from('comments')
+        .stream(primaryKey: ['id'])
+        .eq('target_id', postId)
+        .order('created_at', ascending: false)
         .map(
-          (snapshot) => snapshot.docs
-              .map((doc) => PostComment.fromFirestore(doc))
-              .toList(),
+          (rows) => [
+            for (final row in rows)
+              if (row['target_type'] == 'post') PostComment.fromRow(row),
+          ],
         );
   }
 }
