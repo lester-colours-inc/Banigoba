@@ -10,11 +10,22 @@ export function serviceClient(): SupabaseClient {
   );
 }
 
-/** True when the request carries the project's service-role key. */
+/**
+ * True when the request carries a service-role token. The gateway has already
+ * verified the token's signature (verify_jwt is on), so the role claim can be
+ * trusted; this keeps signed-in users' tokens out.
+ */
 export function isServiceCaller(req: Request): boolean {
-  const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   const header = req.headers.get('Authorization') ?? '';
-  return !!key && header === `Bearer ${key}`;
+  const token = header.startsWith('Bearer ') ? header.slice(7) : '';
+  const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (key && token === key) return true;
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    return payload.role === 'service_role';
+  } catch {
+    return false;
+  }
 }
 
 export function json(body: unknown, status = 200): Response {
