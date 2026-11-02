@@ -1,7 +1,6 @@
 // Verifies which new shop items reach someone's daily feed (D-4, A-6).
 import 'package:banigoba/data/models/body_profile.dart';
 import 'package:banigoba/data/models/feed_matching.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _body = BodyProfile(
@@ -116,7 +115,7 @@ void main() {
     test('takes the best three, newest first among equals', () {
       final products = [
         _item(id: 'old', createdAt: DateTime(2026, 10, 1)),
-        _item(id: 'new', createdAt: Timestamp.fromDate(DateTime(2026, 10, 20))),
+        _item(id: 'new', createdAt: DateTime(2026, 10, 20)),
         _item(id: 'gap', category: 'outerwear'),
         _item(id: 'mid', createdAt: DateTime(2026, 10, 10)),
         _item(id: 'nope', style: 'streetwear'),

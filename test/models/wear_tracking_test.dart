@@ -1,6 +1,5 @@
 // Verifies "worn ... ago" / "not worn in ..." wording (W-7).
 import 'package:banigoba/data/models/wear_tracking.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 final _now = DateTime(2026, 10, 21, 15);
@@ -35,10 +34,10 @@ void main() {
 
   test('last wear per saved look takes the latest date', () {
     final latest = lastWornByOutfit([
-      {'outfitId': 'a', 'wearDate': Timestamp.fromDate(DateTime(2026, 5, 1))},
-      {'outfitId': 'a', 'wearDate': Timestamp.fromDate(DateTime(2026, 9, 1))},
-      {'outfitId': 'b', 'wearDate': Timestamp.fromDate(DateTime(2026, 1, 1))},
-      {'outfitId': '', 'wearDate': Timestamp.fromDate(DateTime(2026, 1, 1))},
+      {'outfitId': 'a', 'wearDate': DateTime(2026, 5, 1)},
+      {'outfitId': 'a', 'wearDate': DateTime(2026, 9, 1)},
+      {'outfitId': 'b', 'wearDate': DateTime(2026, 1, 1)},
+      {'outfitId': '', 'wearDate': DateTime(2026, 1, 1)},
     ]);
     expect(latest['a'], DateTime(2026, 9, 1));
     expect(latest['b'], DateTime(2026, 1, 1));

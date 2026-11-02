@@ -1,11 +1,10 @@
 // Verifies which events show as upcoming in the Community feed.
 import 'package:banigoba/ui/screens/events/community_events_strip.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Map<String, dynamic> _event(String title, [DateTime? date]) => {
   'title': title,
-  if (date != null) 'eventDateTime': Timestamp.fromDate(date),
+  if (date != null) 'eventDateTime': date,
 };
 
 void main() {
