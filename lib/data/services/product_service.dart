@@ -6,6 +6,7 @@
 // maps with an `id` and camelCase fields.
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -391,6 +392,45 @@ class ProductService {
     }
     if (row.isEmpty) return;
     await supabase.from('products').update(row).eq('id', productId);
+  }
+
+  /// Sets how many of a piece are left, without touching anything else. A
+  /// piece with sizes takes a count per size (and its total becomes the
+  /// stock); a one-size piece takes a single count.
+  Future<void> updateStock(
+    String productId, {
+    Map<String, int>? sizeInventory,
+    int? stock,
+  }) async {
+    if (sizeInventory == null && stock == null) return;
+    final total = sizeInventory == null
+        ? stock!
+        : sizeInventory.values.fold<int>(0, (sum, count) => sum + count);
+    await supabase
+        .from('products')
+        .update({
+          'stock': total < 0 ? 0 : total,
+          if (sizeInventory != null) 'size_inventory': sizeInventory,
+        })
+        .eq('id', productId);
+  }
+
+  /// Uploads a catalogue photo from its bytes (quick add) and returns its
+  /// public URL.
+  Future<String> uploadCatalogProductImageBytes({
+    required String userId,
+    required Uint8List bytes,
+    String? customFilename,
+  }) {
+    if (userId.isEmpty) {
+      throw Exception('You must be signed in to upload product images');
+    }
+    return StorageFiles.upload(
+      bucket: Buckets.productImages,
+      path:
+          '$userId/${DateTime.now().millisecondsSinceEpoch}_${_safeStorageName(customFilename)}.jpg',
+      bytes: bytes,
+    );
   }
 
   /// Delete a product from the main products collection

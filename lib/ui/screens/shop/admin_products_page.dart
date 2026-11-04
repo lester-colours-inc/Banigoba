@@ -19,6 +19,8 @@ import '../../../data/services/storage_service.dart';
 import '../../../data/utils/stock_status.dart';
 import '../../widgets/back_photo_field.dart';
 import '../../widgets/piece_extra_details_fields.dart';
+import '../../widgets/stock_edit_sheet.dart';
+import 'quick_add_page.dart';
 import '../../widgets/safe_product_image.dart';
 
 /// Product and inventory manager for the current seller.
@@ -146,10 +148,30 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
           );
         },
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showAddProductDialog,
-        backgroundColor: primaryColor,
-        child: const Icon(Icons.add, color: Colors.white),
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          FloatingActionButton.extended(
+            key: const ValueKey('quick_add_button'),
+            heroTag: 'quick_add',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute<void>(builder: (_) => const QuickAddPage()),
+            ),
+            backgroundColor: primaryColor,
+            foregroundColor: Colors.white,
+            icon: const Icon(Icons.bolt),
+            label: const Text('Quick add'),
+          ),
+          const SizedBox(height: 12),
+          FloatingActionButton(
+            heroTag: 'full_add',
+            onPressed: _showAddProductDialog,
+            backgroundColor: primaryColor,
+            child: const Icon(Icons.add, color: Colors.white),
+          ),
+        ],
       ),
     );
   }
@@ -257,6 +279,12 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   IconButton(
+                    key: ValueKey('stock_$docId'),
+                    tooltip: 'Change how many are left',
+                    icon: const Icon(Icons.inventory_2_outlined),
+                    onPressed: () => _editStock(docId, data),
+                  ),
+                  IconButton(
                     icon: const Icon(Icons.edit, color: Colors.blue),
                     onPressed: () => _showEditProductDialog(docId, data),
                   ),
@@ -271,6 +299,25 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
         );
       },
     );
+  }
+
+  /// Changes how many are left, without opening the full form.
+  Future<void> _editStock(String id, Map<String, dynamic> data) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final edit = await showStockEditSheet(context, data);
+    if (edit == null) return;
+    try {
+      await _productService.updateStock(
+        id,
+        sizeInventory: edit.sizes,
+        stock: edit.stock,
+      );
+      messenger.showSnackBar(const SnackBar(content: Text('Stock updated.')));
+    } on Exception catch (error) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('Could not update the stock: $error')),
+      );
+    }
   }
 
   /// Confirm deletion of a catalog product
