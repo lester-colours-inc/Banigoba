@@ -575,7 +575,7 @@
           "area": "Smart Wardrobe module",
           "note": "",
           "done": false,
-          "progress": "Partly done: saved looks are filed under categories, grouped in Saved Looks, open full screen and show when last worn. 27 Oct: each saved look now has a \"move\" button to change its category later, make a new one, or remove it from its category. Still missing: categories for clothes in My Clothes. The move button is tested only as a sheet, not yet on a phone.",
+          "progress": "Partly done: saved looks are filed under categories, grouped in Saved Looks, open full screen and show when last worn. 27 Oct: each saved look now has a \"move\" button to change its category later, make a new one, or remove it from its category.  The move button is tested only as a sheet, not yet on a phone. Added 4 Nov: clothes in My Clothes can now be put into the person's own collections (Work, Church, Weddings and so on, the same idea as saved looks). Each piece has a folder button to add it to a collection, change it or take it out, and a row of collection chips above the list shows All, each collection with its count, or the pieces in no collection. Collections are private. Not yet tried on a phone. Still to do: renaming or deleting a whole collection at once.",
           "highlight": "partial"
         },
         {

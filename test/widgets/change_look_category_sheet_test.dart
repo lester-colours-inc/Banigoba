@@ -8,6 +8,8 @@ Future<String?> _open(
   WidgetTester tester, {
   List<String> existing = const ['Church', 'Work'],
   String current = 'Work',
+  String noun = 'category',
+  String subject = 'look',
   required Future<void> Function() interact,
 }) async {
   tester.view
@@ -23,6 +25,8 @@ Future<String?> _open(
             context,
             existingCategories: existing,
             currentCategory: current,
+            noun: noun,
+            subject: subject,
           ),
           child: const Text('open'),
         ),
@@ -117,6 +121,23 @@ void main() {
       interact: () async {
         expect(find.text('This look has no category yet.'), findsOneWidget);
         expect(_save(tester).onPressed, isNull);
+      },
+    );
+  });
+
+  testWidgets('for clothes it talks about collections and pieces', (
+    tester,
+  ) async {
+    await _open(
+      tester,
+      noun: 'collection',
+      subject: 'piece',
+      current: '',
+      interact: () async {
+        expect(find.text('Move to a collection'), findsOneWidget);
+        expect(find.text('This piece has no collection yet.'), findsOneWidget);
+        expect(find.text('No collection'), findsOneWidget);
+        expect(find.text('Or make a new collection'), findsOneWidget);
       },
     );
   });

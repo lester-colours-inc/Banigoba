@@ -11,6 +11,8 @@ import '../../../data/models/body_profile.dart';
 import '../../../data/models/piece_details.dart';
 import '../../../data/models/wear_tracking.dart';
 import '../../../data/services/garment_tagger.dart';
+import '../../../data/models/wardrobe_collections.dart';
+import '../../widgets/change_look_category_sheet.dart';
 import 'wardrobe_insights_page.dart';
 import '../../../data/utils/garment_colour.dart';
 import '../../../data/services/product_service.dart';
@@ -42,6 +44,11 @@ class _WardrobePageState extends State<WardrobePage> {
   final GarmentTagger _tagger = GeminiGarmentTagger();
   final String _currentUserId = AppAuth.instance.currentUser?.uid ?? '';
   late int _selectedTabIndex = widget.initialTab.index;
+
+  // Which of My Clothes is shown: everything, the pieces in no collection,
+  // or one of the person's own collections (W-6).
+  CollectionView _collectionView = CollectionView.all;
+  String? _collectionName;
   final ImagePicker _picker = ImagePicker();
   static Color primaryColor = Color(0xFF0D0140);
 
@@ -319,6 +326,90 @@ class _WardrobePageState extends State<WardrobePage> {
     );
   }
 
+  /// The row of collections above My Clothes (W-6).
+  Widget _buildCollectionChips(
+    List<String> collections,
+    List<Map<String, dynamic>> items,
+  ) {
+    Widget chip(Key key, String label, bool selected, VoidCallback onTap) =>
+        Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: ChoiceChip(
+            key: key,
+            label: Text(label),
+            selected: selected,
+            onSelected: (_) => onTap(),
+          ),
+        );
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.only(top: 4),
+      child: Row(
+        children: [
+          chip(
+            const ValueKey('collection_all'),
+            'All (${items.length})',
+            _collectionName == null && _collectionView == CollectionView.all,
+            () => setState(() {
+              _collectionName = null;
+              _collectionView = CollectionView.all;
+            }),
+          ),
+          for (final name in collections)
+            chip(
+              ValueKey('collection_$name'),
+              '$name (${countIn(items, name)})',
+              _collectionName == name,
+              () => setState(() => _collectionName = name),
+            ),
+          chip(
+            const ValueKey('collection_none'),
+            'Not in a collection',
+            _collectionName == null &&
+                _collectionView == CollectionView.uncollected,
+            () => setState(() {
+              _collectionName = null;
+              _collectionView = CollectionView.uncollected;
+            }),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Moves a piece to a collection, or takes it out of one.
+  Future<void> _moveToCollection(Map<String, dynamic> data) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final existing = await _productService
+        .getUserProducts(_currentUserId)
+        .first;
+    if (!mounted) return;
+    final chosen = await showChangeLookCategorySheet(
+      context,
+      existingCategories: collectionsOf(existing),
+      currentCategory: collectionOf(data),
+      noun: 'collection',
+      subject: 'piece',
+    );
+    if (chosen == null) return;
+    try {
+      await _productService.setCollection(data['id'].toString(), chosen);
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            chosen.isEmpty
+                ? 'Taken out of its collection.'
+                : 'Moved to $chosen.',
+          ),
+        ),
+      );
+    } on Exception catch (error) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('Could not move it: $error')),
+      );
+    }
+  }
+
   /// A card above My Clothes that opens the wardrobe insights (W-10).
   Widget _buildInsightsEntry() {
     final colors = Theme.of(context).colorScheme;
@@ -369,10 +460,26 @@ class _WardrobePageState extends State<WardrobePage> {
           return bTime.compareTo(aTime);
         });
 
+        final collections = collectionsOf(items);
+        // A collection that no longer exists falls back to everything.
+        if (_collectionName != null && !collections.contains(_collectionName)) {
+          _collectionName = null;
+        }
+        final shown = piecesIn(
+          items,
+          view: _collectionView,
+          name: _collectionName,
+        );
         return Column(
           children: [
             _buildInsightsEntry(),
-            Expanded(child: _buildGroupedProductList(items)),
+            if (collections.isNotEmpty)
+              _buildCollectionChips(collections, items),
+            Expanded(
+              child: shown.isEmpty
+                  ? const Center(child: Text('Nothing here yet.'))
+                  : _buildGroupedProductList(shown),
+            ),
           ],
         );
       },
@@ -517,6 +624,18 @@ class _WardrobePageState extends State<WardrobePage> {
               fontWeight: status.isNudge ? FontWeight.w700 : FontWeight.w500,
               color: status.isNudge ? _nudgeColor : colors.onSurfaceVariant,
             ),
+          ),
+        ),
+        IconButton(
+          key: ValueKey('collection_move_${data['id']}'),
+          tooltip: collectionOf(data).isEmpty
+              ? 'Add to a collection'
+              : 'In ${collectionOf(data)}. Tap to change',
+          visualDensity: VisualDensity.compact,
+          iconSize: 20,
+          onPressed: () => _moveToCollection(data),
+          icon: Icon(
+            collectionOf(data).isEmpty ? Icons.folder_outlined : Icons.folder,
           ),
         ),
         IconButton(

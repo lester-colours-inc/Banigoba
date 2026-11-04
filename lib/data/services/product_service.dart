@@ -566,6 +566,27 @@ class ProductService {
         .eq('id', userProductId);
   }
 
+  /// Puts a wardrobe piece in one of the owner's collections ('' takes it
+  /// out of any collection).
+  Future<void> setCollection(String userProductId, String collection) async {
+    final row = await supabase
+        .from('user_products')
+        .select('data')
+        .eq('id', userProductId)
+        .maybeSingle();
+    final data = Map<String, dynamic>.from(row?['data'] as Map? ?? {});
+    final name = collection.trim();
+    if (name.isEmpty) {
+      data.remove('collection');
+    } else {
+      data['collection'] = name;
+    }
+    await supabase
+        .from('user_products')
+        .update({'data': data})
+        .eq('id', userProductId);
+  }
+
   /// Delete a user's uploaded product.
   Future<void> deleteUserProduct(String userId, String userProductId) async {
     await supabase

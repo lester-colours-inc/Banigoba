@@ -20,6 +20,8 @@ Future<String?> showChangeLookCategorySheet(
   BuildContext context, {
   required List<String> existingCategories,
   required String currentCategory,
+  String noun = 'category',
+  String subject = 'look',
 }) {
   return showModalBottomSheet<String>(
     context: context,
@@ -28,6 +30,8 @@ Future<String?> showChangeLookCategorySheet(
     builder: (_) => ChangeLookCategorySheet(
       existingCategories: existingCategories,
       currentCategory: currentCategory,
+      noun: noun,
+      subject: subject,
     ),
   );
 }
@@ -37,10 +41,17 @@ class ChangeLookCategorySheet extends StatefulWidget {
     super.key,
     required this.existingCategories,
     required this.currentCategory,
+    this.noun = 'category',
+    this.subject = 'look',
   });
 
   final List<String> existingCategories;
   final String currentCategory;
+
+  /// What the groups are called ('category', or 'collection' for clothes) and
+  /// what is being moved ('look', or 'piece').
+  final String noun;
+  final String subject;
 
   @override
   State<ChangeLookCategorySheet> createState() =>
@@ -83,14 +94,14 @@ class _ChangeLookCategorySheetState extends State<ChangeLookCategorySheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Move to a category',
+          Text(
+            'Move to a ${widget.noun}',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 4),
           Text(
             widget.currentCategory.trim().isEmpty
-                ? 'This look has no category yet.'
+                ? 'This ${widget.subject} has no ${widget.noun} yet.'
                 : 'Now in "${widget.currentCategory.trim()}".',
             style: TextStyle(color: colors.onSurfaceVariant),
           ),
@@ -111,7 +122,7 @@ class _ChangeLookCategorySheetState extends State<ChangeLookCategorySheet> {
                 ),
               ChoiceChip(
                 key: const ValueKey('move_category_none'),
-                label: const Text('No category'),
+                label: Text('No ${widget.noun}'),
                 avatar: const Icon(Icons.block, size: 16),
                 selected: _selected.isEmpty && _newCategory.text.trim().isEmpty,
                 onSelected: (_) => setState(() {
@@ -128,9 +139,9 @@ class _ChangeLookCategorySheetState extends State<ChangeLookCategorySheet> {
             textCapitalization: TextCapitalization.sentences,
             maxLength: 30,
             onChanged: (_) => setState(() {}),
-            decoration: const InputDecoration(
-              labelText: 'Or make a new category',
-              prefixIcon: Icon(Icons.create_new_folder_outlined),
+            decoration: InputDecoration(
+              labelText: 'Or make a new ${widget.noun}',
+              prefixIcon: const Icon(Icons.create_new_folder_outlined),
             ),
           ),
           const SizedBox(height: 8),
@@ -142,7 +153,9 @@ class _ChangeLookCategorySheetState extends State<ChangeLookCategorySheet> {
                   ? () => Navigator.pop(context, _chosen)
                   : null,
               child: Text(
-                _chosen.isEmpty ? 'Remove from category' : 'Move to $_chosen',
+                _chosen.isEmpty
+                    ? 'Remove from ${widget.noun}'
+                    : 'Move to $_chosen',
               ),
             ),
           ),
