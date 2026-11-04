@@ -5,6 +5,8 @@
 // the shop's saved settings, so the app is never trusted with the price).
 import 'package:flutter/foundation.dart';
 
+import 'commission.dart';
+
 /// The most areas a shop can list.
 const int kMaxDeliveryAreas = 20;
 
@@ -131,12 +133,19 @@ class DeliveryUnavailable implements Exception {
 
 @immutable
 class OrderTotals {
-  const OrderTotals({required this.items, required this.fee});
+  const OrderTotals({
+    required this.items,
+    required this.fee,
+    this.commission = 0,
+  });
 
   final double items;
   final double fee;
 
-  double get total => items + fee;
+  /// The platform's commission, added on top of the seller's price.
+  final double commission;
+
+  double get total => items + commission + fee;
 }
 
 /// The money for an order: the items, plus the shop's fee for delivery. Throws
@@ -147,13 +156,15 @@ OrderTotals orderTotals({
   required Fulfilment fulfilment,
   required DeliverySettings settings,
   required String area,
+  CommissionRates rates = const CommissionRates(),
 }) {
+  final commission = commissionOn(items, rates);
   if (fulfilment == Fulfilment.collect) {
-    return OrderTotals(items: items, fee: 0);
+    return OrderTotals(items: items, fee: 0, commission: commission);
   }
   final quote = quoteDelivery(settings, area: area);
   if (!quote.available) throw DeliveryUnavailable(quote.reason);
-  return OrderTotals(items: items, fee: quote.fee);
+  return OrderTotals(items: items, fee: quote.fee, commission: commission);
 }
 
 /// The statuses an order moves through, in order, ending in cancelled.

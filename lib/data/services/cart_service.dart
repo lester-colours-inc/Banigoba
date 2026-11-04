@@ -46,6 +46,11 @@ class CartService {
     required String productId,
     required Map<String, dynamic> productData,
     String? selectedSize,
+
+    /// Who brought this sale (an influencer's post or link), if anyone. The
+    /// database checks it again at checkout and ignores the buyer and the
+    /// shop themselves.
+    String? referrerId,
   }) async {
     final cartProductData = await _withLiveProductData(productId, productData);
     final normalizedSize = normalizeSizeLabel(selectedSize);
@@ -117,6 +122,8 @@ class CartService {
         ..._snapshotOf(cartProductData),
         'shopId': newShopId,
         'shopName': newShopName,
+        if (referrerId != null && referrerId.isNotEmpty)
+          'referrerId': referrerId,
       },
     });
   }

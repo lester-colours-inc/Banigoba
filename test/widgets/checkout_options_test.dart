@@ -46,7 +46,8 @@ void main() {
 
     expect(find.byKey(const ValueKey('option_collect')), findsOneWidget);
     expect(find.byKey(const ValueKey('option_delivery')), findsNothing);
-    expect(find.text('Total: \$40.00'), findsOneWidget);
+    expect(find.text('Service fee: \$8.00'), findsOneWidget);
+    expect(find.text('Total: \$48.00'), findsOneWidget);
     expect(find.textContaining('Pay upon collection'), findsOneWidget);
   });
 
@@ -77,7 +78,7 @@ void main() {
 
     expect(find.text('Items: \$40.00'), findsOneWidget);
     expect(find.text('Delivery: \$3.00'), findsOneWidget);
-    expect(find.text('Total: \$43.00'), findsOneWidget);
+    expect(find.text('Total: \$51.00'), findsOneWidget);
     expect(find.textContaining('Pay on delivery'), findsOneWidget);
   });
 
@@ -89,7 +90,7 @@ void main() {
     );
 
     expect(find.text('Delivery: Free'), findsOneWidget);
-    expect(find.text('Total: \$40.00'), findsOneWidget);
+    expect(find.text('Total: \$48.00'), findsOneWidget);
   });
 
   testWidgets('with listed areas the buyer picks one', (tester) async {

@@ -16,6 +16,7 @@ import '../shop/seller_dashboard_page.dart';
 import '../shop/shop_links_pages.dart';
 import '../shop/shop_chat_page.dart';
 import 'become_provider_page.dart';
+import 'earnings_page.dart';
 import 'provider_inbox_page.dart';
 
 class ProviderHomePage extends StatelessWidget {
@@ -127,6 +128,28 @@ class ProviderHomePage extends StatelessWidget {
                       ),
                       const SizedBox(height: 12),
                     ],
+                    Card(
+                      child: ListTile(
+                        key: const ValueKey('card_earnings'),
+                        contentPadding: const EdgeInsets.all(18),
+                        leading: const CircleAvatar(
+                          backgroundColor: _primary,
+                          foregroundColor: Colors.white,
+                          child: Icon(Icons.account_balance_wallet_outlined),
+                        ),
+                        title: const Text(
+                          'Earnings',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        subtitle: const Text(
+                          'Commission on your sales and your referral '
+                          'earnings.',
+                        ),
+                        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                        onTap: () => _open(context, const EarningsPage()),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
                     for (final role in roles) ...[
                       Card(
                         child: ListTile(

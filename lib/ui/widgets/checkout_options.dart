@@ -4,6 +4,7 @@
 // shop's saved settings.
 import 'package:flutter/material.dart';
 
+import '../../data/models/commission.dart';
 import '../../data/models/delivery.dart';
 
 class CheckoutOptions extends StatelessWidget {
@@ -15,6 +16,7 @@ class CheckoutOptions extends StatelessWidget {
     required this.area,
     required this.onFulfilment,
     required this.onArea,
+    this.rates = const CommissionRates(),
   });
 
   final double itemsTotal;
@@ -26,6 +28,9 @@ class CheckoutOptions extends StatelessWidget {
   final ValueChanged<Fulfilment> onFulfilment;
   final ValueChanged<String> onArea;
 
+  /// The platform's commission, shown as the service fee.
+  final CommissionRates rates;
+
   static String _money(double value) => '\$${value.toStringAsFixed(2)}';
 
   @override
@@ -36,6 +41,7 @@ class CheckoutOptions extends StatelessWidget {
     final needsArea = delivery && settings.areas.isNotEmpty && area.isEmpty;
     final fee = delivery && quote.available ? quote.fee : 0.0;
     final showTotals = !delivery || quote.available;
+    final serviceFee = commissionOn(itemsTotal, rates);
 
     Widget option({
       required Key key,
@@ -109,12 +115,14 @@ class CheckoutOptions extends StatelessWidget {
           ),
         if (showTotals) ...[
           const SizedBox(height: 12),
-          if (delivery) ...[
-            Text('Items: ${_money(itemsTotal)}'),
-            Text('Delivery: ${fee == 0 ? 'Free' : _money(fee)}'),
-          ],
+          Text('Items: ${_money(itemsTotal)}'),
           Text(
-            'Total: ${_money(itemsTotal + fee)}',
+            'Service fee: ${_money(serviceFee)}',
+            key: const ValueKey('service_fee_line'),
+          ),
+          if (delivery) Text('Delivery: ${fee == 0 ? 'Free' : _money(fee)}'),
+          Text(
+            'Total: ${_money(itemsTotal + serviceFee + fee)}',
             key: const ValueKey('total_line'),
             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),

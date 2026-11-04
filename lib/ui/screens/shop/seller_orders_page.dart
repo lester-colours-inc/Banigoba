@@ -105,6 +105,8 @@ class _OrderCardState extends State<_OrderCard> {
     final orderNumber = (order['orderNumber'] ?? widget.orderId.substring(0, 6))
         .toString();
     final total = (order['total'] as num?)?.toDouble() ?? 0;
+    final itemsTotal = (order['itemsTotal'] as num?)?.toDouble() ?? 0;
+    final commission = (order['commission'] as num?)?.toDouble() ?? 0;
     final customerName = (order['customerName'] ?? 'Customer').toString();
     final customerEmail = (order['customerEmail'] ?? '').toString();
     final chatId = (order['chatId'] ?? '').toString();
@@ -135,6 +137,20 @@ class _OrderCardState extends State<_OrderCard> {
                 ),
               ],
             ),
+            if (commission > 0)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  'Your price \$${itemsTotal.toStringAsFixed(2)} · '
+                  'service fee \$${commission.toStringAsFixed(2)} '
+                  '(collected for Banigoba)',
+                  key: const ValueKey('commission_breakdown'),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
             const SizedBox(height: 8),
             Text(
               customerName,

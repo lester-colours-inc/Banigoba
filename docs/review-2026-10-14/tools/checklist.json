@@ -426,7 +426,7 @@
           "area": "Marketplace, e-fitting room and monetization",
           "note": "Open question 7 (rates)",
           "done": false,
-          "progress": "Decided 22 Oct: 20% added on top of the seller's price (a $1.00 item costs the buyer $1.20); the seller gets their full price. Not built yet.",
+          "progress": "Built 4 Nov (first version, in the database): the buyer pays the seller's price plus 20% (a $1.00 piece costs $1.20); the seller's own price is untouched. The checkout shows \"Service fee\" as its own line, and the rate sits in one settings row curators can change. The database works the numbers out when the order is placed. Buyers pay the shop directly, so the shop owes Banigoba the commission: Earnings (in provider mode) shows it as due once an order is collected or delivered, pending while open, settled once paid. Needs the new migration deployed (supabase db push). Not yet on a phone.",
           "highlight": "decided"
         },
         {
@@ -435,7 +435,7 @@
           "area": "Marketplace, e-fitting room and monetization",
           "note": "",
           "done": false,
-          "progress": "Decided 22 Oct: the influencer whose post or link brought the sale gets 25% of the commission (5c on a $1.00 item). Not built yet.",
+          "progress": "Built 4 Nov (first version, backend only): when an order carries a referrer, that person is owed 25% of the commission (5c on a $1.00 piece), recorded in the ledger and shown on their Earnings screen. The database ignores a referrer who is the buyer or the shop. Still missing: the app does not yet record who brought a sale, because there is no screen where a shopper buys from someone's post or link. Decide how an influencer's link or post leads to a purchase, then pass its owner into the bag.",
           "highlight": "decided"
         },
         {
@@ -657,7 +657,7 @@
           "area": "Marketplace, e-fitting room and monetization",
           "note": "Not designed yet",
           "done": false,
-          "progress": "22 Oct: when this starts, decide whether money records (orders, commission, influencer share, payouts) live in a Postgres database (Supabase or Cloud SQL) next to Firebase.",
+          "progress": "Built 4 Nov (first version): money records live in the same Supabase database as everything else (settled 22 Oct question): orders carry the commission, referrer and influencer share, and a ledger lists who owes or is owed what, by stage (pending, due, settled, void). Cancelling an order voids its entries; finishing it makes them due. Curators can mark entries settled. Each provider has an Earnings screen. Still to do: a curators' payouts screen (list who is owed, mark settled), and how commission is actually collected from shops.",
           "highlight": "decided"
         },
         {

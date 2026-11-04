@@ -147,7 +147,8 @@ void main() {
       );
 
       expect(totals.fee, 0);
-      expect(totals.total, 40);
+      expect(totals.commission, 8);
+      expect(totals.total, 48);
     });
 
     test('delivery adds the shop\'s fee', () {
@@ -159,7 +160,7 @@ void main() {
       );
 
       expect(totals.fee, 3);
-      expect(totals.total, 43);
+      expect(totals.total, 51);
     });
 
     test('delivery the shop does not offer is refused', () {

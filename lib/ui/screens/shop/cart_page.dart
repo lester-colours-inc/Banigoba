@@ -10,6 +10,8 @@ import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
 
 import '../../../core/supabase/app_auth.dart';
 import '../../../core/supabase/supabase_config.dart';
+import '../../../data/models/commission.dart';
+import '../../../data/services/platform_settings_service.dart';
 import '../../../data/services/private_account_service.dart';
 import '../../../data/services/profile_service.dart';
 import '../../../data/services/product_service.dart' show productMap;
@@ -137,7 +139,7 @@ class CartPage extends StatelessWidget {
                               children: [
                                 Expanded(
                                   child: Text(
-                                    'Total: \$${total.toStringAsFixed(2)}',
+                                    'Items: \$${total.toStringAsFixed(2)}',
                                     style: const TextStyle(
                                       fontSize: 20,
                                       fontWeight: FontWeight.bold,
@@ -247,7 +249,10 @@ class CartPage extends StatelessWidget {
     double total,
     String sellerId,
   ) {
-    final deliveryLoad = _deliveryFor(sellerId);
+    final deliveryLoad = Future.wait<Object>([
+      _deliveryFor(sellerId),
+      PlatformSettingsService().rates(),
+    ]);
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -256,10 +261,15 @@ class CartPage extends StatelessWidget {
         var placing = false;
         var fulfilment = Fulfilment.collect;
         var area = '';
-        return FutureBuilder<DeliverySettings>(
+        return FutureBuilder<List<Object>>(
           future: deliveryLoad,
           builder: (context, snapshot) {
-            final settings = snapshot.data ?? const DeliverySettings();
+            final settings =
+                (snapshot.data?[0] as DeliverySettings?) ??
+                const DeliverySettings();
+            final rates =
+                (snapshot.data?[1] as CommissionRates?) ??
+                const CommissionRates();
             return StatefulBuilder(
               builder: (context, setSheetState) {
                 final delivering = fulfilment == Fulfilment.delivery;
@@ -291,6 +301,7 @@ class CartPage extends StatelessWidget {
                           CheckoutOptions(
                             itemsTotal: total,
                             settings: settings,
+                            rates: rates,
                             fulfilment: fulfilment,
                             area: area,
                             onFulfilment: (value) => setSheetState(() {

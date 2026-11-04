@@ -55,7 +55,7 @@ insert into public.cart_items (user_id, product_id, quantity, selected_size)
   values (pg_temp.u('buyer'), '00000000-0000-0000-0000-00000000b001', 2, 'M');
 select lives_ok($$select public.place_order('delivery', 'Avondale')$$, 'a buyer can place a delivery order');
 select is((select count(*) from public.cart_items)::int, 0, 'the bag is emptied');
-select is((select total from public.orders), 85.00, 'total is items plus the shop''s own delivery fee');
+select is((select total from public.orders), 101.00, 'total is items plus the service fee plus the shop''s own delivery fee');
 select is((select delivery_fee from public.orders), 5.00, 'the fee comes from the shop settings');
 
 reset role;
