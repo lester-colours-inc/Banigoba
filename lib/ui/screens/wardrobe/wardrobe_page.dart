@@ -11,6 +11,7 @@ import '../../../data/models/body_profile.dart';
 import '../../../data/models/piece_details.dart';
 import '../../../data/models/wear_tracking.dart';
 import '../../../data/services/garment_tagger.dart';
+import 'wardrobe_insights_page.dart';
 import '../../../data/utils/garment_colour.dart';
 import '../../../data/services/product_service.dart';
 import '../../../data/services/notification_service.dart';
@@ -318,6 +319,34 @@ class _WardrobePageState extends State<WardrobePage> {
     );
   }
 
+  /// A card above My Clothes that opens the wardrobe insights (W-10).
+  Widget _buildInsightsEntry() {
+    final colors = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Card(
+        child: ListTile(
+          key: const ValueKey('wardrobe_insights_entry'),
+          leading: Icon(Icons.insights_outlined, color: colors.primary),
+          title: const Text(
+            'Wardrobe insights',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          subtitle: const Text(
+            'What you wear most, what is sitting unworn, what is missing.',
+          ),
+          trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute<void>(
+              builder: (_) => const WardrobeInsightsPage(),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   /// Tab showing user's own items (uploaded and saved)
   Widget _buildMineTab() {
     return StreamBuilder<List<Map<String, dynamic>>>(
@@ -340,7 +369,12 @@ class _WardrobePageState extends State<WardrobePage> {
           return bTime.compareTo(aTime);
         });
 
-        return _buildGroupedProductList(items);
+        return Column(
+          children: [
+            _buildInsightsEntry(),
+            Expanded(child: _buildGroupedProductList(items)),
+          ],
+        );
       },
     );
   }

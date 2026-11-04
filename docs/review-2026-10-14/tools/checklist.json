@@ -724,7 +724,7 @@
           "id": "W-10",
           "area": "Smart Wardrobe module",
           "text": "Wardrobe insights: how often each piece is worn, pieces never worn, near-duplicates, missing essentials and seasonal gaps.",
-          "progress": "Not started. The data already exists (wear history, categories, colours, weather tags).",
+          "progress": "Built 4 Nov (first version): a \"Wardrobe insights\" card at the top of My Clothes opens a private page. It shows: your favourites (most worn); pieces owned over a month and never worn; pieces not worn for six months; near-duplicates (three or more of the same kind and colour, e.g. \"4 blue shirts\"); basics that are missing (too few tops, bottoms, shoes or outerwear, or nothing in black, white, grey or beige); and weather you are not covered for (once there are six pieces and some are tagged). It says \"Only you can see this\" and never compares with anyone. Not yet tried on a phone. Not in it yet: season and occasion gaps, and suggestions that link a missing basic to shops in the app (that would join this with the new-stock matching, D-4).",
           "note": "From the client's product-design document (4 Nov 2026)",
           "done": false
         },
