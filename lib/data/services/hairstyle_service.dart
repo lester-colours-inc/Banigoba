@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import '../../core/supabase/supabase_config.dart';
 import '../models/affirmation.dart';
 import '../models/post.dart';
+import '../models/text_moderation.dart';
 import '../supabase/rows.dart';
 import '../supabase/storage_files.dart';
 import 'affirmation_service.dart';
@@ -156,13 +157,15 @@ class HairstyleService {
     required String profileImageURL,
   }) async {
     if (userId.isEmpty || text.trim().isEmpty) return;
+    final moderated = moderateText(text);
+    if (!moderated.isAllowed) throw ModerationException(moderated.reason!);
     await supabase.from('comments').insert({
       'target_type': 'hairLook',
       'target_id': lookId,
       'author_id': userId,
       'author_name': username,
       'author_image_url': profileImageURL,
-      'text': text.trim(),
+      'text': moderated.text,
     });
   }
 

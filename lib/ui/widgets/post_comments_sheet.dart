@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/supabase/app_auth.dart';
 import '../../data/models/post.dart';
+import '../../data/models/text_moderation.dart';
 import '../../data/services/profile_service.dart';
 import '../../data/services/post_service.dart';
 import 'quick_reply_bar.dart';
@@ -66,6 +67,11 @@ class _PostCommentsSheetState extends State<_PostCommentsSheet> {
     setState(() => _isSending = true);
     try {
       await sendPostComment(widget.post, text, postService: _postService);
+    } on ModerationException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -73,6 +79,18 @@ class _PostCommentsSheetState extends State<_PostCommentsSheet> {
       ).showSnackBar(SnackBar(content: Text('Unable to add comment: $error')));
     } finally {
       if (mounted) setState(() => _isSending = false);
+    }
+  }
+
+  Future<void> _act(Future<void> Function() action, String done) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await action();
+      messenger.showSnackBar(SnackBar(content: Text(done)));
+    } on Exception catch (error) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('That did not work: $error')),
+      );
     }
   }
 
@@ -169,6 +187,27 @@ class _PostCommentsSheetState extends State<_PostCommentsSheet> {
                                         fontSize: 11,
                                       ),
                                     ),
+                                    if (user != null)
+                                      _CommentMenu(
+                                        key: ValueKey(
+                                          'comment_menu_${comment.id}',
+                                        ),
+                                        canRemove:
+                                            comment.authorId == user.uid ||
+                                            widget.post.authorId == user.uid,
+                                        onRemove: () => _act(
+                                          () => _postService.deleteComment(
+                                            comment.id,
+                                          ),
+                                          'Comment removed.',
+                                        ),
+                                        onReport: () => _act(
+                                          () => _postService.reportComment(
+                                            comment.id,
+                                          ),
+                                          'Thanks for telling us. We will take a look.',
+                                        ),
+                                      ),
                                   ],
                                 ),
                                 const SizedBox(height: 4),
@@ -283,5 +322,41 @@ class _PostQuickRepliesState extends State<PostQuickReplies> {
   @override
   Widget build(BuildContext context) {
     return QuickReplyBar(isSending: _isSending, onSelected: _reply);
+  }
+}
+
+/// The small menu on a comment: remove it (its author, or the look's owner) or
+/// report it (everyone else).
+class _CommentMenu extends StatelessWidget {
+  const _CommentMenu({
+    super.key,
+    required this.canRemove,
+    required this.onRemove,
+    required this.onReport,
+  });
+
+  final bool canRemove;
+  final VoidCallback onRemove;
+  final VoidCallback onReport;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 28,
+      height: 24,
+      child: PopupMenuButton<bool>(
+        padding: EdgeInsets.zero,
+        iconSize: 18,
+        icon: const Icon(Icons.more_horiz),
+        tooltip: 'More',
+        onSelected: (remove) => remove ? onRemove() : onReport(),
+        itemBuilder: (_) => [
+          if (canRemove)
+            const PopupMenuItem(value: true, child: Text('Remove comment')),
+          if (!canRemove)
+            const PopupMenuItem(value: false, child: Text('Report as unkind')),
+        ],
+      ),
+    );
   }
 }

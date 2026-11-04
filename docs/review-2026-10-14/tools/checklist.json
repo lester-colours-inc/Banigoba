@@ -346,7 +346,7 @@
           "id": "C-3",
           "area": "Community",
           "text": "Moderate free-text comments the way affirmations are moderated (harassment, body shaming, spam), with encouraging wording in the interface.",
-          "progress": "Not started. Affirmations are moderated; comments are not.",
+          "progress": "Built 4 Nov (first version). Before a comment or the personal note on an affirmation is sent, the app checks it and refuses, with a friendly sentence, anything with a link or email, shouting, heavy repetition, or unkind words and phrases (insults, body shaming, threats), including common tricks like \"l0ser\" or \"uuugly\". The person can rewrite and send again. The database also holds the limits whatever sends the text (comments up to 500 characters, affirmation notes up to 140). Added: the owner of a look can remove comments on it, anyone can report a comment as unkind, and three different people reporting hides it from everyone but its author, the look's owner and curators. The word list is short and in English; curators should grow it, and Shona and Ndebele terms still need adding. Not done: a curators' screen to review reported comments, and a smarter AI check (it would need a server key). Free-text comments are not on screen yet, only quick replies and affirmation notes, so this protects those and any comment box added later. Needs the new migration deployed (supabase db push). Not yet tried on a phone.",
           "note": "From the client's product-design document (4 Nov 2026)",
           "done": false
         }

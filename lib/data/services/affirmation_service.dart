@@ -19,6 +19,7 @@ import '../../core/supabase/supabase_config.dart';
 
 import '../affirmations/affirmation_library.dart';
 import '../models/affirmation.dart';
+import '../models/text_moderation.dart';
 import 'notification_service.dart';
 
 class AffirmationService {
@@ -106,6 +107,16 @@ class AffirmationService {
     if (targetOwnerId == senderId) {
       throw StateError('You cannot affirm your own look.');
     }
+    // The personal note is optional, but when there is one it must be kind.
+    var note = '';
+    if (personalMessage.trim().isNotEmpty) {
+      final moderated = moderateText(
+        personalMessage,
+        maxLength: kMaxAffirmationNoteLength,
+      );
+      if (!moderated.isAllowed) throw ModerationException(moderated.reason!);
+      note = moderated.text;
+    }
 
     final senderName = await _resolveSenderName(senderId);
     final docId = documentIdFor(
@@ -130,7 +141,7 @@ class AffirmationService {
       'category': definition.category.id,
       'language': definition.language,
       'meaning': definition.meaning,
-      'personal_message': personalMessage.trim(),
+      'personal_message': note,
     }, ignoreDuplicates: true);
 
     await _notifyRecipient(

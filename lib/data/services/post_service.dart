@@ -8,6 +8,7 @@ import '../../core/supabase/app_auth.dart';
 import '../../core/supabase/supabase_config.dart';
 import '../models/affirmation.dart';
 import '../models/post.dart';
+import '../models/text_moderation.dart';
 import '../supabase/rows.dart';
 import 'affirmation_service.dart';
 import 'notification_service.dart';
@@ -280,6 +281,11 @@ class PostService {
   }) async {
     if (_currentUserId.isEmpty) return;
 
+    // Kind words only: harassment, body shaming and spam stop here.
+    final moderated = moderateText(text);
+    if (!moderated.isAllowed) throw ModerationException(moderated.reason!);
+    text = moderated.text;
+
     final post = await getPost(postId);
     if (post == null || !post.isShared) {
       throw Exception('Private posts cannot be commented on.');
@@ -352,6 +358,22 @@ class PostService {
     } on Exception catch (error) {
       debugPrint('Unable to create $type notification: $error');
     }
+  }
+
+  /// Removes a comment: its author, or the owner of the look, may.
+  Future<void> deleteComment(String commentId) async {
+    await supabase.from('comments').delete().eq('id', commentId);
+  }
+
+  /// Reports a comment as unkind. Three different people reporting it hides
+  /// it from everyone but its author, the look's owner and curators.
+  Future<void> reportComment(String commentId, {String reason = ''}) async {
+    if (_currentUserId.isEmpty) throw const SignInRequiredException();
+    await supabase.from('comment_reports').upsert({
+      'comment_id': commentId,
+      'reporter_id': _currentUserId,
+      'reason': reason,
+    });
   }
 
   /// Gets a stream of comments for a specific post, newest first.

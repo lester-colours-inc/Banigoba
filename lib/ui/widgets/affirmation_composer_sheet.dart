@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 
 import '../../data/affirmations/affirmation_library.dart';
 import '../../data/models/affirmation.dart';
+import '../../data/models/text_moderation.dart';
 import '../../data/services/affirmation_service.dart';
 import 'quick_reply_bar.dart';
 
@@ -114,6 +115,12 @@ class _AffirmationComposerSheetState extends State<AffirmationComposerSheet> {
       if (!mounted) return;
       Navigator.pop(context, true);
     } on StateError catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _error = error.message;
+        _isSending = false;
+      });
+    } on ModerationException catch (error) {
       if (!mounted) return;
       setState(() {
         _error = error.message;
