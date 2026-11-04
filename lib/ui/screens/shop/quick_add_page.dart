@@ -10,6 +10,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../core/supabase/app_auth.dart';
 import '../../../data/models/quick_add.dart';
+import '../../../data/services/garment_tagger.dart';
 import '../../../data/services/product_service.dart';
 import '../../../data/services/profile_service.dart';
 
@@ -62,12 +63,18 @@ Future<Uint8List?> _pickWithImagePicker(ImageSource source) async {
 }
 
 class QuickAddPage extends StatefulWidget {
-  const QuickAddPage({super.key, QuickAddSaver? saver, PickPhoto? pickPhoto})
-    : _saver = saver,
-      _pickPhoto = pickPhoto;
+  const QuickAddPage({
+    super.key,
+    QuickAddSaver? saver,
+    PickPhoto? pickPhoto,
+    GarmentTagger? tagger,
+  }) : _saver = saver,
+       _pickPhoto = pickPhoto,
+       _tagger = tagger;
 
   final QuickAddSaver? _saver;
   final PickPhoto? _pickPhoto;
+  final GarmentTagger? _tagger;
 
   @override
   State<QuickAddPage> createState() => _QuickAddPageState();
@@ -85,6 +92,8 @@ class _QuickAddPageState extends State<QuickAddPage> {
 
   late final QuickAddSaver _saver = widget._saver ?? ProductQuickAddSaver();
   late final PickPhoto _pick = widget._pickPhoto ?? _pickWithImagePicker;
+  late final GarmentTagger _tagger = widget._tagger ?? GeminiGarmentTagger();
+  bool _suggested = false;
 
   @override
   void dispose() {
@@ -126,6 +135,32 @@ class _QuickAddPageState extends State<QuickAddPage> {
       _photo = bytes;
       _draft = _draft.copyWith(hasPhoto: true);
     });
+    await _suggestFromPhoto(bytes);
+  }
+
+  /// Lets the AI pick the kind and a name from the photo, unless the trader
+  /// has already chosen them. Never blocks adding the piece by hand.
+  Future<void> _suggestFromPhoto(Uint8List bytes) async {
+    if (!_tagger.isConfigured) return;
+    final tags = await _tagger.tag(bytes);
+    if (tags == null || !mounted || _photo != bytes) return;
+    final suggested = tags.category == null
+        ? null
+        : QuickKind.values
+              .where((k) => k.category == tags.category)
+              .firstOrNull;
+    setState(() {
+      if (suggested != null &&
+          _draft.kind == QuickKind.tops &&
+          _draft.sizes.isEmpty) {
+        _draft = _draft.copyWith(kind: suggested);
+      }
+      if (_name.text.trim().isEmpty && tags.name.isNotEmpty) {
+        _name.text = tags.name;
+        _draft = _draft.copyWith(name: tags.name);
+      }
+      _suggested = true;
+    });
   }
 
   Future<void> _save() async {
@@ -144,6 +179,7 @@ class _QuickAddPageState extends State<QuickAddPage> {
       setState(() {
         _added += 1;
         _photo = null;
+        _suggested = false;
         // Ready for the next piece of the same kind.
         _draft = QuickAddDraft(kind: _draft.kind);
       });
@@ -235,6 +271,16 @@ class _QuickAddPageState extends State<QuickAddPage> {
                   : Image.memory(_photo!, fit: BoxFit.cover),
             ),
           ),
+          if (_suggested)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                'Kind and name suggested from the photo. Change them if '
+                'they are not right.',
+                key: const ValueKey('suggested_note'),
+                style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12),
+              ),
+            ),
           const SizedBox(height: 18),
           TextField(
             key: const ValueKey('price_field'),

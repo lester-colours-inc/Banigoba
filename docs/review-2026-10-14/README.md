@@ -116,10 +116,10 @@ _Generated from `tools/checklist.json`; edit that file and run `npm run build` i
 - [Highlights](#highlights)
 - [Principles (apply to all work)](#principles-apply-to-all-work)
 - [Tier 1 — Quick wins](#tier-1-quick-wins) — 17/17 done
-- [Tier 2 — Clear, medium work](#tier-2-clear-medium-work) — 15/16 done
+- [Tier 2 — Clear, medium work](#tier-2-clear-medium-work) — 15/17 done
 - [Tier 3 — Needs a decision first](#tier-3-needs-a-decision-first) — 7/13 done
-- [Tier 4 — Bigger features](#tier-4-bigger-features) — 13/25 done
-- [Tier 5 — Backend, research and go-to-market](#tier-5-backend-research-and-go-to-market) — 0/10 done
+- [Tier 4 — Bigger features](#tier-4-bigger-features) — 13/31 done
+- [Tier 5 — Backend, research and go-to-market](#tier-5-backend-research-and-go-to-market) — 0/11 done
 - [Issues found while working](#issues-found-while-working)
 - [Release day (Friday)](#release-day-friday)
 - [Open questions](#open-questions)
@@ -207,6 +207,8 @@ _The requirement is clear. These need more than a one-line change._
   - **Progress:** An "Upcoming events" strip sits at the top of the Community feed.
 - [x] **C-2** ✅ **Done 20 Oct** Add a "Create event" entry point and form (for example to announce a fashion show) that posts into Community. — Community _(Not built yet)_
   - **Progress:** There is an "Add event" button on the Community feed. It uses the existing event form, which goes to curators for approval.
+- [ ] **C-3** Moderate free-text comments the way affirmations are moderated (harassment, body shaming, spam), with encouraging wording in the interface. — Community _(From the client's product-design document (4 Nov 2026))_
+  - **Progress:** Not started. Affirmations are moderated; comments are not.
 
 ## Tier 3 — Needs a decision first
 
@@ -293,6 +295,18 @@ _Clear, but large: new screens, new data, or migrations._
   - **Progress:** First version built 26 Oct: "Turn me around" on the try-on makes right side, back and left views with AI (one at a time, shown as they arrive); drag left or right, or use the arrows, to turn like a turntable. Sides and back are estimates and are labelled so. Costs three more AI image calls per try-on.  Later options: a short spin video, optional back photo from shops to improve the back view, and true 3D models once shops can supply them. 27 Oct: the angles are now kept with the saved look (also if you turn around after saving), and a saved look that has angles opens in the turn-around viewer from Saved Looks and My Daily Dress Up. Not tried on a phone yet. 27 Oct: shops can add an optional back photo for each item in the stock form; when there is one, the turn-around uses it for the back view instead of guessing. Needs a shop to add the photo, and has not been seen on a phone.
 - [ ] **K-9** 🔶 **Started 20 Oct** Shops and designers send a link or QR code to their stock, a category or chosen pieces: to friends, followers, the public in the app, and to many WhatsApp groups. The link lets anyone try the pieces on (eFitting) and buy them online. — Marketplace, e-fitting room and monetization _(Added 30 Oct at the stakeholder's request.)_
   - **Progress:** Built 30 Oct (first version): "Share my stock" on the provider home. The shop picks all stock, a category or pieces, adds a title and note, and chooses who in Banigoba is told (just the link, friends, followers, or public: followers get a notification and public links show in a "From the shops" strip on Community). It then gets a link and QR code with Send on WhatsApp (WhatsApp opens with the message ready and the shop ticks the groups; WhatsApp does not let any app post to groups automatically, and limits how many chats are picked at once), other apps, the QR as a picture, and copy. Anyone opening the link sees the pieces with prices and Try on / Buy (sign-in needed for those); on a phone with the app it opens in the app. Links can be switched off. Shop products are now publicly readable (a shop window) so links work without an account; only public links can be listed. Needs: deploying the rules, the announceShopLink function and the web app (Firebase Hosting); on the web, try-on is off until image generation moves to the server, because a public web app would expose the Gemini key. Not yet: iOS universal links, opening the link again automatically after signing in, link view counts for the shop, designers' portfolio pieces (links cover shop products).
+- [ ] **W-9** Auto-tag wardrobe items from the photo: type, colour, style, weather and gender, so nobody types them by hand. — Smart Wardrobe module _(From the client's product-design document (4 Nov 2026))_
+  - **Progress:** Built 4 Nov (first version): choosing a photo in Add item (wardrobe) now asks Gemini what the piece is and fills in the name, category, subcategory, style, gender, colours, weather and function tags. It only fills fields nobody has touched, only uses the app's own words (anything else is dropped), says "Filled in from your photo" and everything can be changed. Quick add (K-1) does the same for the kind and name. Not yet tried on a phone. The Gemini key is compiled into the app, as it is for makeovers; moving all Gemini calls behind a server function is a later hardening step. Season and occasion tags are not added yet.
+- [ ] **O-1** Guided first five minutes: upload a selfie, pick aesthetics, add a few wardrobe items, get an instant makeover and a first affirmation, so a new user sees value straight away. — Engagement and go-to-market _(From the client's product-design document (4 Nov 2026))_
+  - **Progress:** Not started. Today a new user answers one style-preferences question and lands on Home.
+- [ ] **W-10** Wardrobe insights: how often each piece is worn, pieces never worn, near-duplicates, missing essentials and seasonal gaps. — Smart Wardrobe module _(From the client's product-design document (4 Nov 2026))_
+  - **Progress:** Not started. The data already exists (wear history, categories, colours, weather tags).
+- [ ] **C-4** Community pods: small groups around an aesthetic, a region or a profession, where validation is community-based rather than a global contest. — Community _(From the client's product-design document (4 Nov 2026))_
+  - **Progress:** Not started. Wait for users to ask for it.
+- [ ] **S-5** Stylists offer virtual consultations and curated wardrobe builds, and salons take bookings in the app, with a fee per session. — Service-provider mode _(From the client's product-design document (4 Nov 2026))_
+  - **Progress:** Not started. Design and hair requests and the provider inbox exist; booking, scheduling and payment do not.
+- [ ] **K-10** Agent referral commission: agents who recruit stylists and boutiques earn a share of the commission on their sales. — Marketplace, e-fitting room and monetization _(From the client's product-design document (4 Nov 2026))_
+  - **Progress:** Not started. The influencer share on sales (K-6) is built in the database; recruiting agents is a separate rule to decide.
 
 ## Tier 5 — Backend, research and go-to-market
 
@@ -314,6 +328,8 @@ _Open-ended. Needs design or research before building._
   - **Progress:** Built 28 Oct (first version): Community now has Near me / Everyone chips. "Near me" is the people you follow plus people in your city; "Everyone" is every look you may see. The city is the one a person types in Settings and is public (nothing finer is stored); without a city, the tab asks for one instead of guessing. Not yet: distance-based "near" from phone location.
 - [ ] **W-8** Research: physical clothing tags (AirTag-style button tags, RFID) to show what is in or out of the wardrobe, what is at the wash, and to alert when an item leaves the yard (geofence). Include a way to switch a tag off while the owner wears it, and cost per tag. — Smart Wardrobe module _(Long term, hardware. Privacy concerns.)_
 - [ ] **E-6** Brand ambassadors: recruit influencers and pay them monthly to use the app, do makeovers, post looks and vlog about it. — Engagement and go-to-market _(Go-to-market)_
+- [ ] **A-9** Demand view for designers and shops: anonymous totals of what users are missing and what is trending in a region, so they know what to make or stock. — Backend, algorithms and research _(From the client's product-design document (4 Nov 2026))_
+  - **Progress:** Not started. Needs enough users for the totals to mean something, and must never show an individual's wardrobe.
 
 ## Issues found while working
 
@@ -348,3 +364,5 @@ _Not raised in the meeting; found while building._
 7. DECIDED 22 Oct: commission 20% added on top of the seller's price; the influencer who brought the sale gets 25% of it.
 8. DECIDED 22 Oct: shops deliver themselves (fee and areas set per shop) or the buyer collects; the app tracks the status.
 9. DECIDED 22 Oct: credited link previews that open the source; no copying of images.
+10. PROPOSED 4 Nov (from the client's product-design document): do not build celebrity-resemblance, "Glow Level"/"Elegance Index" scores, or face-shape and body-proportion labels. They break the rules already set (no scores, no judging body shape, skin tone or face). Stay on Flutter and Supabase rather than the document's React Native and FastAPI suggestion. Needs the client's agreement.
+11. Already met: the document asks for no public follower counts. Follower and following counts show to the owner only (decided 20 Oct).

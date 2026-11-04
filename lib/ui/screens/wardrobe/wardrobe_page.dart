@@ -10,6 +10,7 @@ import '../../../core/app_routes.dart';
 import '../../../data/models/body_profile.dart';
 import '../../../data/models/piece_details.dart';
 import '../../../data/models/wear_tracking.dart';
+import '../../../data/services/garment_tagger.dart';
 import '../../../data/utils/garment_colour.dart';
 import '../../../data/services/product_service.dart';
 import '../../../data/services/notification_service.dart';
@@ -37,6 +38,7 @@ class WardrobePage extends StatefulWidget {
 
 class _WardrobePageState extends State<WardrobePage> {
   final ProductService _productService = ProductService();
+  final GarmentTagger _tagger = GeminiGarmentTagger();
   final String _currentUserId = AppAuth.instance.currentUser?.uid ?? '';
   late int _selectedTabIndex = widget.initialTab.index;
   final ImagePicker _picker = ImagePicker();
@@ -556,6 +558,9 @@ class _WardrobePageState extends State<WardrobePage> {
     File? selectedImage;
     // Colours picked from the photo, until the user changes them (W-3).
     bool coloursFromPhoto = false;
+    // The AI's suggestion from the photo, while it is working and once used.
+    bool tagging = false;
+    bool taggedFromPhoto = false;
 
     final Map<String, List<String>> categoryData = {
       'accessories': ['none', 'caps', 'glasses', 'hats'],
@@ -656,12 +661,51 @@ class _WardrobePageState extends State<WardrobePage> {
                   // Suggest the colours from the photo, unless the user has
                   // already chosen some.
                   final found = await coloursFromFile(image);
-                  if (!mounted || found.isEmpty) return;
+                  if (mounted && found.isNotEmpty) {
+                    setModalState(() {
+                      if (selectedColours.isEmpty) {
+                        selectedColours.addAll(found);
+                        coloursFromPhoto = true;
+                      }
+                    });
+                  }
+                  // Then let the AI fill in the rest from the photo. Only
+                  // fields the person has not touched are filled.
+                  if (!_tagger.isConfigured) return;
+                  setModalState(() => tagging = true);
+                  final tags = await _tagger.tag(await image.readAsBytes());
+                  if (!mounted) return;
                   setModalState(() {
-                    if (selectedColours.isEmpty) {
-                      selectedColours.addAll(found);
+                    tagging = false;
+                    if (tags == null) return;
+                    if (nameController.text.trim().isEmpty &&
+                        tags.name.isNotEmpty) {
+                      nameController.text = tags.name;
+                    }
+                    if (category == 'tops' && subcategory == 'none') {
+                      if (tags.category != null) category = tags.category!;
+                      subcategory = tags.subcategory ?? 'none';
+                    }
+                    if (styleTag == 'casual' && tags.styleTag != null) {
+                      styleTag = tags.styleTag!;
+                    }
+                    if (gender == 'unisex' && tags.gender != null) {
+                      gender = tags.gender!;
+                    }
+                    if (selectedWeatherTags.isEmpty) {
+                      selectedWeatherTags.addAll(tags.weatherTags);
+                    }
+                    if (selectedFunctionalTags.isEmpty) {
+                      selectedFunctionalTags.addAll(tags.functionalTags);
+                    }
+                    if ((selectedColours.isEmpty || coloursFromPhoto) &&
+                        tags.colours.isNotEmpty) {
+                      selectedColours
+                        ..clear()
+                        ..addAll(tags.colours);
                       coloursFromPhoto = true;
                     }
+                    taggedFromPhoto = true;
                   });
                 },
                 child: Container(
@@ -701,6 +745,35 @@ class _WardrobePageState extends State<WardrobePage> {
                         ),
                 ),
               ),
+              if (tagging)
+                const Padding(
+                  padding: EdgeInsets.only(top: 10),
+                  child: Row(
+                    key: ValueKey('tagging_progress'),
+                    children: [
+                      SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                      SizedBox(width: 10),
+                      Text('Looking at your photo…'),
+                    ],
+                  ),
+                )
+              else if (taggedFromPhoto)
+                Padding(
+                  padding: const EdgeInsets.only(top: 10),
+                  child: Text(
+                    'Filled in from your photo. Check it and change '
+                    'anything that is not right.',
+                    key: const ValueKey('tagged_note'),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
               SizedBox(height: 15),
               // Name input and dropdowns for category, color, etc.
               TextField(

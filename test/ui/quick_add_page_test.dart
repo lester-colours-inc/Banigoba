@@ -2,7 +2,9 @@
 // sizes, and can add another straight after.
 import 'dart:typed_data';
 
+import 'package:banigoba/data/models/garment_tags.dart';
 import 'package:banigoba/data/models/quick_add.dart';
+import 'package:banigoba/data/services/garment_tagger.dart';
 import 'package:banigoba/ui/screens/shop/quick_add_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -19,6 +21,20 @@ class _FakeSaver implements QuickAddSaver {
   }
 }
 
+class _FakeTagger implements GarmentTagger {
+  _FakeTagger([this.tags]);
+  final GarmentTags? tags;
+
+  @override
+  bool get isConfigured => true;
+
+  @override
+  Future<GarmentTags?> tag(
+    Uint8List photo, {
+    String mimeType = 'image/jpeg',
+  }) async => tags;
+}
+
 // A 1x1 transparent PNG, so Image.memory has something to decode.
 final Uint8List _png = Uint8List.fromList([
   0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, //
@@ -29,7 +45,11 @@ final Uint8List _png = Uint8List.fromList([
   0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82,
 ]);
 
-Future<_FakeSaver> _open(WidgetTester tester, {_FakeSaver? saver}) async {
+Future<_FakeSaver> _open(
+  WidgetTester tester, {
+  _FakeSaver? saver,
+  GarmentTagger? tagger,
+}) async {
   // Tall enough that the whole form is on screen.
   tester.view.physicalSize = const Size(800, 2400);
   tester.view.devicePixelRatio = 1;
@@ -37,7 +57,11 @@ Future<_FakeSaver> _open(WidgetTester tester, {_FakeSaver? saver}) async {
   final fake = saver ?? _FakeSaver();
   await tester.pumpWidget(
     MaterialApp(
-      home: QuickAddPage(saver: fake, pickPhoto: (_) async => _png),
+      home: QuickAddPage(
+        saver: fake,
+        pickPhoto: (_) async => _png,
+        tagger: tagger ?? _FakeTagger(),
+      ),
     ),
   );
   return fake;
@@ -146,5 +170,63 @@ void main() {
 
     expect(find.textContaining('Could not add it'), findsOneWidget);
     expect(find.text('Quick add'), findsOneWidget);
+  });
+
+  testWidgets('the AI suggests the kind and a name from the photo', (
+    tester,
+  ) async {
+    final saver = await _open(
+      tester,
+      tagger: _FakeTagger(
+        const GarmentTags(name: 'Black heels', category: 'shoes'),
+      ),
+    );
+
+    await _takePhoto(tester);
+
+    expect(find.byKey(const ValueKey('suggested_note')), findsOneWidget);
+    // On shoes now: UK sizes are offered, and the name is filled in.
+    expect(find.byKey(const ValueKey('size_UK 6')), findsOneWidget);
+    final name = tester.widget<TextField>(
+      find.byKey(const ValueKey('name_field')),
+    );
+    expect(name.controller!.text, 'Black heels');
+
+    await tester.enterText(find.byKey(const ValueKey('price_field')), '15');
+    await tester.tap(find.byKey(const ValueKey('size_UK 6')));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('quick_add_save')));
+    await tester.pumpAndSettle();
+    expect(saver.saved.single.kind, QuickKind.shoes);
+    expect(saver.saved.single.displayName, 'Black heels');
+  });
+
+  testWidgets('the AI never overrides what the trader typed', (tester) async {
+    await _open(
+      tester,
+      tagger: _FakeTagger(
+        const GarmentTags(name: 'Red dress', category: 'dresses'),
+      ),
+    );
+
+    await tester.enterText(
+      find.byKey(const ValueKey('name_field')),
+      'My shirt',
+    );
+    await _takePhoto(tester);
+
+    final name = tester.widget<TextField>(
+      find.byKey(const ValueKey('name_field')),
+    );
+    expect(name.controller!.text, 'My shirt');
+  });
+
+  testWidgets('no suggestion leaves everything as it was', (tester) async {
+    await _open(tester, tagger: _FakeTagger());
+
+    await _takePhoto(tester);
+
+    expect(find.byKey(const ValueKey('suggested_note')), findsNothing);
+    expect(find.byKey(const ValueKey('size_M')), findsOneWidget);
   });
 }

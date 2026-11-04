@@ -341,6 +341,14 @@
           "done": true,
           "progress": "There is an \"Add event\" button on the Community feed. It uses the existing event form, which goes to curators for approval.",
           "highlight": "done"
+        },
+        {
+          "id": "C-3",
+          "area": "Community",
+          "text": "Moderate free-text comments the way affirmations are moderated (harassment, body shaming, spam), with encouraging wording in the interface.",
+          "progress": "Not started. Affirmations are moderated; comments are not.",
+          "note": "From the client's product-design document (4 Nov 2026)",
+          "done": false
         }
       ]
     },
@@ -695,6 +703,54 @@
           "done": false,
           "highlight": "partial",
           "progress": "Built 30 Oct (first version): \"Share my stock\" on the provider home. The shop picks all stock, a category or pieces, adds a title and note, and chooses who in Banigoba is told (just the link, friends, followers, or public: followers get a notification and public links show in a \"From the shops\" strip on Community). It then gets a link and QR code with Send on WhatsApp (WhatsApp opens with the message ready and the shop ticks the groups; WhatsApp does not let any app post to groups automatically, and limits how many chats are picked at once), other apps, the QR as a picture, and copy. Anyone opening the link sees the pieces with prices and Try on / Buy (sign-in needed for those); on a phone with the app it opens in the app. Links can be switched off. Shop products are now publicly readable (a shop window) so links work without an account; only public links can be listed. Needs: deploying the rules, the announceShopLink function and the web app (Firebase Hosting); on the web, try-on is off until image generation moves to the server, because a public web app would expose the Gemini key. Not yet: iOS universal links, opening the link again automatically after signing in, link view counts for the shop, designers' portfolio pieces (links cover shop products)."
+        },
+        {
+          "id": "W-9",
+          "area": "Smart Wardrobe module",
+          "text": "Auto-tag wardrobe items from the photo: type, colour, style, weather and gender, so nobody types them by hand.",
+          "progress": "Built 4 Nov (first version): choosing a photo in Add item (wardrobe) now asks Gemini what the piece is and fills in the name, category, subcategory, style, gender, colours, weather and function tags. It only fills fields nobody has touched, only uses the app's own words (anything else is dropped), says \"Filled in from your photo\" and everything can be changed. Quick add (K-1) does the same for the kind and name. Not yet tried on a phone. The Gemini key is compiled into the app, as it is for makeovers; moving all Gemini calls behind a server function is a later hardening step. Season and occasion tags are not added yet.",
+          "note": "From the client's product-design document (4 Nov 2026)",
+          "done": false
+        },
+        {
+          "id": "O-1",
+          "area": "Engagement and go-to-market",
+          "text": "Guided first five minutes: upload a selfie, pick aesthetics, add a few wardrobe items, get an instant makeover and a first affirmation, so a new user sees value straight away.",
+          "progress": "Not started. Today a new user answers one style-preferences question and lands on Home.",
+          "note": "From the client's product-design document (4 Nov 2026)",
+          "done": false
+        },
+        {
+          "id": "W-10",
+          "area": "Smart Wardrobe module",
+          "text": "Wardrobe insights: how often each piece is worn, pieces never worn, near-duplicates, missing essentials and seasonal gaps.",
+          "progress": "Not started. The data already exists (wear history, categories, colours, weather tags).",
+          "note": "From the client's product-design document (4 Nov 2026)",
+          "done": false
+        },
+        {
+          "id": "C-4",
+          "area": "Community",
+          "text": "Community pods: small groups around an aesthetic, a region or a profession, where validation is community-based rather than a global contest.",
+          "progress": "Not started. Wait for users to ask for it.",
+          "note": "From the client's product-design document (4 Nov 2026)",
+          "done": false
+        },
+        {
+          "id": "S-5",
+          "area": "Service-provider mode",
+          "text": "Stylists offer virtual consultations and curated wardrobe builds, and salons take bookings in the app, with a fee per session.",
+          "progress": "Not started. Design and hair requests and the provider inbox exist; booking, scheduling and payment do not.",
+          "note": "From the client's product-design document (4 Nov 2026)",
+          "done": false
+        },
+        {
+          "id": "K-10",
+          "area": "Marketplace, e-fitting room and monetization",
+          "text": "Agent referral commission: agents who recruit stylists and boutiques earn a share of the commission on their sales.",
+          "progress": "Not started. The influencer share on sales (K-6) is built in the database; recruiting agents is a separate rule to decide.",
+          "note": "From the client's product-design document (4 Nov 2026)",
+          "done": false
         }
       ]
     },
@@ -787,6 +843,14 @@
           "note": "Go-to-market",
           "done": false,
           "progress": ""
+        },
+        {
+          "id": "A-9",
+          "area": "Backend, algorithms and research",
+          "text": "Demand view for designers and shops: anonymous totals of what users are missing and what is trending in a region, so they know what to make or stock.",
+          "progress": "Not started. Needs enough users for the totals to mean something, and must never show an individual's wardrobe.",
+          "note": "From the client's product-design document (4 Nov 2026)",
+          "done": false
         }
       ]
     }
@@ -837,7 +901,9 @@
     "DECIDED 20 Oct: one large \"Create My Fashion Makeover\" button that then asks Hairstyle or Outfit & more.",
     "DECIDED 22 Oct: commission 20% added on top of the seller's price; the influencer who brought the sale gets 25% of it.",
     "DECIDED 22 Oct: shops deliver themselves (fee and areas set per shop) or the buyer collects; the app tracks the status.",
-    "DECIDED 22 Oct: credited link previews that open the source; no copying of images."
+    "DECIDED 22 Oct: credited link previews that open the source; no copying of images.",
+    "PROPOSED 4 Nov (from the client's product-design document): do not build celebrity-resemblance, \"Glow Level\"/\"Elegance Index\" scores, or face-shape and body-proportion labels. They break the rules already set (no scores, no judging body shape, skin tone or face). Stay on Flutter and Supabase rather than the document's React Native and FastAPI suggestion. Needs the client's agreement.",
+    "Already met: the document asks for no public follower counts. Follower and following counts show to the owner only (decided 20 Oct)."
   ],
   "releaseSteps": [
     "Ship the new app build to testers.",
