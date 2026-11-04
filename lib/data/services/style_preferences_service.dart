@@ -36,6 +36,15 @@ class StylePreferencesService {
     });
   }
 
+  /// Saves the answers without marking the question as seen, for the guided
+  /// first run, which marks it when the whole guide is finished or skipped.
+  Future<void> saveAnswers(String userId, StylePreferences preferences) {
+    return _profiles.update(userId, {
+      'stylePreferences': preferences.styles,
+      'makeoverFocus': preferences.focus?.value,
+    });
+  }
+
   Future<void> skip(String userId) =>
       _profiles.update(userId, {promptedField: true});
 }

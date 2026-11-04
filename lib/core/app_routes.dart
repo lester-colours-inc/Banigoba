@@ -15,7 +15,8 @@ import '../ui/screens/makeover/create_makeover_page.dart';
 import '../ui/screens/makeover/makeover_page.dart';
 import '../ui/screens/auth/custom_login_screen.dart';
 import '../ui/screens/onboarding/onboarding_screen.dart';
-import '../ui/screens/onboarding/style_preferences_screen.dart';
+import '../ui/screens/onboarding/first_run_guide_screen.dart';
+import '../ui/screens/onboarding/guide_actions.dart';
 import '../ui/screens/permissions/permissions_request_screen.dart';
 import '../data/models/provider_roles.dart';
 import '../data/models/shop_link.dart';
@@ -232,12 +233,11 @@ class _AuthGateState extends State<AuthGate> {
                   // stream rebuilds into Home as soon as it is answered or
                   // skipped.
                   if (StylePreferencesService.needsPrompt(userData)) {
-                    final preferences = StylePreferencesService();
                     return _afterSplash(
-                      StylePreferencesScreen(
-                        onSave: (answers) =>
-                            preferences.save(user.uid, answers),
-                        onSkip: () => preferences.skip(user.uid),
+                      FirstRunGuideScreen(
+                        userId: user.uid,
+                        name: (userData['displayName'] ?? '').toString(),
+                        actions: AppGuideActions(userId: user.uid),
                       ),
                     );
                   }

@@ -716,7 +716,7 @@
           "id": "O-1",
           "area": "Engagement and go-to-market",
           "text": "Guided first five minutes: upload a selfie, pick aesthetics, add a few wardrobe items, get an instant makeover and a first affirmation, so a new user sees value straight away.",
-          "progress": "Not started. Today a new user answers one style-preferences question and lands on Home.",
+          "progress": "Built 4 Nov (first version): a new account now lands on a short guide instead of the single style question: four optional steps with a progress bar. (1) Add your photo (camera or gallery; it becomes the photo makeovers start from). (2) Pick your style (the existing style screen). (3) Add three pieces you own: photograph each and the AI fills in the details (W-9); they go into the private wardrobe without background removal. (4) See your first makeover (opens the makeover start). Every step can be skipped, \"Skip for now\" ends the guide at any time, and finishing shows a kind word from the universal affirmations (no score). It is shown once, to accounts that have not answered the style question yet; existing users are not interrupted. Not yet tried on a phone. Not in it yet: the makeover does not start automatically from the photo, and pieces do not get background removal.",
           "note": "From the client's product-design document (4 Nov 2026)",
           "done": false
         },
