@@ -62,7 +62,7 @@ void main() {
     expect(tags?.colours, ['red']);
     expect(tags?.styleTag, 'glamour');
     expect(seen.headers['x-goog-api-key'], 'k');
-    expect(seen.url.path, contains('gemini-2.5-flash:generateContent'));
+    expect(seen.url.path, contains('gemini-flash-latest:generateContent'));
     final body = jsonDecode(seen.body) as Map<String, dynamic>;
     final parts = (body['contents'] as List).first['parts'] as List;
     expect(parts.first['text'], contains('never a person'));

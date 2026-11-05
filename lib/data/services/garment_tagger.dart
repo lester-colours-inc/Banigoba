@@ -29,7 +29,7 @@ class GeminiGarmentTagger implements GarmentTagger {
   static const String _compiledKey = String.fromEnvironment('GEMINI_API_KEY');
 
   /// A fast, cheap vision model: one small question per photo.
-  static const String defaultModel = 'gemini-2.5-flash';
+  static const String defaultModel = 'gemini-flash-latest';
 
   static const Duration _timeout = Duration(seconds: 25);
   static const int _maxBytes = 6 * 1024 * 1024;
