@@ -1,0 +1,605 @@
+diff --git a/lib/data/utils/garment_taxonomy.dart b/lib/data/utils/garment_taxonomy.dart
+new file mode 100644
+index 0000000..caa5cc6
+--- /dev/null
++++ b/lib/data/utils/garment_taxonomy.dart
+@@ -0,0 +1,145 @@
++// Shared helpers for classifying a catalog product into a garment group.
++//
++// Product `category` / `subcategory` come from seller input and seeded catalog
++// data, so they are free text rather than a closed enum. The try-on picker, the
++// daily dress-up picker, and the avatar try-on page all need to agree on which
++// slot a product occupies — a top and a one-piece dress cannot both be worn in
++// the same layer. Keeping the matching here stops those three surfaces from
++// drifting apart.
++
++/// Garment slots a product can occupy, in layering order.
++const garmentGroups = <String>[
++  'dresses',
++  'tops',
++  'bottoms',
++  'outerwear',
++  'accessories',
++  'other',
++];
++
++/// Keyword groups are tested in this order, so the first match wins.
++///
++/// `dresses` deliberately stays first: a "shirt dress" or "sweater dress" is a
++/// one-piece dress, not a top. Compound terms where `dress` instead *modifies*
++/// another garment ("dress shirt", "dress pants") are resolved before this
++/// cascade runs — see [garmentGroupForText].
++const _groupKeywords = <String, List<String>>{
++  'dresses': ['dress', 'gown', 'jumpsuit', 'romper', 'one piece', 'onepiece'],
++  'outerwear': [
++    'outerwear',
++    'jacket',
++    'blazer',
++    'coat',
++    'hoodie',
++    'cardigan',
++    'parka',
++  ],
++  'bottoms': [
++    'bottom',
++    'pant',
++    'trouser',
++    'jean',
++    'shorts',
++    'skirt',
++    'legging',
++    'jogger',
++    'chino',
++  ],
++  'accessories': [
++    'accessor',
++    'bag',
++    'purse',
++    'hat',
++    // Plural only: a bare 'cap' would also swallow "capris".
++    'caps',
++    'glass',
++    'watch',
++    'jewel',
++    'necklace',
++    'earring',
++    'bracelet',
++    'scarf',
++    'belt',
++    'shoe',
++    'boot',
++    'sneaker',
++    'heel',
++    'sandal',
++    'loafer',
++    'sock',
++  ],
++  'tops': [
++    'top',
++    'shirt',
++    'tee',
++    'tank',
++    'blouse',
++    'polo',
++    'sweatshirt',
++    'sweater',
++    'jumper',
++    'camisole',
++  ],
++};
++
++/// Matches `dress` (or `dresses`) used as a modifier — i.e. directly followed
++/// by another word, as in "dress shirt" rather than "maxi dress".
++final _dressModifier = RegExp(r'\bdress(?:es)?\s+');
++
++/// Classifies [product] by its `category` and `subcategory` fields.
++String garmentGroupForProduct(Map<String, dynamic> product) {
++  return garmentGroupForText(
++    '${product['category'] ?? ''} ${product['subcategory'] ?? ''}',
++  );
++}
++
++/// Classifies free-text category wording into one of [garmentGroups].
++String garmentGroupForText(String value) {
++  final text = _normalize(value);
++  if (text.isEmpty) return 'other';
++
++  // "dress shirt" is a top and "dress shoes" are footwear, so when `dress`
++  // modifies a following noun, classify by that noun instead. Only trust the
++  // stripped reading when it actually names a garment — that keeps wording like
++  // "dress for summer" a dress.
++  final stripped = text.replaceFirst(_dressModifier, '');
++  if (stripped != text) {
++    final modified = _firstKeywordMatch(stripped);
++    if (modified != null) return modified;
++  }
++
++  return _firstKeywordMatch(text) ?? 'other';
++}
++
++/// Maps a garment group onto the category the FASHN try-on API expects.
++///
++/// Outerwear is sent as `tops` because FASHN layers it on the upper body; any
++/// group it cannot fit (accessories, unknown wording) falls back to `auto`.
++String fashnCategoryForGroup(String group) {
++  switch (group) {
++    case 'dresses':
++      return 'one-pieces';
++    case 'bottoms':
++      return 'bottoms';
++    case 'tops':
++    case 'outerwear':
++      return 'tops';
++    default:
++      return 'auto';
++  }
++}
++
++String? _firstKeywordMatch(String text) {
++  for (final entry in _groupKeywords.entries) {
++    for (final keyword in entry.value) {
++      if (text.contains(keyword)) return entry.key;
++    }
++  }
++  return null;
++}
++
++/// Lowercases and reduces punctuation to single spaces so that hyphenated and
++/// spaced wording ("one-piece" / "one piece") match the same keywords.
++String _normalize(String value) {
++  return value.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), ' ').trim();
++}
+diff --git a/lib/ui/screens/main/daily_dress_up_page.dart b/lib/ui/screens/main/daily_dress_up_page.dart
+index f586e5a..7983adc 100644
+--- a/lib/ui/screens/main/daily_dress_up_page.dart
++++ b/lib/ui/screens/main/daily_dress_up_page.dart
+@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
+ import 'package:flutter/material.dart';
+ import '../../../data/models/post.dart';
+ import '../../../data/services/weather_service.dart';
++import '../../../data/utils/garment_taxonomy.dart';
+ import '../../../data/services/notification_service.dart';
+ import '../../../data/services/post_service.dart';
+ import '../../../data/services/friend_service.dart';
+@@ -380,7 +381,7 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
+                                       .where(
+                                         (item) =>
+                                             (selectedGroup == 'all' ||
+-                                                _tryOnGroup(item) ==
++                                                garmentGroupForProduct(item) ==
+                                                     selectedGroup) &&
+                                             _productImageUrl(item).isNotEmpty,
+                                       )
+@@ -607,7 +608,8 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
+         arguments: {
+           'products': products,
+           'category':
+-              (products.first['category'] ?? _tryOnGroup(products.first))
++              (products.first['category'] ??
++                      garmentGroupForProduct(products.first))
+                   .toString(),
+         },
+       );
+@@ -673,7 +675,7 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
+           'products': selectedProducts,
+           'category':
+               (selectedProducts.first['category'] ??
+-                      _tryOnGroup(selectedProducts.first))
++                      garmentGroupForProduct(selectedProducts.first))
+                   .toString(),
+           'sourcePostId': post.id,
+           'sourceOutfitId': post.outfitId,
+@@ -742,55 +744,6 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
+     );
+   }
+ 
+-  String _tryOnGroup(Map<String, dynamic> product) {
+-    final category = (product['category'] ?? '').toString().toLowerCase();
+-    final subcategory = (product['subcategory'] ?? '').toString().toLowerCase();
+-    final value = '$category $subcategory';
+-
+-    if (value.contains('accessor') ||
+-        value.contains('hat') ||
+-        value.contains('cap') ||
+-        value.contains('glass') ||
+-        value.contains('bag') ||
+-        value.contains('jewel') ||
+-        value.contains('watch')) {
+-      return 'accessories';
+-    }
+-    if (value.contains('dress') ||
+-        value.contains('jumpsuit') ||
+-        value.contains('one-piece')) {
+-      return 'dresses';
+-    }
+-    if (value.contains('outerwear') ||
+-        value.contains('jacket') ||
+-        value.contains('blazer') ||
+-        value.contains('coat') ||
+-        value.contains('hoodie') ||
+-        value.contains('cardigan')) {
+-      return 'outerwear';
+-    }
+-    if (value.contains('bottom') ||
+-        value.contains('trouser') ||
+-        value.contains('pants') ||
+-        value.contains('jean') ||
+-        value.contains('short') ||
+-        value.contains('skirt') ||
+-        value.contains('legging') ||
+-        value.contains('jogger')) {
+-      return 'bottoms';
+-    }
+-    if (value.contains('top') ||
+-        value.contains('shirt') ||
+-        value.contains('tee') ||
+-        value.contains('tank') ||
+-        value.contains('blouse') ||
+-        value.contains('polo') ||
+-        value.contains('sweatshirt')) {
+-      return 'tops';
+-    }
+-    return 'other';
+-  }
+-
+   String _tryOnGroupLabel(String group) {
+     switch (group) {
+       case 'accessories':
+@@ -811,7 +764,7 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
+   }
+ 
+   String _tryOnSelectionKey(Map<String, dynamic> product) {
+-    final group = _tryOnGroup(product);
++    final group = garmentGroupForProduct(product);
+     if (group != 'accessories') return group;
+ 
+     final imageUrl = _productImageUrl(product);
+@@ -830,7 +783,7 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
+     Map<String, Map<String, dynamic>> selectedProducts,
+     Map<String, dynamic> product,
+   ) {
+-    final group = _tryOnGroup(product);
++    final group = garmentGroupForProduct(product);
+     if (group == 'accessories') {
+       selectedProducts[_tryOnSelectionKey(product)] = product;
+       return;
+@@ -853,7 +806,7 @@ class _DailyDressUpPageState extends State<DailyDressUpPage> {
+     Set<String> groups,
+   ) {
+     selectedProducts.removeWhere(
+-      (_, product) => groups.contains(_tryOnGroup(product)),
++      (_, product) => groups.contains(garmentGroupForProduct(product)),
+     );
+   }
+ 
+diff --git a/lib/ui/screens/makeover/avatar_try_on_page.dart b/lib/ui/screens/makeover/avatar_try_on_page.dart
+index bbba0df..a2f4002 100644
+--- a/lib/ui/screens/makeover/avatar_try_on_page.dart
++++ b/lib/ui/screens/makeover/avatar_try_on_page.dart
+@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
+ 
+ import '../../../data/services/outfit_service.dart';
+ import '../../../data/services/photo_edit_api.dart';
++import '../../../data/utils/garment_taxonomy.dart';
+ import '../../widgets/safe_product_image.dart';
+ import 'ai_upload_page.dart';
+ import '../main/main_screen.dart';
+@@ -194,9 +195,7 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
+         final results = await PhotoEditApi(apiKey: _apiKey).tryOnClothes(
+           modelImageUrl: currentAvatarUrl,
+           garmentImageUrl: garmentUrl,
+-          category: _fashnCategory(
+-            (product['category'] ?? product['subcategory']).toString(),
+-          ),
++          category: fashnCategoryForGroup(garmentGroupForProduct(product)),
+         );
+         if (results.isEmpty) {
+           throw Exception(
+@@ -236,56 +235,13 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
+     };
+     final sorted = [...products];
+     sorted.sort(
+-      (a, b) => (order[_productGroup(a)] ?? 4).compareTo(
+-        order[_productGroup(b)] ?? 4,
++      (a, b) => (order[garmentGroupForProduct(a)] ?? 4).compareTo(
++        order[garmentGroupForProduct(b)] ?? 4,
+       ),
+     );
+     return sorted;
+   }
+ 
+-  String _productGroup(Map<String, dynamic> product) {
+-    final value = '${product['category'] ?? ''} ${product['subcategory'] ?? ''}'
+-        .toLowerCase();
+-    if (value.contains('dress') ||
+-        value.contains('jumpsuit') ||
+-        value.contains('one-piece')) {
+-      return 'dresses';
+-    }
+-    if (value.contains('outerwear') ||
+-        value.contains('jacket') ||
+-        value.contains('blazer') ||
+-        value.contains('coat') ||
+-        value.contains('hoodie') ||
+-        value.contains('cardigan')) {
+-      return 'outerwear';
+-    }
+-    if (value.contains('bottom') ||
+-        value.contains('pants') ||
+-        value.contains('trouser') ||
+-        value.contains('jean') ||
+-        value.contains('short') ||
+-        value.contains('skirt')) {
+-      return 'bottoms';
+-    }
+-    if (value.contains('accessor') ||
+-        value.contains('bag') ||
+-        value.contains('hat') ||
+-        value.contains('watch') ||
+-        value.contains('jewel')) {
+-      return 'accessories';
+-    }
+-    if (value.contains('top') ||
+-        value.contains('shirt') ||
+-        value.contains('tee') ||
+-        value.contains('tank') ||
+-        value.contains('blouse') ||
+-        value.contains('polo') ||
+-        value.contains('sweatshirt')) {
+-      return 'tops';
+-    }
+-    return 'other';
+-  }
+-
+   String _productImageUrl(Map<String, dynamic> product) {
+     const fields = [
+       'rawImageUrl',
+@@ -417,31 +373,6 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
+     });
+   }
+ 
+-  String _fashnCategory(String? value) {
+-    final category = value?.toLowerCase() ?? '';
+-    if (category.contains('bottom') ||
+-        category.contains('pants') ||
+-        category.contains('trouser') ||
+-        category.contains('skirt')) {
+-      return 'bottoms';
+-    }
+-    if (category.contains('dress') ||
+-        category.contains('jumpsuit') ||
+-        category.contains('one-piece')) {
+-      return 'one-pieces';
+-    }
+-    if (category.contains('top') ||
+-        category.contains('shirt') ||
+-        category.contains('jacket') ||
+-        category.contains('outerwear') ||
+-        category.contains('blazer') ||
+-        category.contains('coat') ||
+-        category.contains('hoodie')) {
+-      return 'tops';
+-    }
+-    return 'auto';
+-  }
+-
+   Future<void> _createOrUpdateAvatar() async {
+     await Navigator.of(context).push(
+       MaterialPageRoute(
+diff --git a/lib/ui/widgets/try_on_product_picker.dart b/lib/ui/widgets/try_on_product_picker.dart
+index 540f88b..3327778 100644
+--- a/lib/ui/widgets/try_on_product_picker.dart
++++ b/lib/ui/widgets/try_on_product_picker.dart
+@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
+ import 'package:flutter/material.dart';
+ 
+ import '../../data/services/product_service.dart';
++import '../../data/utils/garment_taxonomy.dart';
+ import 'safe_product_image.dart';
+ 
+ Future<List<Map<String, dynamic>>?> showTryOnProductPicker(
+@@ -164,7 +165,7 @@ Future<List<Map<String, dynamic>>?> showTryOnProductPicker(
+                             .where(
+                               (product) =>
+                                   category == 'all' ||
+-                                  _productGroup(product) == category,
++                                  garmentGroupForProduct(product) == category,
+                             )
+                             .toList();
+                         if (products.isEmpty) {
+@@ -307,53 +308,8 @@ Future<List<Map<String, dynamic>>?> showTryOnProductPicker(
+   );
+ }
+ 
+-String _productGroup(Map<String, dynamic> product) {
+-  final value = '${product['category'] ?? ''} ${product['subcategory'] ?? ''}'
+-      .toLowerCase();
+-  if (value.contains('accessor') ||
+-      value.contains('bag') ||
+-      value.contains('hat') ||
+-      value.contains('cap') ||
+-      value.contains('glass') ||
+-      value.contains('watch') ||
+-      value.contains('jewel')) {
+-    return 'accessories';
+-  }
+-  if (value.contains('dress') ||
+-      value.contains('jumpsuit') ||
+-      value.contains('one-piece')) {
+-    return 'dresses';
+-  }
+-  if (value.contains('outerwear') ||
+-      value.contains('jacket') ||
+-      value.contains('blazer') ||
+-      value.contains('coat') ||
+-      value.contains('hoodie') ||
+-      value.contains('cardigan')) {
+-    return 'outerwear';
+-  }
+-  if (value.contains('bottom') ||
+-      value.contains('pants') ||
+-      value.contains('trouser') ||
+-      value.contains('jean') ||
+-      value.contains('short') ||
+-      value.contains('skirt')) {
+-    return 'bottoms';
+-  }
+-  if (value.contains('top') ||
+-      value.contains('shirt') ||
+-      value.contains('tee') ||
+-      value.contains('tank') ||
+-      value.contains('blouse') ||
+-      value.contains('polo') ||
+-      value.contains('sweatshirt')) {
+-    return 'tops';
+-  }
+-  return 'other';
+-}
+-
+ String _selectionKey(Map<String, dynamic> product) {
+-  final group = _productGroup(product);
++  final group = garmentGroupForProduct(product);
+   if (group != 'accessories') return group;
+ 
+   final imageUrl = _imageUrl(product);
+@@ -372,7 +328,7 @@ void _addProductToSelection(
+   Map<String, Map<String, dynamic>> selected,
+   Map<String, dynamic> product,
+ ) {
+-  final group = _productGroup(product);
++  final group = garmentGroupForProduct(product);
+   if (group == 'accessories') {
+     selected[_selectionKey(product)] = product;
+     return;
+@@ -394,7 +350,9 @@ void _removeSelectedGroups(
+   Map<String, Map<String, dynamic>> selected,
+   Set<String> groups,
+ ) {
+-  selected.removeWhere((_, product) => groups.contains(_productGroup(product)));
++  selected.removeWhere(
++    (_, product) => groups.contains(garmentGroupForProduct(product)),
++  );
+ }
+ 
+ String _imageUrl(Map<String, dynamic> product) {
+diff --git a/test/services/garment_taxonomy_test.dart b/test/services/garment_taxonomy_test.dart
+new file mode 100644
+index 0000000..9ca1d22
+--- /dev/null
++++ b/test/services/garment_taxonomy_test.dart
+@@ -0,0 +1,115 @@
++// Protects the shared garment classification used by the try-on picker, the
++// daily dress-up picker, and the avatar try-on page. Compound wording like
++// "dress shirt" must not be read as a one-piece dress, because that decides
++// both the outfit slot and the category sent to the FASHN try-on API.
++import 'package:banigoba/data/utils/garment_taxonomy.dart';
++import 'package:flutter_test/flutter_test.dart';
++
++void main() {
++  group('compound "dress" wording', () {
++    test('classifies dress shirts as tops, not dresses', () {
++      expect(garmentGroupForText('dress shirt'), 'tops');
++      expect(garmentGroupForText('Dress Shirts'), 'tops');
++      expect(garmentGroupForText('mens dress shirt'), 'tops');
++    });
++
++    test('classifies dress pants and trousers as bottoms', () {
++      expect(garmentGroupForText('dress pants'), 'bottoms');
++      expect(garmentGroupForText('dress trousers'), 'bottoms');
++      expect(garmentGroupForText('Dress Trouser'), 'bottoms');
++    });
++
++    test('classifies dress shoes as accessories', () {
++      expect(garmentGroupForText('dress shoes'), 'accessories');
++      expect(garmentGroupForText('dress boots'), 'accessories');
++    });
++
++    test('keeps plain and modified dresses as dresses', () {
++      expect(garmentGroupForText('dress'), 'dresses');
++      expect(garmentGroupForText('dresses'), 'dresses');
++      expect(garmentGroupForText('sundress'), 'dresses');
++      expect(garmentGroupForText('maxi dress'), 'dresses');
++      expect(garmentGroupForText('jumpsuit'), 'dresses');
++      expect(garmentGroupForText('one-piece'), 'dresses');
++    });
++
++    test('keeps garment-noun-then-dress wording as dresses', () {
++      // A shirt dress really is a one-piece dress, unlike a dress shirt.
++      expect(garmentGroupForText('shirt dress'), 'dresses');
++      expect(garmentGroupForText('sweater dress'), 'dresses');
++    });
++
++    test('falls back to dresses when "dress" modifies a non-garment word', () {
++      expect(garmentGroupForText('dress for summer'), 'dresses');
++      expect(garmentGroupForText('dresses on sale'), 'dresses');
++    });
++  });
++
++  group('plain category wording', () {
++    test('classifies each seller-selectable category', () {
++      expect(garmentGroupForText('tops shirts'), 'tops');
++      expect(garmentGroupForText('bottoms jeans'), 'bottoms');
++      expect(garmentGroupForText('outerwear blazers'), 'outerwear');
++      expect(garmentGroupForText('accessories hats'), 'accessories');
++      expect(garmentGroupForText('dresses none'), 'dresses');
++    });
++
++    test('classifies unknown and blank wording as other', () {
++      expect(garmentGroupForText(''), 'other');
++      expect(garmentGroupForText('   '), 'other');
++      expect(garmentGroupForText('gift card'), 'other');
++    });
++
++    test('does not read "capris" as a cap accessory', () {
++      expect(garmentGroupForText('capri pants'), 'bottoms');
++    });
++  });
++
++  group('garmentGroupForProduct', () {
++    test('combines category and subcategory before matching', () {
++      expect(
++        garmentGroupForProduct({'category': 'dress', 'subcategory': 'shirt'}),
++        'tops',
++      );
++      expect(
++        garmentGroupForProduct({'category': 'tops', 'subcategory': 'none'}),
++        'tops',
++      );
++    });
++
++    test('classifies missing category fields as other', () {
++      expect(garmentGroupForProduct({}), 'other');
++      expect(
++        garmentGroupForProduct({'category': null, 'subcategory': null}),
++        'other',
++      );
++    });
++  });
++
++  group('fashnCategoryForGroup', () {
++    test('maps wearable groups onto FASHN categories', () {
++      expect(fashnCategoryForGroup('dresses'), 'one-pieces');
++      expect(fashnCategoryForGroup('bottoms'), 'bottoms');
++      expect(fashnCategoryForGroup('tops'), 'tops');
++      expect(fashnCategoryForGroup('outerwear'), 'tops');
++    });
++
++    test('falls back to auto for groups FASHN cannot place', () {
++      expect(fashnCategoryForGroup('accessories'), 'auto');
++      expect(fashnCategoryForGroup('other'), 'auto');
++      expect(fashnCategoryForGroup('unknown'), 'auto');
++    });
++
++    test('sends a dress shirt to FASHN as a top, not a one-piece', () {
++      final product = {'category': 'dress shirt', 'subcategory': 'none'};
++
++      expect(fashnCategoryForGroup(garmentGroupForProduct(product)), 'tops');
++    });
++
++    test('sends dress pants to FASHN as bottoms', () {
++      final product = {'category': 'dress pants', 'subcategory': 'none'};
++
++      expect(fashnCategoryForGroup(garmentGroupForProduct(product)), 'bottoms');
++    });
++  });
++}
