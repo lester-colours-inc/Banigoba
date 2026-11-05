@@ -410,3 +410,6 @@ import_map = "./functions/deno.json"
 
 [functions.generate-makeover]
 import_map = "./functions/deno.json"
+
+[functions.delete-account]
+import_map = "./functions/deno.json"

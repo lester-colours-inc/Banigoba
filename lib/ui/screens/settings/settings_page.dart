@@ -23,6 +23,7 @@ import '../onboarding/style_preferences_screen.dart';
 import '../../widgets/profile_photo_changer.dart';
 import '../../../data/services/username_service.dart';
 import '../onboarding/username_screen.dart';
+import 'privacy_safety_section.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -593,6 +594,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     const Text(
                       'Password is managed by your social sign-in provider.',
                     ),
+                  const PrivacySafetySection(),
                 ],
               ),
             ),

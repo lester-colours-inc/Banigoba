@@ -14,6 +14,7 @@
 //
 // There is no product catalogue here: people see themselves first and buy
 // afterwards ("Find pieces", then "Get this look" in Phase 5).
+import '../../widgets/ai_photo_consent.dart';
 import '../../../core/supabase/app_auth.dart';
 import 'dart:async';
 import 'dart:typed_data';
@@ -62,7 +63,11 @@ class MakeoverPage extends StatefulWidget {
     this.initialMethod,
     this.initialIdolName,
     this.loadBodyProfile,
+    this.confirmAiUse = ensureAiPhotoConsent,
   });
+
+  /// Asks before photos go to the AI (App Store 5.1.2); injected in tests.
+  final Future<bool> Function(BuildContext context) confirmAiUse;
 
   /// Injected in tests; defaults to Gemini.
   final LookGenerationService? generationService;
@@ -432,6 +437,7 @@ class _MakeoverPageState extends State<MakeoverPage> {
     final request = _activeRequest;
     final part = session?.currentPart;
     if (session == null || request == null || part == null) return;
+    if (!await widget.confirmAiUse(context) || !mounted) return;
 
     final runId = ++_runId;
     _ticker?.cancel();

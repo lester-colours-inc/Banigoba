@@ -1,5 +1,6 @@
 // Generates a clothing try-on using the signed-in user's saved avatar.
 
+import '../../widgets/ai_photo_consent.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
 import '../../../core/supabase/app_auth.dart';
 import '../../../data/services/storage_service.dart';
@@ -286,6 +287,7 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
   /// Makes the right side, back and left views of [provider]'s look, showing
   /// each as soon as it is ready. Uses Gemini, whatever engine made the look.
   Future<void> _turnAround(TryOnProvider provider) async {
+    if (!await ensureAiPhotoConsent(context) || !mounted) return;
     final frontUrl = _results[provider];
     final avatarUrl = _avatarImageUrl;
     final user = AppAuth.instance.currentUser;
@@ -423,6 +425,7 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
   /// Gemini takes the avatar and every garment in one call and returns raw
   /// bytes, so the result is uploaded before it can be shown or saved.
   Future<void> _generateWithGemini() async {
+    if (!await ensureAiPhotoConsent(context) || !mounted) return;
     final inputs = _generationInputs(
       apiKey: _geminiApiKey,
       keyName: 'GEMINI_API_KEY',

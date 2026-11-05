@@ -58,6 +58,7 @@ Future<_FakeGenerator> _pumpPage(
         initialTwinUrl: initialTwinUrl,
         initialIdolName: initialIdolName,
         loadBodyProfile: () async => const BodyProfile(),
+        confirmAiUse: (_) async => true,
         generationService: LookGenerationService(
           generator: generator,
           // A distinct URL per result, so each step's base can be checked.

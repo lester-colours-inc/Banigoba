@@ -16,6 +16,8 @@
 // UNCLEAR: this class is still called DailyDressUpPage although it is Home.
 // Daily Dress Up is meant to be a separate feature whose role after the
 // review is undecided; rename once that is settled.
+import '../../../data/services/safety_service.dart';
+import '../../widgets/safety_actions.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
 import 'dart:async';
 
@@ -99,6 +101,7 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
       initialIndex: (_takeFeedRequest() ?? HomeFeed.myMakeover).index,
     )..addListener(_unfoldFab);
     DailyDressUpPage._feedRequests.addListener(_handleFeedRequest);
+    SafetyService.instance.blockedIds.addListener(_onBlockedChanged);
     final userId = AppAuth.instance.currentUser?.uid;
     if (userId != null) {
       _visiblePostsSub =
@@ -138,8 +141,13 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
     }
   }
 
+  void _onBlockedChanged() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void dispose() {
+    SafetyService.instance.blockedIds.removeListener(_onBlockedChanged);
     unawaited(_followingSub?.cancel());
     unawaited(_savedPostsSub?.cancel());
     unawaited(_visiblePostsSub?.cancel());
@@ -1151,7 +1159,11 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
     final isMyMakeover = feed == HomeFeed.myMakeover;
     final candidates = visiblePosts.where(
       (post) =>
-          !post.isDressUp && (isMyMakeover || post.authorId != currentUserId),
+          !post.isDressUp &&
+          (isMyMakeover || post.authorId != currentUserId) &&
+          // Blocked people vanish at once; the database also hides them.
+          !SafetyService.instance.isBlocked(post.authorId) &&
+          !SafetyService.instance.isBlocked(post.repostOfAuthorId),
     );
     // People I follow first, then people in my city, then everyone (A-5).
     final ranked = rankPosts(
@@ -1394,6 +1406,29 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
             isDestructive: true,
             onSelected: () => _deletePost(post),
           ),
+        // Report and block, on everyone else's looks (App Store 1.2).
+        if (!isOwner) ...[
+          DressUpMenuItem(
+            icon: Icons.flag_outlined,
+            label: 'Report look',
+            onSelected: () => showReportSheet(
+              context,
+              subject: 'look',
+              onReport: (reason) =>
+                  SafetyService.instance.reportPost(post.id, reason),
+            ),
+          ),
+          DressUpMenuItem(
+            icon: Icons.person_off_outlined,
+            label: 'Block ${author.displayName}',
+            isDestructive: true,
+            onSelected: () => confirmBlock(
+              context,
+              userId: post.authorId,
+              name: author.displayName,
+            ),
+          ),
+        ],
       ],
       trailingAction: DressUpCardAction(
         icon: Icons.share_outlined,

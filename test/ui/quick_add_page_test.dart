@@ -61,6 +61,7 @@ Future<_FakeSaver> _open(
         saver: fake,
         pickPhoto: (_) async => _png,
         tagger: tagger ?? _FakeTagger(),
+        confirmAiUse: (_) async => true,
       ),
     ),
   );

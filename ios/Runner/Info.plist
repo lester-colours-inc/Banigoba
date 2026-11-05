@@ -59,19 +59,15 @@
 		<key>LSRequiresIPhoneOS</key>
 		<true/>
 		<key>NSCameraUsageDescription</key>
-		<string>This app needs camera access when you choose to create or update your avatar photo.</string>
+		<string>Banigoba uses the camera when you choose to photograph your clothes, your profile picture or yourself for try-ons.</string>
 		<key>NSPhotoLibraryUsageDescription</key>
-		<string>This app needs photo library access so you can upload images for the AI makeover.</string>
+		<string>Banigoba uses your photo library when you choose photos of your clothes or yourself to add to your wardrobe, looks and try-ons.</string>
 		<key>NSPhotoLibraryAddUsageDescription</key>
-		<string>This app needs photo library permission to save and share your AI makeover results.</string>
+		<string>Banigoba saves the makeovers and looks you choose to download to your photo library.</string>
 		<key>NSLocationWhenInUseUsageDescription</key>
-		<string>This app needs location access to provide weather-based clothing recommendations.</string>
-		<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-		<string>This app needs location access to provide weather-based clothing recommendations even when in background.</string>
-		<key>NSLocationAlwaysUsageDescription</key>
-		<string>This app needs location access to provide weather-based clothing recommendations even when in background.</string>
+		<string>Banigoba uses your approximate location while you use the app to suggest outfits for the local weather and show people and shops near you.</string>
 		<key>NSMicrophoneUsageDescription</key>
-		<string>This app needs microphone access for video recording features.</string>
+		<string>Banigoba uses the microphone only if you record a video with the camera.</string>
 		<key>UIApplicationSceneManifest</key>
 		<dict>
 			<key>UIApplicationSupportsMultipleScenes</key>

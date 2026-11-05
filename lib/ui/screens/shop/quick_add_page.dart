@@ -3,6 +3,7 @@
 // "Add to my shop"; everything else the full form asks for gets a default and
 // can be edited later. Built for adding many pieces in a row, so after each one
 // the screen clears and keeps the kind.
+import '../../widgets/ai_photo_consent.dart';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -68,9 +69,13 @@ class QuickAddPage extends StatefulWidget {
     QuickAddSaver? saver,
     PickPhoto? pickPhoto,
     GarmentTagger? tagger,
+    this.confirmAiUse = ensureAiPhotoConsent,
   }) : _saver = saver,
        _pickPhoto = pickPhoto,
        _tagger = tagger;
+
+  /// Asks before photos go to the AI (App Store 5.1.2); injected in tests.
+  final Future<bool> Function(BuildContext context) confirmAiUse;
 
   final QuickAddSaver? _saver;
   final PickPhoto? _pickPhoto;
@@ -142,6 +147,7 @@ class _QuickAddPageState extends State<QuickAddPage> {
   /// has already chosen them. Never blocks adding the piece by hand.
   Future<void> _suggestFromPhoto(Uint8List bytes) async {
     if (!_tagger.isConfigured) return;
+    if (!await widget.confirmAiUse(context) || !mounted) return;
     final tags = await _tagger.tag(bytes);
     if (tags == null || !mounted || _photo != bytes) return;
     final suggested = tags.category == null

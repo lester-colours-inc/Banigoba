@@ -1,6 +1,7 @@
 // What the guided first run (see first_run_guide_screen.dart) really does at
 // each step: save a photo, ask for style preferences, add wardrobe pieces from
 // photos (the AI fills in the details), and open the makeover.
+import '../../widgets/ai_photo_consent.dart';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -100,9 +101,12 @@ class AppGuideActions implements GuideActions {
     if (bytes == null) return false;
     // Let the AI describe it; with no answer the piece is still added with
     // plain defaults, and everything can be edited in the wardrobe later.
+    final useAi =
+        _tagger.isConfigured &&
+        context.mounted &&
+        await ensureAiPhotoConsent(context);
     final tags =
-        (_tagger.isConfigured ? await _tagger.tag(bytes) : null) ??
-        const GarmentTags();
+        (useAi ? await _tagger.tag(bytes) : null) ?? const GarmentTags();
     final imageUrl = await _products.uploadCatalogProductImageBytes(
       userId: userId,
       bytes: bytes,

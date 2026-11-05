@@ -1,4 +1,5 @@
 // Manages the signed-in user's wardrobe, uploads, filters, and product actions.
+import '../../widgets/ai_photo_consent.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -825,6 +826,10 @@ class _WardrobePageState extends State<WardrobePage> {
                   // Then let the AI fill in the rest from the photo. Only
                   // fields the person has not touched are filled.
                   if (!_tagger.isConfigured) return;
+                  // Photos go to the AI only with permission (5.1.2).
+                  if (!mounted) return;
+                  if (!await ensureAiPhotoConsent(this.context) || !mounted)
+                    return;
                   setModalState(() => tagging = true);
                   final tags = await _tagger.tag(await image.readAsBytes());
                   if (!mounted) return;
@@ -1179,6 +1184,11 @@ class _WardrobePageState extends State<WardrobePage> {
                           ),
                         ),
                       );
+                      return;
+                    }
+                    if (!await ensureAiPhotoConsent(this.context) ||
+                        !mounted ||
+                        !context.mounted) {
                       return;
                     }
                     showDialog(

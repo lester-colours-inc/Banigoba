@@ -37,6 +37,9 @@ import '../data/services/profile_service.dart';
 import 'supabase/app_auth.dart';
 import '../data/services/username_service.dart';
 import '../ui/screens/onboarding/username_screen.dart';
+import '../ui/screens/onboarding/terms_screen.dart';
+import '../data/services/safety_service.dart';
+import '../data/services/auth_service.dart';
 
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
@@ -50,6 +53,8 @@ class _AuthGateState extends State<AuthGate> {
   bool? _onboardingDone;
   final Set<String> _permissionPromptHandledThisSession = {};
   final Map<String, Future<_PermissionGateState>> _permissionChecks = {};
+  // Whether each signed-in person has agreed to the current Terms (1.2).
+  final Map<String, Future<bool>> _termsChecks = {};
 
   // The splash stays up until the sonic logo's reveal has played, while
   // onboarding, auth and permission checks carry on underneath it.
@@ -139,6 +144,48 @@ class _AuthGateState extends State<AuthGate> {
     );
   }
 
+  Future<bool> _termsCheckFor(AppUser user) {
+    return _termsChecks.putIfAbsent(user.uid, () async {
+      unawaited(
+        SafetyService.instance.loadBlocked().catchError(
+          (Object error) => debugPrint('Unable to load blocked people: $error'),
+        ),
+      );
+      try {
+        return await SafetyService.instance.hasAcceptedTerms();
+      } on Exception catch (error) {
+        // Asked again rather than locked out when the check fails.
+        debugPrint('Unable to check Terms acceptance: $error');
+        return false;
+      }
+    });
+  }
+
+  /// [next] once [user] has agreed to the Terms; until then the Terms screen
+  /// (or the splash while checking).
+  Widget _withTerms(AppUser user, Widget Function() next) {
+    return FutureBuilder<bool>(
+      future: _termsCheckFor(user),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const BrandSplash();
+        }
+        if (snapshot.data == true) return next();
+        return _afterSplash(
+          TermsScreen(
+            onAccept: () async {
+              await SafetyService.instance.acceptTerms();
+              if (mounted) {
+                setState(() => _termsChecks[user.uid] = Future.value(true));
+              }
+            },
+            onDecline: () => AuthService().signOut(),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_onboardingDone == null) {
@@ -215,33 +262,9 @@ class _AuthGateState extends State<AuthGate> {
                   if (isProviderMode(userData)) {
                     return _afterSplash(const ProviderHomePage());
                   }
-                  // Everyone needs a unique @username (U-4). New and existing
-                  // users get one suggested from their name to confirm.
-                  if ((userData['username'] ?? '').toString().isEmpty) {
-                    final usernames = UsernameService();
-                    final name = (userData['displayName'] ?? '').toString();
-                    return _afterSplash(
-                      UsernameScreen(
-                        suggest: () => usernames.firstAvailableSuggestion(name),
-                        isAvailable: usernames.isAvailable,
-                        onClaim: (username) =>
-                            usernames.claim(userId: user.uid, input: username),
-                      ),
-                    );
-                  }
-                  // Asked once, after the account exists; the user document
-                  // stream rebuilds into Home as soon as it is answered or
-                  // skipped.
-                  if (StylePreferencesService.needsPrompt(userData)) {
-                    return _afterSplash(
-                      FirstRunGuideScreen(
-                        userId: user.uid,
-                        name: (userData['displayName'] ?? '').toString(),
-                        actions: AppGuideActions(userId: user.uid),
-                      ),
-                    );
-                  }
-                  return _afterSplash(const MainScreen());
+                  // Everyone agrees to the Terms once per version (App
+                  // Store 1.2) before seeing anyone else's looks.
+                  return _withTerms(user, () => _afterTerms(user, userData));
                 },
               );
             },
@@ -249,6 +272,8 @@ class _AuthGateState extends State<AuthGate> {
         }
 
         if (_lastUser != null) {
+          _termsChecks.remove(_lastUser!.uid);
+          SafetyService.instance.reset();
           _permissionChecks.remove(_lastUser!.uid);
           _permissionPromptHandledThisSession.remove(_lastUser!.uid);
           _lastUser = null;
@@ -257,6 +282,37 @@ class _AuthGateState extends State<AuthGate> {
         return _afterSplash(const CustomLoginScreen());
       },
     );
+  }
+
+  /// After the Terms: @username, the first-run guide, then Home.
+  Widget _afterTerms(AppUser user, Map<String, dynamic> userData) {
+    // Everyone needs a unique @username (U-4). New and existing
+    // users get one suggested from their name to confirm.
+    if ((userData['username'] ?? '').toString().isEmpty) {
+      final usernames = UsernameService();
+      final name = (userData['displayName'] ?? '').toString();
+      return _afterSplash(
+        UsernameScreen(
+          suggest: () => usernames.firstAvailableSuggestion(name),
+          isAvailable: usernames.isAvailable,
+          onClaim: (username) =>
+              usernames.claim(userId: user.uid, input: username),
+        ),
+      );
+    }
+    // Asked once, after the account exists; the user document
+    // stream rebuilds into Home as soon as it is answered or
+    // skipped.
+    if (StylePreferencesService.needsPrompt(userData)) {
+      return _afterSplash(
+        FirstRunGuideScreen(
+          userId: user.uid,
+          name: (userData['displayName'] ?? '').toString(),
+          actions: AppGuideActions(userId: user.uid),
+        ),
+      );
+    }
+    return _afterSplash(const MainScreen());
   }
 }
 

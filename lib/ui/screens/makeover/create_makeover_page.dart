@@ -13,6 +13,7 @@
 //
 // Deliberately absent: any score, rating, ranking or "best look" marker. The
 // compare step offers alternatives and an explanation of what changed.
+import '../../widgets/ai_photo_consent.dart';
 import '../../../core/supabase/app_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -187,6 +188,7 @@ class _CreateMakeoverPageState extends State<CreateMakeoverPage> {
   // ── UI-06 generation ────────────────────────────────────────────────────
 
   Future<void> _start() async {
+    if (!await ensureAiPhotoConsent(context) || !mounted) return;
     if (_isBusy) return;
     final intent = _buildIntent();
 
@@ -235,6 +237,7 @@ class _CreateMakeoverPageState extends State<CreateMakeoverPage> {
   // ── UI-08 refine one domain ─────────────────────────────────────────────
 
   Future<void> _refine(MakeoverDomain domain) async {
+    if (!await ensureAiPhotoConsent(context) || !mounted) return;
     final job = _job;
     if (job == null || _isBusy) return;
 

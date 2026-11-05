@@ -3,6 +3,8 @@
 // Laid out like the Home feed's lookbook: a cover (pastel banner, photo,
 // name), the follow controls, then the person's public looks as the same
 // studio-frame cards Home uses.
+import '../../../data/services/safety_service.dart';
+import '../../widgets/safety_actions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../core/app_routes.dart';
@@ -129,6 +131,41 @@ class ProfilePage extends StatelessWidget {
                       onPressed: () => AuthService().signOut(),
                     ),
                   ],
+                  // Report or block this person (App Store 1.2).
+                  if (!isMe)
+                    PopupMenuButton<String>(
+                      key: const ValueKey('profile_safety_menu'),
+                      tooltip: 'More options',
+                      onSelected: (action) async {
+                        if (action == 'report') {
+                          await showReportSheet(
+                            context,
+                            subject: 'profile',
+                            onReport: (reason) => SafetyService.instance
+                                .reportProfile(targetUserId, reason),
+                          );
+                          return;
+                        }
+                        final blocked = await confirmBlock(
+                          context,
+                          userId: targetUserId,
+                          name: userName,
+                        );
+                        if (blocked && context.mounted) {
+                          Navigator.of(context).maybePop();
+                        }
+                      },
+                      itemBuilder: (_) => [
+                        const PopupMenuItem(
+                          value: 'report',
+                          child: Text('Report profile'),
+                        ),
+                        PopupMenuItem(
+                          value: 'block',
+                          child: Text('Block $userName'),
+                        ),
+                      ],
+                    ),
                 ],
               ),
               body: SingleChildScrollView(
