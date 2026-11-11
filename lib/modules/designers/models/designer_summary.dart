@@ -1,33 +1,30 @@
 // A designer as the lists and the detail page show them, plus the small text
 // helpers the designer screens share.
 import 'package:flutter/material.dart';
+import 'package:freezed_annotation/freezed_annotation.dart';
 
 import 'package:banigoba/modules/provider/models/portfolio_piece.dart';
+
+part 'designer_summary.freezed.dart';
 
 class DesignerColors {
   static const primary = Color(0xFF0D0140);
 }
 
-class DesignerSummary {
-  const DesignerSummary({
-    required this.id,
-    required this.name,
-    required this.bio,
-    required this.location,
-    required this.specialties,
-    required this.priceRange,
-    required this.portfolioPieces,
-    required this.avatarUrl,
-  });
+@freezed
+abstract class DesignerSummary with _$DesignerSummary {
+  const DesignerSummary._();
 
-  final String id;
-  final String name;
-  final String bio;
-  final String location;
-  final List<String> specialties;
-  final String priceRange;
-  final List<PortfolioPiece> portfolioPieces;
-  final String avatarUrl;
+  const factory DesignerSummary({
+    required String id,
+    required String name,
+    required String bio,
+    required String location,
+    required List<String> specialties,
+    required String priceRange,
+    required List<PortfolioPiece> portfolioPieces,
+    required String avatarUrl,
+  }) = _DesignerSummary;
 
   factory DesignerSummary.fromProfile(Map<String, dynamic> data) {
     final profile = Map<String, dynamic>.from(
