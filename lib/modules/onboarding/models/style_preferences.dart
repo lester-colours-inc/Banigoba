@@ -1,5 +1,8 @@
 // Optional style preferences a user gives after sign-up.
 import 'package:flutter/foundation.dart';
+import 'package:freezed_annotation/freezed_annotation.dart';
+
+part 'style_preferences.freezed.dart';
 
 /// What the user wants a makeover to change by default.
 enum MakeoverFocus {
@@ -21,12 +24,14 @@ enum MakeoverFocus {
 }
 
 /// The answers collected by [StylePreferencesScreen].
-@immutable
-class StylePreferences {
-  const StylePreferences({this.styles = const [], this.focus});
+@freezed
+abstract class StylePreferences with _$StylePreferences {
+  const StylePreferences._();
 
-  final List<String> styles;
-  final MakeoverFocus? focus;
+  const factory StylePreferences({
+    @Default([]) List<String> styles,
+    MakeoverFocus? focus,
+  }) = _StylePreferences;
 
   bool get isEmpty => styles.isEmpty && focus == null;
 }

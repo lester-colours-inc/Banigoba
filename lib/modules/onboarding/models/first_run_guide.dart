@@ -6,6 +6,9 @@ import 'package:flutter/foundation.dart';
 
 import 'package:banigoba/modules/social/models/affirmation_library.dart';
 import 'package:banigoba/modules/social/models/affirmation.dart';
+import 'package:freezed_annotation/freezed_annotation.dart';
+
+part 'first_run_guide.freezed.dart';
 
 /// The steps, in the order they are offered.
 enum GuideStep {
@@ -26,19 +29,16 @@ enum GuideStep {
 /// How many wardrobe pieces the guide asks for.
 const int kGuideWardrobeGoal = 3;
 
-@immutable
-class GuideProgress {
-  const GuideProgress({
-    this.photoDone = false,
-    this.styleDone = false,
-    this.wardrobeCount = 0,
-    this.makeoverTried = false,
-  });
+@freezed
+abstract class GuideProgress with _$GuideProgress {
+  const GuideProgress._();
 
-  final bool photoDone;
-  final bool styleDone;
-  final int wardrobeCount;
-  final bool makeoverTried;
+  const factory GuideProgress({
+    @Default(false) bool photoDone,
+    @Default(false) bool styleDone,
+    @Default(0) int wardrobeCount,
+    @Default(false) bool makeoverTried,
+  }) = _GuideProgress;
 
   bool isDone(GuideStep step) => switch (step) {
     GuideStep.photo => photoDone,
@@ -65,18 +65,6 @@ class GuideProgress {
   int get doneCount => GuideStep.values.where(isDone).length;
 
   bool get isComplete => next == null;
-
-  GuideProgress copyWith({
-    bool? photoDone,
-    bool? styleDone,
-    int? wardrobeCount,
-    bool? makeoverTried,
-  }) => GuideProgress(
-    photoDone: photoDone ?? this.photoDone,
-    styleDone: styleDone ?? this.styleDone,
-    wardrobeCount: wardrobeCount ?? this.wardrobeCount,
-    makeoverTried: makeoverTried ?? this.makeoverTried,
-  );
 }
 
 /// A kind word to end the guide with, from the universal affirmations: always
