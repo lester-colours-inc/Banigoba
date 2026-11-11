@@ -5,6 +5,7 @@ import 'package:banigoba/modules/profile_details/services/body_profile_service.d
 import 'package:banigoba/modules/profile_details/views/body_profile_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:get/get.dart';
 import 'package:toastification/toastification.dart';
 
 class _FakeStore implements BodyProfileStore {
@@ -40,7 +41,7 @@ Future<void> _open(WidgetTester tester, _FakeStore store) async {
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
     ToastificationWrapper(
-      child: MaterialApp(
+      child: GetMaterialApp(
         home: BodyProfilePage(
           store: store,
           pickImage: (_, _) async => Uint8List(100),
@@ -54,6 +55,8 @@ Future<void> _open(WidgetTester tester, _FakeStore store) async {
 Finder _field(String key) => find.byKey(ValueKey(key));
 
 void main() {
+  tearDown(Get.reset);
+
   testWidgets('shows saved details', (tester) async {
     await _open(
       tester,
@@ -152,7 +155,7 @@ void main() {
     final store = _FakeStore();
     await tester.pumpWidget(
       ToastificationWrapper(
-        child: MaterialApp(
+        child: GetMaterialApp(
           home: Builder(
             builder: (context) => TextButton(
               onPressed: () => Navigator.push(
