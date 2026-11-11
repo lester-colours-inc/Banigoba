@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:banigoba/modules/wardrobe/models/garment_tags.dart';
 import 'package:banigoba/modules/shop/models/quick_add.dart';
 import 'package:banigoba/modules/wardrobe/services/garment_tagger.dart';
+import 'package:banigoba/modules/shop/services/quick_add_saver.dart';
 import 'package:banigoba/modules/shop/views/quick_add_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';

@@ -20,6 +20,7 @@ import 'package:banigoba/modules/makeover/views/makeover_page.dart';
 import 'package:banigoba/modules/notifications/views/notifications_page.dart';
 import 'package:banigoba/modules/profile_details/views/body_profile_page.dart';
 import 'package:banigoba/modules/settings/views/settings_page.dart';
+import 'package:banigoba/modules/shop/bindings/cart_binding.dart';
 import 'package:banigoba/modules/shop/models/shop_link.dart';
 import 'package:banigoba/modules/shop/views/cart_page.dart';
 import 'package:banigoba/modules/shop/views/shared_stock_page.dart';
@@ -47,7 +48,7 @@ abstract final class AppPages {
     ),
     GetPage(name: AppRoutes.home, page: MainScreen.new),
     GetPage(name: AppRoutes.wardrobe, page: WardrobePage.new),
-    GetPage(name: AppRoutes.cart, page: CartPage.new),
+    GetPage(name: AppRoutes.cart, page: CartPage.new, binding: CartBinding()),
     GetPage(name: AppRoutes.search, page: SearchPage.new),
     GetPage(name: AppRoutes.profile, page: ProfilePage.new),
     GetPage(name: AppRoutes.avatarTryOn, page: AvatarTryOnPage.new),

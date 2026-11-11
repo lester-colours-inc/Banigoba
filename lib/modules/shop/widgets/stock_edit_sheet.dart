@@ -2,9 +2,9 @@
 // (review item K-1): a stepper per size, or one for a one-size piece. For a
 // flea-market trader who sold two and needs to say so.
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
-import 'package:banigoba/modules/shop/models/quick_add.dart';
-import 'package:banigoba/core/utils/size_inventory.dart';
+import 'package:banigoba/modules/shop/controllers/stock_edit_controller.dart';
 
 /// The new counts the trader chose: per size, or just [stock] for a one-size
 /// piece.
@@ -24,24 +24,18 @@ Future<StockEdit?> showStockEditSheet(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
-    builder: (_) => _StockEditSheet(product: product),
+    builder: (_) => GetBuilder<StockEditController>(
+      init: StockEditController(product),
+      global: false,
+      builder: (controller) => _StockEditSheet(controller: controller),
+    ),
   );
 }
 
-class _StockEditSheet extends StatefulWidget {
-  const _StockEditSheet({required this.product});
+class _StockEditSheet extends StatelessWidget {
+  const _StockEditSheet({required this.controller});
 
-  final Map<String, dynamic> product;
-
-  @override
-  State<_StockEditSheet> createState() => _StockEditSheetState();
-}
-
-class _StockEditSheetState extends State<_StockEditSheet> {
-  late Map<String, int> _sizes = parseSizeInventory(widget.product);
-  late int _stock = (widget.product['stock'] as num?)?.toInt() ?? 0;
-
-  bool get _hasSizes => _sizes.isNotEmpty;
+  final StockEditController controller;
 
   Widget _row(
     Key key,
@@ -73,8 +67,7 @@ class _StockEditSheetState extends State<_StockEditSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final name = (widget.product['name'] ?? 'this piece').toString();
-    final sizeKeys = _sizes.keys.toList();
+    final name = (controller.product['name'] ?? 'this piece').toString();
     return SafeArea(
       child: Padding(
         padding: EdgeInsets.fromLTRB(
@@ -83,47 +76,49 @@ class _StockEditSheetState extends State<_StockEditSheet> {
           20,
           20 + MediaQuery.viewInsetsOf(context).bottom,
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'How many $name are left?',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            if (_hasSizes)
-              for (final size in sizeKeys)
+        child: Obx(() {
+          final sizes = controller.sizes.value;
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'How many $name are left?',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              if (controller.hasSizes)
+                for (final size in sizes.keys)
+                  _row(
+                    ValueKey('stock_$size'),
+                    'Size $size',
+                    sizes[size]!,
+                    () => controller.adjustSize(size, -1),
+                    () => controller.adjustSize(size, 1),
+                  )
+              else
                 _row(
-                  ValueKey('stock_$size'),
-                  'Size $size',
-                  _sizes[size]!,
-                  () =>
-                      setState(() => _sizes = adjustedStock(_sizes, size, -1)),
-                  () => setState(() => _sizes = adjustedStock(_sizes, size, 1)),
-                )
-            else
-              _row(
-                const ValueKey('stock_one'),
-                'In stock',
-                _stock,
-                () => setState(() => _stock = _stock > 0 ? _stock - 1 : 0),
-                () => setState(() => _stock += 1),
+                  const ValueKey('stock_one'),
+                  'In stock',
+                  controller.stock.value,
+                  () => controller.adjustOne(-1),
+                  () => controller.adjustOne(1),
+                ),
+              const SizedBox(height: 16),
+              FilledButton(
+                key: const ValueKey('stock_save'),
+                onPressed: () => Navigator.pop(context, controller.result()),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 48),
+                ),
+                child: const Text('Save'),
               ),
-            const SizedBox(height: 16),
-            FilledButton(
-              key: const ValueKey('stock_save'),
-              onPressed: () => Navigator.pop(
-                context,
-                _hasSizes ? StockEdit(sizes: _sizes) : StockEdit(stock: _stock),
-              ),
-              style: FilledButton.styleFrom(
-                minimumSize: const Size(double.infinity, 48),
-              ),
-              child: const Text('Save'),
-            ),
-          ],
-        ),
+            ],
+          );
+        }),
       ),
     );
   }
