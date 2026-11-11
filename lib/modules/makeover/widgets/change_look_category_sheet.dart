@@ -2,6 +2,9 @@
 // Saved Looks (October 2026 review, W-6). Returns the new category, '' for
 // "no category", or null if dismissed.
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+
+import 'package:banigoba/modules/makeover/controllers/change_category_controller.dart';
 
 import 'package:banigoba/modules/wardrobe/widgets/saved_to_wardrobe_sheet.dart'
     show kStarterLookCategories;
@@ -37,7 +40,7 @@ Future<String?> showChangeLookCategorySheet(
   );
 }
 
-class ChangeLookCategorySheet extends StatefulWidget {
+class ChangeLookCategorySheet extends StatelessWidget {
   const ChangeLookCategorySheet({
     super.key,
     required this.existingCategories,
@@ -55,35 +58,18 @@ class ChangeLookCategorySheet extends StatefulWidget {
   final String subject;
 
   @override
-  State<ChangeLookCategorySheet> createState() =>
-      _ChangeLookCategorySheetState();
-}
-
-class _ChangeLookCategorySheetState extends State<ChangeLookCategorySheet> {
-  final _newCategory = TextEditingController();
-  late String _selected = widget.currentCategory.trim();
-
-  @override
-  void dispose() {
-    _newCategory.dispose();
-    super.dispose();
-  }
-
-  /// A typed new category wins over a chip.
-  String get _chosen {
-    final typed = _newCategory.text.trim();
-    return typed.isNotEmpty ? typed : _selected;
-  }
-
-  bool get _changed => _chosen != widget.currentCategory.trim();
-
-  @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final options = categoryOptions(
-      widget.existingCategories,
-      widget.currentCategory,
+    // Scoped to the sheet: built here, disposed when it closes.
+    return GetBuilder<ChangeCategoryController>(
+      init: ChangeCategoryController(currentCategory: currentCategory),
+      global: false,
+      builder: (category) => _content(context, category),
     );
+  }
+
+  Widget _content(BuildContext context, ChangeCategoryController category) {
+    final colors = Theme.of(context).colorScheme;
+    final options = categoryOptions(existingCategories, currentCategory);
     return Padding(
       padding: EdgeInsets.fromLTRB(
         20,
@@ -96,67 +82,66 @@ class _ChangeLookCategorySheetState extends State<ChangeLookCategorySheet> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Move to a ${widget.noun}',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            'Move to a $noun',
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 4),
           Text(
-            widget.currentCategory.trim().isEmpty
-                ? 'This ${widget.subject} has no ${widget.noun} yet.'
-                : 'Now in "${widget.currentCategory.trim()}".',
+            currentCategory.trim().isEmpty
+                ? 'This $subject has no $noun yet.'
+                : 'Now in "${currentCategory.trim()}".',
             style: TextStyle(color: colors.onSurfaceVariant),
           ),
           const SizedBox(height: 16),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final option in options)
+          Obx(
+            () => Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final option in options)
+                  ChoiceChip(
+                    key: ValueKey('move_category_$option'),
+                    label: Text(option),
+                    selected: category.selected.value == option,
+                    onSelected: (_) => category.choose(option),
+                  ),
                 ChoiceChip(
-                  key: ValueKey('move_category_$option'),
-                  label: Text(option),
-                  selected: _selected == option,
-                  onSelected: (_) => setState(() {
-                    _selected = option;
-                    _newCategory.clear();
-                  }),
+                  key: const ValueKey('move_category_none'),
+                  label: Text('No $noun'),
+                  avatar: const Icon(Icons.block, size: 16),
+                  selected:
+                      category.selected.value.isEmpty &&
+                      category.typed.value.trim().isEmpty,
+                  onSelected: (_) => category.choose(''),
                 ),
-              ChoiceChip(
-                key: const ValueKey('move_category_none'),
-                label: Text('No ${widget.noun}'),
-                avatar: const Icon(Icons.block, size: 16),
-                selected: _selected.isEmpty && _newCategory.text.trim().isEmpty,
-                onSelected: (_) => setState(() {
-                  _selected = '';
-                  _newCategory.clear();
-                }),
-              ),
-            ],
+              ],
+            ),
           ),
           const SizedBox(height: 12),
           TextField(
             key: const ValueKey('move_category_new'),
-            controller: _newCategory,
+            controller: category.newCategory,
             textCapitalization: TextCapitalization.sentences,
             maxLength: 30,
-            onChanged: (_) => setState(() {}),
             decoration: InputDecoration(
-              labelText: 'Or make a new ${widget.noun}',
+              labelText: 'Or make a new $noun',
               prefixIcon: const Icon(Icons.create_new_folder_outlined),
             ),
           ),
           const SizedBox(height: 8),
           SizedBox(
             width: double.infinity,
-            child: FilledButton(
-              key: const ValueKey('move_category_save'),
-              onPressed: _changed
-                  ? () => Navigator.pop(context, _chosen)
-                  : null,
-              child: Text(
-                _chosen.isEmpty
-                    ? 'Remove from ${widget.noun}'
-                    : 'Move to $_chosen',
+            child: Obx(
+              () => FilledButton(
+                key: const ValueKey('move_category_save'),
+                onPressed: category.changed
+                    ? () => Navigator.pop(context, category.chosen)
+                    : null,
+                child: Text(
+                  category.chosen.isEmpty
+                      ? 'Remove from $noun'
+                      : 'Move to ${category.chosen}',
+                ),
               ),
             ),
           ),

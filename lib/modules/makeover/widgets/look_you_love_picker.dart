@@ -5,17 +5,12 @@
 //
 // TODO(content-engine): "Trending" and "Style idols" sources need the
 // fashion-content engine (review item E-2).
-import 'package:banigoba/core/supabase/app_auth.dart';
-import 'package:banigoba/modules/social/services/profile_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
+import 'package:banigoba/modules/makeover/controllers/look_love_controller.dart';
 import 'package:banigoba/modules/social/models/post.dart';
-import 'package:banigoba/modules/social/services/affirmation_service.dart';
-import 'package:banigoba/modules/social/services/friend_service.dart';
-import 'package:banigoba/modules/wardrobe/services/outfit_service.dart';
-import 'package:banigoba/modules/style_lists/services/style_lists_service.dart';
-import 'package:banigoba/modules/social/services/visible_posts.dart';
 import 'package:banigoba/shared/widgets/app_network_image.dart';
 
 enum LookLoveSource {
@@ -143,115 +138,23 @@ Future<String?> showLookYouLovePicker(BuildContext context) {
   );
 }
 
-class _LookYouLovePicker extends StatefulWidget {
+class _LookYouLovePicker extends StatelessWidget {
   const _LookYouLovePicker({required this.controller});
 
   final ScrollController controller;
 
   @override
-  State<_LookYouLovePicker> createState() => _LookYouLovePickerState();
-}
-
-class _LookYouLovePickerState extends State<_LookYouLovePicker> {
-  final String _userId = AppAuth.instance.currentUser?.uid ?? '';
-  final FriendService _friends = FriendService();
-  late final Stream<List<Post>> _posts = watchVisiblePosts(
-    viewerId: _userId,
-    following: _friends.getFollowingIds(),
-    friends: _friends.getMutualFriendsIds(),
-  );
-  late final Stream<List<String>> _following = _friends.getFollowingIds();
-  late final Stream<List<StyleListEntry>> _twins = StyleListsService().watch(
-    _userId,
-    StyleList.twins,
-  );
-  late final Stream<List<Map<String, dynamic>>> _saved = OutfitService()
-      .watchSavedOutfits(_userId);
-  late final Stream<Set<String>> _affirmed = AffirmationService()
-      .watchAffirmedPostIds();
-
-  LookLoveSource _source = LookLoveSource.following;
-  String _category = '';
-  String _query = '';
-  final Map<String, String> _authorNames = {};
-  final Set<String> _requestedNames = {};
-
-  /// Loads "name @username" for authors, so search can match them.
-  void _loadNames(Iterable<String> authorIds) {
-    for (final id in authorIds) {
-      if (id.isEmpty || !_requestedNames.add(id)) continue;
-      ProfileService().get(id).then((data) {
-        final name = (data['displayName'] ?? '').toString();
-        final username = (data['username'] ?? '').toString();
-        if (!mounted) return;
-        setState(
-          () => _authorNames[id] = username.isEmpty ? name : '$name @$username',
-        );
-      }, onError: (Object error) => debugPrint('Name lookup failed: $error'));
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return StreamBuilder<List<Post>>(
-      stream: _posts,
-      builder: (context, posts) => StreamBuilder<List<String>>(
-        stream: _following,
-        builder: (context, following) => StreamBuilder<List<StyleListEntry>>(
-          stream: _twins,
-          builder: (context, twins) =>
-              StreamBuilder<List<Map<String, dynamic>>>(
-                stream: _saved,
-                builder: (context, saved) => StreamBuilder<Set<String>>(
-                  stream: _affirmed,
-                  builder: (context, affirmed) {
-                    final data = LookLoveData(
-                      posts: posts.data ?? const [],
-                      following: (following.data ?? const []).toSet(),
-                      twins: {for (final t in twins.data ?? const []) t.id},
-                      affirmed: affirmed.data ?? const {},
-                      saved: [
-                        for (final look in saved.data ?? const [])
-                          PickableLook(
-                            id: look['id'].toString(),
-                            imageUrl: (look['imageUrl'] ?? '').toString(),
-                            caption: (look['name'] ?? '').toString(),
-                            category: (look['category'] ?? '').toString(),
-                          ),
-                      ],
-                    );
-                    final looks = looksFor(
-                      _source,
-                      data,
-                      viewerId: _userId,
-                      category: _category,
-                      query: _query,
-                      authorNames: _authorNames,
-                    );
-                    if (_query.isNotEmpty) {
-                      _loadNames(data.posts.map((post) => post.authorId));
-                    }
-                    return _buildBody(
-                      colors,
-                      looks,
-                      savedCategories(data.saved),
-                      isLoading: !posts.hasData,
-                    );
-                  },
-                ),
-              ),
-        ),
-      ),
+    // Scoped to the sheet: built here, disposed when it closes.
+    return GetBuilder<LookLoveController>(
+      init: LookLoveController(),
+      global: false,
+      builder: (love) => _buildBody(context, love),
     );
   }
 
-  Widget _buildBody(
-    ColorScheme colors,
-    List<PickableLook> looks,
-    List<String> categories, {
-    required bool isLoading,
-  }) {
+  Widget _buildBody(BuildContext context, LookLoveController love) {
+    final colors = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -270,7 +173,7 @@ class _LookYouLovePickerState extends State<_LookYouLovePicker> {
           padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
           child: TextField(
             key: const ValueKey('look_love_search'),
-            onChanged: (value) => setState(() => _query = value),
+            onChanged: love.search,
             decoration: const InputDecoration(
               hintText: 'Search by words, category, name or @username',
               prefixIcon: Icon(Icons.search),
@@ -281,26 +184,29 @@ class _LookYouLovePickerState extends State<_LookYouLovePicker> {
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            children: [
-              for (final source in LookLoveSource.values)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: ChoiceChip(
-                    key: ValueKey('look_love_${source.name}'),
-                    label: Text(source.label),
-                    selected: source == _source,
-                    onSelected: (_) => setState(() {
-                      _source = source;
-                      _category = '';
-                    }),
+          child: Obx(
+            () => Row(
+              children: [
+                for (final source in LookLoveSource.values)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: ChoiceChip(
+                      key: ValueKey('look_love_${source.name}'),
+                      label: Text(source.label),
+                      selected: source == love.source.value,
+                      onSelected: (_) => love.selectSource(source),
+                    ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
-        if (_source == LookLoveSource.saved && categories.isNotEmpty)
-          SingleChildScrollView(
+        Obx(() {
+          final categories = love.categories;
+          if (love.source.value != LookLoveSource.saved || categories.isEmpty) {
+            return const SizedBox.shrink();
+          }
+          return SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
             child: Row(
@@ -310,50 +216,60 @@ class _LookYouLovePickerState extends State<_LookYouLovePicker> {
                     padding: const EdgeInsets.symmetric(horizontal: 4),
                     child: FilterChip(
                       label: Text(category.isEmpty ? 'All saved' : category),
-                      selected: category == _category,
-                      onSelected: (_) => setState(() => _category = category),
+                      selected: category == love.category.value,
+                      onSelected: (_) => love.category.value = category,
                     ),
                   ),
               ],
             ),
-          ),
+          );
+        }),
         const SizedBox(height: 8),
         Expanded(
-          child: isLoading && _source != LookLoveSource.saved
-              ? const Center(child: CircularProgressIndicator())
-              : looks.isEmpty
-              ? _EmptyMessage(source: _source, searching: _query.isNotEmpty)
-              : GridView.builder(
-                  controller: widget.controller,
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
-                    mainAxisSpacing: 8,
-                    crossAxisSpacing: 8,
-                    childAspectRatio: 3 / 4,
-                  ),
-                  itemCount: looks.length,
-                  itemBuilder: (context, index) {
-                    final look = looks[index];
-                    return InkWell(
-                      key: ValueKey('look_love_pick_${look.id}'),
-                      borderRadius: BorderRadius.circular(14),
-                      onTap: () => Navigator.pop(context, look.imageUrl),
-                      child: ClipRRect(
+          child: Obx(() {
+            final looks = love.looks;
+            final source = love.source.value;
+            final isLoading = !love.postsLoaded.value;
+            return isLoading && source != LookLoveSource.saved
+                ? const Center(child: CircularProgressIndicator())
+                : looks.isEmpty
+                ? _EmptyMessage(
+                    source: source,
+                    searching: love.query.value.isNotEmpty,
+                  )
+                : GridView.builder(
+                    controller: controller,
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 3,
+                          mainAxisSpacing: 8,
+                          crossAxisSpacing: 8,
+                          childAspectRatio: 3 / 4,
+                        ),
+                    itemCount: looks.length,
+                    itemBuilder: (context, index) {
+                      final look = looks[index];
+                      return InkWell(
+                        key: ValueKey('look_love_pick_${look.id}'),
                         borderRadius: BorderRadius.circular(14),
-                        child: AppNetworkImage(
-                          look.imageUrl,
-                          fit: BoxFit.cover,
-                          alignment: Alignment.topCenter,
-                          fallback: ColoredBox(
-                            color: colors.surfaceContainerHigh,
-                            child: const Icon(Icons.broken_image_outlined),
+                        onTap: () => Navigator.pop(context, look.imageUrl),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(14),
+                          child: AppNetworkImage(
+                            look.imageUrl,
+                            fit: BoxFit.cover,
+                            alignment: Alignment.topCenter,
+                            fallback: ColoredBox(
+                              color: colors.surfaceContainerHigh,
+                              child: const Icon(Icons.broken_image_outlined),
+                            ),
                           ),
                         ),
-                      ),
-                    );
-                  },
-                ),
+                      );
+                    },
+                  );
+          }),
         ),
       ],
     );

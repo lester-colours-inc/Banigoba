@@ -6,6 +6,7 @@ import 'package:banigoba/core/style/style_catalogue.dart';
 import 'package:banigoba/modules/makeover/views/makeover_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:get/get.dart';
 import 'package:toastification/toastification.dart';
 
 const _photo = 'https://example.com/me.jpg';
@@ -102,6 +103,8 @@ Future<void> _tapKey(WidgetTester tester, String key) async {
 }
 
 void main() {
+  tearDown(Get.reset);
+
   testWidgets('photo, then describe-or-a-look-you-love, then what changes', (
     tester,
   ) async {

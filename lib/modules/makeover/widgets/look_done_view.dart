@@ -1,6 +1,9 @@
 // The finished look, compared with the original photo, and what people
 // naturally do next: save or share it, find the pieces, or change something.
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+
+import 'package:banigoba/modules/makeover/controllers/look_edit_controller.dart';
 
 import 'package:banigoba/modules/provider/models/look_request.dart';
 import 'package:banigoba/modules/makeover/widgets/before_after_view.dart';
@@ -124,38 +127,24 @@ Future<LookEdit?> showLookEditSheet(
   );
 }
 
-class _LookEditSheet extends StatefulWidget {
+class _LookEditSheet extends StatelessWidget {
   const _LookEditSheet({required this.fixedPart, required this.initialPart});
 
   final LookPart? fixedPart;
   final LookPart initialPart;
 
   @override
-  State<_LookEditSheet> createState() => _LookEditSheetState();
-}
-
-class _LookEditSheetState extends State<_LookEditSheet> {
-  final TextEditingController _note = TextEditingController();
-  late LookPart _part = widget.fixedPart ?? widget.initialPart;
-
-  bool get _isTweak => widget.fixedPart != null;
-
-  @override
-  void initState() {
-    super.initState();
-    _note.addListener(() => setState(() {}));
-  }
-
-  @override
-  void dispose() {
-    _note.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final label = _part.label.toLowerCase();
-    final canApply = !_isTweak || _note.text.trim().isNotEmpty;
+    // Scoped to the sheet: built here, disposed when it closes.
+    return GetBuilder<LookEditController>(
+      init: LookEditController(fixedPart: fixedPart, initialPart: initialPart),
+      global: false,
+      builder: (edit) => _content(context, edit),
+    );
+  }
+
+  Widget _content(BuildContext context, LookEditController edit) {
+    final isTweak = edit.isTweak;
 
     return Padding(
       padding: EdgeInsets.fromLTRB(
@@ -168,51 +157,61 @@ class _LookEditSheetState extends State<_LookEditSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          MakeoverSectionTitle(
-            _isTweak ? 'Tweak the $label' : 'Edit your look',
-            subtitle: _isTweak
-                ? 'Say what to change. Everything else stays.'
-                : 'Pick one thing to change. Everything else stays.',
-          ),
-          if (!_isTweak) ...[
+          Obx(() {
+            final label = edit.part.value.label.toLowerCase();
+            return MakeoverSectionTitle(
+              isTweak ? 'Tweak the $label' : 'Edit your look',
+              subtitle: isTweak
+                  ? 'Say what to change. Everything else stays.'
+                  : 'Pick one thing to change. Everything else stays.',
+            );
+          }),
+          if (!isTweak) ...[
             const SizedBox(height: 14),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final part in LookPart.values)
-                  MakeoverPill(
-                    key: ValueKey('look_edit_part_${part.name}'),
-                    label: part.label,
-                    selected: part == _part,
-                    onTap: () => setState(() => _part = part),
-                  ),
-              ],
+            Obx(
+              () => Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final part in LookPart.values)
+                    MakeoverPill(
+                      key: ValueKey('look_edit_part_${part.name}'),
+                      label: part.label,
+                      selected: part == edit.part.value,
+                      onTap: () => edit.part.value = part,
+                    ),
+                ],
+              ),
             ),
           ],
           const SizedBox(height: 16),
           TextField(
             key: const ValueKey('look_edit_note'),
-            controller: _note,
-            autofocus: _isTweak,
+            controller: edit.note,
+            autofocus: isTweak,
             maxLength: 120,
             textCapitalization: TextCapitalization.sentences,
             decoration: InputDecoration(
-              labelText: _isTweak ? 'What should change?' : 'How? (optional)',
+              labelText: isTweak ? 'What should change?' : 'How? (optional)',
               hintText: 'e.g. make it shorter, in navy blue',
             ),
           ),
           const SizedBox(height: 8),
-          MakeoverPrimaryButton(
-            key: const ValueKey('look_edit_apply'),
-            icon: Icons.auto_awesome,
-            label: 'Change the $label',
-            onPressed: canApply
-                ? () => Navigator.pop(
-                    context,
-                    LookEdit(part: _part, note: _note.text.trim()),
-                  )
-                : null,
+          Obx(
+            () => MakeoverPrimaryButton(
+              key: const ValueKey('look_edit_apply'),
+              icon: Icons.auto_awesome,
+              label: 'Change the ${edit.part.value.label.toLowerCase()}',
+              onPressed: edit.canApply
+                  ? () => Navigator.pop(
+                      context,
+                      LookEdit(
+                        part: edit.part.value,
+                        note: edit.note.text.trim(),
+                      ),
+                    )
+                  : null,
+            ),
           ),
         ],
       ),

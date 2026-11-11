@@ -3,21 +3,16 @@
 // for anyone who can't drag. Only angles that are ready are in the turn;
 // angles still being made show as pending dots.
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
+import 'package:banigoba/modules/makeover/controllers/turn_around_controller.dart';
+
+export 'package:banigoba/modules/makeover/controllers/turn_around_controller.dart'
+    show kTurnStepPixels, turnedIndex;
 import 'package:banigoba/modules/makeover/services/turn_around_service.dart';
 import 'package:banigoba/shared/widgets/app_network_image.dart';
 
-/// How far to drag, in logical pixels, to turn one angle.
-const double kTurnStepPixels = 48;
-
-/// The index reached after [steps] turns from [current] in a ring of
-/// [length] angles. Positive steps go forward (front, right, back, left).
-int turnedIndex(int current, int length, int steps) {
-  if (length <= 0) return 0;
-  return ((current + steps) % length + length) % length;
-}
-
-class TurnAroundViewer extends StatefulWidget {
+class TurnAroundViewer extends StatelessWidget {
   const TurnAroundViewer({
     super.key,
     required this.views,
@@ -35,44 +30,25 @@ class TurnAroundViewer extends StatefulWidget {
   /// Replaces the network image, for tests.
   final Widget Function(String url)? imageBuilder;
 
-  @override
-  State<TurnAroundViewer> createState() => _TurnAroundViewerState();
-}
-
-class _TurnAroundViewerState extends State<TurnAroundViewer> {
-  int _index = 0;
-  double _dragged = 0;
-
   List<TurnView> get _ready => [
     for (final view in TurnView.values)
-      if (widget.views.containsKey(view)) view,
+      if (views.containsKey(view)) view,
   ];
-
-  void _turn(int steps) {
-    final ready = _ready;
-    if (ready.length < 2) return;
-    setState(() => _index = turnedIndex(_index, ready.length, steps));
-  }
-
-  void _onDragUpdate(DragUpdateDetails details) {
-    _dragged += details.delta.dx;
-    // Dragging left turns the person forward, like spinning a turntable.
-    while (_dragged <= -kTurnStepPixels) {
-      _dragged += kTurnStepPixels;
-      _turn(1);
-    }
-    while (_dragged >= kTurnStepPixels) {
-      _dragged -= kTurnStepPixels;
-      _turn(-1);
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
+    return GetBuilder<TurnAroundController>(
+      init: TurnAroundController(),
+      global: false,
+      builder: (turn) => Obx(() => _content(context, turn)),
+    );
+  }
+
+  Widget _content(BuildContext context, TurnAroundController turn) {
     final colors = Theme.of(context).colorScheme;
     final ready = _ready;
-    final current = ready[_index.clamp(0, ready.length - 1)];
-    final url = widget.views[current]!;
+    final current = ready[turn.index.value.clamp(0, ready.length - 1)];
+    final url = views[current]!;
     final canTurn = ready.length > 1;
 
     return Column(
@@ -80,8 +56,9 @@ class _TurnAroundViewerState extends State<TurnAroundViewer> {
       children: [
         GestureDetector(
           key: const ValueKey('turn_surface'),
-          onHorizontalDragStart: (_) => _dragged = 0,
-          onHorizontalDragUpdate: _onDragUpdate,
+          onHorizontalDragStart: (_) => turn.startDrag(),
+          onHorizontalDragUpdate: (details) =>
+              turn.dragUpdate(details, ready.length),
           child: Semantics(
             label: '${current.label} view. Drag left or right to turn.',
             child: AspectRatio(
@@ -93,7 +70,7 @@ class _TurnAroundViewerState extends State<TurnAroundViewer> {
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      widget.imageBuilder?.call(url) ??
+                      imageBuilder?.call(url) ??
                           AppNetworkImage(
                             url,
                             key: ValueKey(url),
@@ -120,7 +97,7 @@ class _TurnAroundViewerState extends State<TurnAroundViewer> {
             IconButton(
               key: const ValueKey('turn_back'),
               tooltip: 'Turn the other way',
-              onPressed: canTurn ? () => _turn(-1) : null,
+              onPressed: canTurn ? () => turn.turn(-1, ready.length) : null,
               icon: const Icon(Icons.chevron_left),
             ),
             for (final view in TurnView.values)
@@ -132,11 +109,11 @@ class _TurnAroundViewerState extends State<TurnAroundViewer> {
                   shape: BoxShape.circle,
                   color: view == current
                       ? colors.primary
-                      : widget.views.containsKey(view)
+                      : views.containsKey(view)
                       ? colors.outline
                       : Colors.transparent,
                   border: Border.all(
-                    color: widget.views.containsKey(view)
+                    color: views.containsKey(view)
                         ? colors.primary
                         : colors.outlineVariant,
                   ),
@@ -145,13 +122,13 @@ class _TurnAroundViewerState extends State<TurnAroundViewer> {
             IconButton(
               key: const ValueKey('turn_forward'),
               tooltip: 'Turn',
-              onPressed: canTurn ? () => _turn(1) : null,
+              onPressed: canTurn ? () => turn.turn(1, ready.length) : null,
               icon: const Icon(Icons.chevron_right),
             ),
           ],
         ),
         Text(
-          widget.isMakingMore
+          isMakingMore
               ? '${current.label}  ·  making more angles…'
               : current.label,
           key: const ValueKey('turn_label'),

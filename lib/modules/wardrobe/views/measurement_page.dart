@@ -1,15 +1,14 @@
 // Calibrates body proportions before outfit generation and recommendations.
 import 'dart:typed_data';
 
-import 'package:banigoba/core/supabase/app_auth.dart';
-import 'package:banigoba/core/supabase/supabase_config.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
-import 'package:banigoba/modules/makeover/views/style_selection_page.dart';
+import 'package:banigoba/modules/wardrobe/controllers/measurement_controller.dart';
+import 'package:banigoba/modules/wardrobe/widgets/measurement_slider.dart';
 import 'package:banigoba/shared/widgets/app_network_image.dart';
-import 'package:banigoba/shared/widgets/app_toast.dart';
 
-class MeasurementPage extends StatefulWidget {
+class MeasurementPage extends StatelessWidget {
   const MeasurementPage({
     super.key,
     this.imageBytes,
@@ -26,139 +25,113 @@ class MeasurementPage extends StatefulWidget {
   final String? eventName;
 
   @override
-  State<MeasurementPage> createState() => _MeasurementPageState();
+  Widget build(BuildContext context) {
+    // Scoped to this page: built from its parameters, disposed with it.
+    return GetBuilder<MeasurementController>(
+      init: MeasurementController(
+        imageBytes: imageBytes,
+        imageUrl: imageUrl,
+        plannedDate: plannedDate,
+        eventId: eventId,
+        eventName: eventName,
+      ),
+      global: false,
+      builder: (controller) => _MeasurementView(controller: controller),
+    );
+  }
 }
 
-class _MeasurementPageState extends State<MeasurementPage> {
-  static final Color _primaryColor = Color(0xFF17008A);
-  double _height = 0.68;
-  double _waist = 0.48;
-  double _shoulders = 0.46;
-  bool _isSaving = false;
+class _MeasurementView extends StatelessWidget {
+  const _MeasurementView({required this.controller});
 
-  bool get _hasSourceImage =>
-      widget.imageBytes != null || widget.imageUrl != null;
-
-  Future<void> _confirmMeasurements() async {
-    if (_isSaving) return;
-    setState(() => _isSaving = true);
-
-    try {
-      final user = AppAuth.instance.currentUser;
-      if (user != null) {
-        await supabase.from('user_documents').upsert({
-          'user_id': user.uid,
-          'kind': 'bodyCalibration',
-          'id': 'latest',
-          'data': {'height': _height, 'waist': _waist, 'shoulders': _shoulders},
-        });
-      }
-
-      if (!mounted) return;
-      if (_hasSourceImage) {
-        await Navigator.pushReplacement(
-          context,
-          MaterialPageRoute<void>(
-            builder: (_) => StyleSelectionPage(
-              imageBytes: widget.imageBytes,
-              imageUrl: widget.imageUrl,
-              plannedDate: widget.plannedDate,
-              eventId: widget.eventId,
-              eventName: widget.eventName,
-            ),
-          ),
-        );
-      } else {
-        AppToast.say('Measurements saved successfully.');
-        Navigator.pop(context);
-      }
-    } catch (error) {
-      if (mounted) {
-        AppToast.say('Unable to save measurements: $error');
-      }
-    } finally {
-      if (mounted) setState(() => _isSaving = false);
-    }
-  }
+  final MeasurementController controller;
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surface,
+      backgroundColor: colors.surface,
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.surface,
+        backgroundColor: colors.surface,
         elevation: 0,
         automaticallyImplyLeading: false,
         leading: IconButton(
           tooltip: 'Back',
-          onPressed: () => Navigator.pop(context),
-          icon: Icon(
-            Icons.chevron_left_rounded,
-            color: Theme.of(context).colorScheme.onSurface,
-          ),
+          onPressed: Get.back,
+          icon: Icon(Icons.chevron_left_rounded, color: colors.onSurface),
         ),
       ),
       body: SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(22, 12, 22, 28),
+        padding: const EdgeInsets.fromLTRB(22, 12, 22, 28),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
+            const Text(
               'Analyzing Your Measurement',
               style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
             ),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
             AspectRatio(
               aspectRatio: 0.92,
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(7),
-                child: _buildSourceImage(),
+                child: _SourceImage(controller: controller),
               ),
             ),
-            SizedBox(height: 18),
-            _MeasurementSlider(
-              label: 'Height',
-              value: _height,
-              onChanged: (value) => setState(() => _height = value),
+            const SizedBox(height: 18),
+            Obx(
+              () => MeasurementSlider(
+                label: 'Height',
+                value: controller.height.value,
+                onChanged: controller.height.call,
+              ),
             ),
-            _MeasurementSlider(
-              label: 'Waist',
-              value: _waist,
-              onChanged: (value) => setState(() => _waist = value),
+            Obx(
+              () => MeasurementSlider(
+                label: 'Waist',
+                value: controller.waist.value,
+                onChanged: controller.waist.call,
+              ),
             ),
-            _MeasurementSlider(
-              label: 'Shoulders',
-              value: _shoulders,
-              onChanged: (value) => setState(() => _shoulders = value),
+            Obx(
+              () => MeasurementSlider(
+                label: 'Shoulders',
+                value: controller.shoulders.value,
+                onChanged: controller.shoulders.call,
+              ),
             ),
-            SizedBox(height: 14),
+            const SizedBox(height: 14),
             Center(
               child: SizedBox(
                 width: 190,
                 height: 46,
-                child: ElevatedButton(
-                  onPressed: _isSaving ? null : _confirmMeasurements,
-                  style: ElevatedButton.styleFrom(
-                    elevation: 0,
-                    backgroundColor: _primaryColor,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(7),
+                child: Obx(
+                  () => ElevatedButton(
+                    onPressed: controller.isSaving.value
+                        ? null
+                        : controller.confirm,
+                    style: ElevatedButton.styleFrom(
+                      elevation: 0,
+                      backgroundColor: MeasurementSlider.primaryColor,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(7),
+                      ),
                     ),
-                  ),
-                  child: _isSaving
-                      ? SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2,
+                    child: controller.isSaving.value
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Text(
+                            'Confirm Measurement',
+                            style: TextStyle(fontWeight: FontWeight.w700),
                           ),
-                        )
-                      : Text(
-                          'Confirm Measurement',
-                          style: TextStyle(fontWeight: FontWeight.w700),
-                        ),
+                  ),
                 ),
               ),
             ),
@@ -167,65 +140,39 @@ class _MeasurementPageState extends State<MeasurementPage> {
       ),
     );
   }
+}
 
-  Widget _buildSourceImage() {
-    if (widget.imageBytes != null) {
-      return Image.memory(widget.imageBytes!, fit: BoxFit.contain);
-    }
-    if (widget.imageUrl != null) {
+class _SourceImage extends StatelessWidget {
+  const _SourceImage({required this.controller});
+
+  final MeasurementController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final bytes = controller.imageBytes;
+    final url = controller.imageUrl;
+    if (bytes != null) return Image.memory(bytes, fit: BoxFit.contain);
+    if (url != null) {
       return AppNetworkImage(
-        widget.imageUrl!,
+        url,
         fit: BoxFit.contain,
-        fallback: _buildPlaceholder(),
+        fallback: const _Placeholder(),
       );
     }
-    return _buildPlaceholder();
+    return const _Placeholder();
   }
+}
 
-  Widget _buildPlaceholder() {
-    return ColoredBox(
+class _Placeholder extends StatelessWidget {
+  const _Placeholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return const ColoredBox(
       color: Color(0xFF9A84F5),
       child: Center(
         child: Icon(Icons.person_outline, size: 140, color: Colors.white70),
       ),
-    );
-  }
-}
-
-class _MeasurementSlider extends StatelessWidget {
-  const _MeasurementSlider({
-    required this.label,
-    required this.value,
-    required this.onChanged,
-  });
-
-  final String label;
-  final double value;
-  final ValueChanged<double> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        SizedBox(
-          width: 70,
-          child: Text(
-            label,
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-          ),
-        ),
-        Expanded(
-          child: SliderTheme(
-            data: SliderTheme.of(context).copyWith(
-              activeTrackColor: _MeasurementPageState._primaryColor,
-              inactiveTrackColor: Theme.of(context).colorScheme.outlineVariant,
-              thumbColor: _MeasurementPageState._primaryColor,
-              trackHeight: 4,
-            ),
-            child: Slider(value: value, onChanged: onChanged),
-          ),
-        ),
-      ],
     );
   }
 }

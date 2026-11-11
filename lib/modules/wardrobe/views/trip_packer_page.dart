@@ -1,185 +1,112 @@
 // Builds packing checklists from the garments in selected saved outfits.
-import 'package:banigoba/core/supabase/app_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
-import 'package:banigoba/modules/wardrobe/services/outfit_service.dart';
+import 'package:banigoba/modules/wardrobe/controllers/trip_packer_controller.dart';
+import 'package:banigoba/modules/wardrobe/models/packing_outfit.dart';
 import 'package:banigoba/shared/widgets/app_network_image.dart';
-import 'package:banigoba/shared/widgets/app_toast.dart';
 
-class TripPackerPage extends StatefulWidget {
+class TripPackerPage extends GetView<TripPackerController> {
   const TripPackerPage({super.key});
 
-  @override
-  State<TripPackerPage> createState() => _TripPackerPageState();
-}
-
-class _TripPackerPageState extends State<TripPackerPage> {
   static const _primaryColor = Color(0xFF0D0140);
-  final OutfitService _outfitService = OutfitService();
-  final Set<String> _selectedIds = {};
-  bool _isSaving = false;
-
-  Future<void> _saveList(List<_PackingOutfit> outfits) async {
-    final user = AppAuth.instance.currentUser;
-    if (user == null || _selectedIds.isEmpty) return;
-    final nameController = TextEditingController(text: 'My Trip');
-    final name = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Name your packing list'),
-        content: TextField(
-          controller: nameController,
-          autofocus: true,
-          decoration: const InputDecoration(labelText: 'Trip name'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, nameController.text.trim()),
-            child: const Text('Create'),
-          ),
-        ],
-      ),
-    );
-    if (name == null || name.isEmpty || !mounted) return;
-
-    final selected = outfits
-        .where((outfit) => _selectedIds.contains(outfit.id))
-        .toList();
-    final itemNames =
-        selected
-            .expand((outfit) => outfit.itemNames)
-            .where((name) => name.isNotEmpty)
-            .toSet()
-            .toList()
-          ..sort();
-
-    setState(() => _isSaving = true);
-    try {
-      await _outfitService.createPackingList(
-        userId: user.uid,
-        name: name,
-        outfitIds: selected.map((outfit) => outfit.id).toList(),
-        itemNames: itemNames,
-      );
-      if (!mounted) return;
-      AppToast.say('$name packing list created.');
-      Navigator.pop(context);
-    } finally {
-      if (mounted) setState(() => _isSaving = false);
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
-    final user = AppAuth.instance.currentUser;
     return Scaffold(
       appBar: AppBar(title: const Text('Trip Packer')),
-      body: user == null
+      body: !controller.isSignedIn
           ? const Center(child: Text('Sign in to create a packing list.'))
-          : StreamBuilder<List<Map<String, dynamic>>>(
-              stream: _outfitService.watchSavedOutfits(user.uid),
-              builder: (context, snapshot) {
-                if (!snapshot.hasData) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                final outfits = snapshot.data!
-                    .map((doc) => _PackingOutfit(doc['id'].toString(), doc))
-                    .where((outfit) => outfit.itemNames.isNotEmpty)
-                    .toList();
-                if (outfits.isEmpty) {
-                  return const Center(
-                    child: Text('Save outfits first to build a packing list.'),
-                  );
-                }
-                return Column(
-                  children: [
-                    const Padding(
-                      padding: EdgeInsets.all(20),
-                      child: Text(
-                        'Select outfits. Every garment name will become a packing checklist item.',
-                      ),
-                    ),
-                    Expanded(
-                      child: ListView.separated(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        itemCount: outfits.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 10),
-                        itemBuilder: (context, index) {
-                          final outfit = outfits[index];
-                          final selected = _selectedIds.contains(outfit.id);
-                          return CheckboxListTile(
-                            value: selected,
-                            onChanged: (_) => setState(() {
-                              selected
-                                  ? _selectedIds.remove(outfit.id)
-                                  : _selectedIds.add(outfit.id);
-                            }),
-                            secondary: SizedBox(
-                              width: 58,
-                              child: outfit.imageUrl.isEmpty
-                                  ? const Icon(Icons.checkroom_outlined)
-                                  : AppNetworkImage(
-                                      outfit.imageUrl,
-                                      fit: BoxFit.contain,
-                                      fallback: const Icon(
-                                        Icons.checkroom_outlined,
-                                      ),
-                                    ),
-                            ),
-                            title: Text(outfit.name),
-                            subtitle: Text(outfit.itemNames.join(', ')),
-                          );
-                        },
-                      ),
-                    ),
-                    SafeArea(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: FilledButton.icon(
-                          onPressed: _selectedIds.isEmpty || _isSaving
-                              ? null
-                              : () => _saveList(outfits),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: _primaryColor,
-                            minimumSize: const Size(double.infinity, 54),
-                          ),
-                          icon: const Icon(Icons.luggage),
-                          label: Text(
-                            _isSaving
-                                ? 'Creating list...'
-                                : 'Create Packing List',
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+          : Obx(() {
+              final outfits = controller.outfits.value;
+              if (outfits == null) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (outfits.isEmpty) {
+                return const Center(
+                  child: Text('Save outfits first to build a packing list.'),
                 );
-              },
-            ),
+              }
+              return Column(
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.all(20),
+                    child: Text(
+                      'Select outfits. Every garment name will become a packing checklist item.',
+                    ),
+                  ),
+                  Expanded(
+                    child: ListView.separated(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      itemCount: outfits.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 10),
+                      itemBuilder: (context, index) =>
+                          _OutfitTile(outfit: outfits[index]),
+                    ),
+                  ),
+                  const _CreateListButton(),
+                ],
+              );
+            }),
     );
   }
 }
 
-class _PackingOutfit {
-  const _PackingOutfit(this.id, this.data);
+class _OutfitTile extends GetView<TripPackerController> {
+  const _OutfitTile({required this.outfit});
 
-  final String id;
-  final Map<String, dynamic> data;
+  final PackingOutfit outfit;
 
-  String get name => (data['name'] ?? 'Saved Outfit').toString();
-  String get imageUrl =>
-      (data['imageUrl'] ?? data['avatarImageUrl'] ?? '').toString();
-  List<String> get itemNames {
-    final products = data['products'];
-    if (products is! Iterable) return const [];
-    return products
-        .whereType<Map>()
-        .map((product) => (product['name'] ?? '').toString().trim())
-        .where((name) => name.isNotEmpty)
-        .toList();
+  @override
+  Widget build(BuildContext context) {
+    return Obx(
+      () => CheckboxListTile(
+        value: controller.selectedIds.contains(outfit.id),
+        onChanged: (_) => controller.toggle(outfit.id),
+        secondary: SizedBox(
+          width: 58,
+          child: outfit.imageUrl.isEmpty
+              ? const Icon(Icons.checkroom_outlined)
+              : AppNetworkImage(
+                  outfit.imageUrl,
+                  fit: BoxFit.contain,
+                  fallback: const Icon(Icons.checkroom_outlined),
+                ),
+        ),
+        title: Text(outfit.name),
+        subtitle: Text(outfit.itemNames.join(', ')),
+      ),
+    );
+  }
+}
+
+class _CreateListButton extends GetView<TripPackerController> {
+  const _CreateListButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Obx(
+          () => FilledButton.icon(
+            onPressed:
+                controller.selectedIds.isEmpty || controller.isSaving.value
+                ? null
+                : controller.saveList,
+            style: FilledButton.styleFrom(
+              backgroundColor: TripPackerPage._primaryColor,
+              minimumSize: const Size(double.infinity, 54),
+            ),
+            icon: const Icon(Icons.luggage),
+            label: Text(
+              controller.isSaving.value
+                  ? 'Creating list...'
+                  : 'Create Packing List',
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

@@ -15,6 +15,7 @@ import 'package:banigoba/modules/designers/views/fashion_designers_page.dart';
 import 'package:banigoba/modules/home/views/daily_dress_up_page.dart';
 import 'package:banigoba/modules/home/views/main_screen.dart';
 import 'package:banigoba/modules/home/views/search_page.dart';
+import 'package:banigoba/modules/makeover/bindings/create_makeover_binding.dart';
 import 'package:banigoba/modules/makeover/views/avatar_try_on_page.dart';
 import 'package:banigoba/modules/makeover/views/create_makeover_page.dart';
 import 'package:banigoba/modules/makeover/views/makeover_page.dart';
@@ -27,6 +28,7 @@ import 'package:banigoba/modules/shop/views/cart_page.dart';
 import 'package:banigoba/modules/shop/views/shared_stock_page.dart';
 import 'package:banigoba/modules/shop/views/shops_page.dart';
 import 'package:banigoba/modules/social/views/profile_page.dart';
+import 'package:banigoba/modules/wardrobe/bindings/plan_ahead_binding.dart';
 import 'package:banigoba/modules/wardrobe/views/measurement_page.dart';
 import 'package:banigoba/modules/wardrobe/views/plan_ahead_page.dart';
 import 'package:banigoba/modules/wardrobe/views/wardrobe_page.dart';
@@ -53,7 +55,11 @@ abstract final class AppPages {
     GetPage(name: AppRoutes.search, page: SearchPage.new),
     GetPage(name: AppRoutes.profile, page: ProfilePage.new),
     GetPage(name: AppRoutes.avatarTryOn, page: AvatarTryOnPage.new),
-    GetPage(name: AppRoutes.planAhead, page: PlanAheadPage.new),
+    GetPage(
+      name: AppRoutes.planAhead,
+      page: PlanAheadPage.new,
+      binding: PlanAheadBinding(),
+    ),
     GetPage(name: AppRoutes.measurement, page: MeasurementPage.new),
     GetPage(
       name: AppRoutes.curatorsWorkspace,
@@ -67,7 +73,11 @@ abstract final class AppPages {
     GetPage(name: AppRoutes.notifications, page: NotificationsPage.new),
     GetPage(name: AppRoutes.bodyProfile, page: BodyProfilePage.new),
     GetPage(name: AppRoutes.makeover, page: MakeoverPage.new),
-    GetPage(name: AppRoutes.makeoverWithItems, page: CreateMakeoverPage.new),
+    GetPage(
+      name: AppRoutes.makeoverWithItems,
+      page: CreateMakeoverPage.new,
+      binding: CreateMakeoverBinding(),
+    ),
     GetPage(name: AppRoutes.dailyDressUp, page: DailyDressUpPage.new),
     GetPage(name: AppRoutes.sharedStock, page: _sharedStock),
   ];

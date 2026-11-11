@@ -2,34 +2,20 @@
 // sitting unworn, near-duplicates, missing basics and weather gaps. Private to
 // the owner; nothing here is shown to anyone else or compared with others.
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
-import 'package:banigoba/core/supabase/app_auth.dart';
+import 'package:banigoba/modules/wardrobe/controllers/wardrobe_insights_controller.dart';
 import 'package:banigoba/modules/wardrobe/models/wardrobe_insights.dart';
-import 'package:banigoba/modules/shop/services/product_service.dart';
 
-/// Where the page reads the wardrobe from; a fake in tests.
-typedef LoadWardrobe = Future<List<Map<String, dynamic>>> Function();
+export 'package:banigoba/modules/wardrobe/controllers/wardrobe_insights_controller.dart'
+    show LoadWardrobe;
 
-Future<List<Map<String, dynamic>>> _loadOwnWardrobe() {
-  final userId = AppAuth.instance.currentUser?.uid ?? '';
-  return ProductService().getUserProducts(userId).first;
-}
+class WardrobeInsightsPage extends StatelessWidget {
+  const WardrobeInsightsPage({super.key, this.load, this.now});
 
-class WardrobeInsightsPage extends StatefulWidget {
-  const WardrobeInsightsPage({super.key, LoadWardrobe? load, DateTime? now})
-    : _load = load,
-      _now = now;
-
-  final LoadWardrobe? _load;
-  final DateTime? _now;
-
-  @override
-  State<WardrobeInsightsPage> createState() => _WardrobeInsightsPageState();
-}
-
-class _WardrobeInsightsPageState extends State<WardrobeInsightsPage> {
-  late final Future<List<Map<String, dynamic>>> _wardrobe =
-      (widget._load ?? _loadOwnWardrobe)();
+  /// Where the wardrobe is read from; a fake in tests.
+  final LoadWardrobe? load;
+  final DateTime? now;
 
   static const Map<InsightKind, IconData> _icons = {
     InsightKind.mostWorn: Icons.favorite_border,
@@ -42,79 +28,78 @@ class _WardrobeInsightsPageState extends State<WardrobeInsightsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return Scaffold(
-      appBar: AppBar(title: const Text('Wardrobe insights')),
-      body: FutureBuilder<List<Map<String, dynamic>>>(
-        future: _wardrobe,
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return const Center(
-              child: Text('Your wardrobe could not be loaded.'),
-            );
-          }
-          if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          final wardrobe = snapshot.data!;
-          if (wardrobe.isEmpty) {
-            return const Center(
-              child: Padding(
-                padding: EdgeInsets.all(32),
-                child: Text(
-                  'Add a few pieces to your wardrobe and we will tell you '
-                  'what you wear most, what is sitting unworn and what is '
-                  'missing.',
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            );
-          }
-          final insights = analyzeWardrobe(
-            wardrobe,
-            now: widget._now ?? DateTime.now(),
-          );
-          final names = {
-            for (final piece in wardrobe)
-              piece['id'].toString(): (piece['name'] ?? '').toString(),
-          };
-          return ListView(
-            padding: const EdgeInsets.all(20),
-            children: [
-              Text(
-                wardrobeHeadline(wardrobe, insights),
-                key: const ValueKey('insights_headline'),
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Only you can see this.',
-                style: TextStyle(color: colors.onSurfaceVariant),
-              ),
-              const SizedBox(height: 16),
-              if (insights.isEmpty)
-                const Text(
-                  'Nothing to point out. Your wardrobe looks well rounded.',
-                ),
-              for (final kind in InsightKind.values)
-                if (insights.any((i) => i.kind == kind))
-                  _Section(
-                    key: ValueKey('insight_${kind.name}'),
-                    kind: kind,
-                    icon: _icons[kind]!,
-                    insights: [
-                      for (final i in insights)
-                        if (i.kind == kind) i,
-                    ],
-                    names: names,
-                  ),
-            ],
-          );
-        },
+    // Scoped to this page: created with its parameters, disposed with it.
+    return GetBuilder<WardrobeInsightsController>(
+      init: WardrobeInsightsController(load: load, now: now),
+      global: false,
+      builder: (controller) => Scaffold(
+        appBar: AppBar(title: const Text('Wardrobe insights')),
+        body: _Body(controller: controller),
       ),
+    );
+  }
+}
+
+class _Body extends StatelessWidget {
+  const _Body({required this.controller});
+
+  final WardrobeInsightsController controller;
+
+  @override
+  Widget build(BuildContext context) => Obx(() => _content(context));
+
+  Widget _content(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    if (controller.hasError.value) {
+      return const Center(child: Text('Your wardrobe could not be loaded.'));
+    }
+    if (controller.isLoading.value) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (controller.wardrobe.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: Text(
+            'Add a few pieces to your wardrobe and we will tell you '
+            'what you wear most, what is sitting unworn and what is '
+            'missing.',
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+    final insights = controller.insights;
+    final names = controller.names;
+    return ListView(
+      padding: const EdgeInsets.all(20),
+      children: [
+        Text(
+          controller.headline,
+          key: const ValueKey('insights_headline'),
+          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Only you can see this.',
+          style: TextStyle(color: colors.onSurfaceVariant),
+        ),
+        const SizedBox(height: 16),
+        if (insights.isEmpty)
+          const Text('Nothing to point out. Your wardrobe looks well rounded.'),
+        for (final kind in InsightKind.values)
+          if (insights.any((i) => i.kind == kind))
+            _Section(
+              key: ValueKey('insight_${kind.name}'),
+              kind: kind,
+              icon: WardrobeInsightsPage._icons[kind]!,
+              insights: [
+                for (final i in insights)
+                  if (i.kind == kind) i,
+              ],
+              names: names,
+            ),
+      ],
     );
   }
 }

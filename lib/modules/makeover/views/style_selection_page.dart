@@ -1,24 +1,13 @@
 // Lets users choose styling options and adds optional weather context to the makeover.
-import 'package:banigoba/core/supabase/app_auth.dart';
 import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:banigoba/app/routes/app_routes.dart';
-import 'package:banigoba/modules/home/models/weather.dart';
-import 'package:banigoba/modules/events/services/upcoming_event_service.dart';
-import 'package:banigoba/modules/home/services/weather_service.dart';
-import 'package:banigoba/modules/makeover/widgets/try_on_product_picker.dart';
-import 'package:banigoba/modules/wardrobe/views/wardrobe_calendar_page.dart';
-import 'package:banigoba/modules/makeover/views/avatar_try_on_page.dart';
-import 'package:banigoba/shared/widgets/app_network_image.dart';
+import 'package:get/get.dart';
 
-class StyleSelectionPage extends StatefulWidget {
-  final Uint8List? imageBytes;
-  final String? imageUrl;
-  final DateTime? plannedDate;
-  final String? eventId;
-  final String? eventName;
+import 'package:banigoba/modules/makeover/controllers/style_selection_controller.dart';
+import 'package:banigoba/modules/makeover/widgets/style_selection_parts.dart';
 
+class StyleSelectionPage extends StatelessWidget {
   const StyleSelectionPage({
     super.key,
     this.imageBytes,
@@ -31,404 +20,83 @@ class StyleSelectionPage extends StatefulWidget {
          'Either imageBytes or imageUrl must be provided.',
        );
 
-  static Color primaryColor = Color(0xFF0D0140);
+  final Uint8List? imageBytes;
+  final String? imageUrl;
+  final DateTime? plannedDate;
+  final String? eventId;
+  final String? eventName;
 
-  @override
-  State<StyleSelectionPage> createState() => _StyleSelectionPageState();
-}
-
-class _StyleSelectionPageState extends State<StyleSelectionPage> {
-  final WeatherService _weatherService = WeatherService();
-  final UpcomingEventService _upcomingEventService = UpcomingEventService();
-  Weather? _currentWeather;
-  UpcomingEvent? _upcomingEvent;
-  bool _isLoadingWeather = true;
-  bool _isLoadingEvent = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _fetchWeather();
-    _loadUpcomingEvent();
-  }
-
-  Future<void> _loadUpcomingEvent() async {
-    final userId = AppAuth.instance.currentUser?.uid ?? '';
-    if (userId.isEmpty) {
-      if (!mounted) return;
-      setState(() => _isLoadingEvent = false);
-      return;
-    }
-
-    try {
-      final event = await _upcomingEventService.getClosestEvent(userId);
-      if (!mounted) return;
-      setState(() {
-        _upcomingEvent = event;
-        _isLoadingEvent = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _isLoadingEvent = false);
-    }
-  }
-
-  Future<void> _fetchWeather() async {
-    // Check permissions before attempting to fetch weather
-    final status = await Geolocator.checkPermission();
-
-    if (status == LocationPermission.deniedForever) {
-      // Silently fail - location permissions permanently denied
-      if (!mounted) return;
-      setState(() {
-        _isLoadingWeather = false;
-      });
-      return;
-    }
-
-    try {
-      final Position position = await _determinePosition();
-      final String latLong = "${position.latitude},${position.longitude}";
-      final weather = await _weatherService.fetchOptionalWeather(latLong);
-      if (!mounted) return;
-      setState(() {
-        _currentWeather = weather;
-        _isLoadingWeather = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _isLoadingWeather = false;
-      });
-      // Silently handle errors - weather is optional for style selection
-    }
-  }
-
-  /// Verifies location services and permissions, returning current Position
-  Future<Position> _determinePosition() async {
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      await Geolocator.openLocationSettings();
-      return Future.error('Location services are disabled.');
-    }
-
-    var status = await Geolocator.checkPermission();
-    if (status == LocationPermission.denied) {
-      status = await Geolocator.requestPermission();
-      if (status == LocationPermission.denied) {
-        return Future.error('Location permissions are denied');
-      }
-    }
-
-    if (status == LocationPermission.deniedForever) {
-      return Future.error('Location permissions are permanently denied');
-    }
-
-    return await Geolocator.getCurrentPosition(
-      locationSettings: LocationSettings(
-        accuracy: LocationAccuracy.low,
-        distanceFilter: 1000,
-      ),
-    );
-  }
-
-  Future<void> _openTryOn() async {
-    final products = await showTryOnProductPicker(context);
-    if (!mounted || products == null || products.isEmpty) return;
-
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const AvatarTryOnPage(),
-        settings: RouteSettings(
-          arguments: {
-            'products': products,
-            'category': (products.first['category'] ?? 'auto').toString(),
-            if (widget.plannedDate != null)
-              'plannedDate': widget.plannedDate!.toIso8601String(),
-            if (widget.eventId != null) 'eventId': widget.eventId,
-            if (widget.eventName != null) 'eventName': widget.eventName,
-          },
-        ),
-      ),
-    );
-  }
-
-  String _productImageUrl(Map<String, dynamic> product) {
-    for (final field in const [
-      'rawImageUrl',
-      'imageUrl',
-      'imageURL',
-      'processedImageUrl',
-    ]) {
-      final value = product[field];
-      if (value is String && value.trim().isNotEmpty) return value.trim();
-    }
-    return '';
-  }
+  static Color primaryColor = styleSelectionPrimary;
 
   @override
   Widget build(BuildContext context) {
+    // Scoped to this page: built from its parameters, disposed with it.
+    return GetBuilder<StyleSelectionController>(
+      init: StyleSelectionController(
+        imageBytes: imageBytes,
+        imageUrl: imageUrl,
+        plannedDate: plannedDate,
+        eventId: eventId,
+        eventName: eventName,
+      ),
+      global: false,
+      builder: (controller) => _StyleSelectionView(controller: controller),
+    );
+  }
+}
+
+class _StyleSelectionView extends StatelessWidget {
+  const _StyleSelectionView({required this.controller});
+
+  final StyleSelectionController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surface,
+      backgroundColor: colors.surface,
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.surface,
+        backgroundColor: colors.surface,
         elevation: 0,
         automaticallyImplyLeading: false,
         leading: IconButton(
           tooltip: 'Back',
-          onPressed: () => Navigator.of(context).pop(),
-          icon: Icon(
-            Icons.chevron_left_rounded,
-            color: Theme.of(context).colorScheme.onSurface,
-          ),
+          onPressed: Get.back,
+          icon: Icon(Icons.chevron_left_rounded, color: colors.onSurface),
         ),
       ),
       body: SingleChildScrollView(
-        padding: EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
+        padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(height: 10),
-            _buildHeroCard(context),
-            SizedBox(height: 20),
-            _buildInfoRow(),
-            SizedBox(height: 20),
-            _buildActionButtons(context),
-            SizedBox(height: 25),
-            _buildSectionTile(
+            const SizedBox(height: 10),
+            StyleHeroCard(controller: controller),
+            const SizedBox(height: 20),
+            StyleInfoRow(controller: controller),
+            const SizedBox(height: 20),
+            StyleActionButtons(controller: controller),
+            const SizedBox(height: 25),
+            const StyleSectionTile(
               icon: Icons.lightbulb_outline,
               title: 'Trending Styles',
               subtitle: 'Discover your global style icon twin',
-              backgroundColor: Theme.of(
-                context,
-              ).colorScheme.surfaceContainerLow,
             ),
-            SizedBox(height: 12),
-            _buildSectionTile(
+            const SizedBox(height: 12),
+            const StyleSectionTile(
               icon: Icons.shopping_bag_outlined,
               title: 'Designer Pick',
               subtitle: 'Discover your global style icon twin',
-              backgroundColor: Theme.of(
-                context,
-              ).colorScheme.surfaceContainerLow,
             ),
-            SizedBox(height: 12),
-            _buildSectionTile(
+            const SizedBox(height: 12),
+            const StyleSectionTile(
               icon: Icons.storefront_outlined,
               title: 'My Closet',
               subtitle: 'Discover your global style icon twin',
-              backgroundColor: Theme.of(
-                context,
-              ).colorScheme.surfaceContainerLow,
             ),
-            SizedBox(height: 30),
+            const SizedBox(height: 30),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildHeroCard(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(30),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(30),
-        child: Column(
-          children: [
-            SizedBox(
-              height: MediaQuery.of(context).size.height * 0.45,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  widget.imageBytes != null
-                      ? Image.memory(
-                          widget.imageBytes!,
-                          width: double.infinity,
-                          height: double.infinity,
-                          fit: BoxFit.contain,
-                          alignment: Alignment.center,
-                        )
-                      : AppNetworkImage(
-                          widget.imageUrl!,
-                          width: double.infinity,
-                          height: double.infinity,
-                          fit: BoxFit.contain,
-                          alignment: Alignment.center,
-                          fallback: Center(
-                            child: Icon(
-                              Icons.broken_image,
-                              size: 64,
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.outlineVariant,
-                            ),
-                          ),
-                        ),
-                  Positioned(
-                    bottom: 12,
-                    left: 12,
-                    child: ElevatedButton.icon(
-                      onPressed: _openTryOn,
-                      icon: Icon(Icons.checkroom, size: 18),
-                      label: Text('Try On'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: StyleSelectionPage.primaryColor,
-                        elevation: 2,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(height: 16),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInfoRow() {
-    final weatherLabel = _isLoadingWeather
-        ? 'Loading weather...'
-        : _currentWeather != null
-        ? '${_currentWeather!.condition} • ${_currentWeather!.temperatureC.round()}°C • ${_currentWeather!.locationName}'
-        : 'Weather unavailable';
-    final eventLabel = _isLoadingEvent
-        ? 'Loading event...'
-        : _upcomingEvent?.shortLabel ?? widget.eventName ?? 'No upcoming event';
-
-    return Row(
-      children: [
-        Expanded(flex: 3, child: _infoChip(Icons.cloud_outlined, weatherLabel)),
-        SizedBox(width: 10),
-        Expanded(
-          flex: 2,
-          child: _infoChip(Icons.calendar_today_outlined, eventLabel),
-        ),
-      ],
-    );
-  }
-
-  Widget _infoChip(IconData icon, String label) {
-    return Container(
-      constraints: BoxConstraints(minHeight: 52),
-      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, color: StyleSelectionPage.primaryColor, size: 18),
-          SizedBox(width: 8),
-          Flexible(
-            child: Text(
-              label,
-              maxLines: 2,
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionButtons(BuildContext context) {
-    final buttons = ['Quick Wear', 'Customize', 'Try On', 'Find Shops'];
-    return Wrap(
-      spacing: 12,
-      runSpacing: 12,
-      children: buttons.map((label) {
-        return SizedBox(
-          width: (MediaQuery.of(context).size.width - 68) / 2,
-          child: ElevatedButton(
-            onPressed: label == 'Try On'
-                ? _openTryOn
-                : label == 'Quick Wear'
-                ? () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const WardrobeCalendarPage(),
-                    ),
-                  )
-                : label == 'Find Shops'
-                ? () => Navigator.pushNamed(context, AppRoutes.shops)
-                : () {},
-            style: ElevatedButton.styleFrom(
-              backgroundColor: StyleSelectionPage.primaryColor,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
-              padding: EdgeInsets.symmetric(vertical: 16),
-            ),
-            child: Text(
-              label,
-              textAlign: TextAlign.center,
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  Widget _buildSectionTile({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required Color backgroundColor,
-  }) {
-    return Container(
-      padding: EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: Color(0xFFDED6FF),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: StyleSelectionPage.primaryColor, size: 22),
-          ),
-          SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontSize: 13,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-          Icon(Icons.arrow_forward_ios, color: Colors.grey, size: 18),
-        ],
       ),
     );
   }

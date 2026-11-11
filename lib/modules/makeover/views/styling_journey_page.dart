@@ -1,5 +1,6 @@
 // Presents the steps involved in creating an AI-assisted styled look.
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
 import 'package:banigoba/app/routes/app_routes.dart';
 import 'package:banigoba/modules/shop/widgets/cart_badge_button.dart';
@@ -34,7 +35,7 @@ class StylingJourneyPage extends StatelessWidget {
         ),
         actions: [
           CartBadgeButton(
-            onPressed: () => Navigator.pushNamed(context, AppRoutes.cart),
+            onPressed: () => Get.toNamed<void>(AppRoutes.cart),
             color: Theme.of(context).colorScheme.onSurface,
           ),
           Container(
@@ -49,7 +50,7 @@ class StylingJourneyPage extends StatelessWidget {
                 size: 16,
                 color: Theme.of(context).colorScheme.onSurface,
               ),
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: Get.back,
             ),
           ),
         ],

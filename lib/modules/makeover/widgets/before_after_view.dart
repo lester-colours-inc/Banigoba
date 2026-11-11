@@ -1,6 +1,9 @@
 // Side-by-side before/after comparison with a draggable reveal handle.
 
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+
+import 'package:banigoba/modules/makeover/controllers/before_after_controller.dart';
 import 'package:banigoba/shared/widgets/app_network_image.dart';
 
 /// Shows [afterImageUrl] over [beforeImageUrl], split by a handle the user can
@@ -8,7 +11,7 @@ import 'package:banigoba/shared/widgets/app_network_image.dart';
 ///
 /// Both images are drawn with [BoxFit.cover] so the two halves line up; the
 /// try-on result keeps the avatar's framing, so the split reads as one photo.
-class BeforeAfterView extends StatefulWidget {
+class BeforeAfterView extends StatelessWidget {
   const BeforeAfterView({
     super.key,
     required this.beforeImageUrl,
@@ -38,51 +41,39 @@ class BeforeAfterView extends StatefulWidget {
   final VoidCallback? onTapAfter;
 
   @override
-  State<BeforeAfterView> createState() => _BeforeAfterViewState();
-}
-
-class _BeforeAfterViewState extends State<BeforeAfterView> {
-  /// Keeps the handle away from the very edges so it stays grabbable.
-  static const double _minSplit = 0.08;
-  static const double _maxSplit = 0.92;
-
-  /// How much of the width the "before" side takes, 0 to 1.
-  double _split = 0.5;
-
-  void _dragTo(double dx, double width) {
-    if (width <= 0) return;
-    setState(() => _split = (dx / width).clamp(_minSplit, _maxSplit));
+  Widget build(BuildContext context) {
+    return GetBuilder<BeforeAfterController>(
+      init: BeforeAfterController(),
+      global: false,
+      builder: (drag) => _content(context, drag),
+    );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final background =
-        widget.background ?? Theme.of(context).colorScheme.surfaceContainerLow;
+  Widget _content(BuildContext context, BeforeAfterController drag) {
+    final fill =
+        background ?? Theme.of(context).colorScheme.surfaceContainerLow;
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(widget.borderRadius),
+      borderRadius: BorderRadius.circular(borderRadius),
       child: AspectRatio(
-        aspectRatio: widget.aspectRatio,
+        aspectRatio: aspectRatio,
         child: LayoutBuilder(
-          builder: (context, constraints) {
+          builder: (context, constraints) => Obx(() {
             final width = constraints.maxWidth;
-            final splitX = width * _split;
+            final splitX = width * drag.split.value;
 
             return GestureDetector(
               behavior: HitTestBehavior.opaque,
-              onTap: widget.onTapAfter,
+              onTap: onTapAfter,
               onHorizontalDragUpdate: (details) =>
-                  _dragTo(details.localPosition.dx, width),
+                  drag.dragTo(details.localPosition.dx, width),
               onHorizontalDragStart: (details) =>
-                  _dragTo(details.localPosition.dx, width),
+                  drag.dragTo(details.localPosition.dx, width),
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  ColoredBox(color: background),
-                  _ComparisonImage(
-                    imageUrl: widget.beforeImageUrl,
-                    fit: widget.fit,
-                  ),
+                  ColoredBox(color: fill),
+                  _ComparisonImage(imageUrl: beforeImageUrl, fit: fit),
                   ClipRect(
                     clipper: _RevealClipper(splitX),
                     child: Stack(
@@ -90,25 +81,22 @@ class _BeforeAfterViewState extends State<BeforeAfterView> {
                       children: [
                         // Hides the before photo wherever the after one is
                         // narrower, so the two sides never mix.
-                        ColoredBox(color: background),
-                        _ComparisonImage(
-                          imageUrl: widget.afterImageUrl,
-                          fit: widget.fit,
-                        ),
+                        ColoredBox(color: fill),
+                        _ComparisonImage(imageUrl: afterImageUrl, fit: fit),
                       ],
                     ),
                   ),
                   _ComparisonLabel(
-                    text: widget.beforeLabel,
+                    text: beforeLabel,
                     alignment: Alignment.topLeft,
-                    isVisible: _split > 0.22,
+                    isVisible: drag.split.value > 0.22,
                     background: Colors.white.withValues(alpha: 0.92),
                     foreground: const Color(0xFF1A1A1A),
                   ),
                   _ComparisonLabel(
-                    text: widget.afterLabel,
+                    text: afterLabel,
                     alignment: Alignment.topRight,
-                    isVisible: _split < 0.78,
+                    isVisible: drag.split.value < 0.78,
                     background: const Color(0xFF0D0140).withValues(alpha: 0.92),
                     foreground: const Color(0xFFFFC53D),
                   ),
@@ -129,7 +117,7 @@ class _BeforeAfterViewState extends State<BeforeAfterView> {
                 ],
               ),
             );
-          },
+          }),
         ),
       ),
     );
