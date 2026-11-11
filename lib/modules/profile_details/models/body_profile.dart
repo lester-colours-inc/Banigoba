@@ -9,6 +9,9 @@
 // These details are private. They are stored under the user's private
 // subcollection, never on the public user document; see BodyProfileService.
 import 'package:flutter/foundation.dart';
+import 'package:freezed_annotation/freezed_annotation.dart';
+
+part 'body_profile.freezed.dart';
 
 /// A body measurement the user can record, stored in [unit].
 enum BodyMeasurement {
@@ -122,17 +125,24 @@ String formatNumber(double value) => value == value.roundToDouble()
     ? value.toInt().toString()
     : value.toString();
 
-@immutable
-class BodyProfile {
-  const BodyProfile({
-    this.facePhotoUrl = '',
-    this.fullBodyPhotoUrl = '',
-    this.handPhotoUrl = '',
-    this.clothingSize = '',
-    this.shoeSize = '',
-    this.measurements = const {},
-    this.notes = '',
-  });
+// copyWith stays hand-written: it freezes the measurements map.
+@Freezed(copyWith: false)
+abstract class BodyProfile with _$BodyProfile {
+  const BodyProfile._();
+
+  const factory BodyProfile({
+    @Default('') String facePhotoUrl,
+    @Default('') String fullBodyPhotoUrl,
+    @Default('') String handPhotoUrl,
+    @Default('') String clothingSize,
+
+    /// UK size, e.g. "8" or "8.5".
+    @Default('') String shoeSize,
+    @Default({}) Map<BodyMeasurement, double> measurements,
+
+    /// "Any other" details, in the user's own words.
+    @Default('') String notes,
+  }) = _BodyProfile;
 
   /// Offered as choices; the same labels sellers use for stock.
   static const List<String> clothingSizes = [
@@ -163,18 +173,6 @@ class BodyProfile {
   /// "UK 8,5" → "8.5". Call only on input that passed [validateShoeSize].
   static String normalizeShoeSize(String input) =>
       _sizeKey(input, true).replaceAll(',', '.');
-
-  final String facePhotoUrl;
-  final String fullBodyPhotoUrl;
-  final String handPhotoUrl;
-  final String clothingSize;
-
-  /// UK size, e.g. "8" or "8.5".
-  final String shoeSize;
-  final Map<BodyMeasurement, double> measurements;
-
-  /// "Any other" details, in the user's own words.
-  final String notes;
 
   double? operator [](BodyMeasurement measurement) => measurements[measurement];
 
