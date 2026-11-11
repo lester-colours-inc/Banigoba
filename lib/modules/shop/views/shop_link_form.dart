@@ -1,11 +1,13 @@
 // "Share my stock": what to share (all, a category, picked pieces), in the
 // shop's own words, and who in Banigoba to tell (K-9).
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
+import 'package:banigoba/modules/shop/controllers/shop_link_form_controller.dart';
 import 'package:banigoba/modules/shop/models/shop_link.dart';
 import 'package:banigoba/modules/shop/widgets/safe_product_image.dart';
 
-class ShopLinkForm extends StatefulWidget {
+class ShopLinkForm extends StatelessWidget {
   const ShopLinkForm({
     super.key,
     required this.ownerId,
@@ -22,102 +24,25 @@ class ShopLinkForm extends StatefulWidget {
   final Future<void> Function(ShopLink draft) onSubmit;
 
   @override
-  State<ShopLinkForm> createState() => _ShopLinkFormState();
+  Widget build(BuildContext context) {
+    // Scoped to this form: created and disposed with the widget.
+    return GetBuilder<ShopLinkFormController>(
+      init: ShopLinkFormController(
+        ownerId: ownerId,
+        shopName: shopName,
+        products: products,
+        onSubmit: onSubmit,
+      ),
+      global: false,
+      builder: (controller) => _ShopLinkFormView(controller: controller),
+    );
+  }
 }
 
-class _ShopLinkFormState extends State<ShopLinkForm> {
-  ShareScope _scope = ShareScope.all;
-  String _category = '';
-  final List<String> _picked = [];
-  ShareAudience _audience = ShareAudience.linkOnly;
-  final TextEditingController _title = TextEditingController();
-  final TextEditingController _note = TextEditingController();
-  bool _busy = false;
-  String? _error;
+class _ShopLinkFormView extends StatelessWidget {
+  const _ShopLinkFormView({required this.controller});
 
-  @override
-  void dispose() {
-    _title.dispose();
-    _note.dispose();
-    super.dispose();
-  }
-
-  List<String> get _categories {
-    final found = <String>{};
-    for (final product in widget.products) {
-      final category = (product['category'] ?? '').toString().trim();
-      if (category.isNotEmpty) found.add(category.toLowerCase());
-    }
-    return found.toList()..sort();
-  }
-
-  String _id(Map<String, dynamic> product) => (product['id'] ?? '').toString();
-
-  String _image(Map<String, dynamic> product) =>
-      (product['rawImageUrl'] ?? product['imageUrl'] ?? '').toString();
-
-  ShopLink _draft() {
-    final base = ShopLink(
-      id: '',
-      ownerId: widget.ownerId,
-      shopName: widget.shopName,
-      title: '',
-      scope: _scope,
-      category: _category,
-      productIds: List.unmodifiable(_picked),
-      audience: _audience,
-    );
-    final covered = switch (_scope) {
-      ShareScope.all => widget.products,
-      ShareScope.category => widget.products.where(
-        (p) => (p['category'] ?? '').toString().toLowerCase() == _category,
-      ),
-      ShareScope.items => [
-        for (final id in _picked) ...widget.products.where((p) => _id(p) == id),
-      ],
-    };
-    final cover = covered
-        .map(_image)
-        .firstWhere((url) => url.isNotEmpty, orElse: () => '');
-    return ShopLink(
-      id: '',
-      ownerId: base.ownerId,
-      shopName: base.shopName,
-      title: _title.text.trim().isEmpty ? base.scopeLabel : _title.text.trim(),
-      note: _note.text.trim(),
-      scope: base.scope,
-      category: base.category,
-      productIds: base.productIds,
-      audience: base.audience,
-      coverImageUrl: cover,
-    );
-  }
-
-  Future<void> _submit() async {
-    final draft = _draft();
-    final problem = validateShopLink(
-      title: draft.title,
-      note: draft.note,
-      scope: _scope,
-      category: _category,
-      productIds: _picked,
-    );
-    if (problem != null) {
-      setState(() => _error = problem);
-      return;
-    }
-    setState(() {
-      _busy = true;
-      _error = null;
-    });
-    try {
-      await widget.onSubmit(draft);
-    } on Exception catch (error) {
-      if (mounted) setState(() => _error = 'Could not create the link: $error');
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
+  final ShopLinkFormController controller;
 
   @override
   Widget build(BuildContext context) {
@@ -130,128 +55,129 @@ class _ShopLinkFormState extends State<ShopLinkForm> {
       ),
     );
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-      children: [
-        heading('What do you want to share?'),
-        Wrap(
-          spacing: 8,
-          children: [
-            for (final (scope, label) in const [
-              (ShareScope.all, 'All my stock'),
-              (ShareScope.category, 'A category'),
-              (ShareScope.items, 'Pick pieces'),
-            ])
-              ChoiceChip(
-                key: ValueKey('scope_${scope.value}'),
-                label: Text(label),
-                selected: _scope == scope,
-                onSelected: (_) => setState(() {
-                  _scope = scope;
-                  _error = null;
-                }),
-              ),
-          ],
-        ),
-        if (_scope == ShareScope.category) ...[
-          heading('Which category?'),
+    return Obx(
+      () => ListView(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+        children: [
+          heading('What do you want to share?'),
           Wrap(
             spacing: 8,
-            runSpacing: 8,
             children: [
-              for (final category in _categories)
+              for (final (scope, label) in const [
+                (ShareScope.all, 'All my stock'),
+                (ShareScope.category, 'A category'),
+                (ShareScope.items, 'Pick pieces'),
+              ])
                 ChoiceChip(
-                  key: ValueKey('category_$category'),
-                  label: Text(
-                    '${category[0].toUpperCase()}${category.substring(1)}',
-                  ),
-                  selected: _category == category,
-                  onSelected: (_) => setState(() => _category = category),
+                  key: ValueKey('scope_${scope.value}'),
+                  label: Text(label),
+                  selected: controller.scope.value == scope,
+                  onSelected: (_) => controller.chooseScope(scope),
                 ),
             ],
           ),
-        ],
-        if (_scope == ShareScope.items) ...[
-          heading('Pick the pieces (${_picked.length} chosen)'),
-          for (final product in widget.products)
-            CheckboxListTile(
-              key: ValueKey('pick_${_id(product)}'),
-              contentPadding: EdgeInsets.zero,
-              value: _picked.contains(_id(product)),
-              onChanged: (on) => setState(() {
-                on == true
-                    ? _picked.add(_id(product))
-                    : _picked.remove(_id(product));
-              }),
-              secondary: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: SafeProductImage(
-                  imageUrl: _image(product),
-                  width: 48,
-                  height: 48,
-                  iconSize: 22,
+          if (controller.scope.value == ShareScope.category) ...[
+            heading('Which category?'),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final category in controller.categories)
+                  ChoiceChip(
+                    key: ValueKey('category_$category'),
+                    label: Text(
+                      '${category[0].toUpperCase()}${category.substring(1)}',
+                    ),
+                    selected: controller.category.value == category,
+                    onSelected: (_) => controller.chooseCategory(category),
+                  ),
+              ],
+            ),
+          ],
+          if (controller.scope.value == ShareScope.items) ...[
+            heading('Pick the pieces (${controller.picked.length} chosen)'),
+            for (final product in controller.products)
+              CheckboxListTile(
+                key: ValueKey('pick_${controller.idOf(product)}'),
+                contentPadding: EdgeInsets.zero,
+                value: controller.picked.contains(controller.idOf(product)),
+                onChanged: (on) => controller.setPicked(
+                  controller.idOf(product),
+                  on: on == true,
                 ),
+                secondary: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: SafeProductImage(
+                    imageUrl: controller.imageOf(product),
+                    width: 48,
+                    height: 48,
+                    iconSize: 22,
+                  ),
+                ),
+                title: Text((product['name'] ?? 'Piece').toString()),
               ),
-              title: Text((product['name'] ?? 'Piece').toString()),
+          ],
+          heading('In your words'),
+          TextField(
+            key: const ValueKey('link_title'),
+            controller: controller.title,
+            maxLength: kMaxLinkTitle,
+            decoration: const InputDecoration(
+              labelText: 'Title (optional)',
+              hintText: 'e.g. New in: winter coats',
+              border: OutlineInputBorder(),
             ),
-        ],
-        heading('In your words'),
-        TextField(
-          key: const ValueKey('link_title'),
-          controller: _title,
-          maxLength: kMaxLinkTitle,
-          decoration: const InputDecoration(
-            labelText: 'Title (optional)',
-            hintText: 'e.g. New in: winter coats',
-            border: OutlineInputBorder(),
           ),
-        ),
-        const SizedBox(height: 8),
-        TextField(
-          key: const ValueKey('link_note'),
-          controller: _note,
-          maxLength: kMaxLinkNote,
-          minLines: 2,
-          maxLines: 4,
-          decoration: const InputDecoration(
-            labelText: 'Note (optional)',
-            hintText: 'e.g. Sizes S to XL, delivery in Harare',
-            border: OutlineInputBorder(),
-          ),
-        ),
-        heading('Who in Banigoba should know?'),
-        for (final audience in ShareAudience.values)
-          ListTile(
-            key: ValueKey('audience_${audience.value}'),
-            contentPadding: EdgeInsets.zero,
-            leading: Icon(
-              _audience == audience
-                  ? Icons.radio_button_checked
-                  : Icons.radio_button_unchecked,
+          const SizedBox(height: 8),
+          TextField(
+            key: const ValueKey('link_note'),
+            controller: controller.note,
+            maxLength: kMaxLinkNote,
+            minLines: 2,
+            maxLines: 4,
+            decoration: const InputDecoration(
+              labelText: 'Note (optional)',
+              hintText: 'e.g. Sizes S to XL, delivery in Harare',
+              border: OutlineInputBorder(),
             ),
-            title: Text(audience.label),
-            subtitle: Text(audience.description),
-            onTap: () => setState(() => _audience = audience),
           ),
-        Text(
-          'Whatever you choose, you also get a link and a QR code to send on '
-          'WhatsApp or anywhere else.',
-          style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13),
-        ),
-        if (_error != null) ...[
-          const SizedBox(height: 12),
-          Text(_error!, style: TextStyle(color: colors.error)),
+          heading('Who in Banigoba should know?'),
+          for (final audience in ShareAudience.values)
+            ListTile(
+              key: ValueKey('audience_${audience.value}'),
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(
+                controller.audience.value == audience
+                    ? Icons.radio_button_checked
+                    : Icons.radio_button_unchecked,
+              ),
+              title: Text(audience.label),
+              subtitle: Text(audience.description),
+              onTap: () => controller.chooseAudience(audience),
+            ),
+          Text(
+            'Whatever you choose, you also get a link and a QR code to send on '
+            'WhatsApp or anywhere else.',
+            style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13),
+          ),
+          if (controller.error.value != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              controller.error.value!,
+              style: TextStyle(color: colors.error),
+            ),
+          ],
+          const SizedBox(height: 16),
+          FilledButton(
+            key: const ValueKey('create_link'),
+            onPressed: controller.busy.value ? null : controller.submit,
+            style: FilledButton.styleFrom(
+              minimumSize: const Size(double.infinity, 52),
+            ),
+            child: Text(controller.busy.value ? 'Creating...' : 'Create link'),
+          ),
         ],
-        const SizedBox(height: 16),
-        FilledButton(
-          key: const ValueKey('create_link'),
-          onPressed: _busy ? null : _submit,
-          style: FilledButton.styleFrom(
-            minimumSize: const Size(double.infinity, 52),
-          ),
-          child: Text(_busy ? 'Creating...' : 'Create link'),
-        ),
-      ],
+      ),
     );
   }
 }

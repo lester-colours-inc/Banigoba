@@ -3,36 +3,19 @@
 // This page lets shoppers browse verified boutiques and products. It filters
 // seller profiles by shop.verified so only admin-approved boutiques are visible
 // in the public marketplace.
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:banigoba/core/supabase/app_auth.dart';
-import 'package:banigoba/modules/social/services/profile_service.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
-import 'package:banigoba/app/routes/app_routes.dart';
-import 'package:banigoba/modules/shop/services/product_service.dart';
-import 'package:banigoba/core/utils/garment_taxonomy.dart';
-import 'package:banigoba/modules/shop/services/shop_chat_service.dart';
+import 'package:banigoba/modules/shop/controllers/boutique_detail_controller.dart';
+import 'package:banigoba/modules/shop/controllers/shops_controller.dart';
+import 'package:banigoba/modules/shop/widgets/boutique_card.dart';
 import 'package:banigoba/modules/shop/widgets/cart_badge_button.dart';
-import 'package:banigoba/modules/shop/widgets/safe_product_image.dart';
-import 'package:banigoba/modules/shop/views/product_detail_page.dart';
-import 'package:banigoba/modules/shop/views/shop_chat_page.dart';
-import 'package:banigoba/shared/widgets/app_toast.dart';
+import 'package:banigoba/modules/shop/widgets/product_grid_card.dart';
 
-/// Matches a lower-case search [query] against the product's name, shop,
-/// category and garment group, so "bottoms" also finds trousers and skirts.
-bool productMatchesQuery(Map<String, dynamic> product, String query) {
-  if (query.isEmpty) return true;
-  final haystack = [
-    product['name'],
-    product['shopName'],
-    product['category'],
-    product['subcategory'],
-    garmentGroupOf(product),
-  ].map((value) => (value ?? '').toString().toLowerCase()).join(' ');
-  return haystack.contains(query);
-}
+export 'package:banigoba/modules/shop/controllers/shops_controller.dart'
+    show productMatchesQuery;
 
-class ShopsPage extends StatefulWidget {
+class ShopsPage extends StatelessWidget {
   const ShopsPage({super.key, this.initialTab = 0, this.initialQuery = ''});
 
   final int initialTab;
@@ -41,29 +24,22 @@ class ShopsPage extends StatefulWidget {
   final String initialQuery;
 
   @override
-  State<ShopsPage> createState() => _ShopsPageState();
+  Widget build(BuildContext context) {
+    // Scoped to this page: it can be opened with a tab and a search.
+    return GetBuilder<ShopsController>(
+      init: ShopsController(initialTab: initialTab, initialQuery: initialQuery),
+      global: false,
+      builder: (controller) => _ShopsView(controller: controller),
+    );
+  }
 }
 
-class _ShopsPageState extends State<ShopsPage> {
+class _ShopsView extends StatelessWidget {
+  const _ShopsView({required this.controller});
+
   static const _primary = Color(0xFF0D0140);
-  final _productService = ProductService();
-  late final TextEditingController _search = TextEditingController(
-    text: widget.initialQuery,
-  );
-  late int _tab;
-  late String _query = widget.initialQuery.trim().toLowerCase();
 
-  @override
-  void initState() {
-    super.initState();
-    _tab = widget.initialTab.clamp(0, 1);
-  }
-
-  @override
-  void dispose() {
-    _search.dispose();
-    super.dispose();
-  }
+  final ShopsController controller;
 
   @override
   Widget build(BuildContext context) {
@@ -77,9 +53,7 @@ class _ShopsPageState extends State<ShopsPage> {
         ),
         backgroundColor: colors.surface,
         actions: [
-          CartBadgeButton(
-            onPressed: () => Navigator.pushNamed(context, AppRoutes.cart),
-          ),
+          CartBadgeButton(onPressed: controller.openCart),
           const SizedBox(width: 8),
         ],
       ),
@@ -88,9 +62,8 @@ class _ShopsPageState extends State<ShopsPage> {
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
             child: TextField(
-              controller: _search,
-              onChanged: (value) =>
-                  setState(() => _query = value.trim().toLowerCase()),
+              controller: controller.search,
+              onChanged: controller.onSearchChanged,
               decoration: InputDecoration(
                 hintText: 'Search boutiques or products',
                 prefixIcon: const Icon(Icons.search),
@@ -105,51 +78,44 @@ class _ShopsPageState extends State<ShopsPage> {
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              children: [
-                Expanded(child: _tabButton('Boutiques', 0)),
-                const SizedBox(width: 10),
-                Expanded(child: _tabButton('All Products', 1)),
-              ],
+            child: Obx(
+              () => Row(
+                children: [
+                  Expanded(child: _tabButton(context, 'Boutiques', 0)),
+                  const SizedBox(width: 10),
+                  Expanded(child: _tabButton(context, 'All Products', 1)),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 14),
           Expanded(
-            child: StreamBuilder<List<Map<String, dynamic>>>(
-              stream: _productService.getProducts(),
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return const Center(child: Text('Unable to load shops.'));
-                }
-                if (!snapshot.hasData) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                final products = snapshot.data!
-                    .where((product) => productMatchesQuery(product, _query))
-                    .toList();
-
-                return _tab == 0
-                    ? _buildBoutiques(products)
-                    : _buildVerifiedProducts(products);
-              },
-            ),
+            child: Obx(() {
+              if (controller.failed.value) {
+                return const Center(child: Text('Unable to load shops.'));
+              }
+              if (!controller.loaded.value) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              final products = controller.matching;
+              return controller.tab.value == 0
+                  ? _buildBoutiques(products)
+                  : _buildVerifiedProducts(products);
+            }),
           ),
         ],
       ),
     );
   }
 
-  Widget _tabButton(String label, int index) {
-    final selected = _tab == index;
+  Widget _tabButton(BuildContext context, String label, int index) {
+    final selected = controller.tab.value == index;
+    final colors = Theme.of(context).colorScheme;
     return FilledButton(
-      onPressed: () => setState(() => _tab = index),
+      onPressed: () => controller.selectTab(index),
       style: FilledButton.styleFrom(
-        backgroundColor: selected
-            ? _primary
-            : Theme.of(context).colorScheme.surfaceContainerLow,
-        foregroundColor: selected
-            ? Colors.white
-            : Theme.of(context).colorScheme.onSurface,
+        backgroundColor: selected ? _primary : colors.surfaceContainerLow,
+        foregroundColor: selected ? Colors.white : colors.onSurface,
         elevation: 0,
       ),
       child: Text(label),
@@ -159,7 +125,7 @@ class _ShopsPageState extends State<ShopsPage> {
   Widget _buildBoutiques(List<Map<String, dynamic>> products) {
     final grouped = <String, List<Map<String, dynamic>>>{};
     for (final product in products) {
-      final sellerId = (product['uploaderId'] ?? '').toString();
+      final sellerId = ShopsController.sellerOf(product);
       if (sellerId.isNotEmpty) {
         grouped.putIfAbsent(sellerId, () => []).add(product);
       }
@@ -169,136 +135,64 @@ class _ShopsPageState extends State<ShopsPage> {
         child: Text('No boutiques have listed products yet.'),
       );
     }
+    if (!controller.sellersReady(products)) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
-    return FutureBuilder<Map<String, Map<String, dynamic>>>(
-      future: _loadSellerProfiles(grouped.keys),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
-        }
+    final verifiedEntries = grouped.entries
+        .where((entry) => controller.isVerified(entry.key))
+        .toList();
+    if (verifiedEntries.isEmpty) {
+      return const Center(child: Text('No verified boutiques yet.'));
+    }
 
-        final sellers = snapshot.data ?? const <String, Map<String, dynamic>>{};
-        final verifiedEntries = grouped.entries.where((entry) {
-          final user = sellers[entry.key] ?? const <String, dynamic>{};
-          final shop = Map<String, dynamic>.from(
-            user['shop'] as Map? ?? const {},
-          );
-          return shop['verified'] == true;
-        }).toList();
-
-        if (verifiedEntries.isEmpty) {
-          return const Center(child: Text('No verified boutiques yet.'));
-        }
-
-        return ListView.separated(
-          padding: const EdgeInsets.fromLTRB(20, 4, 20, 30),
-          itemCount: verifiedEntries.length,
-          separatorBuilder: (_, _) => const SizedBox(height: 14),
-          itemBuilder: (context, index) {
-            final entry = verifiedEntries[index];
-            final user = sellers[entry.key] ?? const <String, dynamic>{};
-            final shop = Map<String, dynamic>.from(
-              user['shop'] as Map? ?? const {},
-            );
-            final shopName =
-                (shop['name'] ??
-                        entry.value.first['shopName'] ??
-                        user['displayName'] ??
-                        'Boutique')
-                    .toString();
-            final description = (shop['description'] ?? '').toString();
-            final imageUrl = (user['profileImageUrl'] ?? '').toString();
-
-            return Card(
-              clipBehavior: Clip.antiAlias,
-              child: InkWell(
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute<void>(
-                    builder: (_) => BoutiqueDetailPage(
-                      sellerId: entry.key,
-                      shopName: shopName,
-                      description: description,
-                      products: entry.value,
-                    ),
-                  ),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 32,
-                        backgroundColor: _primary,
-                        backgroundImage: imageUrl.isEmpty
-                            ? null
-                            : CachedNetworkImageProvider(imageUrl),
-                        child: imageUrl.isEmpty
-                            ? Text(
-                                shopName.isEmpty
-                                    ? 'B'
-                                    : shopName[0].toUpperCase(),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              )
-                            : null,
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              shopName,
-                              style: const TextStyle(
-                                fontSize: 17,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            if (description.isNotEmpty) ...[
-                              const SizedBox(height: 4),
-                              Text(
-                                description,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
-                            const SizedBox(height: 6),
-                            Text('${entry.value.length} products'),
-                          ],
-                        ),
-                      ),
-                      const Icon(Icons.arrow_forward_ios, size: 16),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 30),
+      itemCount: verifiedEntries.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 14),
+      itemBuilder: (context, index) {
+        final entry = verifiedEntries[index];
+        final user = controller.sellers[entry.key] ?? const {};
+        final shop = Map<String, dynamic>.from(
+          user['shop'] as Map? ?? const {},
+        );
+        final shopName =
+            (shop['name'] ??
+                    entry.value.first['shopName'] ??
+                    user['displayName'] ??
+                    'Boutique')
+                .toString();
+        final description = (shop['description'] ?? '').toString();
+        return BoutiqueCard(
+          shopName: shopName,
+          description: description,
+          imageUrl: (user['profileImageUrl'] ?? '').toString(),
+          productCount: entry.value.length,
+          onTap: () => controller.openBoutique(
+            sellerId: entry.key,
+            shopName: shopName,
+            description: description,
+            products: entry.value,
+          ),
         );
       },
     );
   }
 
-  Future<Map<String, Map<String, dynamic>>> _loadSellerProfiles(
-    Iterable<String> sellerIds,
-  ) async {
-    // Products store uploader IDs, so profile verification has to be checked
-    // against the seller user documents before rendering public listings.
-    final entries = await Future.wait(
-      sellerIds.map((sellerId) async {
-        final profile = await ProfileService().get(sellerId);
-        return MapEntry(sellerId, profile);
-      }),
+  Widget _buildVerifiedProducts(List<Map<String, dynamic>> products) {
+    final hasSellers = products.any(
+      (product) => ShopsController.sellerOf(product).isNotEmpty,
     );
-    return Map<String, Map<String, dynamic>>.fromEntries(entries);
-  }
-
-  Widget _buildProducts(List<Map<String, dynamic>> products) {
-    if (products.isEmpty) {
+    if (!hasSellers) {
+      return const Center(child: Text('No products available.'));
+    }
+    if (!controller.sellersReady(products)) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    final verified = products
+        .where((p) => controller.isVerified(ShopsController.sellerOf(p)))
+        .toList();
+    if (verified.isEmpty) {
       return const Center(child: Text('No products available.'));
     }
     return GridView.builder(
@@ -309,53 +203,10 @@ class _ShopsPageState extends State<ShopsPage> {
         mainAxisSpacing: 14,
         childAspectRatio: 0.68,
       ),
-      itemCount: products.length,
-      itemBuilder: (context, index) => _ProductShopCard(
-        product: products[index],
-        onTap: () => _openProduct(products[index]),
-      ),
-    );
-  }
-
-  Widget _buildVerifiedProducts(List<Map<String, dynamic>> products) {
-    final sellerIds = products
-        .map((product) => (product['uploaderId'] ?? '').toString())
-        .where((sellerId) => sellerId.isNotEmpty)
-        .toSet();
-    if (sellerIds.isEmpty) {
-      return const Center(child: Text('No products available.'));
-    }
-
-    return FutureBuilder<Map<String, Map<String, dynamic>>>(
-      future: _loadSellerProfiles(sellerIds),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        final sellers = snapshot.data ?? const <String, Map<String, dynamic>>{};
-        final verifiedProducts = products.where((product) {
-          final sellerId = (product['uploaderId'] ?? '').toString();
-          final user = sellers[sellerId] ?? const <String, dynamic>{};
-          final shop = Map<String, dynamic>.from(
-            user['shop'] as Map? ?? const {},
-          );
-          return shop['verified'] == true;
-        }).toList();
-
-        return _buildProducts(verifiedProducts);
-      },
-    );
-  }
-
-  void _openProduct(Map<String, dynamic> product) {
-    Navigator.push(
-      context,
-      MaterialPageRoute<void>(
-        builder: (_) => ProductDetailPage(
-          productId: product['id']?.toString(),
-          productData: product,
-        ),
+      itemCount: verified.length,
+      itemBuilder: (context, index) => ProductGridCard(
+        product: verified[index],
+        onTap: () => controller.openProduct(verified[index]),
       ),
     );
   }
@@ -377,123 +228,36 @@ class BoutiqueDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(shopName)),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          if (description.isNotEmpty) ...[
-            Text(description, style: const TextStyle(fontSize: 16)),
-            const SizedBox(height: 12),
-          ],
-          FilledButton.icon(
-            onPressed: () => _messageBoutique(context),
-            icon: const Icon(Icons.chat_bubble_outline),
-            label: const Text('Message Boutique'),
-            style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFF0D0140),
-              minimumSize: const Size(double.infinity, 48),
-            ),
-          ),
-          const SizedBox(height: 20),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 14,
-              childAspectRatio: 0.68,
-            ),
-            itemCount: products.length,
-            itemBuilder: (context, index) => _ProductShopCard(
-              product: products[index],
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute<void>(
-                  builder: (_) => ProductDetailPage(
-                    productId: products[index]['id']?.toString(),
-                    productData: products[index],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _messageBoutique(BuildContext context) async {
-    final customer = AppAuth.instance.currentUser;
-    if (customer == null) {
-      AppToast.say('Sign in to send messages.');
-      return;
-    }
-    if (customer.uid == sellerId) return;
-    final chatId = await ShopChatService().ensureConversation(
-      sellerId: sellerId,
-      customerId: customer.uid,
-      shopName: shopName,
-    );
-    if (!context.mounted) return;
-    Navigator.push(
-      context,
-      MaterialPageRoute<void>(
-        builder: (_) =>
-            ShopChatPage(chatId: chatId, title: shopName, asSeller: false),
-      ),
-    );
-  }
-}
-
-class _ProductShopCard extends StatelessWidget {
-  const _ProductShopCard({required this.product, required this.onTap});
-
-  final Map<String, dynamic> product;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final imageUrl =
-        (product['rawImageUrl'] ??
-                product['imageUrl'] ??
-                product['imageURL'] ??
-                '')
-            .toString();
-    final price = (product['price'] as num?)?.toDouble() ?? 0;
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    return GetBuilder<BoutiqueDetailController>(
+      init: BoutiqueDetailController(sellerId: sellerId, shopName: shopName),
+      global: false,
+      builder: (controller) => Scaffold(
+        appBar: AppBar(title: Text(shopName)),
+        body: ListView(
+          padding: const EdgeInsets.all(20),
           children: [
-            Expanded(
-              child: SafeProductImage(
-                imageUrl: imageUrl,
-                width: double.infinity,
-                fit: BoxFit.contain,
-                iconSize: 50,
+            if (description.isNotEmpty) ...[
+              Text(description, style: const TextStyle(fontSize: 16)),
+              const SizedBox(height: 12),
+            ],
+            FilledButton.icon(
+              onPressed: controller.messageBoutique,
+              icon: const Icon(Icons.chat_bubble_outline),
+              label: const Text('Message Boutique'),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF0D0140),
+                minimumSize: const Size(double.infinity, 48),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(10, 8, 10, 2),
-              child: Text(
-                (product['name'] ?? 'Product').toString(),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(10, 2, 10, 10),
-              child: Text(
-                price > 0 ? '\$${price.toStringAsFixed(2)}' : 'View product',
-                style: const TextStyle(
-                  color: Color(0xFF0D0140),
-                  fontWeight: FontWeight.w700,
-                ),
+            const SizedBox(height: 20),
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: ProductGridCard.gridDelegate,
+              itemCount: products.length,
+              itemBuilder: (context, index) => ProductGridCard(
+                product: products[index],
+                onTap: () => controller.openProduct(products[index]),
               ),
             ),
           ],

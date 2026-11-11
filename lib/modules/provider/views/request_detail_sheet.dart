@@ -1,7 +1,9 @@
 // The details of a design or hair request, with the answers a provider can
 // give: accept or decline a new one, mark an accepted one completed.
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
+import 'package:banigoba/modules/provider/controllers/request_detail_controller.dart';
 import 'package:banigoba/modules/provider/models/provider_inbox.dart';
 
 typedef RespondToRequest = Future<void> Function(String status);
@@ -19,7 +21,7 @@ Future<void> showRequestDetailSheet(
   );
 }
 
-class RequestDetailSheet extends StatefulWidget {
+class RequestDetailSheet extends StatelessWidget {
   const RequestDetailSheet({
     super.key,
     required this.item,
@@ -28,14 +30,6 @@ class RequestDetailSheet extends StatefulWidget {
 
   final InboxItem item;
   final RespondToRequest onRespond;
-
-  @override
-  State<RequestDetailSheet> createState() => _RequestDetailSheetState();
-}
-
-class _RequestDetailSheetState extends State<RequestDetailSheet> {
-  bool _busy = false;
-  String? _error;
 
   static const Map<String, String> _labels = {
     'occasion': 'Occasion',
@@ -48,24 +42,16 @@ class _RequestDetailSheetState extends State<RequestDetailSheet> {
     'notes': 'Notes',
   };
 
-  Future<void> _answer(String status) async {
-    setState(() {
-      _busy = true;
-      _error = null;
-    });
-    try {
-      await widget.onRespond(status);
-      if (mounted) Navigator.pop(context);
-    } on Exception catch (error) {
-      if (mounted) setState(() => _error = 'Could not save: $error');
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final item = widget.item;
+    return GetBuilder<RequestDetailController>(
+      init: RequestDetailController(onRespond: onRespond),
+      global: false,
+      builder: (controller) => _view(context, controller),
+    );
+  }
+
+  Widget _view(BuildContext context, RequestDetailController controller) {
     final colors = Theme.of(context).colorScheme;
     final rows = [
       for (final entry in _labels.entries)
@@ -112,37 +98,50 @@ class _RequestDetailSheetState extends State<RequestDetailSheet> {
                   ],
                 ),
               ),
-            if (_error != null)
-              Text(_error!, style: TextStyle(color: colors.error)),
+            Obx(() {
+              final error = controller.error.value;
+              if (error == null) return const SizedBox.shrink();
+              return Text(error, style: TextStyle(color: colors.error));
+            }),
             const SizedBox(height: 8),
             if (item.needsAction)
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      key: const ValueKey('decline'),
-                      onPressed: _busy ? null : () => _answer('declined'),
-                      child: const Text('Decline'),
+              Obx(
+                () => Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        key: const ValueKey('decline'),
+                        onPressed: controller.busy.value
+                            ? null
+                            : () => controller.answer('declined'),
+                        child: const Text('Decline'),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: FilledButton(
-                      key: const ValueKey('accept'),
-                      onPressed: _busy ? null : () => _answer('accepted'),
-                      child: const Text('Accept'),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton(
+                        key: const ValueKey('accept'),
+                        onPressed: controller.busy.value
+                            ? null
+                            : () => controller.answer('accepted'),
+                        child: const Text('Accept'),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               )
             else if (item.status == 'accepted')
-              FilledButton(
-                key: const ValueKey('complete'),
-                onPressed: _busy ? null : () => _answer('completed'),
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 48),
+              Obx(
+                () => FilledButton(
+                  key: const ValueKey('complete'),
+                  onPressed: controller.busy.value
+                      ? null
+                      : () => controller.answer('completed'),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 48),
+                  ),
+                  child: const Text('Mark as completed'),
                 ),
-                child: const Text('Mark as completed'),
               ),
           ],
         ),

@@ -4,6 +4,7 @@
 import 'package:get/get.dart';
 
 import 'package:banigoba/app/routes/app_routes.dart';
+import 'package:banigoba/modules/admin/bindings/curators_workspace_binding.dart';
 import 'package:banigoba/modules/admin/views/curators_workspace_page.dart';
 import 'package:banigoba/modules/agents/views/agents_page.dart';
 import 'package:banigoba/modules/auth/bindings/auth_gate_binding.dart';
@@ -20,6 +21,7 @@ import 'package:banigoba/modules/makeover/views/makeover_page.dart';
 import 'package:banigoba/modules/notifications/views/notifications_page.dart';
 import 'package:banigoba/modules/profile_details/views/body_profile_page.dart';
 import 'package:banigoba/modules/settings/views/settings_page.dart';
+import 'package:banigoba/modules/shop/bindings/cart_binding.dart';
 import 'package:banigoba/modules/shop/models/shop_link.dart';
 import 'package:banigoba/modules/shop/views/cart_page.dart';
 import 'package:banigoba/modules/shop/views/shared_stock_page.dart';
@@ -47,13 +49,17 @@ abstract final class AppPages {
     ),
     GetPage(name: AppRoutes.home, page: MainScreen.new),
     GetPage(name: AppRoutes.wardrobe, page: WardrobePage.new),
-    GetPage(name: AppRoutes.cart, page: CartPage.new),
+    GetPage(name: AppRoutes.cart, page: CartPage.new, binding: CartBinding()),
     GetPage(name: AppRoutes.search, page: SearchPage.new),
     GetPage(name: AppRoutes.profile, page: ProfilePage.new),
     GetPage(name: AppRoutes.avatarTryOn, page: AvatarTryOnPage.new),
     GetPage(name: AppRoutes.planAhead, page: PlanAheadPage.new),
     GetPage(name: AppRoutes.measurement, page: MeasurementPage.new),
-    GetPage(name: AppRoutes.curatorsWorkspace, page: CuratorsWorkspacePage.new),
+    GetPage(
+      name: AppRoutes.curatorsWorkspace,
+      page: CuratorsWorkspacePage.new,
+      binding: CuratorsWorkspaceBinding(),
+    ),
     GetPage(name: AppRoutes.settings, page: SettingsPage.new),
     GetPage(name: AppRoutes.shops, page: ShopsPage.new),
     GetPage(name: AppRoutes.fashionDesigners, page: FashionDesignersPage.new),
