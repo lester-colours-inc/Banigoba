@@ -10,7 +10,6 @@ import 'package:banigoba/modules/shop/views/quick_add_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import '../support/toast_pump.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:toastification/toastification.dart';
 
 class _FakeSaver implements QuickAddSaver {

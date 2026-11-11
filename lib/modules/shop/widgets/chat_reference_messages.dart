@@ -7,6 +7,7 @@ import 'package:banigoba/shared/widgets/app_network_image.dart';
 
 class ProductReferenceMessage extends StatelessWidget {
   const ProductReferenceMessage({
+    super.key,
     required this.data,
     required this.mine,
     required this.timestamp,
@@ -112,6 +113,7 @@ class ProductReferenceMessage extends StatelessWidget {
 /// A look forwarded from the Home feed: the picture, then its caption.
 class LookReferenceMessage extends StatelessWidget {
   const LookReferenceMessage({
+    super.key,
     required this.data,
     required this.mine,
     required this.timestamp,
@@ -199,6 +201,7 @@ class LookReferenceMessage extends StatelessWidget {
 
 class DesignRequestReferenceMessage extends StatelessWidget {
   const DesignRequestReferenceMessage({
+    super.key,
     required this.data,
     required this.mine,
     required this.timestamp,
@@ -307,6 +310,7 @@ class DesignRequestReferenceMessage extends StatelessWidget {
 
 class RequestReferenceMeta extends StatelessWidget {
   const RequestReferenceMeta({
+    super.key,
     required this.label,
     required this.value,
     required this.mine,
@@ -331,7 +335,7 @@ class RequestReferenceMeta extends StatelessWidget {
 }
 
 class ProductReferenceImageFallback extends StatelessWidget {
-  const ProductReferenceImageFallback({required this.mine});
+  const ProductReferenceImageFallback({super.key, required this.mine});
 
   final bool mine;
 

@@ -26,7 +26,7 @@ class ProductDetailController extends GetxController {
     String? productId,
     required Map<String, dynamic> productData,
     this.loadBodyProfile,
-  }) : _initial = {...productData, if (productId != null) 'id': productId};
+  }) : _initial = {...productData, 'id': ?productId};
 
   final Map<String, dynamic> _initial;
 

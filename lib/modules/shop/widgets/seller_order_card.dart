@@ -95,7 +95,7 @@ class SellerOrderCard extends StatelessWidget {
             if (customerEmail.isNotEmpty) Text(customerEmail),
             const SizedBox(height: 10),
             Container(
-              key: ValueKey('fulfilment_${orderId}'),
+              key: ValueKey('fulfilment_$orderId'),
               margin: const EdgeInsets.only(bottom: 8),
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(

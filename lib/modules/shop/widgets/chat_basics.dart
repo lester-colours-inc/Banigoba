@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 
 class ConversationTitle extends StatelessWidget {
-  const ConversationTitle(this.title, {required this.bold});
+  const ConversationTitle(this.title, {super.key, required this.bold});
 
   final String title;
   final bool bold;
@@ -20,6 +20,7 @@ class ConversationTitle extends StatelessWidget {
 
 class MessageTimestamp extends StatelessWidget {
   const MessageTimestamp({
+    super.key,
     required this.timestamp,
     required this.mine,
     this.system = false,
@@ -53,7 +54,11 @@ class MessageTimestamp extends StatelessWidget {
 }
 
 class ConversationTrailing extends StatelessWidget {
-  const ConversationTrailing({required this.timestamp, required this.unread});
+  const ConversationTrailing({
+    super.key,
+    required this.timestamp,
+    required this.unread,
+  });
 
   final String timestamp;
   final int unread;
@@ -99,7 +104,7 @@ class ConversationTrailing extends StatelessWidget {
 }
 
 class MessageDateSeparator extends StatelessWidget {
-  const MessageDateSeparator(this.label);
+  const MessageDateSeparator(this.label, {super.key});
 
   final String label;
 
