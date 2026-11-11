@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import 'package:banigoba/core/supabase/app_auth.dart';
+import 'package:banigoba/modules/admin/bindings/curators_workspace_binding.dart';
+import 'package:banigoba/modules/admin/controllers/curators_workspace_controller.dart';
 import 'package:banigoba/modules/admin/views/curators_workspace_page.dart';
 import 'package:banigoba/modules/auth/controllers/auth_gate_controller.dart';
 import 'package:banigoba/modules/auth/views/custom_login_screen.dart';
@@ -71,7 +73,13 @@ class AuthGate extends GetView<AuthGateController> {
         final userData = userSnapshot.data ?? const <String, dynamic>{};
         final isAdmin =
             userData['isAdmin'] == true || userData['role'] == 'admin';
-        if (isAdmin) return _afterSplash(const CuratorsWorkspacePage());
+        if (isAdmin) {
+          // Built inline rather than via its route, so register its binding.
+          if (!Get.isRegistered<CuratorsWorkspaceController>()) {
+            CuratorsWorkspaceBinding().dependencies();
+          }
+          return _afterSplash(const CuratorsWorkspacePage());
+        }
         if (isProviderMode(userData)) {
           return _afterSplash(const ProviderHomePage());
         }

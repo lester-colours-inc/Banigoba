@@ -97,7 +97,12 @@ class DressUpPostCard extends StatelessWidget {
     this.footer,
     this.repostLabel = '',
     this.quote = '',
+    this.isVerified = false,
   });
+
+  /// Shows the verified badge next to [title]. Off until users can be
+  /// verified.
+  final bool isVerified;
 
   /// "Reposted from Tariro" / "Quoting Tariro". Empty on an original post.
   final String repostLabel;
@@ -306,12 +311,14 @@ class DressUpPostCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 4),
-                  Icon(
-                    Icons.verified,
-                    size: 16,
-                    color: isMineLayout ? ink : const Color(0xFF8E86D8),
-                  ),
+                  if (isVerified) ...[
+                    const SizedBox(width: 4),
+                    Icon(
+                      Icons.verified,
+                      size: 16,
+                      color: isMineLayout ? ink : const Color(0xFF8E86D8),
+                    ),
+                  ],
                 ],
               ),
               if (detail.isNotEmpty)

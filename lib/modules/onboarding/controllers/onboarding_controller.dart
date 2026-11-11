@@ -1,9 +1,12 @@
 // The intro slides: current page and finishing (saves "seen", opens the gate).
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:banigoba/app/routes/app_routes.dart';
+import 'package:banigoba/modules/auth/controllers/auth_gate_controller.dart';
 
 /// Preference key set once the intro has been seen or skipped.
 const String onboardingDoneKey = 'onboarding_done';
@@ -29,12 +32,19 @@ class OnboardingController extends GetxController {
   Future<void> finish() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(onboardingDoneKey, true);
-    if (!isClosed) await Get.offNamed<void>(AppRoutes.root);
+    if (isClosed) return;
+    // The slides are drawn inside the AuthGate on the root route, so going
+    // "to root" is a no-op; tell the gate directly instead.
+    if (Get.isRegistered<AuthGateController>()) {
+      Get.find<AuthGateController>().onboardingDone.value = true;
+      return;
+    }
+    await Get.offAllNamed<void>(AppRoutes.root);
   }
 
   void next() {
     if (isLastPage) {
-      finish();
+      unawaited(finish());
       return;
     }
     pageController.nextPage(

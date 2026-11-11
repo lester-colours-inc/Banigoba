@@ -2,7 +2,7 @@ name: banigoba
 description: "AI-powered virtual wardrobe, fashion and social app"
 publish_to: 'none'
 
-version: 1.1.0+4
+version: 1.1.2+6
 
 environment:
   sdk: ^3.11.5
