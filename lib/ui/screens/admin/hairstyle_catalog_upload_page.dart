@@ -12,6 +12,7 @@ import '../../../data/services/hairstyle_service.dart';
 import '../../widgets/cart_badge_button.dart';
 import '../main/notifications_page.dart';
 import '../../widgets/app_network_image.dart';
+import '../../../data/services/image_crop.dart';
 
 const _hairNavy = Color(0xFF17008A);
 
@@ -244,7 +245,7 @@ class _TemporaryHairstyleUploadPageState
   }
 
   Future<void> _pickImage() async {
-    final image = await _picker.pickImage(
+    final image = await _picker.pickAndCropImage(
       source: ImageSource.gallery,
       imageQuality: 90,
       maxWidth: 1800,

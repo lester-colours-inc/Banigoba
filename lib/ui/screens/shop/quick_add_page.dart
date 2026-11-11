@@ -14,6 +14,7 @@ import '../../../data/models/quick_add.dart';
 import '../../../data/services/garment_tagger.dart';
 import '../../../data/services/product_service.dart';
 import '../../../data/services/profile_service.dart';
+import '../../../data/services/image_crop.dart';
 
 /// Saves a finished draft. The real one uploads the photo and adds the
 /// product; tests use a fake.
@@ -55,7 +56,7 @@ class ProductQuickAddSaver implements QuickAddSaver {
 typedef PickPhoto = Future<Uint8List?> Function(ImageSource source);
 
 Future<Uint8List?> _pickWithImagePicker(ImageSource source) async {
-  final file = await ImagePicker().pickImage(
+  final file = await ImagePicker().pickAndCropImage(
     source: source,
     imageQuality: 85,
     maxWidth: 1600,
@@ -97,7 +98,7 @@ class _QuickAddPageState extends State<QuickAddPage> {
 
   late final QuickAddSaver _saver = widget._saver ?? ProductQuickAddSaver();
   late final PickPhoto _pick = widget._pickPhoto ?? _pickWithImagePicker;
-  late final GarmentTagger _tagger = widget._tagger ?? GeminiGarmentTagger();
+  late final GarmentTagger _tagger = widget._tagger ?? ServerGarmentTagger();
   bool _suggested = false;
 
   @override

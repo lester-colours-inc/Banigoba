@@ -11,12 +11,10 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../data/models/feed_ranking.dart';
 import '../../../data/services/area_service.dart';
-import '../../../data/services/gallery_consent_service.dart';
 import '../../../data/models/provider_roles.dart';
 import '../../../data/services/provider_service.dart';
 import '../../../data/services/storage_service.dart';
 import '../../widgets/consent_sheet.dart';
-import '../../widgets/gallery_consent_sheet.dart';
 import '../provider/become_provider_page.dart';
 import '../../../data/services/style_preferences_service.dart';
 import '../onboarding/style_preferences_screen.dart';
@@ -49,8 +47,6 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _saving = false;
   List<ProviderRole> _providerRoles = const [];
   bool _notifyTrending = true;
-  final GalleryConsentService _galleryConsent = GalleryConsentService();
-  bool _gallerySuggestions = false;
   final AreaService _area = AreaService();
   bool _useLocation = false;
   String _profileImageUrl = '';
@@ -131,9 +127,6 @@ class _SettingsPageState extends State<SettingsPage> {
     _area.load(user.uid).then((record) {
       if (mounted) setState(() => _useLocation = record?.enabled ?? false);
     });
-    _galleryConsent.load().then((consent) {
-      if (mounted) setState(() => _gallerySuggestions = consent.isActive);
-    });
     setState(() => _loading = false);
   }
 
@@ -164,22 +157,6 @@ class _SettingsPageState extends State<SettingsPage> {
         'Location is blocked for Banigoba. Allow it in your phone settings.',
       AreaResult.failed => 'We could not find your location. Try again.',
     });
-  }
-
-  /// Gallery suggestions (E-5): turning on shows the consent first; turning
-  /// off withdraws it at once.
-  Future<void> _setGallerySuggestions(bool on) async {
-    if (on && !await showGalleryConsentSheet(context)) return;
-    try {
-      if (on) {
-        await _galleryConsent.grant();
-      } else {
-        await _galleryConsent.withdraw();
-      }
-      if (mounted) setState(() => _gallerySuggestions = on);
-    } on Exception catch (error) {
-      _showMessage('Unable to change this: $error');
-    }
   }
 
   /// Trending-look pushes on or off (at most one a day).
@@ -214,7 +191,7 @@ class _SettingsPageState extends State<SettingsPage> {
       await ProviderService().setMode(user.uid, provider: true);
       if (mounted) Navigator.of(context).popUntil((route) => route.isFirst);
     } on Exception catch (error) {
-      _showMessage('Unable to open provider mode: $error');
+      _showMessage('Unable to open business mode: $error');
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -516,28 +493,6 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                   const SizedBox(height: 28),
                   const Text(
-                    'Photos',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  Card(
-                    child: SwitchListTile(
-                      key: const ValueKey('gallery_suggestions'),
-                      value: _gallerySuggestions,
-                      onChanged: _setGallerySuggestions,
-                      secondary: const Icon(Icons.photo_library_outlined),
-                      title: const Text(
-                        'Suggestions from my photos',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      subtitle: const Text(
-                        'Show my recent photos on the makeover screen. They '
-                        'stay on my phone until I pick one.',
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 28),
-                  const Text(
                     'Business',
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
@@ -547,7 +502,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       key: const ValueKey('provider_mode_tile'),
                       leading: const Icon(Icons.storefront_outlined),
                       title: const Text(
-                        'Provider mode',
+                        'Business mode',
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
                       subtitle: Text(

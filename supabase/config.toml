@@ -413,3 +413,10 @@ import_map = "./functions/deno.json"
 
 [functions.delete-account]
 import_map = "./functions/deno.json"
+
+# Called by the database (pg_net) with the service key; checks the caller itself.
+[functions.run-ai-job]
+import_map = "./functions/deno.json"
+
+[functions.tag-garment]
+import_map = "./functions/deno.json"

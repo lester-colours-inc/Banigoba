@@ -5,9 +5,10 @@
 //
 // These are estimates: a shop usually photographs only the front of a
 // garment, so the back and sides are the model's best guess. The UI says so.
-import 'dart:typed_data';
-
-import 'gemini_image_api.dart';
+//
+// The angles are made on the server, side by side, so they finish (and the
+// person is told) even if the app is closed.
+import 'ai_job_service.dart';
 
 enum TurnView {
   front('Front', ''),
@@ -81,25 +82,15 @@ Map<TurnView, String> parseTurnViews(
   return Map.unmodifiable(views);
 }
 
-typedef TurnImageGenerator =
-    Future<Uint8List> Function(List<GeminiImage> images, String prompt);
-typedef TurnImageUploader = Future<String> Function(Uint8List bytes);
-typedef TurnImageFetcher = Future<GeminiImage> Function(String url);
-
 class TurnAroundService {
-  TurnAroundService({
-    required this.generate,
-    required this.upload,
-    TurnImageFetcher? fetch,
-  }) : fetch = fetch ?? GeminiImageApi.fetchImage;
+  TurnAroundService({AiImageJobs? jobs})
+    : _jobs = jobs ?? SupabaseAiImageJobs();
 
-  final TurnImageGenerator generate;
-  final TurnImageUploader upload;
-  final TurnImageFetcher fetch;
+  final AiImageJobs _jobs;
 
-  /// Generates the right, back and left views one at a time, calling
-  /// [onView] as each is ready so the page can show them straight away. If an
-  /// angle fails, the ones already made are kept and the error is rethrown.
+  /// Generates the right, back and left views, calling [onView] as each is
+  /// ready so the page can show them straight away. If an angle fails, the
+  /// ones already made have been reported and the error is rethrown.
   Future<Map<TurnView, String>> run({
     required String frontUrl,
     required String avatarUrl,
@@ -116,27 +107,35 @@ class TurnAroundService {
         .where((url) => url.isNotEmpty)
         .take(kMaxGarmentImages)
         .toList();
-    final images = <GeminiImage>[
-      await fetch(frontUrl),
-      await fetch(avatarUrl),
-      for (final url in garments) await fetch(url),
-      for (final url in backs) await fetch(url),
+    final images = [
+      for (final url in [frontUrl, avatarUrl, ...garments, ...backs])
+        AiImageUrl(url),
     ];
 
     final views = <TurnView, String>{TurnView.front: frontUrl};
-    for (final view in TurnView.generated) {
-      final bytes = await generate(
-        images,
-        turnAroundPrompt(
-          view,
-          garmentCount: garments.length,
-          backCount: backs.length,
-        ),
-      );
-      final url = await upload(bytes);
-      views[view] = url;
-      onView?.call(view, url);
-    }
+    await _jobs.run(
+      AiJobRequest(
+        kind: AiJobKind.turnAround,
+        label: 'Every angle of your look',
+        steps: [
+          for (final view in TurnView.generated)
+            AiImageStep(
+              prompt: turnAroundPrompt(
+                view,
+                garmentCount: garments.length,
+                backCount: backs.length,
+              ),
+              images: images,
+            ),
+        ],
+      ),
+      onStep: (step, urls) {
+        if (step >= TurnView.generated.length || urls.isEmpty) return;
+        final view = TurnView.generated[step];
+        views[view] = urls.first;
+        onView?.call(view, urls.first);
+      },
+    );
     return Map.unmodifiable(views);
   }
 }

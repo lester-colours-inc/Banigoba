@@ -75,7 +75,7 @@ class _BecomeProviderPageState extends State<BecomeProviderPage> {
     }
     final user = AppAuth.instance.currentUser;
     if (user == null) {
-      setState(() => _error = 'Sign in to become a provider.');
+      setState(() => _error = 'Sign in to become a business.');
       return;
     }
     setState(() {
@@ -104,7 +104,7 @@ class _BecomeProviderPageState extends State<BecomeProviderPage> {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('Provider mode')),
+      appBar: AppBar(title: const Text('Business mode')),
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
@@ -178,7 +178,7 @@ class _BecomeProviderPageState extends State<BecomeProviderPage> {
               backgroundColor: _primary,
               minimumSize: const Size(double.infinity, 52),
             ),
-            child: Text(_saving ? 'Saving...' : 'Start provider mode'),
+            child: Text(_saving ? 'Saving...' : 'Start business mode'),
           ),
         ],
       ),

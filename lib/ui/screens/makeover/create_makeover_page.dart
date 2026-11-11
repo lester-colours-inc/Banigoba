@@ -13,6 +13,8 @@
 //
 // Deliberately absent: any score, rating, ranking or "best look" marker. The
 // compare step offers alternatives and an explanation of what changed.
+import 'dart:async';
+
 import '../../widgets/ai_photo_consent.dart';
 import '../../../core/supabase/app_auth.dart';
 import 'package:flutter/material.dart';
@@ -24,6 +26,7 @@ import '../../../data/services/storage_service.dart';
 import '../../widgets/save_look_sheet.dart';
 import '../../widgets/try_on_product_picker.dart';
 import '../../widgets/app_network_image.dart';
+import '../../../data/services/image_crop.dart';
 
 /// Steps of the coordinated journey.
 enum _CreateStep { brief, generating, compare }
@@ -56,6 +59,10 @@ class _CreateMakeoverPageState extends State<CreateMakeoverPage> {
   bool _isLoadingSource = true;
   String _error = '';
 
+  /// Follows the stored job while the server works on it, so each stage's
+  /// progress shows as it happens.
+  StreamSubscription<MakeoverJob?>? _progress;
+
   @override
   void initState() {
     super.initState();
@@ -64,6 +71,7 @@ class _CreateMakeoverPageState extends State<CreateMakeoverPage> {
 
   @override
   void dispose() {
+    unawaited(_progress?.cancel());
     _occasionController.dispose();
     _feelingController.dispose();
     _hairController.dispose();
@@ -73,6 +81,19 @@ class _CreateMakeoverPageState extends State<CreateMakeoverPage> {
   }
 
   String get _userId => AppAuth.instance.currentUser?.uid ?? '';
+
+  void _followProgress(String jobId) {
+    unawaited(_progress?.cancel());
+    _progress = _service.watchJob(jobId).listen((job) {
+      if (!mounted || job == null || !_isBusy) return;
+      setState(() => _job = job);
+    });
+  }
+
+  void _stopFollowing() {
+    unawaited(_progress?.cancel());
+    _progress = null;
+  }
 
   Future<void> _loadExistingPhoto() async {
     final userId = _userId;
@@ -106,7 +127,7 @@ class _CreateMakeoverPageState extends State<CreateMakeoverPage> {
     });
 
     try {
-      final picked = await _picker.pickImage(
+      final picked = await _picker.pickAndCropImage(
         source: source,
         imageQuality: 90,
         maxWidth: 2000,
@@ -207,8 +228,10 @@ class _CreateMakeoverPageState extends State<CreateMakeoverPage> {
         _job = created;
         _step = _CreateStep.generating;
       });
+      _followProgress(created.id);
 
       final finished = await _service.run(created);
+      _stopFollowing();
       if (!mounted) return;
       setState(() {
         _job = finished;
@@ -247,12 +270,14 @@ class _CreateMakeoverPageState extends State<CreateMakeoverPage> {
       _step = _CreateStep.generating;
     });
 
+    _followProgress(job.id);
     try {
       final refined = await _service.refine(
         job,
         domain: domain,
         updatedIntent: _buildIntent(),
       );
+      _stopFollowing();
       if (!mounted) return;
       setState(() {
         _job = refined;

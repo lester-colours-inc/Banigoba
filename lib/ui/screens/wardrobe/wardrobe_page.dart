@@ -25,6 +25,7 @@ import '../../widgets/app_network_image.dart';
 import '../../widgets/menu_or_back_button.dart';
 import 'widgets/saved_looks_grid.dart';
 import 'widgets/wardrobe_connections.dart';
+import '../../../data/services/image_crop.dart';
 
 /// My Smart Wardrobe: the user's clothes, the looks they saved, and the
 /// shops and designers the wardrobe draws on (October 2026 review, W-1).
@@ -42,7 +43,7 @@ class WardrobePage extends StatefulWidget {
 
 class _WardrobePageState extends State<WardrobePage> {
   final ProductService _productService = ProductService();
-  final GarmentTagger _tagger = GeminiGarmentTagger();
+  final GarmentTagger _tagger = ServerGarmentTagger();
   final String _currentUserId = AppAuth.instance.currentUser?.uid ?? '';
   late int _selectedTabIndex = widget.initialTab.index;
 
@@ -1326,7 +1327,7 @@ class _WardrobePageState extends State<WardrobePage> {
     );
 
     if (source != null) {
-      final XFile? image = await _picker.pickImage(source: source);
+      final XFile? image = await _picker.pickAndCropImage(source: source);
       if (image != null) return File(image.path);
     }
     return null;

@@ -16,47 +16,58 @@ import 'package:flutter/foundation.dart';
 import '../../core/supabase/app_auth.dart';
 
 import '../models/look_request.dart';
-import 'gemini_image_api.dart';
-import 'storage_service.dart';
+import 'ai_job_service.dart';
 
-/// Turns a photo and an instruction into a new image.
+/// Turns a photo and an instruction into a new, stored image.
 abstract interface class LookImageGenerator {
   bool get isConfigured;
 
-  /// Edits [photoUrl] per [prompt]. [referenceImageUrls] are extra images
-  /// the prompt refers to (a look to copy), sent after the photo.
-  Future<Uint8List> generate({
+  /// Edits [photoUrl] per [prompt] and returns the address of the result.
+  /// [referenceImageUrls] are extra images the prompt refers to (a look to
+  /// copy), sent after the photo.
+  Future<String> generate({
     required String photoUrl,
     required String prompt,
     List<String> referenceImageUrls = const [],
   });
 }
 
-/// Gemini image editing ("Nano Banana").
-class GeminiLookGenerator implements LookImageGenerator {
-  GeminiLookGenerator({String? apiKey}) : _apiKey = apiKey ?? _compiledKey;
+/// Gemini image editing ("Nano Banana"), run on the server so it finishes
+/// (and the person is notified) even if the app is closed.
+class ServerLookGenerator implements LookImageGenerator {
+  ServerLookGenerator({AiImageJobs? jobs})
+    : _jobs = jobs ?? SupabaseAiImageJobs();
 
-  static const String _compiledKey = String.fromEnvironment('GEMINI_API_KEY');
-
-  final String _apiKey;
-
-  @override
-  bool get isConfigured => _apiKey.isNotEmpty;
+  final AiImageJobs _jobs;
 
   @override
-  Future<Uint8List> generate({
+  bool get isConfigured => true;
+
+  @override
+  Future<String> generate({
     required String photoUrl,
     required String prompt,
     List<String> referenceImageUrls = const [],
   }) async {
-    final images = await Future.wait([
-      GeminiImageApi.fetchImage(photoUrl),
-      for (final url in referenceImageUrls) GeminiImageApi.fetchImage(url),
-    ]);
-    final result = await GeminiImageApi(
-      apiKey: _apiKey,
-    ).editImage(images: images, prompt: prompt);
-    return result.bytes;
+    final job = await _jobs.run(
+      AiJobRequest(
+        kind: AiJobKind.look,
+        label: 'Your look',
+        steps: [
+          AiImageStep(
+            prompt: prompt,
+            images: [
+              AiImageUrl(photoUrl),
+              for (final url in referenceImageUrls) AiImageUrl(url),
+            ],
+          ),
+        ],
+      ),
+    );
+    if (job.images.isEmpty) {
+      throw const AiJobException('No picture came back. Please try again.');
+    }
+    return job.images.first;
   }
 }
 
@@ -79,20 +90,15 @@ class LookGenerationException implements Exception {
   String toString() => message;
 }
 
-typedef LookUploader = Future<String> Function(Uint8List bytes, String userId);
-
 class LookGenerationService {
   LookGenerationService({
     LookImageGenerator? generator,
-    LookUploader? upload,
     String Function()? currentUserId,
-  }) : _generator = generator ?? GeminiLookGenerator(),
-       _upload = upload ?? StorageService().uploadTryOnResultBytes,
+  }) : _generator = generator ?? ServerLookGenerator(),
        _currentUserId =
            currentUserId ?? (() => AppAuth.instance.currentUser?.uid ?? '');
 
   final LookImageGenerator _generator;
-  final LookUploader _upload;
   final String Function() _currentUserId;
 
   bool get isConfigured => _generator.isConfigured;
@@ -118,33 +124,29 @@ class LookGenerationService {
     }
     if (!_generator.isConfigured) {
       throw const LookGenerationException(
-        'Makeovers are not set up on this build. Start the app with '
-        '--dart-define-from-file=dart_defines.json',
+        'Makeovers are not available right now.',
       );
     }
 
     final stopwatch = Stopwatch()..start();
-    final Uint8List bytes;
+    final String imageUrl;
     try {
-      bytes = await _generator.generate(
+      imageUrl = await _generator.generate(
         photoUrl: baseImageUrl ?? request.photoUrl,
         prompt: buildLookPrompt(request, part: part, tweak: tweak),
         referenceImageUrls: request.referenceImageUrls,
+      );
+    } on AiJobException catch (error) {
+      debugPrint('Look generation failed: $error');
+      throw LookGenerationException(
+        error.isStillRunning
+            ? error.message
+            : 'We could not create your look this time. Please try again.',
       );
     } on Exception catch (error) {
       debugPrint('Look generation failed: $error');
       throw const LookGenerationException(
         'We could not create your look this time. Please try again.',
-      );
-    }
-
-    final String imageUrl;
-    try {
-      imageUrl = await _upload(bytes, userId);
-    } on Exception catch (error) {
-      debugPrint('Look upload failed: $error');
-      throw const LookGenerationException(
-        'Your look was created but could not be saved. Please try again.',
       );
     }
     stopwatch.stop();

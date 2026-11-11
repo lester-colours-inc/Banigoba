@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:banigoba/data/models/body_profile.dart';
 import 'package:banigoba/data/models/look_request.dart';
 import 'package:banigoba/data/models/weather.dart';
@@ -20,7 +18,7 @@ class _FakeGenerator implements LookImageGenerator {
   bool get isConfigured => true;
 
   @override
-  Future<Uint8List> generate({
+  Future<String> generate({
     required String photoUrl,
     required String prompt,
     List<String> referenceImageUrls = const [],
@@ -28,7 +26,8 @@ class _FakeGenerator implements LookImageGenerator {
     prompts.add(prompt);
     photoUrls.add(photoUrl);
     references.add(referenceImageUrls);
-    return Uint8List.fromList([1]);
+    // A distinct URL per result, so each step's base can be checked.
+    return 'https://example.com/look-${prompts.length}.jpg';
   }
 }
 
@@ -42,7 +41,6 @@ Future<_FakeGenerator> _pumpPage(
   String? initialIdolName,
 }) async {
   final generator = _FakeGenerator();
-  var uploads = 0;
   // Tall enough that every option in the editor is built.
   tester.view.physicalSize = const Size(1080, 4800);
   tester.view.devicePixelRatio = 3;
@@ -61,8 +59,6 @@ Future<_FakeGenerator> _pumpPage(
         confirmAiUse: (_) async => true,
         generationService: LookGenerationService(
           generator: generator,
-          // A distinct URL per result, so each step's base can be checked.
-          upload: (_, _) async => 'https://example.com/look-${++uploads}.jpg',
           currentUserId: () => 'user-1',
         ),
       ),
@@ -368,6 +364,34 @@ void main() {
 
     expect(generator.references.single, [twin]);
     expect(generator.prompts.single, contains('from the second image'));
+  });
+
+  testWidgets('try on shows the look first and drops other idea sources', (
+    tester,
+  ) async {
+    await _pumpPage(
+      tester,
+      scope: null,
+      initialTwinUrl: 'https://example.com/friend.jpg',
+    );
+
+    double top(Finder finder) => tester.getTopLeft(finder).dy;
+    final heroTop = top(find.byKey(const ValueKey('try_on_look_hero')));
+    final photoTop = top(find.byKey(const ValueKey('makeover_upload_photo')));
+    final changeTop = top(find.text('What do you want to try on?'));
+    expect(heroTop, lessThan(photoTop));
+    expect(photoTop, lessThan(changeTop));
+
+    expect(find.text('Try on this look'), findsOneWidget);
+    expect(find.text('How do you want to create your look?'), findsNothing);
+    expect(find.text('Describe it'), findsNothing);
+    expect(find.text('Start from a photo on your phone?'), findsNothing);
+
+    // Still a deliberate choice of what to copy before generating.
+    expect(_generateButton(tester).onPressed, isNull);
+    await _tapKey(tester, 'look_scope_outfit');
+    expect(_generateButton(tester).onPressed, isNotNull);
+    expect(find.text('Try it on me'), findsOneWidget);
   });
 
   testWidgets('editing a saved look cannot swap the photo', (tester) async {

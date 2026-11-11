@@ -60,7 +60,7 @@ class ProviderHomePage extends StatelessWidget {
     final user = AppAuth.instance.currentUser;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Provider mode'),
+        title: const Text('Business mode'),
         backgroundColor: _primary,
         foregroundColor: Colors.white,
         actions: [

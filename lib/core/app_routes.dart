@@ -17,7 +17,6 @@ import '../ui/screens/auth/custom_login_screen.dart';
 import '../ui/screens/onboarding/onboarding_screen.dart';
 import '../ui/screens/onboarding/first_run_guide_screen.dart';
 import '../ui/screens/onboarding/guide_actions.dart';
-import '../ui/screens/permissions/permissions_request_screen.dart';
 import '../data/models/provider_roles.dart';
 import '../data/models/shop_link.dart';
 import '../ui/screens/provider/provider_home_page.dart';
@@ -30,7 +29,6 @@ import '../ui/screens/admin/curators_workspace_page.dart';
 import '../ui/screens/profile_details/body_profile_page.dart';
 import '../ui/screens/settings/settings_page.dart';
 import '../ui/widgets/brand_splash.dart';
-import '../data/services/permissions_service.dart';
 import '../data/services/style_preferences_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../data/services/profile_service.dart';
@@ -51,13 +49,13 @@ class AuthGate extends StatefulWidget {
 class _AuthGateState extends State<AuthGate> {
   AppUser? _lastUser;
   bool? _onboardingDone;
-  final Set<String> _permissionPromptHandledThisSession = {};
-  final Map<String, Future<_PermissionGateState>> _permissionChecks = {};
+  // Each signed-in person's profile row, made or refreshed once per session.
+  final Map<String, Future<void>> _profileChecks = {};
   // Whether each signed-in person has agreed to the current Terms (1.2).
   final Map<String, Future<bool>> _termsChecks = {};
 
   // The splash stays up until the sonic logo's reveal has played, while
-  // onboarding, auth and permission checks carry on underneath it.
+  // onboarding, auth and profile checks carry on underneath it.
   late bool _holdingSplash;
   Timer? _splashTimer;
 
@@ -112,36 +110,10 @@ class _AuthGateState extends State<AuthGate> {
     }
   }
 
-  /// Which permissions the device still lacks. Read from the device itself;
-  /// nothing about them is stored on the server.
-  Future<_PermissionGateState> _checkUserPermissions(AppUser user) async {
-    await _upsertUserProfile(user);
-    final deviceStatuses = await PermissionsService.getPermissionsSummary();
-    return _PermissionGateState(
-      missingPermissions: deviceStatuses.entries
-          .where((entry) => !entry.value)
-          .map((entry) => entry.key)
-          .toSet(),
-    );
-  }
-
-  Future<void> _completePermissionPrompt(
-    AppUser user,
-    Map<String, bool> statuses,
-  ) async {
-    if (!mounted) return;
-
-    setState(() {
-      _permissionPromptHandledThisSession.add(user.uid);
-      _permissionChecks.remove(user.uid);
-    });
-  }
-
-  Future<_PermissionGateState> _permissionCheckFor(AppUser user) {
-    return _permissionChecks.putIfAbsent(
-      user.uid,
-      () => _checkUserPermissions(user),
-    );
+  // Device permissions (camera, photos, location, notifications) are asked
+  // for where they are first needed, not in onboarding.
+  Future<void> _profileCheckFor(AppUser user) {
+    return _profileChecks.putIfAbsent(user.uid, () => _upsertUserProfile(user));
   }
 
   Future<bool> _termsCheckFor(AppUser user) {
@@ -210,39 +182,11 @@ class _AuthGateState extends State<AuthGate> {
             _lastUser = user;
           }
 
-          return FutureBuilder<_PermissionGateState>(
-            future: _permissionCheckFor(user),
-            builder: (context, permissionSnapshot) {
-              if (permissionSnapshot.connectionState ==
-                  ConnectionState.waiting) {
+          return FutureBuilder<void>(
+            future: _profileCheckFor(user),
+            builder: (context, profileSnapshot) {
+              if (profileSnapshot.connectionState != ConnectionState.done) {
                 return const BrandSplash();
-              }
-
-              if (permissionSnapshot.hasError) {
-                return _afterSplash(
-                  Scaffold(
-                    body: Center(
-                      child: Text(
-                        'Unable to check app permissions: ${permissionSnapshot.error}',
-                      ),
-                    ),
-                  ),
-                );
-              }
-
-              final gateState = permissionSnapshot.data;
-              final promptHandled = _permissionPromptHandledThisSession
-                  .contains(user.uid);
-
-              if (gateState?.missingPermissions.isNotEmpty == true &&
-                  !promptHandled) {
-                return _afterSplash(
-                  PermissionsRequestScreen(
-                    requiredPermissions: gateState!.missingPermissions,
-                    onPermissionsComplete: (statuses) =>
-                        _completePermissionPrompt(user, statuses),
-                  ),
-                );
               }
 
               return StreamBuilder<Map<String, dynamic>>(
@@ -274,8 +218,7 @@ class _AuthGateState extends State<AuthGate> {
         if (_lastUser != null) {
           _termsChecks.remove(_lastUser!.uid);
           SafetyService.instance.reset();
-          _permissionChecks.remove(_lastUser!.uid);
-          _permissionPromptHandledThisSession.remove(_lastUser!.uid);
+          _profileChecks.remove(_lastUser!.uid);
           _lastUser = null;
         }
 
@@ -382,10 +325,4 @@ class AppRoutes {
     makeoverWithItems: (context) => const CreateMakeoverPage(),
     dailyDressUp: (context) => const DailyDressUpPage(),
   };
-}
-
-class _PermissionGateState {
-  final Set<String> missingPermissions;
-
-  const _PermissionGateState({required this.missingPermissions});
 }

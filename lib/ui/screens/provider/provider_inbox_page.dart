@@ -45,7 +45,7 @@ class _ProviderInboxPageState extends State<ProviderInboxPage> {
         item: item,
         status: status,
         providerName:
-            AppAuth.instance.currentUser?.displayName ?? 'Your provider',
+            AppAuth.instance.currentUser?.displayName ?? 'Your business',
       ),
     );
   }

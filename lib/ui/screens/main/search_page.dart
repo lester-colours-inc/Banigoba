@@ -193,9 +193,9 @@ class _SearchPageState extends State<SearchPage> {
     if (_searchQuery.isEmpty) {
       return _buildEmptyState(
         icon: Icons.people_outline,
-        title: 'Find people in the community',
+        title: 'Search to follow people',
         message:
-            'Search by name or @username, or type their full email address.',
+            'Search by name or @username, or type their full email address, to follow them.',
       );
     }
 

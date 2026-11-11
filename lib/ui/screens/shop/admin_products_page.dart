@@ -22,6 +22,7 @@ import '../../widgets/piece_extra_details_fields.dart';
 import '../../widgets/stock_edit_sheet.dart';
 import 'quick_add_page.dart';
 import '../../widgets/safe_product_image.dart';
+import '../../../data/services/image_crop.dart';
 
 /// Product and inventory manager for the current seller.
 class AdminProductsPage extends StatefulWidget {
@@ -1197,7 +1198,7 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
     );
 
     if (source != null) {
-      final XFile? image = await _picker.pickImage(source: source);
+      final XFile? image = await _picker.pickAndCropImage(source: source);
       if (image != null) return File(image.path);
     }
     return null;

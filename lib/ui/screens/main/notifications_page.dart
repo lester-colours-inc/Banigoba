@@ -1,16 +1,14 @@
 // Displays social and product notifications and lets users respond to follow requests.
 import 'package:flutter/gestures.dart';
-import '../../widgets/look_viewer_page.dart';
-import '../shop/shared_stock_page.dart';
+import '../../notification_router.dart';
+import '../../widgets/follow_back_button.dart';
 import '../../../core/supabase/app_auth.dart';
-import '../../../data/services/post_service.dart';
 import '../../../data/services/profile_service.dart';
-import '../../../data/services/shop_chat_service.dart';
 import 'package:flutter/material.dart';
+
 import '../../../core/app_routes.dart';
 import '../../../data/services/notification_service.dart';
 import '../../widgets/cart_badge_button.dart';
-import '../shop/shop_chat_page.dart';
 import '../../../data/services/friend_service.dart';
 import '../designers/fashion_designers_page.dart';
 import '../social/profile_page.dart';
@@ -535,13 +533,26 @@ class _NotificationsPageState extends State<NotificationsPage> {
                         ),
                       ],
                     )
+                  else if (response == 'accepted')
+                    // They follow you now; offer to follow them too.
+                    Row(
+                      children: [
+                        const Text(
+                          'Accepted',
+                          style: TextStyle(
+                            color: Colors.green,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        FollowBackButton(userId: requesterId),
+                      ],
+                    )
                   else
-                    Text(
-                      response == 'accepted' ? 'Accepted' : 'Declined',
+                    const Text(
+                      'Declined',
                       style: TextStyle(
-                        color: response == 'accepted'
-                            ? Colors.green
-                            : Colors.red,
+                        color: Colors.red,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -824,80 +835,10 @@ class _NotificationsPageState extends State<NotificationsPage> {
     return "${diff.inDays}d ago";
   }
 
-  /// Logic for navigating when a notification is tapped
+  /// Opens what the notification is about (shared with push taps).
   Future<void> _handleNotificationTap(
     BuildContext context,
     String type,
     Map<String, dynamic>? extraData,
-  ) async {
-    if (extraData == null) return;
-    if (type == 'shop_link') {
-      final linkId = (extraData['linkId'] ?? '').toString();
-      if (linkId.isEmpty) return;
-      await Navigator.push(
-        context,
-        MaterialPageRoute<void>(
-          builder: (_) => SharedStockPage(linkId: linkId),
-        ),
-      );
-      return;
-    }
-    if (type == 'trending_look') {
-      final postId = (extraData['postId'] ?? '').toString();
-      if (postId.isEmpty) return;
-      final post = await PostService().getPost(postId);
-      if (!context.mounted || post == null) return;
-      if (post.imageURL.isEmpty) return;
-      await openLookViewer(
-        context,
-        imageUrl: post.imageURL,
-        caption: post.caption,
-      );
-      return;
-    }
-    if (type == 'shop_message' ||
-        type == 'designer_message' ||
-        type == 'order_update') {
-      final chatId = (extraData['chatId'] ?? '').toString();
-      if (chatId.isEmpty) return;
-      final data = await ShopChatService().getChat(chatId);
-      if (!context.mounted || data == null) return;
-      final currentUserId = AppAuth.instance.currentUser?.uid ?? '';
-      final asSeller = data['sellerId'] == currentUserId;
-      final conversationType = (data['conversationType'] ?? 'shop').toString();
-      final title = asSeller
-          ? (data['customerName'] ?? 'Customer').toString()
-          : conversationType == 'designer'
-          ? (data['designerName'] ?? 'Designer').toString()
-          : (data['shopName'] ?? 'Boutique').toString();
-      Navigator.push(
-        context,
-        MaterialPageRoute<void>(
-          builder: (_) =>
-              ShopChatPage(chatId: chatId, title: title, asSeller: asSeller),
-        ),
-      );
-      return;
-    }
-    if (type == 'shop_approval') {
-      final sellerId = (extraData['sellerId'] ?? '').toString();
-      final shopName = (extraData['shopName'] ?? 'Boutique').toString();
-      if (sellerId.isEmpty) return;
-      Navigator.push(
-        context,
-        MaterialPageRoute<void>(
-          builder: (_) =>
-              ShopProductsPage(sellerId: sellerId, shopName: shopName),
-        ),
-      );
-      return;
-    }
-    final userId = extraData['fromId'] ?? extraData['userId'];
-    if (userId != null) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => ProfilePage(userId: userId)),
-      );
-    }
-  }
+  ) => openNotificationTarget(context, type, extraData);
 }

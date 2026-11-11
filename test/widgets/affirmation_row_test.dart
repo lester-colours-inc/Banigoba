@@ -91,6 +91,15 @@ void main() {
     expect(find.byKey(const ValueKey('affirmation_owner_total')), findsNothing);
   });
 
+  testWidgets('no prompt text on a look nobody has affirmed yet', (
+    tester,
+  ) async {
+    await _pump(tester, viewer: 'someone-else', facets: const []);
+
+    expect(find.textContaining('Be the first'), findsNothing);
+    expect(find.byType(Text), findsNothing);
+  });
+
   test('the private total adds up every sender', () {
     expect(privateReceivedTotal(_facets), 5);
     expect(privateReceivedTotal(const []), 0);

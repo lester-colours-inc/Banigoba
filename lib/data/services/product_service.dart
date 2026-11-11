@@ -627,10 +627,11 @@ class ProductService {
         .eq('user_id', userId);
   }
 
-  /// Toggle a catalogue piece in the user's wardrobe (save/remove). A saved
-  /// piece is a `user_products` row remembering which catalogue piece it came
-  /// from.
-  Future<void> toggleWardrobeItem({
+  /// Add a catalogue piece to the user's wardrobe. A saved piece is a
+  /// `user_products` row remembering which catalogue piece it came from.
+  /// Adding a piece that is already there does nothing: pieces are only
+  /// removed from the Wardrobe page.
+  Future<void> addToWardrobe({
     required String userId,
     required String productId,
     required Map<String, dynamic> productData,
@@ -641,14 +642,7 @@ class ProductService {
         .eq('user_id', userId)
         .eq('data->>originalProductId', productId);
 
-    if (existing.isNotEmpty) {
-      await supabase
-          .from('user_products')
-          .delete()
-          .eq('user_id', userId)
-          .eq('data->>originalProductId', productId);
-      return;
-    }
+    if (existing.isNotEmpty) return;
 
     // Flatten colour data
     List<String> finalColours = [];

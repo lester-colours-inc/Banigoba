@@ -173,11 +173,15 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                     isSaved ? Icons.favorite : Icons.favorite_border,
                     color: isSaved ? Colors.red : Colors.black,
                   ),
-                  onPressed: () => _productService.toggleWardrobeItem(
-                    userId: currentUserId,
-                    productId: productId,
-                    productData: _currentProductData,
-                  ),
+                  tooltip: isSaved ? 'In your Wardrobe' : 'Add to Wardrobe',
+                  // Saved pieces are only removed from the Wardrobe page.
+                  onPressed: isSaved
+                      ? () => _showAlreadyInWardrobe(context)
+                      : () => _productService.addToWardrobe(
+                          userId: currentUserId,
+                          productId: productId,
+                          productData: _currentProductData,
+                        ),
                 );
               },
             ),
@@ -354,21 +358,23 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                             width: double.infinity,
                             child: ElevatedButton.icon(
                               onPressed: () async {
+                                // Saved pieces are only removed from the
+                                // Wardrobe page.
+                                if (isSaved) {
+                                  _showAlreadyInWardrobe(context);
+                                  return;
+                                }
                                 try {
-                                  await _productService.toggleWardrobeItem(
+                                  await _productService.addToWardrobe(
                                     userId: currentUserId,
                                     productId: productId,
                                     productData: _currentProductData,
                                   );
                                   if (context.mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          isSaved
-                                              ? "Removed from Wardrobe"
-                                              : "Added to Wardrobe",
-                                        ),
-                                        duration: const Duration(seconds: 1),
+                                      const SnackBar(
+                                        content: Text("Added to Wardrobe"),
+                                        duration: Duration(seconds: 1),
                                       ),
                                     );
                                   }
@@ -722,6 +728,16 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
   }
 
   /// Confirm deletion
+  void _showAlreadyInWardrobe(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Already in your Wardrobe. Remove it from the Wardrobe page.',
+        ),
+      ),
+    );
+  }
+
   void _confirmDelete(String id, String name, bool isCatalog) {
     showDialog(
       context: context,

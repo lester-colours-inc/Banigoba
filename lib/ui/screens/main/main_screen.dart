@@ -7,6 +7,7 @@ import '../../../core/main_tab.dart';
 import '../../../core/theme_provider.dart';
 import '../../widgets/app_drawer.dart';
 import '../../widgets/bottom_navigation.dart';
+import '../../widgets/double_back_to_exit.dart';
 import '../social/profile_page.dart';
 import '../wardrobe/wardrobe_page.dart';
 import 'daily_dress_up_page.dart';
@@ -32,6 +33,7 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
   late MainTab _currentTab;
 
   @override
@@ -63,7 +65,22 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
+    return DoubleBackToExit(
+      onBackFirst: _closeDrawer,
+      child: _buildScaffold(context),
+    );
+  }
+
+  bool _closeDrawer() {
+    final scaffold = _scaffoldKey.currentState;
+    if (scaffold == null || !scaffold.isDrawerOpen) return false;
+    scaffold.closeDrawer();
+    return true;
+  }
+
+  Widget _buildScaffold(BuildContext context) {
     return Scaffold(
+      key: _scaffoldKey,
       drawer: AppDrawer(
         themeProvider: themeProvider,
         onTabSelect: (tab) {

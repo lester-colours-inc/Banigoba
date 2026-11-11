@@ -22,14 +22,12 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:permission_handler/permission_handler.dart';
 
 import '../../../data/models/body_profile.dart';
 import '../../../data/models/look_request.dart';
 import '../../../data/models/look_session.dart';
 import '../../../data/models/weather.dart';
 import '../../../data/services/body_profile_service.dart';
-import '../../../data/services/gallery_scanner.dart';
 import '../../../data/services/look_generation_service.dart';
 import '../../../data/services/storage_service.dart';
 import '../../../data/services/weather_service.dart';
@@ -39,7 +37,6 @@ import '../../../data/style/style_catalogue.dart';
 import '../../widgets/app_drawer.dart';
 import '../../widgets/bottom_navigation.dart';
 import '../../widgets/find_pieces_sheet.dart';
-import '../../widgets/gallery_suggestions_strip.dart';
 import '../../widgets/save_look_sheet.dart';
 import '../main/main_screen.dart';
 import 'widgets/look_you_love_picker.dart';
@@ -48,6 +45,8 @@ import 'widgets/look_source_picker.dart';
 import 'widgets/look_step_view.dart';
 import 'widgets/makeover_controls.dart';
 import 'widgets/makeover_views.dart';
+import 'widgets/try_on_look_hero.dart';
+import '../../../data/services/image_crop.dart';
 
 enum _Stage { brief, styling, done }
 
@@ -153,6 +152,10 @@ class _MakeoverPageState extends State<MakeoverPage> {
 
   bool get _isEditing => widget.editingPostId != null;
 
+  /// Opened from "Try on" on a look: the look to copy is already chosen, so
+  /// the page shows it first and drops the other idea sources.
+  bool get _isTryOn => (widget.initialTwinUrl ?? '').isNotEmpty;
+
   @override
   void initState() {
     super.initState();
@@ -226,7 +229,7 @@ class _MakeoverPageState extends State<MakeoverPage> {
     }
     setState(() => _error = '');
     try {
-      final picked = await _picker.pickImage(
+      final picked = await _picker.pickAndCropImage(
         source: source,
         imageQuality: 90,
         maxWidth: 2000,
@@ -245,41 +248,6 @@ class _MakeoverPageState extends State<MakeoverPage> {
       if (mounted) setState(() => _error = 'We could not use that photo.');
       return null;
     }
-  }
-
-  /// A photo tapped in the gallery strip (E-5): read in full and uploaded
-  /// only now, because the person chose it.
-  Future<void> _useGalleryPhoto(GalleryPhoto photo) async {
-    if (_isUploadingPhoto) return;
-    final userId = _userId;
-    if (userId.isEmpty) {
-      setState(() => _error = 'Sign in to use your photos.');
-      return;
-    }
-    setState(() {
-      _isUploadingPhoto = true;
-      _error = '';
-    });
-    String? url;
-    try {
-      final bytes = await photo.bytes();
-      final problem = bytes == null
-          ? 'We could not use that photo.'
-          : photoProblem(bytes.lengthInBytes);
-      if (problem != null) {
-        if (mounted) setState(() => _error = problem);
-      } else {
-        url = await _storage.uploadFullBodyImageBytes(bytes!, userId);
-      }
-    } on Exception catch (error) {
-      debugPrint('Unable to use gallery photo: $error');
-      if (mounted) setState(() => _error = 'We could not use that photo.');
-    }
-    if (!mounted) return;
-    setState(() {
-      if (url != null) _photoUrl = url;
-      _isUploadingPhoto = false;
-    });
   }
 
   Future<void> _pickPhoto(ImageSource source) async {
@@ -742,15 +710,16 @@ class _MakeoverPageState extends State<MakeoverPage> {
       if (session.parts.length == 1) return session.parts.single.label;
       return 'Step ${session.stepIndex + 1} of ${session.parts.length}';
     }
-    return _isEditing ? 'Edit look' : 'My New Look';
+    if (_isEditing) return 'Edit look';
+    return _isTryOn ? 'Try on this look' : 'My New Look';
   }
 
   Widget _buildBrief(BuildContext context) {
+    if (_isTryOn) return _buildTryOnBrief();
     final scope = _scope;
     final trends = curatedTrends
         .where((trend) => scope == null || trend.fitsScope(scope))
         .toList();
-    final steps = scope?.parts ?? const <LookPart>[];
 
     // Photo, then how (describe it, or a look you love), then what should
     // change: one clear path from top to bottom (October 2026 review, M-4).
@@ -767,11 +736,6 @@ class _MakeoverPageState extends State<MakeoverPage> {
           onTakePhoto: _isUploadingPhoto
               ? null
               : () => _pickPhoto(ImageSource.camera),
-        ),
-        const SizedBox(height: 12),
-        GallerySuggestionsStrip(
-          onPick: _useGalleryPhoto,
-          onOpenSettings: openAppSettings,
         ),
         const SizedBox(height: 28),
         const MakeoverSectionTitle('How do you want to create your look?'),
@@ -799,33 +763,67 @@ class _MakeoverPageState extends State<MakeoverPage> {
           onRetryWeather: _fetchWeather,
         ),
         const SizedBox(height: 32),
-        MakeoverSectionTitle(
-          'What should change?',
-          subtitle: steps.length > 1
-              ? 'One item at a time: '
-                    '${steps.map((part) => part.label).join(' · ')}'
-              : 'Pick one before you generate.',
-        ),
-        const SizedBox(height: 16),
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: [
-            for (final option in LookScope.values)
-              MakeoverPill(
-                key: ValueKey('look_scope_${option.name}'),
-                label: option.label,
-                selected: option == scope,
-                onTap: () => _selectScope(option),
-              ),
-          ],
-        ),
-        if (_error.isNotEmpty) ...[
-          const SizedBox(height: 16),
-          MakeoverErrorBanner(message: _error),
-        ],
+        ..._buildScopeAndError(scope),
       ],
     );
+  }
+
+  /// Try on: the chosen look large at the top, then the user's photo, then
+  /// what to copy. No idea sources or gallery prompt; they don't apply.
+  Widget _buildTryOnBrief() {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+      children: [
+        TryOnLookHero(imageUrl: _twinUrl),
+        const SizedBox(height: 24),
+        MakeoverPhotoCard(
+          photoUrl: _photoUrl,
+          isLoading: _isLoadingPhoto || _isUploadingPhoto,
+          onUpload: _isUploadingPhoto
+              ? null
+              : () => _pickPhoto(ImageSource.gallery),
+          onTakePhoto: _isUploadingPhoto
+              ? null
+              : () => _pickPhoto(ImageSource.camera),
+        ),
+        const SizedBox(height: 28),
+        ..._buildScopeAndError(_scope, title: 'What do you want to try on?'),
+      ],
+    );
+  }
+
+  List<Widget> _buildScopeAndError(
+    LookScope? scope, {
+    String title = 'What should change?',
+  }) {
+    final steps = scope?.parts ?? const <LookPart>[];
+    return [
+      MakeoverSectionTitle(
+        title,
+        subtitle: steps.length > 1
+            ? 'One item at a time: '
+                  '${steps.map((part) => part.label).join(' · ')}'
+            : 'Pick one before you generate.',
+      ),
+      const SizedBox(height: 16),
+      Wrap(
+        spacing: 10,
+        runSpacing: 10,
+        children: [
+          for (final option in LookScope.values)
+            MakeoverPill(
+              key: ValueKey('look_scope_${option.name}'),
+              label: option.label,
+              selected: option == scope,
+              onTap: () => _selectScope(option),
+            ),
+        ],
+      ),
+      if (_error.isNotEmpty) ...[
+        const SizedBox(height: 16),
+        MakeoverErrorBanner(message: _error),
+      ],
+    ];
   }
 
   Widget _buildGenerateBar() {
@@ -861,7 +859,11 @@ class _MakeoverPageState extends State<MakeoverPage> {
             ),
           MakeoverPrimaryButton(
             key: const ValueKey('makeover_generate'),
-            label: _isEditing ? 'Edit my look' : 'Generate my look',
+            label: _isEditing
+                ? 'Edit my look'
+                : _isTryOn
+                ? 'Try it on me'
+                : 'Generate my look',
             onPressed: request != null && request.isReady ? _start : null,
           ),
         ],

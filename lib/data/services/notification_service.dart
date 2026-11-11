@@ -38,6 +38,14 @@ class NotificationService {
     ],
   };
 
+  /// Types that only drive a push and never show in the inbox: AI job
+  /// status ("your look is ready") has no sender and would read "Someone".
+  static const Set<String> pushOnlyTypes = {'ai_job'};
+
+  /// Whether a notification row belongs in the inbox and its unread count.
+  static bool isInboxRow(Map<String, dynamic> row) =>
+      !pushOnlyTypes.contains(row['type']);
+
   Future<void> addNotification({
     required String receiverId,
     required String title,
@@ -85,7 +93,9 @@ class NotificationService {
         .map(
           (rows) => [
             for (final row in rows)
-              if (types == null || types.contains(row['type'])) toMap(row),
+              if (isInboxRow(row) &&
+                  (types == null || types.contains(row['type'])))
+                toMap(row),
           ],
         );
   }
@@ -96,7 +106,11 @@ class NotificationService {
         .from('notifications')
         .stream(primaryKey: ['id'])
         .eq('user_id', currentUserId)
-        .map((rows) => rows.where((row) => row['is_read'] != true).length);
+        .map(
+          (rows) => rows
+              .where((row) => isInboxRow(row) && row['is_read'] != true)
+              .length,
+        );
   }
 
   Future<void> markAsRead(String notificationId) async {

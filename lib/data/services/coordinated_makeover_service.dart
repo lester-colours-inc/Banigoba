@@ -20,6 +20,10 @@
 // A failing stage never silently degrades the result: the job records the
 // failure, keeps whatever succeeded, and the UI offers a retry or a
 // non-generative path.
+//
+// The pictures are made on the server (see ai_job_service.dart): the app
+// plans the steps, the server runs them and keeps the stored job up to date,
+// so a makeover finishes, and the person is told, even if the app is closed.
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -31,26 +35,16 @@ import '../supabase/storage_files.dart' show randomFileName;
 
 import '../models/makeover_job.dart';
 import '../utils/garment_taxonomy.dart';
-import 'look_generation_service.dart';
-import 'storage_service.dart';
+import 'ai_job_service.dart';
 
 class CoordinatedMakeoverService {
-  CoordinatedMakeoverService({
-    LookImageGenerator? generator,
-    LookUploader? save,
-  }) : _generator = generator ?? GeminiLookGenerator(),
-       _injectedSave = save;
+  CoordinatedMakeoverService({AiImageJobs? jobs})
+    : _jobs = jobs ?? SupabaseAiImageJobs();
 
-  final LookImageGenerator _generator;
-  final LookUploader? _injectedSave;
+  final AiImageJobs _jobs;
 
   /// AI-003: at least two separately selectable alternatives.
   static const int alternativesPerJob = 2;
-
-  bool get isAiConfigured => _generator.isConfigured;
-
-  LookUploader get _save =>
-      _injectedSave ?? StorageService().uploadTryOnResultBytes;
 
   String get _currentUserId => AppAuth.instance.currentUser?.uid ?? '';
 
@@ -168,7 +162,7 @@ class CoordinatedMakeoverService {
   /// Returns the job as it finished. Safe to call again after a failure: only
   /// stages that have not succeeded are re-run.
   Future<MakeoverJob> run(MakeoverJob job) {
-    return _runPipeline(job, from: null);
+    return _runPipeline(job);
   }
 
   /// Re-runs one domain, preserving the other domain's selection.
@@ -212,7 +206,7 @@ class CoordinatedMakeoverService {
     );
     await _persist(reset);
 
-    return _runPipeline(reset, from: domain);
+    return _runPipeline(reset);
   }
 
   /// Pipeline order from [domain] onwards.
@@ -222,176 +216,161 @@ class CoordinatedMakeoverService {
     return order.sublist(start < 0 ? 0 : start);
   }
 
-  Future<MakeoverJob> _runPipeline(
-    MakeoverJob job, {
-    required MakeoverDomain? from,
-  }) async {
-    if (!isAiConfigured) {
-      throw StateError(
-        'Image generation is not configured. Start the app with '
-        '--dart-define-from-file=dart_defines.json',
+  Future<MakeoverJob> _runPipeline(MakeoverJob job) async {
+    if (job.userId.isEmpty) {
+      throw StateError('Sign in to create a makeover.');
+    }
+    final plan = planSteps(job);
+
+    // A stage that cannot even start (no usable garment pictures) fails now;
+    // the stages before it still run.
+    var current = job;
+    for (final entry in plan.failures.entries) {
+      current = current.copyWith(
+        stages: {
+          ...current.stages,
+          entry.key: current
+              .stageFor(entry.key)
+              .copyWith(
+                status: MakeoverStageStatus.failed,
+                outputImageUrls: const [],
+                errorMessage: entry.value,
+                completedAt: DateTime.now(),
+              ),
+        },
       );
     }
+    await _persist(current);
+    if (plan.steps.isEmpty) return _finish(current);
 
-    var current = job;
-    final requested = current.intent.requestedDomains;
-    if (requested.isEmpty) return current;
+    try {
+      await _jobs.run(
+        AiJobRequest(
+          kind: AiJobKind.makeover,
+          label: 'Your makeover',
+          steps: plan.steps,
+          document: {
+            'kind': _kind,
+            'id': current.id,
+            'stages': [
+              for (final entry in plan.stageSteps.entries)
+                {'domain': entry.key.id, 'steps': entry.value},
+            ],
+          },
+        ),
+      );
+    } on AiJobException catch (error) {
+      // The server has recorded which stage failed; a job still running will
+      // be finished there and the person told.
+      debugPrint('Makeover ${current.id}: ${error.message}');
+      if (error.isStillRunning) return await _load(current.id) ?? current;
+    }
 
-    // The image each stage builds on. Stages before the resume point keep
-    // their cached output, so refinement does not repeat their work.
-    var carrier = current.sourceImageUrl;
+    return _finish(await _load(current.id) ?? current);
+  }
+
+  /// Fills in the alternatives when the server's run left none to offer but
+  /// an earlier stage (kept from before) did succeed.
+  Future<MakeoverJob> _finish(MakeoverJob job) async {
+    if (job.alternatives.isNotEmpty) return job;
+    final finished = _withAlternatives(job);
+    if (finished.alternatives.isNotEmpty) await _persist(finished);
+    return finished;
+  }
+
+  Future<MakeoverJob?> _load(String jobId) async {
+    final userId = _currentUserId;
+    if (userId.isEmpty) return null;
+    try {
+      final row = await supabase
+          .from('user_documents')
+          .select()
+          .eq('user_id', userId)
+          .eq('kind', _kind)
+          .eq('id', jobId)
+          .maybeSingle();
+      return row == null ? null : _readJob(row);
+    } on PostgrestException catch (error) {
+      debugPrint('Unable to read makeover job $jobId: ${error.code}');
+      return null;
+    }
+  }
+
+  /// The image edits that make [job], in order, and which of them make each
+  /// stage. Stages that already succeeded upstream of a change are reused, so
+  /// refinement does not repeat their work.
+  @visibleForTesting
+  static MakeoverPlan planSteps(MakeoverJob job) {
+    final requested = job.intent.requestedDomains;
+    final steps = <AiImageStep>[];
+    final stageSteps = <MakeoverDomain, List<int>>{};
+    final failures = <MakeoverDomain, String>{};
+    if (requested.isEmpty) {
+      return const MakeoverPlan(steps: [], stageSteps: {}, failures: {});
+    }
+
+    // The image each stage builds on.
+    AiImageRef carrier = AiImageUrl(job.sourceImageUrl);
     final lastRequested = requested.last;
 
     for (final domain in MakeoverDomain.values) {
       if (!requested.contains(domain)) continue;
 
-      final stage = current.stageFor(domain);
-
-      // Reuse a stage that already succeeded and sits upstream of the change.
+      final stage = job.stageFor(domain);
       if (stage.succeeded && stage.primaryOutput.isNotEmpty) {
-        carrier = stage.primaryOutput;
+        carrier = AiImageUrl(stage.primaryOutput);
         continue;
       }
 
-      final isFinalStage = domain == lastRequested;
-      current = await _markRunning(current, domain);
-
-      try {
-        final outputs = await _generateDomain(
-          domain: domain,
-          intent: current.intent,
-          inputImageUrl: carrier,
-          sampleCount: isFinalStage ? alternativesPerJob : 1,
-        );
-
-        if (outputs.isEmpty) {
-          throw const MakeoverStageException(
-            'The styling service returned no image.',
+      final sampleCount = domain == lastRequested ? alternativesPerJob : 1;
+      final indices = <int>[];
+      switch (domain) {
+        case MakeoverDomain.hair:
+          indices.add(steps.length);
+          steps.add(
+            AiImageStep(
+              prompt: buildHairPrompt(job.intent),
+              images: [carrier],
+              count: sampleCount,
+            ),
           );
-        }
-
-        current = await _markSucceeded(current, domain, outputs);
-        carrier = outputs.first;
-      } on MakeoverStageException catch (error) {
-        current = await _markFailed(current, domain, error.message);
-        // Downstream stages cannot run without this stage's output.
-        break;
-      } on Exception catch (error) {
-        debugPrint('Makeover stage ${domain.id} failed: $error');
-        current = await _markFailed(
-          current,
-          domain,
-          'We could not complete the ${domain.label.toLowerCase()} change.',
-        );
-        break;
+        case MakeoverDomain.clothing:
+          // Base layer first; only the last garment makes alternatives, so
+          // cost scales with garments, not garments × alternatives.
+          final garments = orderGarmentsForLayering(
+            job.intent.garments,
+          ).where((garment) => garmentImageUrlOf(garment).isNotEmpty).toList();
+          if (garments.isEmpty) {
+            failures[domain] = 'None of the selected items had a usable image.';
+            break;
+          }
+          for (var index = 0; index < garments.length; index += 1) {
+            final garment = garments[index];
+            final isLast = index == garments.length - 1;
+            indices.add(steps.length);
+            steps.add(
+              AiImageStep(
+                prompt: buildGarmentPrompt(garment),
+                images: [
+                  if (index == 0) carrier else AiStepImage(steps.length - 1),
+                  AiImageUrl(garmentImageUrlOf(garment)),
+                ],
+                count: isLast ? sampleCount : 1,
+              ),
+            );
+          }
       }
+      // Downstream stages cannot run without this stage's output.
+      if (failures.containsKey(domain)) break;
+      stageSteps[domain] = indices;
+      carrier = AiStepImage(indices.last);
     }
 
-    current = _withAlternatives(current);
-    await _persist(current);
-    return current;
-  }
-
-  Future<List<String>> _generateDomain({
-    required MakeoverDomain domain,
-    required MakeoverIntent intent,
-    required String inputImageUrl,
-    required int sampleCount,
-  }) {
-    return switch (domain) {
-      MakeoverDomain.hair => _generateHair(
-        intent: intent,
-        inputImageUrl: inputImageUrl,
-        sampleCount: sampleCount,
-      ),
-      MakeoverDomain.clothing => _generateClothing(
-        intent: intent,
-        inputImageUrl: inputImageUrl,
-        sampleCount: sampleCount,
-      ),
-    };
-  }
-
-  Future<List<String>> _generateHair({
-    required MakeoverIntent intent,
-    required String inputImageUrl,
-    required int sampleCount,
-  }) async {
-    return _images(
-      photoUrl: inputImageUrl,
-      prompt: buildHairPrompt(intent),
-      count: sampleCount,
+    return MakeoverPlan(
+      steps: List.unmodifiable(steps),
+      stageSteps: Map.unmodifiable(stageSteps),
+      failures: Map.unmodifiable(failures),
     );
-  }
-
-  /// Applies garments base-layer first, chaining each result into the next.
-  ///
-  /// Only the final garment produces multiple samples; intermediate layers
-  /// stay single so cost scales with garment count, not with garments ×
-  /// alternatives.
-  Future<List<String>> _generateClothing({
-    required MakeoverIntent intent,
-    required String inputImageUrl,
-    required int sampleCount,
-  }) async {
-    final garments = orderGarmentsForLayering(
-      intent.garments,
-    ).where((garment) => garmentImageUrlOf(garment).isNotEmpty).toList();
-
-    if (garments.isEmpty) {
-      throw const MakeoverStageException(
-        'None of the selected items had a usable image.',
-      );
-    }
-
-    var carrier = inputImageUrl;
-    var results = <String>[carrier];
-
-    for (var index = 0; index < garments.length; index += 1) {
-      final garment = garments[index];
-      final isLast = index == garments.length - 1;
-
-      final outputs = await _images(
-        photoUrl: carrier,
-        prompt: buildGarmentPrompt(garment),
-        references: [garmentImageUrlOf(garment)],
-        count: isLast ? sampleCount : 1,
-      );
-
-      if (outputs.isEmpty) {
-        final name = (garment['name'] ?? 'an item').toString();
-        throw MakeoverStageException('No image was returned for $name.');
-      }
-
-      carrier = outputs.first;
-      results = outputs;
-    }
-
-    return results;
-  }
-
-  /// Generates [count] images (one Gemini call each, in parallel) and keeps
-  /// them in our storage, returning their addresses.
-  Future<List<String>> _images({
-    required String photoUrl,
-    required String prompt,
-    List<String> references = const [],
-    required int count,
-  }) async {
-    final userId = _currentUserId;
-    if (userId.isEmpty) {
-      throw const MakeoverStageException('Sign in to create a makeover.');
-    }
-    return Future.wait([
-      for (var i = 0; i < count; i += 1)
-        _generator
-            .generate(
-              photoUrl: photoUrl,
-              prompt: prompt,
-              referenceImageUrls: references,
-            )
-            .then((bytes) => _save(bytes, userId)),
-    ]);
   }
 
   /// Puts one garment on the person, leaving everything else as it is.
@@ -462,71 +441,7 @@ class CoordinatedMakeoverService {
     return job.copyWith(alternatives: alternatives);
   }
 
-  // ── State transitions ───────────────────────────────────────────────────
-
-  Future<MakeoverJob> _markRunning(MakeoverJob job, MakeoverDomain domain) {
-    return _updateStage(
-      job,
-      domain,
-      job
-          .stageFor(domain)
-          .copyWith(
-            status: MakeoverStageStatus.running,
-            startedAt: DateTime.now(),
-            errorMessage: '',
-          ),
-    );
-  }
-
-  Future<MakeoverJob> _markSucceeded(
-    MakeoverJob job,
-    MakeoverDomain domain,
-    List<String> outputs,
-  ) {
-    return _updateStage(
-      job,
-      domain,
-      job
-          .stageFor(domain)
-          .copyWith(
-            status: MakeoverStageStatus.succeeded,
-            outputImageUrls: outputs,
-            completedAt: DateTime.now(),
-            errorMessage: '',
-          ),
-    );
-  }
-
-  Future<MakeoverJob> _markFailed(
-    MakeoverJob job,
-    MakeoverDomain domain,
-    String message,
-  ) {
-    return _updateStage(
-      job,
-      domain,
-      job
-          .stageFor(domain)
-          .copyWith(
-            status: MakeoverStageStatus.failed,
-            errorMessage: message,
-            completedAt: DateTime.now(),
-          ),
-    );
-  }
-
-  Future<MakeoverJob> _updateStage(
-    MakeoverJob job,
-    MakeoverDomain domain,
-    MakeoverStage stage,
-  ) async {
-    final updated = job.copyWith(
-      stages: {...job.stages, domain: stage},
-      updatedAt: DateTime.now(),
-    );
-    await _persist(updated);
-    return updated;
-  }
+  // ── Storage ─────────────────────────────────────────────────────────────
 
   Future<void> _persist(MakeoverJob job) async {
     if (job.userId.isEmpty || job.id.isEmpty) return;
@@ -544,12 +459,20 @@ class CoordinatedMakeoverService {
   }
 }
 
-/// A stage failure with a message fit to show the user.
-class MakeoverStageException implements Exception {
-  const MakeoverStageException(this.message);
+/// The steps a makeover needs (see [CoordinatedMakeoverService.planSteps]).
+@immutable
+class MakeoverPlan {
+  const MakeoverPlan({
+    required this.steps,
+    required this.stageSteps,
+    required this.failures,
+  });
 
-  final String message;
+  final List<AiImageStep> steps;
 
-  @override
-  String toString() => 'MakeoverStageException: $message';
+  /// The steps that make each stage, in pipeline order.
+  final Map<MakeoverDomain, List<int>> stageSteps;
+
+  /// Stages that cannot start, with the reason to show.
+  final Map<MakeoverDomain, String> failures;
 }

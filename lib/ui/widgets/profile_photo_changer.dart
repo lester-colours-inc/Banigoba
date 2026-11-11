@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../core/supabase/app_auth.dart';
 import '../../data/services/profile_service.dart';
 import '../../data/services/storage_service.dart';
+import '../../data/services/image_crop.dart';
 
 /// Asks where the photo should come from, uploads it and saves it.
 /// Returns the new photo URL, or null if the user cancelled or it failed
@@ -42,10 +43,11 @@ Future<String?> changeProfilePhoto(
   );
   if (source == null) return null;
 
-  final image = await (picker ?? ImagePicker()).pickImage(
+  final image = await (picker ?? ImagePicker()).pickAndCropImage(
     source: source,
     imageQuality: 85,
     maxWidth: 1000,
+    shape: CropShape.square,
   );
   if (image == null) return null;
 

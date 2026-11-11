@@ -51,7 +51,6 @@ class AffirmationRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final affirmations = service ?? AffirmationService();
-    final theme = Theme.of(context);
 
     return StreamBuilder<List<AffirmationFacet>>(
       stream: affirmations.watchFacetsForTarget(
@@ -63,18 +62,12 @@ class AffirmationRow extends StatelessWidget {
 
         return Row(
           children: [
-            // The owner sees nothing until affirmations arrive, then which
-            // ones and, privately, how many (H-4). Others never see a number.
+            // Nothing until affirmations arrive (the affirm icon above is the
+            // invitation), then which ones and, for the owner only, how many
+            // (H-4). Others never see a number.
             Expanded(
               child: facets.isEmpty
-                  ? (_isOwner
-                        ? const SizedBox.shrink()
-                        : Text(
-                            'Be the first to affirm this look.',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ))
+                  ? const SizedBox.shrink()
                   : _buildFacets(context, facets),
             ),
             if (_isOwner && facets.isNotEmpty)

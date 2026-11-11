@@ -40,6 +40,7 @@ class DressUpCardAction {
     this.isActive = false,
     this.activeIcon,
     this.chipLabel,
+    this.countLabel,
   }) : assert(icon != null || glyph != null);
 
   final IconData? icon;
@@ -56,6 +57,9 @@ class DressUpCardAction {
   /// A short word shown beside the icon, making this the card's main action:
   /// an amber pill at the start of the row instead of a bare icon.
   final String? chipLabel;
+
+  /// A small number beside an icon action, e.g. a like count.
+  final String? countLabel;
 }
 
 /// An entry in the card's overflow (⋯) menu.
@@ -147,11 +151,8 @@ class DressUpPostCard extends StatelessWidget {
   /// Portrait, like a fashion page, so a full-length look is not cropped.
   static const double _frameAspectRatio = 4 / 5;
 
-  /// Room around the look inside the frame, so it stands in the studio
-  /// rather than touching its edges.
-  static const EdgeInsets _framePadding = EdgeInsets.fromLTRB(14, 18, 14, 10);
-
-  bool get _hasActionRow => actions.isNotEmpty || trailingAction != null;
+  bool get _hasActionRow =>
+      actions.isNotEmpty || trailingAction != null || menuItems.isNotEmpty;
 
   /// Text and icons: the brand navy, or plain light text at night.
   static Color _ink(ColorScheme colors) =>
@@ -327,7 +328,6 @@ class DressUpPostCard extends StatelessWidget {
             ],
           ),
         ),
-        if (menuItems.isNotEmpty) _buildMenu(context),
       ],
     );
   }
@@ -399,7 +399,7 @@ class DressUpPostCard extends StatelessWidget {
             _StudioBackdrop(
               tint: imageBackground,
               isDark: isDark,
-              child: Padding(padding: _framePadding, child: visual),
+              child: visual,
             ),
             Positioned(top: 12, left: 12, child: _DateStamp(label: timeLabel)),
           ],
@@ -425,7 +425,7 @@ class DressUpPostCard extends StatelessWidget {
     return PopupMenuButton<int>(
       tooltip: 'More options',
       style: IconButton.styleFrom(visualDensity: VisualDensity.compact),
-      icon: Icon(Icons.more_horiz, color: colors.onSurfaceVariant, size: 24),
+      icon: Icon(Icons.more_vert, color: colors.onSurfaceVariant, size: 24),
       onSelected: (index) => menuItems[index].onSelected(),
       itemBuilder: (context) => [
         for (var index = 0; index < menuItems.length; index++)
@@ -458,7 +458,8 @@ class DressUpPostCard extends StatelessWidget {
 
   Widget _buildActions(BuildContext context) {
     final iconColor = _ink(Theme.of(context).colorScheme);
-    // The main actions together at the start, Send to apart at the end.
+    // The main actions together at the start; Send to and the menu apart
+    // at the end.
     // Shrinks to fit a narrow card instead of overflowing.
     return LayoutBuilder(
       builder: (context, constraints) => FittedBox(
@@ -482,8 +483,14 @@ class DressUpPostCard extends StatelessWidget {
                       _ActionIcon(action: action, color: iconColor),
                 ],
               ),
-              if (trailingAction case final trailing?)
-                _ActionIcon(action: trailing, color: iconColor),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (trailingAction case final trailing?)
+                    _ActionIcon(action: trailing, color: iconColor),
+                  if (menuItems.isNotEmpty) _buildMenu(context),
+                ],
+              ),
             ],
           ),
         ),
@@ -668,7 +675,7 @@ class _ActionIcon extends StatelessWidget {
   Widget build(BuildContext context) {
     final glyph = action.glyph;
     final iconColor = action.isActive ? DressUpPostCard._activeColor : color;
-    return IconButton(
+    final button = IconButton(
       tooltip: action.label,
       onPressed: action.onTap,
       color: iconColor,
@@ -695,6 +702,32 @@ class _ActionIcon extends StatelessWidget {
                 fontWeight: FontWeight.w800,
               ),
             ),
+    );
+    final count = action.countLabel;
+    if (count == null) return button;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        button,
+        // Tapping the number toggles too; screen readers get it from the
+        // button's label.
+        ExcludeSemantics(
+          child: GestureDetector(
+            onTap: action.onTap,
+            child: Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: Text(
+                count,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

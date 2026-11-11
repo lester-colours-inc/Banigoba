@@ -19,6 +19,7 @@ import '../../../data/services/profile_service.dart';
 import '../../../data/services/post_service.dart';
 import '../../widgets/affirmation_composer_sheet.dart';
 import '../../widgets/affirmation_row.dart';
+import '../../widgets/like_action.dart';
 import '../../widgets/bottom_navigation.dart';
 import '../../widgets/dress_up_post_card.dart';
 import '../../widgets/forward_look_sheet.dart';
@@ -527,77 +528,79 @@ class ProfilePage extends StatelessWidget {
         .take(4)
         .toList();
 
-    return DressUpPostCard(
-      key: ValueKey('profile_post_${post.id}'),
-      isMineLayout: true,
-      title: userName,
-      subtitle: caption,
-      avatarUrl: profileImageUrl,
-      timeLabel: _formatPostTime(post.createdAt),
-      imageBackground: kLookBackdrops[index % kLookBackdrops.length],
-      visual: _buildLookImage(context, post.imageURL),
-      onImageTap: post.imageURL.isEmpty
-          ? null
-          : () => openLookViewer(
+    return LikesBuilder(
+      builder: (context) => DressUpPostCard(
+        key: ValueKey('profile_post_${post.id}'),
+        isMineLayout: true,
+        title: userName,
+        subtitle: caption,
+        avatarUrl: profileImageUrl,
+        timeLabel: _formatPostTime(post.createdAt),
+        imageBackground: kLookBackdrops[index % kLookBackdrops.length],
+        visual: _buildLookImage(context, post.imageURL),
+        onImageTap: post.imageURL.isEmpty
+            ? null
+            : () => openLookViewer(
+                context,
+                imageUrl: post.imageURL,
+                title: userName,
+                caption: caption,
+              ),
+        actions: [
+          likeCardAction(context, post.id, likeCount: post.likeCount),
+          DressUpCardAction(
+            icon: Icons.add_comment_outlined,
+            label: isOwner ? 'Affirmations received' : 'Affirm',
+            onTap: () => _openAffirmations(
               context,
-              imageUrl: post.imageURL,
-              title: userName,
-              caption: caption,
+              post,
+              isOwner: isOwner,
+              ownerName: userName,
             ),
-      actions: [
-        DressUpCardAction(
-          glyph: 'a',
-          chipLabel: isOwner ? 'Affirmations' : 'Affirm',
-          label: isOwner ? 'Affirmations received' : 'Affirm',
-          onTap: () => _openAffirmations(
-            context,
-            post,
-            isOwner: isOwner,
-            ownerName: userName,
           ),
-        ),
-        DressUpCardAction(
-          icon: Icons.chat_bubble_outline,
-          label: post.commentCount == 1
-              ? '1 comment'
-              : '${post.commentCount} comments',
-          onTap: () => showPostCommentsSheet(context, post),
-        ),
-        DressUpCardAction(
-          icon: Icons.accessibility_new,
-          label: 'Try On',
-          onTap: () => _tryOnPost(context, post),
-        ),
-      ],
-      trailingAction: DressUpCardAction(
-        icon: Icons.share_outlined,
-        label: kSendToLabel,
-        onTap: () => showForwardLookSheet(
-          context,
-          imageUrl: post.imageURL,
-          caption: post.caption,
-        ),
-      ),
-      // The pieces the look is made of, then which affirmations it got;
-      // never how many (BNG SRS 001, AFF-003).
-      footer: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (pieces.isNotEmpty) _buildPieces(context, pieces),
-          AffirmationRow(
-            targetType: AffirmationTargetType.post,
-            targetId: post.id,
-            targetOwnerId: post.authorId,
-            currentUserId: currentUserId,
-            ownerName: isOwner ? 'your look' : userName,
-            showAction: false,
-            onOpenReceived: () => showReceivedAffirmations(
-              context,
-              targetType: AffirmationTargetType.post,
-              targetId: post.id,
-            ),
+          DressUpCardAction(
+            icon: Icons.chat_bubble_outline,
+            label: post.commentCount == 1
+                ? '1 comment'
+                : '${post.commentCount} comments',
+            onTap: () => showPostCommentsSheet(context, post),
+          ),
+          DressUpCardAction(
+            icon: Icons.accessibility_new,
+            label: 'Try On',
+            onTap: () => _tryOnPost(context, post),
           ),
         ],
+        trailingAction: DressUpCardAction(
+          icon: Icons.share_outlined,
+          label: kSendToLabel,
+          onTap: () => showForwardLookSheet(
+            context,
+            imageUrl: post.imageURL,
+            caption: post.caption,
+          ),
+        ),
+        // The pieces the look is made of, then which affirmations it got;
+        // never how many (BNG SRS 001, AFF-003).
+        footer: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (pieces.isNotEmpty) _buildPieces(context, pieces),
+            AffirmationRow(
+              targetType: AffirmationTargetType.post,
+              targetId: post.id,
+              targetOwnerId: post.authorId,
+              currentUserId: currentUserId,
+              ownerName: isOwner ? 'your look' : userName,
+              showAction: false,
+              onOpenReceived: () => showReceivedAffirmations(
+                context,
+                targetType: AffirmationTargetType.post,
+                targetId: post.id,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

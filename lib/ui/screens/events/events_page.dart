@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../data/services/event_service.dart';
 import '../../widgets/app_network_image.dart';
+import '../../../data/services/image_crop.dart';
 
 class EventsSection extends StatelessWidget {
   const EventsSection({super.key, this.embedded = false, this.listHeight});
@@ -315,7 +316,7 @@ class _EventSubmissionPageState extends State<EventSubmissionPage> {
   }
 
   Future<void> _pickFlyer() async {
-    final picked = await _picker.pickImage(
+    final picked = await _picker.pickAndCropImage(
       source: ImageSource.gallery,
       imageQuality: 88,
     );

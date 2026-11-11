@@ -9,6 +9,7 @@ import '../../../core/app_routes.dart';
 import '../../widgets/cart_badge_button.dart';
 import '../wardrobe/measurement_page.dart';
 import '../../widgets/app_network_image.dart';
+import '../../../data/services/image_crop.dart';
 
 /// The starting point of the AI Makeover flow.
 /// Users upload a full-body photo or take a selfie to be used for the AI generation.
@@ -136,7 +137,7 @@ class _AiUploadPageState extends State<AiUploadPage> {
     });
 
     try {
-      final XFile? image = await _picker.pickImage(
+      final XFile? image = await _picker.pickAndCropImage(
         source: source,
         imageQuality: 85,
         maxWidth: 1400,

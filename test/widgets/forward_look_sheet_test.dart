@@ -98,4 +98,25 @@ void main() {
     expect(shared.single.method, 'share');
     expect(shared.single.arguments['text'], contains('Sunday best'));
   });
+
+  group('shareLookText', () {
+    test('leaves the image link out when the picture is attached', () {
+      final text = shareLookText('Low cut look');
+      expect(text, contains('Low cut look'));
+      expect(text, contains('Styled on Banigoba'));
+      expect(text, isNot(contains('http')));
+    });
+
+    test('adds the link only when the picture could not be attached', () {
+      final text = shareLookText(
+        'Low cut look',
+        fallbackUrl: 'https://example.com/look.jpg',
+      );
+      expect(text, contains('https://example.com/look.jpg'));
+    });
+
+    test('uses a default lead when there is no caption', () {
+      expect(shareLookText('  '), startsWith('Check out this look'));
+    });
+  });
 }

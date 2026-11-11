@@ -56,6 +56,9 @@ class Post {
   final String authorId;
   final String caption;
   final int commentCount;
+
+  /// How many people liked the look, kept by the database (post_likes).
+  final int likeCount;
   final DateTime createdAt;
   final String imageURL;
   final String outfitId;
@@ -76,6 +79,7 @@ class Post {
     required this.authorId,
     required this.caption,
     required this.commentCount,
+    this.likeCount = 0,
     required this.createdAt,
     required this.imageURL,
     this.outfitId = '',
@@ -128,6 +132,7 @@ class Post {
       authorId: (data['authorId'] ?? '').toString(),
       caption: (data['caption'] ?? '').toString(),
       commentCount: _asInt(data['commentCount']),
+      likeCount: _asInt(data['likeCount']),
       createdAt: asDateTime(data['createdAt']) ?? DateTime.now(),
       imageURL: (data['imageUrl'] ?? '').toString(),
       outfitId: (data['outfitId'] ?? '').toString(),

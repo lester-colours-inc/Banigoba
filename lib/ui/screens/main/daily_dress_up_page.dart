@@ -16,6 +16,7 @@
 // UNCLEAR: this class is still called DailyDressUpPage although it is Home.
 // Daily Dress Up is meant to be a separate feature whose role after the
 // review is undecided; rename once that is settled.
+import '../../../data/services/like_service.dart';
 import '../../../data/services/safety_service.dart';
 import '../../widgets/safety_actions.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
@@ -41,6 +42,7 @@ import '../../../core/app_routes.dart';
 import '../../../core/theme_provider.dart';
 import '../../widgets/affirmation_composer_sheet.dart';
 import '../../widgets/affirmation_row.dart';
+import '../../widgets/like_action.dart';
 import '../../widgets/app_drawer.dart';
 import '../../widgets/dress_up_post_card.dart';
 import '../../widgets/find_pieces_sheet.dart';
@@ -131,6 +133,9 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
       );
       _loadViewerCity(userId);
       _area.refreshIfDue(userId).then((_) => _loadViewerArea(userId));
+      LikeService.instance.loadLiked().catchError(
+        (Object error) => debugPrint('Unable to load liked looks: $error'),
+      );
       _savedPostsSub = _outfitService.watchSavedPostIds(userId).listen(
         (ids) {
           if (mounted) setState(() => _savedPostIds = ids);
@@ -1009,34 +1014,44 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
         backgroundColor: colors.surface,
         elevation: 0,
         leading: MenuOrBackButton(color: colors.onSurface),
-        title: Row(
-          children: [
-            // The app name, written like the logo wordmark; the bottom bar
-            // already says this is Home.
-            Expanded(
-              child: Text(
-                'Banigoba',
-                style: TextStyle(
-                  fontSize: 26,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.5,
-                  color: colors.primary,
-                ),
-              ),
+        // The menu button already has its own padding; the default 16dp gap
+        // left a hole between it and the wordmark.
+        titleSpacing: 0,
+        // The app name, written like the logo wordmark; the bottom bar
+        // already says this is Home. It shrinks rather than truncates on
+        // narrow phones.
+        title: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            'Banigoba',
+            maxLines: 1,
+            style: TextStyle(
+              fontSize: 26,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.5,
+              color: colors.primary,
             ),
-            IconButton(
-              key: const ValueKey('home_find_people'),
-              tooltip: 'Find people',
-              icon: Icon(Icons.person_search_outlined, color: colors.onSurface),
-              onPressed: () => Navigator.pushNamed(context, AppRoutes.search),
-            ),
-            _buildAppBarAction(
-              Icons.shopping_bag_outlined,
-              () => Navigator.pushNamed(context, AppRoutes.cart),
-            ),
-          ],
+          ),
         ),
-        actions: [SizedBox(width: 20)],
+        actions: [
+          IconButton(
+            key: const ValueKey('home_find_people'),
+            tooltip: 'Find people',
+            icon: Icon(Icons.person_search_outlined, color: colors.onSurface),
+            onPressed: () => Navigator.pushNamed(context, AppRoutes.search),
+          ),
+          _buildAppBarAction(
+            Icons.notifications_none_rounded,
+            () => Navigator.pushNamed(context, AppRoutes.notifications),
+            hasNotification: true,
+          ),
+          _buildAppBarAction(
+            Icons.shopping_bag_outlined,
+            () => Navigator.pushNamed(context, AppRoutes.cart),
+          ),
+          const SizedBox(width: 8),
+        ],
         bottom: HomeFeedTabs(controller: _feeds),
       ),
       body: NotificationListener<UserScrollNotification>(
@@ -1305,149 +1320,154 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
     required String currentUserId,
     String repostLabel = '',
   }) {
-    return DressUpPostCard(
-      key: ValueKey('dress_up_post_${post.id}'),
-      isMineLayout: isMineTab,
-      title: author.displayName,
-      subtitle: isMineTab && !post.isQuote ? caption : '',
-      detail: isMineTab ? styleLabel : '',
-      captionLead: isOwner ? 'Your look' : "${author.displayName}'s",
-      caption: isMineTab || post.isQuote ? '' : caption,
-      quote: post.quoteText,
-      repostLabel: repostLabel,
-      avatarUrl: author.profileImageUrl.isNotEmpty
-          ? author.profileImageUrl
-          : author.fullBodyImageUrl,
-      timeLabel: _formatPostTime(post.createdAt),
-      imageBackground: kLookBackdrops[index % kLookBackdrops.length],
-      visual: _buildPostImage(imageUrl),
-      onImageTap: imageUrl.isEmpty
-          ? null
-          : () => openLookViewer(
-              context,
-              imageUrl: imageUrl,
-              title: author.displayName,
-              caption: caption,
-            ),
-      // One row: the Affirm pill (and comment) · repost · quote · save to
-      // Smart Wardrobe, then send to at the far end; the rest is in the ⋯
-      // menu. Reposting a private look asks to share it first.
-      actions: [
-        DressUpCardAction(
-          glyph: 'a',
-          chipLabel: isOwner ? 'Affirmations' : 'Affirm',
-          label: isOwner
-              ? 'Affirmations & comments received'
-              : 'Affirm & comment',
-          onTap: () => _openAffirmations(
-            post,
-            isOwner: isOwner,
-            ownerName: author.displayName,
-          ),
-        ),
-        // Always offered; a private look is shared first (P-8).
-        DressUpCardAction(
-          icon: Icons.repeat,
-          label: 'Repost',
-          onTap: () => _passOn(post, repostLook),
-        ),
-        DressUpCardAction(
-          icon: Icons.format_quote_outlined,
-          label: 'Quote',
-          onTap: () => _passOn(post, quoteLook),
-        ),
-        DressUpCardAction(
-          icon: Icons.checkroom_outlined,
-          activeIcon: Icons.checkroom,
-          isActive: _savedPostIds.contains(post.id),
-          label: _savedPostIds.contains(post.id)
-              ? 'Saved to Smart Wardrobe. Tap to remove'
-              : 'Save to Smart Wardrobe',
-          onTap: () => _savedPostIds.contains(post.id)
-              ? _removeFromWardrobe(post)
-              : _saveToWardrobe(post, imageUrl, caption),
-        ),
-      ],
-      menuItems: [
-        if (isOwner && !post.isRepost)
-          DressUpMenuItem(
-            icon: Icons.edit_outlined,
-            label: 'Edit my look',
-            onSelected: () => _editPost(post, imageUrl),
-          ),
-        DressUpMenuItem(
-          icon: Icons.shopping_bag_outlined,
-          label: 'Place Order',
-          onSelected: () => showFindPiecesSheet(context),
-        ),
-        // Post decides who sees the look in the feeds; Send to (the share
-        // icon) passes it to someone specific (P-4).
-        if (isOwner && !post.isRepost)
-          DressUpMenuItem(
-            icon: Icons.send_outlined,
-            label: post.isShared ? 'Post: change who sees it' : 'Post',
-            onSelected: () => _sharePost(post),
-          ),
-        DressUpMenuItem(
-          icon: Icons.accessibility_new,
-          label: 'Try On',
-          onSelected: () => _tryOnPost(post),
-        ),
-        if (isOwner && post.isShared)
-          DressUpMenuItem(
-            icon: Icons.lock_outline,
-            label: 'Make private',
-            onSelected: () => _privatePost(post),
-          ),
-        if (isOwner)
-          DressUpMenuItem(
-            icon: Icons.delete_outline,
-            label: 'Delete',
-            isDestructive: true,
-            onSelected: () => _deletePost(post),
-          ),
-        // Report and block, on everyone else's looks (App Store 1.2).
-        if (!isOwner) ...[
-          DressUpMenuItem(
-            icon: Icons.flag_outlined,
-            label: 'Report look',
-            onSelected: () => showReportSheet(
-              context,
-              subject: 'look',
-              onReport: (reason) =>
-                  SafetyService.instance.reportPost(post.id, reason),
+    return LikesBuilder(
+      builder: (context) => DressUpPostCard(
+        key: ValueKey('dress_up_post_${post.id}'),
+        isMineLayout: isMineTab,
+        title: author.displayName,
+        subtitle: isMineTab && !post.isQuote ? caption : '',
+        detail: isMineTab ? styleLabel : '',
+        captionLead: isOwner ? 'Your look' : "${author.displayName}'s",
+        caption: isMineTab || post.isQuote ? '' : caption,
+        quote: post.quoteText,
+        repostLabel: repostLabel,
+        avatarUrl: author.profileImageUrl.isNotEmpty
+            ? author.profileImageUrl
+            : author.fullBodyImageUrl,
+        timeLabel: _formatPostTime(post.createdAt),
+        imageBackground: kLookBackdrops[index % kLookBackdrops.length],
+        visual: _buildPostImage(imageUrl),
+        onImageTap: imageUrl.isEmpty
+            ? null
+            : () => openLookViewer(
+                context,
+                imageUrl: imageUrl,
+                title: author.displayName,
+                caption: caption,
+              ),
+        // One row: like · affirm & comment · repost · quote · save to Smart
+        // Wardrobe, then send to and the ⋮ menu at the far end. Reposting a
+        // private look asks to share it first.
+        actions: [
+          likeCardAction(context, post.id, likeCount: post.likeCount),
+          DressUpCardAction(
+            icon: Icons.add_comment_outlined,
+            label: isOwner
+                ? 'Affirmations & comments received'
+                : 'Affirm & comment',
+            onTap: () => _openAffirmations(
+              post,
+              isOwner: isOwner,
+              ownerName: author.displayName,
             ),
           ),
-          DressUpMenuItem(
-            icon: Icons.person_off_outlined,
-            label: 'Block ${author.displayName}',
-            isDestructive: true,
-            onSelected: () => confirmBlock(
-              context,
-              userId: post.authorId,
-              name: author.displayName,
-            ),
+          // Always offered; a private look is shared first (P-8).
+          DressUpCardAction(
+            icon: Icons.repeat,
+            label: 'Repost',
+            onTap: () => _passOn(post, repostLook),
+          ),
+          DressUpCardAction(
+            icon: Icons.format_quote_outlined,
+            label: 'Quote',
+            onTap: () => _passOn(post, quoteLook),
+          ),
+          DressUpCardAction(
+            icon: Icons.checkroom_outlined,
+            activeIcon: Icons.checkroom,
+            isActive: _savedPostIds.contains(post.id),
+            label: _savedPostIds.contains(post.id)
+                ? 'Saved to Smart Wardrobe'
+                : 'Save to Smart Wardrobe',
+            // Saved looks are only removed from the Wardrobe page.
+            onTap: () => _savedPostIds.contains(post.id)
+                ? _showAlreadySaved()
+                : _saveToWardrobe(post, imageUrl, caption),
           ),
         ],
-      ],
-      trailingAction: DressUpCardAction(
-        icon: Icons.share_outlined,
-        label: kSendToLabel,
-        onTap: () => showForwardLookSheet(
-          context,
-          imageUrl: imageUrl,
-          caption: post.caption,
+        menuItems: [
+          if (isOwner && !post.isRepost)
+            DressUpMenuItem(
+              icon: Icons.edit_outlined,
+              label: 'Edit my look',
+              onSelected: () => _editPost(post, imageUrl),
+            ),
+          DressUpMenuItem(
+            icon: Icons.shopping_bag_outlined,
+            label: 'Place Order',
+            onSelected: () => showFindPiecesSheet(context),
+          ),
+          // Post decides who sees the look in the feeds; Send to (the share
+          // icon) passes it to someone specific (P-4).
+          if (isOwner && !post.isRepost)
+            DressUpMenuItem(
+              icon: post.isShared
+                  ? Icons.visibility_outlined
+                  : Icons.public_outlined,
+              label: post.isShared ? 'Who can see this' : 'Post to feed',
+              onSelected: () => _sharePost(post),
+            ),
+          DressUpMenuItem(
+            icon: Icons.accessibility_new,
+            label: 'Try On',
+            onSelected: () => _tryOnPost(post),
+          ),
+          if (isOwner && post.isShared)
+            DressUpMenuItem(
+              icon: Icons.lock_outline,
+              label: 'Make private',
+              onSelected: () => _privatePost(post),
+            ),
+          if (isOwner)
+            DressUpMenuItem(
+              icon: Icons.delete_outline,
+              label: 'Delete',
+              isDestructive: true,
+              onSelected: () => _deletePost(post),
+            ),
+          // Report and block, on everyone else's looks (App Store 1.2).
+          if (!isOwner) ...[
+            DressUpMenuItem(
+              icon: Icons.flag_outlined,
+              label: 'Report look',
+              onSelected: () => showReportSheet(
+                context,
+                subject: 'look',
+                onReport: (reason) =>
+                    SafetyService.instance.reportPost(post.id, reason),
+              ),
+            ),
+            DressUpMenuItem(
+              icon: Icons.person_off_outlined,
+              label: 'Block ${author.displayName}',
+              isDestructive: true,
+              onSelected: () => confirmBlock(
+                context,
+                userId: post.authorId,
+                name: author.displayName,
+              ),
+            ),
+          ],
+        ],
+        trailingAction: DressUpCardAction(
+          icon: Icons.share_outlined,
+          label: kSendToLabel,
+          onTap: () => showForwardLookSheet(
+            context,
+            imageUrl: imageUrl,
+            caption: post.caption,
+          ),
         ),
-      ),
-      // Which affirmations the look received; never how many (BNG SRS 001,
-      // AFF-003). The affirm action is in the row above, so not repeated.
-      footer: AffirmationRow(
-        targetType: AffirmationTargetType.post,
-        targetId: post.id,
-        targetOwnerId: post.authorId,
-        currentUserId: currentUserId,
-        ownerName: isOwner ? 'your look' : author.displayName,
-        showAction: false,
+        // Which affirmations the look received; never how many (BNG SRS 001,
+        // AFF-003). The affirm action is in the row above, so not repeated.
+        footer: AffirmationRow(
+          targetType: AffirmationTargetType.post,
+          targetId: post.id,
+          targetOwnerId: post.authorId,
+          currentUserId: currentUserId,
+          ownerName: isOwner ? 'your look' : author.displayName,
+          showAction: false,
+        ),
       ),
     );
   }
@@ -1520,29 +1540,14 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
     }
   }
 
-  Future<void> _removeFromWardrobe(Post post) async {
-    final userId = AppAuth.instance.currentUser?.uid;
-    if (userId == null) return;
-    final previous = _savedPostIds;
-    setState(
-      () => _savedPostIds = previous.where((id) => id != post.id).toSet(),
+  void _showAlreadySaved() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Already in your Smart Wardrobe. Remove it from the Wardrobe page.',
+        ),
+      ),
     );
-    try {
-      await _outfitService.removeLookFromWardrobe(
-        userId: userId,
-        postId: post.id,
-      );
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Removed from your Smart Wardrobe.')),
-      );
-    } on PostgrestException catch (error) {
-      if (!mounted) return;
-      setState(() => _savedPostIds = previous);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Unable to remove look: ${error.message}')),
-      );
-    }
   }
 
   Future<void> _saveToWardrobe(
@@ -1735,11 +1740,13 @@ class _DailyDressUpPageState extends State<DailyDressUpPage>
       );
     }
 
-    // The whole look, standing on the bottom of the card's studio frame.
+    // Fill the rounded frame edge to edge, so a photo never floats as a
+    // square-cornered rectangle on the backdrop. Biased upward to keep the
+    // face in view when the photo is cropped.
     return AppNetworkImage(
       imageUrl,
-      fit: BoxFit.contain,
-      alignment: Alignment.bottomCenter,
+      fit: BoxFit.cover,
+      alignment: const Alignment(0, -0.3),
       fallback: Align(
         alignment: Alignment.center,
         child: Icon(

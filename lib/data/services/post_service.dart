@@ -1,8 +1,8 @@
 // Handles creation and retrieval of social posts, affirmations, and comments.
 //
-// Posts carry no like or reaction counter. Qualitative affirmations are stored
-// separately by AffirmationService so no aggregate lands on the post document
-// and no public total can be derived from it.
+// Posts carry a like count (kept by the database from post_likes) but no
+// affirmation total: affirmations are stored separately by AffirmationService
+// so no affirmation aggregate lands on the post and none can be derived.
 import 'package:flutter/foundation.dart';
 import '../../core/supabase/app_auth.dart';
 import '../../core/supabase/supabase_config.dart';

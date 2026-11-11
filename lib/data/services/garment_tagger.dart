@@ -1,18 +1,20 @@
 // Looks at a photo of a piece of clothing and suggests its tags (type, colour,
 // style, weather, and so on) using Gemini's image understanding.
 //
-// Only the photo and a fixed question are sent, and the answer is cut down to
-// the app's own vocabulary (see models/garment_tags.dart). It is a suggestion:
-// the person can change anything, and every failure just means no suggestion.
+// Only the photo and a fixed question are sent, through our `tag-garment`
+// Edge Function (the Gemini key stays on the server), and the answer is cut
+// down to the app's own vocabulary (see models/garment_tags.dart). It is a
+// suggestion: the person can change anything, and every failure just means no
+// suggestion.
 import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 
+import '../../core/supabase/supabase_config.dart';
 import '../models/garment_tags.dart';
 
-/// What the screens need; the real one asks Gemini, tests use a fake.
+/// What the screens need; the real one asks the server, tests use a fake.
 abstract interface class GarmentTagger {
   bool get isConfigured;
 
@@ -20,26 +22,22 @@ abstract interface class GarmentTagger {
   Future<GarmentTags?> tag(Uint8List photo, {String mimeType});
 }
 
-class GeminiGarmentTagger implements GarmentTagger {
-  GeminiGarmentTagger({String? apiKey, http.Client? client, String? model})
-    : _apiKey = apiKey ?? _compiledKey,
-      _client = client ?? http.Client(),
-      _model = model ?? defaultModel;
+/// Calls the `tag-garment` function with a request body; returns its reply.
+typedef TagFunction = Future<Object?> Function(Map<String, Object?> body);
 
-  static const String _compiledKey = String.fromEnvironment('GEMINI_API_KEY');
+class ServerGarmentTagger implements GarmentTagger {
+  ServerGarmentTagger({TagFunction? call}) : _call = call ?? _invoke;
 
-  /// A fast, cheap vision model: one small question per photo.
-  static const String defaultModel = 'gemini-flash-latest';
+  static Future<Object?> _invoke(Map<String, Object?> body) async =>
+      (await supabase.functions.invoke('tag-garment', body: body)).data;
 
-  static const Duration _timeout = Duration(seconds: 25);
+  static const Duration _timeout = Duration(seconds: 30);
   static const int _maxBytes = 6 * 1024 * 1024;
 
-  final String _apiKey;
-  final http.Client _client;
-  final String _model;
+  final TagFunction _call;
 
   @override
-  bool get isConfigured => _apiKey.isNotEmpty;
+  bool get isConfigured => true;
 
   static String _list(Iterable<String> values) => values.join(', ');
 
@@ -87,45 +85,15 @@ class GeminiGarmentTagger implements GarmentTagger {
     Uint8List photo, {
     String mimeType = 'image/jpeg',
   }) async {
-    if (!isConfigured || photo.isEmpty || photo.length > _maxBytes) return null;
+    if (photo.isEmpty || photo.length > _maxBytes) return null;
     try {
-      final response = await _client
-          .post(
-            Uri.parse(
-              'https://generativelanguage.googleapis.com/v1beta/models/'
-              '$_model:generateContent',
-            ),
-            headers: {
-              'x-goog-api-key': _apiKey,
-              'Content-Type': 'application/json',
-            },
-            body: jsonEncode({
-              'contents': [
-                {
-                  'parts': [
-                    {'text': prompt},
-                    {
-                      'inline_data': {
-                        'mime_type': mimeType,
-                        'data': base64Encode(photo),
-                      },
-                    },
-                  ],
-                },
-              ],
-              'generationConfig': {
-                'responseMimeType': 'application/json',
-                'responseSchema': _schema,
-                'temperature': 0.2,
-              },
-            }),
-          )
-          .timeout(_timeout);
-      if (response.statusCode != 200) {
-        debugPrint('[GarmentTagger] HTTP ${response.statusCode}');
-        return null;
-      }
-      return parseResponse(response.body);
+      final reply = await _call({
+        'image': base64Encode(photo),
+        'mimeType': mimeType,
+        'prompt': prompt,
+        'schema': _schema,
+      }).timeout(_timeout);
+      return parseReply(reply);
     } on TimeoutException {
       return null;
     } on Exception catch (error) {
@@ -134,23 +102,26 @@ class GeminiGarmentTagger implements GarmentTagger {
     }
   }
 
-  /// Reads Gemini's reply body into tags, or null when it holds nothing usable.
+  /// Reads the function's reply (`{tags: {...}}`) into tags, or null when it
+  /// holds nothing usable.
   @visibleForTesting
-  static GarmentTags? parseResponse(String body) {
+  static GarmentTags? parseReply(Object? reply) {
+    final decoded = reply is String ? _decode(reply) : reply;
+    if (decoded is! Map) return null;
+    final json = decoded['tags'];
+    if (json is! Map) return null;
     try {
-      final decoded = jsonDecode(body) as Map<String, dynamic>;
-      final candidates = decoded['candidates'];
-      if (candidates is! List || candidates.isEmpty) return null;
-      final parts = (candidates.first as Map)['content']?['parts'];
-      if (parts is! List || parts.isEmpty) return null;
-      final text = (parts.first as Map)['text']?.toString() ?? '';
-      final json = jsonDecode(text);
-      if (json is! Map<String, dynamic>) return null;
-      final tags = GarmentTags.fromJson(json);
+      final tags = GarmentTags.fromJson(Map<String, dynamic>.from(json));
       return tags.isEmpty ? null : tags;
-    } on FormatException {
-      return null;
     } on TypeError {
+      return null;
+    }
+  }
+
+  static Object? _decode(String text) {
+    try {
+      return jsonDecode(text);
+    } on FormatException {
       return null;
     }
   }

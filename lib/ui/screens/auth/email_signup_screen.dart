@@ -377,20 +377,24 @@ class _SignUpSocialButtons extends StatelessWidget {
           color: const Color(0xFF4285F4),
           onPressed: enabled ? () => onPressed('Google') : null,
         ),
-        const SizedBox(width: 14),
-        _SignUpSocialButton(
-          icon: Icons.facebook,
-          tooltip: 'Facebook',
-          color: const Color(0xFF1877F2),
-          onPressed: enabled ? () => onPressed('Facebook') : null,
-        ),
-        const SizedBox(width: 14),
-        _SignUpSocialButton(
-          icon: Icons.apple,
-          tooltip: 'Apple',
-          color: Theme.of(context).colorScheme.onSurface,
-          onPressed: enabled ? () => onPressed('Apple') : null,
-        ),
+        if (kShowFacebookSignIn) ...[
+          const SizedBox(width: 14),
+          _SignUpSocialButton(
+            icon: Icons.facebook,
+            tooltip: 'Facebook',
+            color: const Color(0xFF1877F2),
+            onPressed: enabled ? () => onPressed('Facebook') : null,
+          ),
+        ],
+        if (showAppleSignIn) ...[
+          const SizedBox(width: 14),
+          _SignUpSocialButton(
+            icon: Icons.apple,
+            tooltip: 'Apple',
+            color: Theme.of(context).colorScheme.onSurface,
+            onPressed: enabled ? () => onPressed('Apple') : null,
+          ),
+        ],
       ],
     );
   }

@@ -36,14 +36,14 @@ class ProviderModeSwitch extends StatelessWidget {
                       ),
                     ),
                   icon: const Icon(Icons.storefront_outlined, size: 18),
-                  label: const Text('Become a provider'),
+                  label: const Text('Become a business'),
                 )
               : SegmentedButton<bool>(
                   key: const ValueKey('mode_switch'),
                   showSelectedIcon: false,
                   segments: const [
                     ButtonSegment(value: false, label: Text('Customer')),
-                    ButtonSegment(value: true, label: Text('Provider')),
+                    ButtonSegment(value: true, label: Text('Business')),
                   ],
                   selected: const {false},
                   onSelectionChanged: (choice) {

@@ -16,6 +16,7 @@ import '../../../data/services/body_profile_service.dart';
 import 'widgets/how_to_measure_sheet.dart';
 import 'widgets/measurement_field.dart';
 import 'widgets/profile_photo_tile.dart';
+import '../../../data/services/image_crop.dart';
 
 typedef ProfileImagePicker =
     Future<Uint8List?> Function(ImageSource source, BodyPhoto photo);
@@ -242,7 +243,7 @@ class _BodyProfilePageState extends State<BodyProfilePage> {
     ImageSource source,
     BodyPhoto photo,
   ) async {
-    final picked = await ImagePicker().pickImage(
+    final picked = await ImagePicker().pickAndCropImage(
       source: source,
       imageQuality: 85,
       maxWidth: 1600,

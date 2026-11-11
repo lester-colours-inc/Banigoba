@@ -6,7 +6,7 @@ import '../../../core/supabase/app_auth.dart';
 import '../../../data/services/storage_service.dart';
 import 'package:flutter/material.dart';
 
-import '../../../data/services/gemini_image_api.dart';
+import '../../../data/services/ai_job_service.dart';
 import '../../../data/services/outfit_service.dart';
 import '../../widgets/before_after_view.dart';
 import '../../widgets/safe_product_image.dart';
@@ -52,9 +52,8 @@ class AvatarTryOnPage extends StatefulWidget {
 
 class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
   static const Color _primaryColor = Color(0xFF0D0140);
-  static const String _geminiApiKey = String.fromEnvironment('GEMINI_API_KEY');
   final OutfitService _outfitService = OutfitService();
-  final StorageService _storageService = StorageService();
+  final AiImageJobs _jobs = SupabaseAiImageJobs();
 
   String? _avatarImageUrl;
   String? _error;
@@ -201,24 +200,11 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
   ///
   /// Returns null — after surfacing an error where one is useful — when the
   /// avatar, the products or the provider's API key are missing.
-  ({String avatarUrl, List<Map<String, dynamic>> products})? _generationInputs({
-    required String apiKey,
-    required String keyName,
-    required String providerLabel,
-  }) {
+  ({String avatarUrl, List<Map<String, dynamic>> products})?
+  _generationInputs() {
     final avatarUrl = _avatarImageUrl;
     final products = _selectedProducts;
     if (avatarUrl == null || products.isEmpty) return null;
-
-    if (apiKey.isEmpty) {
-      setState(() {
-        _error =
-            '$providerLabel is not configured. Start the app with '
-            '--dart-define=$keyName=your_key.';
-      });
-      return null;
-    }
-
     return (avatarUrl: avatarUrl, products: products);
   }
 
@@ -292,14 +278,6 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
     final avatarUrl = _avatarImageUrl;
     final user = AppAuth.instance.currentUser;
     if (frontUrl == null || avatarUrl == null || user == null) return;
-    if (_geminiApiKey.isEmpty) {
-      setState(
-        () => _error =
-            'Turning around needs ${TryOnProvider.gemini.label}. Start the '
-            'app with --dart-define=GEMINI_API_KEY=your_key.',
-      );
-      return;
-    }
 
     setState(() {
       _turningProvider = provider;
@@ -309,16 +287,7 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
         provider: {TurnView.front: frontUrl},
       };
     });
-    final service = TurnAroundService(
-      generate: (images, prompt) async {
-        final result = await GeminiImageApi(
-          apiKey: _geminiApiKey,
-        ).editImage(images: images, prompt: prompt);
-        return result.bytes;
-      },
-      upload: (bytes) =>
-          _storageService.uploadTryOnResultBytes(bytes, user.uid),
-    );
+    final service = TurnAroundService();
     try {
       await service.run(
         frontUrl: frontUrl,
@@ -340,9 +309,13 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
           });
         },
       );
-    } on Exception catch (error) {
+    } on AiJobException catch (error) {
       if (mounted) {
-        setState(() => _error = 'Could not make every angle: $error');
+        setState(
+          () => _error = error.isStillRunning
+              ? error.message
+              : 'Could not make every angle: ${error.message}',
+        );
       }
     } finally {
       if (mounted) setState(() => _turningProvider = null);
@@ -426,11 +399,7 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
   /// bytes, so the result is uploaded before it can be shown or saved.
   Future<void> _generateWithGemini() async {
     if (!await ensureAiPhotoConsent(context) || !mounted) return;
-    final inputs = _generationInputs(
-      apiKey: _geminiApiKey,
-      keyName: 'GEMINI_API_KEY',
-      providerLabel: TryOnProvider.gemini.label,
-    );
+    final inputs = _generationInputs();
     if (inputs == null) return;
 
     final user = AppAuth.instance.currentUser;
@@ -448,20 +417,27 @@ class _AvatarTryOnPageState extends State<AvatarTryOnPage> {
       }
 
       _setGeneratingLabel('your whole look at once');
-      final images = <GeminiImage>[
-        await GeminiImageApi.fetchImage(inputs.avatarUrl),
-        for (final product in products)
-          await GeminiImageApi.fetchImage(_productImageUrl(product)),
-      ];
-
-      final result = await GeminiImageApi(
-        apiKey: _geminiApiKey,
-      ).editImage(images: images, prompt: _geminiTryOnPrompt(products));
-
-      return await _storageService.uploadTryOnResultBytes(
-        result.bytes,
-        user.uid,
+      // Made on the server: it finishes, and you are told, even if you leave.
+      final job = await _jobs.run(
+        AiJobRequest(
+          kind: AiJobKind.tryOn,
+          label: 'Your try-on',
+          steps: [
+            AiImageStep(
+              prompt: _geminiTryOnPrompt(products),
+              images: [
+                AiImageUrl(inputs.avatarUrl),
+                for (final product in products)
+                  AiImageUrl(_productImageUrl(product)),
+              ],
+            ),
+          ],
+        ),
       );
+      if (job.images.isEmpty) {
+        throw const AiJobException('No picture came back. Please try again.');
+      }
+      return job.images.first;
     });
   }
 

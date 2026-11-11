@@ -15,6 +15,7 @@ import '../../../data/services/style_preferences_service.dart';
 import '../makeover/makeover_start_sheet.dart';
 import 'first_run_guide_screen.dart';
 import 'style_preferences_screen.dart';
+import '../../../data/services/image_crop.dart';
 
 class AppGuideActions implements GuideActions {
   AppGuideActions({
@@ -27,7 +28,7 @@ class AppGuideActions implements GuideActions {
   }) : _preferences = preferences ?? StylePreferencesService(),
        _storage = storage ?? StorageService(),
        _products = products ?? ProductService(),
-       _tagger = tagger ?? GeminiGarmentTagger(),
+       _tagger = tagger ?? ServerGarmentTagger(),
        _picker = picker ?? ImagePicker();
 
   final String userId;
@@ -60,7 +61,7 @@ class AppGuideActions implements GuideActions {
       ),
     );
     if (source == null) return null;
-    final file = await _picker.pickImage(
+    final file = await _picker.pickAndCropImage(
       source: source,
       imageQuality: 85,
       maxWidth: 1600,

@@ -67,9 +67,13 @@ Future<void> showForwardLookSheet(
   }
 }
 
-String _shareText(String caption, String imageUrl) {
+/// The message sent with a look. The link is only added when the picture
+/// itself couldn't be attached, so recipients never see a raw storage URL
+/// alongside the image.
+String shareLookText(String caption, {String? fallbackUrl}) {
   final lead = caption.trim().isEmpty ? 'Check out this look' : caption.trim();
-  return '$lead\n$imageUrl\n\n$_shareSignature';
+  final link = fallbackUrl == null ? '' : '\n$fallbackUrl';
+  return '$lead$link\n\n$_shareSignature';
 }
 
 void _showMessage(
@@ -162,7 +166,7 @@ Future<void> _forwardToOtherApps(
   if (!context.mounted) return;
   await _openShareSheet(
     context,
-    text: _shareText(caption, imageUrl),
+    text: shareLookText(caption, fallbackUrl: image == null ? imageUrl : null),
     image: image,
     origin: origin,
   );

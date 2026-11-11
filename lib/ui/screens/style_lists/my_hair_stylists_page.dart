@@ -16,6 +16,7 @@ import '../../widgets/app_network_image.dart';
 import '../../widgets/forward_recipient_sheet.dart';
 import '../../widgets/look_viewer_page.dart';
 import '../makeover/makeover_page.dart';
+import '../../../data/services/image_crop.dart';
 
 class MyHairStylistsPage extends StatefulWidget {
   const MyHairStylistsPage({super.key});
@@ -60,7 +61,7 @@ class _MyHairStylistsPageState extends State<MyHairStylistsPage> {
 
   Future<void> _addHairstyle(ImageSource source) async {
     final messenger = ScaffoldMessenger.of(context);
-    final picked = await _picker.pickImage(
+    final picked = await _picker.pickAndCropImage(
       source: source,
       imageQuality: 85,
       maxWidth: 1600,

@@ -6,6 +6,7 @@
 import 'package:banigoba/data/services/auth_service.dart';
 import 'package:banigoba/ui/screens/auth/email_signin_screen.dart';
 import 'package:banigoba/ui/screens/auth/email_signup_screen.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -54,7 +55,7 @@ void main() {
       ]);
     });
 
-    for (final provider in ['Google', 'Facebook', 'Apple']) {
+    for (final provider in ['Google']) {
       // Each provider button should call the matching AuthService method; the
       // fake below records the call instead of opening a real OAuth flow.
       testWidgets('$provider sign-in button calls AuthService', (tester) async {
@@ -67,6 +68,34 @@ void main() {
         expect(auth.calls, [provider]);
       });
     }
+
+    testWidgets('Facebook and Apple sign-in buttons are hidden on Android', (
+      tester,
+    ) async {
+      await _pumpAuthScreen(
+        tester,
+        EmailSignInScreen(authService: _RecordingAuthService()),
+      );
+
+      expect(find.byTooltip('Facebook'), findsNothing);
+      expect(find.byTooltip('Apple'), findsNothing);
+      expect(find.byTooltip('Google'), findsOneWidget);
+    });
+
+    testWidgets('Apple sign-in button shows on iOS and calls AuthService', (
+      tester,
+    ) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      final auth = _RecordingAuthService();
+      await _pumpAuthScreen(tester, EmailSignInScreen(authService: auth));
+
+      expect(find.byTooltip('Facebook'), findsNothing);
+      await _tapVisible(tester, find.byTooltip('Apple'));
+      await tester.pumpAndSettle();
+
+      expect(auth.calls, ['Apple']);
+      debugDefaultTargetPlatformOverride = null;
+    });
   });
 
   group('sign-up authentication methods', () {
@@ -158,7 +187,7 @@ void main() {
       ]);
     });
 
-    for (final provider in ['Google', 'Facebook', 'Apple']) {
+    for (final provider in ['Google']) {
       testWidgets('$provider sign-up button calls AuthService', (tester) async {
         final auth = _RecordingAuthService();
         await _pumpAuthScreen(tester, EmailSignUpScreen(authService: auth));
@@ -169,6 +198,34 @@ void main() {
         expect(auth.calls, [provider]);
       });
     }
+
+    testWidgets('Facebook and Apple sign-up buttons are hidden on Android', (
+      tester,
+    ) async {
+      await _pumpAuthScreen(
+        tester,
+        EmailSignUpScreen(authService: _RecordingAuthService()),
+      );
+
+      expect(find.byTooltip('Facebook'), findsNothing);
+      expect(find.byTooltip('Apple'), findsNothing);
+      expect(find.byTooltip('Google'), findsOneWidget);
+    });
+
+    testWidgets('Apple sign-up button shows on iOS and calls AuthService', (
+      tester,
+    ) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      final auth = _RecordingAuthService();
+      await _pumpAuthScreen(tester, EmailSignUpScreen(authService: auth));
+
+      expect(find.byTooltip('Facebook'), findsNothing);
+      await _tapVisible(tester, find.byTooltip('Apple'));
+      await tester.pumpAndSettle();
+
+      expect(auth.calls, ['Apple']);
+      debugDefaultTargetPlatformOverride = null;
+    });
   });
 }
 

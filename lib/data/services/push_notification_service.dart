@@ -10,6 +10,7 @@ import '../../firebase_options.dart';
 import '../../core/app_routes.dart';
 import '../../core/supabase/app_auth.dart';
 import '../../core/supabase/supabase_config.dart';
+import '../../ui/notification_router.dart';
 
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -36,6 +37,10 @@ class PushNotificationService with WidgetsBindingObserver {
   GlobalKey<ScaffoldMessengerState>? _scaffoldMessengerKey;
   bool _isRegisteringToken = false;
   bool _pendingNotificationOpen = false;
+
+  /// The tapped push's data while waiting for sign-in, so it can still open
+  /// the right page.
+  Map<String, dynamic>? _pendingMessageData;
 
   bool get _supportsPush =>
       !kIsWeb &&
@@ -174,16 +179,32 @@ class PushNotificationService with WidgetsBindingObserver {
   void _openNotifications(RemoteMessage message) {
     if (_auth.currentUser == null || _navigatorKey?.currentState == null) {
       _pendingNotificationOpen = true;
+      _pendingMessageData = message.data;
       return;
     }
 
     _pendingNotificationOpen = false;
+    _pendingMessageData = null;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final navigator = _navigatorKey?.currentState;
       if (navigator == null) return;
-      navigator.popUntil((route) => route.isFirst);
-      navigator.pushNamed(AppRoutes.notifications);
+      unawaited(_openFor(navigator, message.data));
     });
+  }
+
+  /// Opens what the push is about: the look, the person, the chat or the
+  /// finished AI look. Anything without a destination opens the
+  /// notifications list.
+  Future<void> _openFor(
+    NavigatorState navigator,
+    Map<String, dynamic>? data,
+  ) async {
+    navigator.popUntil((route) => route.isFirst);
+    final type = (data?['type'] ?? '').toString();
+    final opened = await openNotificationTarget(navigator.context, type, data);
+    if (!opened && navigator.mounted) {
+      navigator.pushNamed(AppRoutes.notifications);
+    }
   }
 
   void _openPendingNotificationIfNeeded() {
@@ -192,10 +213,11 @@ class PushNotificationService with WidgetsBindingObserver {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_pendingNotificationOpen || _auth.currentUser == null) return;
       _pendingNotificationOpen = false;
+      final data = _pendingMessageData;
+      _pendingMessageData = null;
       final navigator = _navigatorKey?.currentState;
       if (navigator == null) return;
-      navigator.popUntil((route) => route.isFirst);
-      navigator.pushNamed(AppRoutes.notifications);
+      unawaited(_openFor(navigator, data));
     });
   }
 

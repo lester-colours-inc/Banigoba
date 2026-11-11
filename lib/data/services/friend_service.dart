@@ -27,21 +27,32 @@ class FriendService {
 
   // --- Follow Request Actions ---
 
+  /// Follow requests and accepts still in flight, keyed by the other person.
+  /// A second tap while one is sending is dropped, so a quick double tap
+  /// (before the "Requested" state streams back) sends one notification.
+  static final Set<String> _requestsInFlight = {};
+  static final Set<String> _acceptsInFlight = {};
+
   Future<void> sendFollowRequest(String targetUserId) async {
     if (currentUserId.isEmpty) return;
-    await supabase.from('follow_requests').upsert({
-      'requester_id': currentUserId,
-      'target_id': targetUserId,
-    });
+    if (!_requestsInFlight.add(targetUserId)) return;
+    try {
+      await supabase.from('follow_requests').upsert({
+        'requester_id': currentUserId,
+        'target_id': targetUserId,
+      });
 
-    final senderName = await _nameOf(currentUserId, 'Someone');
-    await _notificationService.addNotification(
-      receiverId: targetUserId,
-      title: 'New Follow Request',
-      body: '$senderName wants to follow you.',
-      type: 'follow_request',
-      extraData: {'fromId': currentUserId, 'fromName': senderName},
-    );
+      final senderName = await _nameOf(currentUserId, 'Someone');
+      await _notificationService.addNotification(
+        receiverId: targetUserId,
+        title: 'New Follow Request',
+        body: '$senderName wants to follow you.',
+        type: 'follow_request',
+        extraData: {'fromId': currentUserId, 'fromName': senderName},
+      );
+    } finally {
+      _requestsInFlight.remove(targetUserId);
+    }
   }
 
   Future<void> cancelFollowRequest(String targetUserId) async {
@@ -55,19 +66,24 @@ class FriendService {
 
   Future<void> acceptFollowRequest(String requesterId) async {
     if (currentUserId.isEmpty) return;
-    await supabase.rpc(
-      'accept_follow_request',
-      params: {'requester': requesterId},
-    );
+    if (!_acceptsInFlight.add(requesterId)) return;
+    try {
+      await supabase.rpc(
+        'accept_follow_request',
+        params: {'requester': requesterId},
+      );
 
-    final myName = await _nameOf(currentUserId, 'Your friend');
-    await _notificationService.addNotification(
-      receiverId: requesterId,
-      title: 'Follow Request Accepted',
-      body: '$myName accepted your follow request.',
-      type: 'follow_accepted',
-      extraData: {'fromId': currentUserId, 'fromName': myName},
-    );
+      final myName = await _nameOf(currentUserId, 'Your friend');
+      await _notificationService.addNotification(
+        receiverId: requesterId,
+        title: 'Follow Request Accepted',
+        body: '$myName accepted your follow request.',
+        type: 'follow_accepted',
+        extraData: {'fromId': currentUserId, 'fromName': myName},
+      );
+    } finally {
+      _acceptsInFlight.remove(requesterId);
+    }
   }
 
   Future<void> declineFollowRequest(String requesterId) async {
