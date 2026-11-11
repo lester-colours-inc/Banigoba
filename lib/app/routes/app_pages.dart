@@ -25,6 +25,7 @@ import 'package:banigoba/modules/shop/views/cart_page.dart';
 import 'package:banigoba/modules/shop/views/shared_stock_page.dart';
 import 'package:banigoba/modules/shop/views/shops_page.dart';
 import 'package:banigoba/modules/social/views/profile_page.dart';
+import 'package:banigoba/modules/wardrobe/bindings/plan_ahead_binding.dart';
 import 'package:banigoba/modules/wardrobe/views/measurement_page.dart';
 import 'package:banigoba/modules/wardrobe/views/plan_ahead_page.dart';
 import 'package:banigoba/modules/wardrobe/views/wardrobe_page.dart';
@@ -51,7 +52,11 @@ abstract final class AppPages {
     GetPage(name: AppRoutes.search, page: SearchPage.new),
     GetPage(name: AppRoutes.profile, page: ProfilePage.new),
     GetPage(name: AppRoutes.avatarTryOn, page: AvatarTryOnPage.new),
-    GetPage(name: AppRoutes.planAhead, page: PlanAheadPage.new),
+    GetPage(
+      name: AppRoutes.planAhead,
+      page: PlanAheadPage.new,
+      binding: PlanAheadBinding(),
+    ),
     GetPage(name: AppRoutes.measurement, page: MeasurementPage.new),
     GetPage(name: AppRoutes.curatorsWorkspace, page: CuratorsWorkspacePage.new),
     GetPage(name: AppRoutes.settings, page: SettingsPage.new),

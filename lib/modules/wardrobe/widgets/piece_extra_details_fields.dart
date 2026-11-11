@@ -12,7 +12,7 @@ import 'package:flutter/material.dart';
 ///
 /// [otherDetailControllers] is owned by the caller (it decides how the list
 /// grows and shrinks) so this stays a plain, stateless section that fits
-/// inside either form's own `StatefulBuilder`/`setState`.
+/// inside either form.
 Widget buildPieceExtraDetailsFields(
   BuildContext context, {
   required TextEditingController shoulderController,
