@@ -2,99 +2,31 @@
 // page. Keep your salons and stylists (My Circle) and the hairstyles you
 // like, from your photos or camera. "Try this on me" opens the hair
 // makeover with that style; its result goes to the normal feeds (F-4).
-import 'package:banigoba/core/supabase/app_auth.dart';
-import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
 
-import 'package:banigoba/modules/provider/models/look_request.dart';
+import 'package:banigoba/modules/makeover/widgets/look_viewer_page.dart';
 import 'package:banigoba/modules/social/services/circle_service.dart';
-import 'package:banigoba/core/services/storage_service.dart';
+import 'package:banigoba/modules/style_lists/controllers/my_hair_stylists_controller.dart';
 import 'package:banigoba/modules/style_lists/services/style_lists_service.dart';
 import 'package:banigoba/shared/widgets/app_network_image.dart';
-import 'package:banigoba/modules/social/widgets/forward_recipient_sheet.dart';
-import 'package:banigoba/modules/makeover/widgets/look_viewer_page.dart';
-import 'package:banigoba/modules/makeover/views/makeover_page.dart';
-import 'package:banigoba/core/services/image_crop.dart';
-import 'package:banigoba/shared/widgets/app_toast.dart';
 
-class MyHairStylistsPage extends StatefulWidget {
+class MyHairStylistsPage extends StatelessWidget {
   const MyHairStylistsPage({super.key});
 
   @override
-  State<MyHairStylistsPage> createState() => _MyHairStylistsPageState();
-}
-
-class _MyHairStylistsPageState extends State<MyHairStylistsPage> {
-  final StyleListsService _lists = StyleListsService();
-  final CircleService _circle = CircleService();
-  final ImagePicker _picker = ImagePicker();
-  final String _userId = AppAuth.instance.currentUser?.uid ?? '';
-  late final Stream<List<CircleMember>> _members = _circle.watch(_userId);
-  late final Stream<List<StyleListEntry>> _hairstyles = _lists.watch(
-    _userId,
-    StyleList.hairstyles,
-  );
-  bool _uploading = false;
-
-  Future<void> _findSalon() async {
-    final salon = await showForwardRecipientSheet(
-      context,
-      ForwardRecipientKind.salon,
-      title: 'Add a salon to My Circle',
-    );
-    if (salon == null) return;
-    try {
-      await _circle.add(_userId, salon.toCircleMember(CircleKind.salon));
-      AppToast.say('${salon.name} is in My Circle.');
-    } on PostgrestException catch (error) {
-      AppToast.say('Could not add ${salon.name}: ${error.message}');
-    }
-  }
-
-  Future<void> _addHairstyle(ImageSource source) async {
-    final picked = await _picker.pickAndCropImage(
-      source: source,
-      imageQuality: 85,
-      maxWidth: 1600,
-    );
-    if (picked == null) return;
-    setState(() => _uploading = true);
-    try {
-      final url = await StorageService().uploadHairInspirationBytes(
-        await picked.readAsBytes(),
-        _userId,
-      );
-      await _lists.add(
-        _userId,
-        StyleList.hairstyles,
-        StyleListEntry(id: '', name: '', imageUrl: url),
-      );
-    } on PostgrestException catch (error) {
-      AppToast.say('Could not add that photo: ${error.message}');
-    } finally {
-      if (mounted) setState(() => _uploading = false);
-    }
-  }
-
-  void _tryOnMe(String imageUrl) => Navigator.push(
-    context,
-    MaterialPageRoute<void>(
-      builder: (_) =>
-          MakeoverPage(initialScope: LookScope.hair, initialTwinUrl: imageUrl),
-    ),
-  );
-
-  void _newHairstyle() => Navigator.push(
-    context,
-    MaterialPageRoute<void>(
-      builder: (_) => const MakeoverPage(initialScope: LookScope.hair),
-    ),
-  );
-
-  @override
   Widget build(BuildContext context) {
+    // Scoped to this page: created and disposed with the widget.
+    return GetBuilder<MyHairStylistsController>(
+      init: MyHairStylistsController(),
+      global: false,
+      builder: (controller) => _build(context, controller),
+    );
+  }
+
+  Widget _build(BuildContext context, MyHairStylistsController controller) {
     final colors = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(title: const Text('My Hair Stylists')),
@@ -109,7 +41,7 @@ class _MyHairStylistsPageState extends State<MyHairStylistsPage> {
           const SizedBox(height: 12),
           FilledButton.icon(
             key: const ValueKey('hair_new_style'),
-            onPressed: _newHairstyle,
+            onPressed: controller.newHairstyle,
             icon: const Icon(Icons.face_retouching_natural),
             label: const Text('Try a new hairstyle'),
           ),
@@ -118,13 +50,13 @@ class _MyHairStylistsPageState extends State<MyHairStylistsPage> {
             title: 'My salons and stylists',
             action: TextButton.icon(
               key: const ValueKey('hair_find_salon'),
-              onPressed: _findSalon,
+              onPressed: controller.findSalon,
               icon: const Icon(Icons.add),
               label: const Text('Find a salon'),
             ),
           ),
           StreamBuilder<List<CircleMember>>(
-            stream: _members,
+            stream: controller.members,
             builder: (context, snapshot) {
               final salons = (snapshot.data ?? const <CircleMember>[])
                   .where((member) => member.kind == CircleKind.salon)
@@ -157,7 +89,7 @@ class _MyHairStylistsPageState extends State<MyHairStylistsPage> {
                       trailing: IconButton(
                         tooltip: 'Remove from My Circle',
                         icon: const Icon(Icons.group_remove_outlined),
-                        onPressed: () => _circle.remove(_userId, salon.id),
+                        onPressed: () => controller.removeSalon(salon.id),
                       ),
                     ),
                 ],
@@ -167,41 +99,46 @@ class _MyHairStylistsPageState extends State<MyHairStylistsPage> {
           const SizedBox(height: 24),
           _SectionHeader(
             title: 'Hairstyles I like',
-            action: PopupMenuButton<ImageSource>(
-              key: const ValueKey('hair_add_style'),
-              tooltip: 'Add a hairstyle',
-              enabled: !_uploading,
-              onSelected: _addHairstyle,
-              itemBuilder: (_) => const [
-                PopupMenuItem(
-                  value: ImageSource.gallery,
-                  child: Text('From my photos'),
+            action: Obx(
+              () => PopupMenuButton<ImageSource>(
+                key: const ValueKey('hair_add_style'),
+                tooltip: 'Add a hairstyle',
+                enabled: !controller.uploading.value,
+                onSelected: controller.addHairstyle,
+                itemBuilder: (_) => const [
+                  PopupMenuItem(
+                    value: ImageSource.gallery,
+                    child: Text('From my photos'),
+                  ),
+                  PopupMenuItem(
+                    value: ImageSource.camera,
+                    child: Text('Take a photo'),
+                  ),
+                ],
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: controller.uploading.value
+                      ? const SizedBox.square(
+                          dimension: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.add, color: colors.primary),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Add',
+                              style: TextStyle(color: colors.primary),
+                            ),
+                          ],
+                        ),
                 ),
-                PopupMenuItem(
-                  value: ImageSource.camera,
-                  child: Text('Take a photo'),
-                ),
-              ],
-              child: Padding(
-                padding: const EdgeInsets.all(8),
-                child: _uploading
-                    ? const SizedBox.square(
-                        dimension: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.add, color: colors.primary),
-                          const SizedBox(width: 4),
-                          Text('Add', style: TextStyle(color: colors.primary)),
-                        ],
-                      ),
               ),
             ),
           ),
           StreamBuilder<List<StyleListEntry>>(
-            stream: _hairstyles,
+            stream: controller.hairstyles,
             builder: (context, snapshot) {
               final styles = snapshot.data ?? const <StyleListEntry>[];
               if (styles.isEmpty) {
@@ -228,12 +165,8 @@ class _MyHairStylistsPageState extends State<MyHairStylistsPage> {
                         imageUrl: style.imageUrl,
                         title: 'A hairstyle I like',
                       ),
-                      onTryOn: () => _tryOnMe(style.imageUrl),
-                      onRemove: () => _lists.remove(
-                        _userId,
-                        StyleList.hairstyles,
-                        style.id,
-                      ),
+                      onTryOn: () => controller.tryOnMe(style.imageUrl),
+                      onRemove: () => controller.removeHairstyle(style.id),
                     ),
                 ],
               );

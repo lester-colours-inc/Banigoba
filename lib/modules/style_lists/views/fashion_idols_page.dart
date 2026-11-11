@@ -4,70 +4,35 @@
 //
 // Under the list, "In the news" shows the stories from the fashion-content
 // engine that name an idol.
-import 'package:banigoba/core/supabase/app_auth.dart';
-import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+
+import 'package:banigoba/modules/style_lists/controllers/fashion_idols_controller.dart';
 
 import 'package:banigoba/modules/style_lists/services/style_lists_service.dart';
 import 'package:banigoba/modules/home/widgets/idol_news_section.dart';
-import 'package:banigoba/modules/makeover/views/makeover_page.dart';
-import 'package:banigoba/shared/widgets/app_toast.dart';
 
 const int _maxIdolNameLength = 60;
 
-class FashionIdolsPage extends StatefulWidget {
+class FashionIdolsPage extends StatelessWidget {
   const FashionIdolsPage({super.key});
 
   @override
-  State<FashionIdolsPage> createState() => _FashionIdolsPageState();
-}
-
-class _FashionIdolsPageState extends State<FashionIdolsPage> {
-  final StyleListsService _lists = StyleListsService();
-  final String _userId = AppAuth.instance.currentUser?.uid ?? '';
-  late final Stream<List<StyleListEntry>> _idols = _lists.watch(
-    _userId,
-    StyleList.idols,
-  );
-  final TextEditingController _name = TextEditingController();
-
-  @override
-  void dispose() {
-    _name.dispose();
-    super.dispose();
-  }
-
-  Future<void> _addIdol() async {
-    final name = _name.text.trim();
-    final id = idolIdFor(name);
-    if (id.isEmpty) return;
-    try {
-      await _lists.add(
-        _userId,
-        StyleList.idols,
-        StyleListEntry(id: id, name: name),
-      );
-      _name.clear();
-      setState(() {});
-    } on PostgrestException catch (error) {
-      AppToast.say('Could not add $name: ${error.message}');
-    }
-  }
-
-  void _styleMeLike(String name) => Navigator.push(
-    context,
-    MaterialPageRoute<void>(
-      builder: (_) => MakeoverPage(initialIdolName: name),
-    ),
-  );
-
-  @override
   Widget build(BuildContext context) {
+    // Scoped to this page: created and disposed with the widget.
+    return GetBuilder<FashionIdolsController>(
+      init: FashionIdolsController(),
+      global: false,
+      builder: (controller) => _build(context, controller),
+    );
+  }
+
+  Widget _build(BuildContext context, FashionIdolsController controller) {
     final colors = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(title: const Text('My Fashion Idols')),
       body: StreamBuilder<List<StyleListEntry>>(
-        stream: _idols,
+        stream: controller.idols,
         builder: (context, snapshot) {
           final idols = snapshot.data ?? const <StyleListEntry>[];
           return ListView(
@@ -85,11 +50,11 @@ class _FashionIdolsPageState extends State<FashionIdolsPage> {
                   Expanded(
                     child: TextField(
                       key: const ValueKey('idol_name'),
-                      controller: _name,
+                      controller: controller.name,
                       maxLength: _maxIdolNameLength,
                       textCapitalization: TextCapitalization.words,
-                      onChanged: (_) => setState(() {}),
-                      onSubmitted: (_) => _addIdol(),
+                      onChanged: (value) => controller.typed.value = value,
+                      onSubmitted: (_) => controller.addIdol(),
                       decoration: const InputDecoration(
                         hintText: 'Add an idol, e.g. Michelle Obama',
                         prefixIcon: Icon(Icons.star_outline),
@@ -98,10 +63,12 @@ class _FashionIdolsPageState extends State<FashionIdolsPage> {
                     ),
                   ),
                   const SizedBox(width: 10),
-                  FilledButton(
-                    key: const ValueKey('add_idol'),
-                    onPressed: idolIdFor(_name.text).isEmpty ? null : _addIdol,
-                    child: const Text('Add'),
+                  Obx(
+                    () => FilledButton(
+                      key: const ValueKey('add_idol'),
+                      onPressed: controller.canAdd ? controller.addIdol : null,
+                      child: const Text('Add'),
+                    ),
                   ),
                 ],
               ),
@@ -133,15 +100,14 @@ class _FashionIdolsPageState extends State<FashionIdolsPage> {
                           ),
                         ),
                         FilledButton.tonalIcon(
-                          onPressed: () => _styleMeLike(idol.name),
+                          onPressed: () => controller.styleMeLike(idol.name),
                           icon: const Icon(Icons.auto_awesome, size: 18),
                           label: const Text('Style me like'),
                         ),
                         IconButton(
                           tooltip: 'Remove ${idol.name}',
                           icon: const Icon(Icons.close),
-                          onPressed: () =>
-                              _lists.remove(_userId, StyleList.idols, idol.id),
+                          onPressed: () => controller.removeIdol(idol.id),
                         ),
                       ],
                     ),

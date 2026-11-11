@@ -2,66 +2,33 @@
 // style is like yours. Find them by name or @username, add them, and they
 // are followed too, so their looks come into your feeds (no separate
 // timeline, F-4).
-import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:banigoba/core/supabase/app_auth.dart';
-import 'package:banigoba/modules/social/services/profile_service.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
-import 'package:banigoba/modules/social/services/friend_service.dart';
-import 'package:banigoba/modules/style_lists/services/style_lists_service.dart';
 import 'package:banigoba/modules/home/views/search_page.dart';
-import 'package:banigoba/modules/social/views/profile_page.dart';
-import 'package:banigoba/shared/widgets/app_toast.dart';
+import 'package:banigoba/modules/social/services/profile_service.dart';
+import 'package:banigoba/modules/style_lists/controllers/fashion_twins_controller.dart';
+import 'package:banigoba/modules/style_lists/services/style_lists_service.dart';
 
-class FashionTwinsPage extends StatefulWidget {
+class FashionTwinsPage extends StatelessWidget {
   const FashionTwinsPage({super.key});
 
   @override
-  State<FashionTwinsPage> createState() => _FashionTwinsPageState();
+  Widget build(BuildContext context) {
+    // Scoped to this page: created and disposed with the widget.
+    return GetBuilder<FashionTwinsController>(
+      init: FashionTwinsController(),
+      global: false,
+      builder: (controller) => _TwinsView(controller: controller),
+    );
+  }
 }
 
-class _FashionTwinsPageState extends State<FashionTwinsPage> {
-  final StyleListsService _lists = StyleListsService();
-  final FriendService _friends = FriendService();
-  final String _userId = AppAuth.instance.currentUser?.uid ?? '';
-  late final Stream<List<StyleListEntry>> _twins = _lists.watch(
-    _userId,
-    StyleList.twins,
-  );
-  String _query = '';
+class _TwinsView extends StatelessWidget {
+  const _TwinsView({required this.controller});
 
-  Future<void> _addTwin(String uid, Map<String, dynamic> data) async {
-    final name = (data['displayName'] ?? data['name'] ?? 'User').toString();
-    try {
-      await _lists.add(
-        _userId,
-        StyleList.twins,
-        StyleListEntry(
-          id: uid,
-          name: name,
-          username: (data['username'] ?? '').toString(),
-          imageUrl: (data['profileImageUrl'] ?? '').toString(),
-        ),
-      );
-      // Twins' looks reach your feeds through following them.
-      final following = await _friends.isFollowing(uid).first;
-      if (!following) await _friends.sendFollowRequest(uid);
-      AppToast.say(
-        following
-            ? '$name is now one of your Fashion Twins.'
-            : '$name is now one of your Fashion Twins. We asked to '
-                  'follow them so their looks reach your feed.',
-      );
-    } on PostgrestException catch (error) {
-      AppToast.say('Could not add $name: ${error.message}');
-    }
-  }
-
-  void _openProfile(String uid) => Navigator.push(
-    context,
-    MaterialPageRoute<void>(builder: (_) => ProfilePage(userId: uid)),
-  );
+  final FashionTwinsController controller;
 
   @override
   Widget build(BuildContext context) {
@@ -69,7 +36,7 @@ class _FashionTwinsPageState extends State<FashionTwinsPage> {
     return Scaffold(
       appBar: AppBar(title: const Text('My Fashion Twins')),
       body: StreamBuilder<List<StyleListEntry>>(
-        stream: _twins,
+        stream: controller.twins,
         builder: (context, snapshot) {
           final twins = snapshot.data ?? const <StyleListEntry>[];
           final twinIds = {for (final twin in twins) twin.id};
@@ -85,14 +52,17 @@ class _FashionTwinsPageState extends State<FashionTwinsPage> {
               const SizedBox(height: 16),
               TextField(
                 key: const ValueKey('twins_search'),
-                onChanged: (value) =>
-                    setState(() => _query = value.trim().toLowerCase()),
+                onChanged: controller.onSearchChanged,
                 decoration: const InputDecoration(
                   hintText: 'Find people by name or @username',
                   prefixIcon: Icon(Icons.search),
                 ),
               ),
-              if (_query.isNotEmpty) _buildResults(twinIds),
+              Obx(
+                () => controller.query.value.isEmpty
+                    ? const SizedBox.shrink()
+                    : _Results(controller: controller, twinIds: twinIds),
+              ),
               const SizedBox(height: 24),
               Text(
                 twins.isEmpty
@@ -117,12 +87,11 @@ class _FashionTwinsPageState extends State<FashionTwinsPage> {
                   name: twin.name,
                   username: twin.username,
                   imageUrl: twin.imageUrl,
-                  onTap: () => _openProfile(twin.id),
+                  onTap: () => controller.openProfile(twin.id),
                   trailing: IconButton(
                     tooltip: 'Remove from Fashion Twins',
                     icon: const Icon(Icons.person_remove_outlined),
-                    onPressed: () =>
-                        _lists.remove(_userId, StyleList.twins, twin.id),
+                    onPressed: () => controller.removeTwin(twin.id),
                   ),
                 ),
             ],
@@ -131,10 +100,19 @@ class _FashionTwinsPageState extends State<FashionTwinsPage> {
       ),
     );
   }
+}
 
-  Widget _buildResults(Set<String> twinIds) {
+class _Results extends StatelessWidget {
+  const _Results({required this.controller, required this.twinIds});
+
+  final FashionTwinsController controller;
+  final Set<String> twinIds;
+
+  @override
+  Widget build(BuildContext context) {
+    final query = controller.query.value;
     return FutureBuilder<List<Map<String, dynamic>>>(
-      future: ProfileService().searchPeople(_query),
+      future: ProfileService().searchPeople(query),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
           return const Padding(
@@ -145,15 +123,15 @@ class _FashionTwinsPageState extends State<FashionTwinsPage> {
         final people = snapshot.data!
             .where(
               (person) =>
-                  person['id'] != _userId &&
-                  matchesPersonSearch(person, _query),
+                  person['id'] != controller.userId &&
+                  matchesPersonSearch(person, query),
             )
             .take(20)
             .toList();
         if (people.isEmpty) {
           return Padding(
             padding: const EdgeInsets.only(top: 12),
-            child: Text('Nobody found for "$_query".'),
+            child: Text('Nobody found for "$query".'),
           );
         }
         return Column(
@@ -164,13 +142,13 @@ class _FashionTwinsPageState extends State<FashionTwinsPage> {
                 name: (person['displayName'] ?? 'User').toString(),
                 username: (person['username'] ?? '').toString(),
                 imageUrl: (person['profileImageUrl'] ?? '').toString(),
-                onTap: () => _openProfile(person['id'].toString()),
+                onTap: () => controller.openProfile(person['id'].toString()),
                 trailing: twinIds.contains(person['id'])
                     ? const Chip(label: Text('Twin'))
                     : FilledButton.tonal(
                         key: ValueKey('add_twin_${person['id']}'),
                         onPressed: () =>
-                            _addTwin(person['id'].toString(), person),
+                            controller.addTwin(person['id'].toString(), person),
                         child: const Text('Add'),
                       ),
               ),
