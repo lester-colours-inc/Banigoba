@@ -1,26 +1,24 @@
 // Represents an in-app notification read from the `notifications` table.
+import 'package:freezed_annotation/freezed_annotation.dart';
+
 import 'package:banigoba/core/supabase/rows.dart';
 
-class AppNotification {
-  final String id;
-  final String title;
-  final String body;
-  final String type;
-  final String senderId;
-  final Map<String, dynamic>? extraData;
-  final bool isRead;
-  final DateTime? timestamp;
+part 'notification.freezed.dart';
 
-  AppNotification({
-    required this.id,
-    required this.title,
-    required this.body,
-    required this.type,
-    required this.senderId,
-    this.extraData,
-    this.isRead = false,
-    this.timestamp,
-  });
+@freezed
+abstract class AppNotification with _$AppNotification {
+  const AppNotification._();
+
+  const factory AppNotification({
+    required String id,
+    required String title,
+    required String body,
+    required String type,
+    required String senderId,
+    Map<String, dynamic>? extraData,
+    @Default(false) bool isRead,
+    DateTime? timestamp,
+  }) = _AppNotification;
 
   factory AppNotification.fromRow(Map<String, dynamic> row) {
     final data = camelizeRow(row);
