@@ -6,22 +6,25 @@
 // full $1.00. The influencer whose post or link brought the sale gets a share
 // of the commission (25%: 5c on a $1.00 piece). The database works the same
 // numbers out when the order is placed; the app only shows them.
+import 'package:freezed_annotation/freezed_annotation.dart';
+
+part 'commission.freezed.dart';
 
 /// Defaults, used until the real rates are read from the platform settings.
 const double kDefaultCommissionRate = 0.20;
 const double kDefaultInfluencerShare = 0.25;
 
-class CommissionRates {
-  const CommissionRates({
-    this.commission = kDefaultCommissionRate,
-    this.influencerShare = kDefaultInfluencerShare,
-  });
+@freezed
+abstract class CommissionRates with _$CommissionRates {
+  const CommissionRates._();
 
-  /// Fraction of the seller's price added for the platform.
-  final double commission;
+  const factory CommissionRates({
+    /// Fraction of the seller's price added for the platform.
+    @Default(kDefaultCommissionRate) double commission,
 
-  /// Fraction of the commission paid to the referring influencer.
-  final double influencerShare;
+    /// Fraction of the commission paid to the referring influencer.
+    @Default(kDefaultInfluencerShare) double influencerShare,
+  }) = _CommissionRates;
 }
 
 double _roundToCents(double value) => (value * 100).roundToDouble() / 100;

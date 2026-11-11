@@ -11,6 +11,9 @@ import 'package:flutter/foundation.dart';
 
 import 'package:banigoba/modules/profile_details/models/body_profile.dart';
 import 'package:banigoba/modules/onboarding/models/style_preferences.dart';
+import 'package:freezed_annotation/freezed_annotation.dart';
+
+part 'look_request.freezed.dart';
 
 /// One item a makeover step changes. Steps run in declaration order.
 enum LookPart {
@@ -89,44 +92,37 @@ enum LookScope {
 
 /// A named style direction, offered under "Style idol" when the user has no
 /// particular person in mind.
-@immutable
-class StyleArchetype {
-  const StyleArchetype({
-    required this.id,
-    required this.name,
-    required this.tagline,
-    required this.promptHint,
-  });
+@freezed
+abstract class StyleArchetype with _$StyleArchetype {
+  const StyleArchetype._();
 
-  final String id;
-  final String name;
+  const factory StyleArchetype({
+    required String id,
+    required String name,
 
-  /// One short line shown under the name.
-  final String tagline;
+    /// One short line shown under the name.
+    required String tagline,
 
-  /// How the archetype is described to the image model.
-  final String promptHint;
+    /// How the archetype is described to the image model.
+    required String promptHint,
+  }) = _StyleArchetype;
 }
 
 /// A trend offered under "Trending".
-@immutable
-class StyleTrend {
-  const StyleTrend({
-    required this.id,
-    required this.name,
-    required this.tagline,
-    required this.promptHint,
-    this.isHair = false,
-  });
+@freezed
+abstract class StyleTrend with _$StyleTrend {
+  const StyleTrend._();
 
-  final String id;
-  final String name;
-  final String tagline;
-  final String promptHint;
+  const factory StyleTrend({
+    required String id,
+    required String name,
+    required String tagline,
+    required String promptHint,
 
-  /// Hair trends are offered only when the scope changes hair; clothing
-  /// trends only when it changes clothing.
-  final bool isHair;
+    /// Hair trends are offered only when the scope changes hair; clothing
+    /// trends only when it changes clothing.
+    @Default(false) bool isHair,
+  }) = _StyleTrend;
 
   bool fitsScope(LookScope scope) =>
       isHair ? scope.changesHair : scope.changesClothing;
@@ -210,26 +206,22 @@ final class TrendSource extends LookSource {
 }
 
 /// Everything needed to generate a look.
-@immutable
-class LookRequest {
-  const LookRequest({
-    required this.photoUrl,
-    required this.scope,
-    required this.source,
-    this.extraNote = '',
-    this.body = const BodyProfile(),
-  });
+@freezed
+abstract class LookRequest with _$LookRequest {
+  const LookRequest._();
 
-  final String photoUrl;
-  final LookScope scope;
-  final LookSource source;
+  const factory LookRequest({
+    required String photoUrl,
+    required LookScope scope,
+    required LookSource source,
 
-  /// Optional extra words the user adds to any non-describe source.
-  final String extraNote;
+    /// Optional extra words the user adds to any non-describe source.
+    @Default('') String extraNote,
 
-  /// The user's profile details: clothes are fitted to their real size, and
-  /// a Fashion Idol or Style twin look keeps their face from the face photo.
-  final BodyProfile body;
+    /// The user's profile details: clothes are fitted to their real size, and
+    /// a Fashion Idol or Style twin look keeps their face from the face photo.
+    @Default(BodyProfile()) BodyProfile body,
+  }) = _LookRequest;
 
   /// The steps this request runs, in order.
   List<LookPart> get parts =>

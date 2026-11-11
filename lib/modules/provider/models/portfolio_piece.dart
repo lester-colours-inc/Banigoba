@@ -7,18 +7,19 @@
 import 'package:flutter/foundation.dart';
 
 import 'package:banigoba/modules/wardrobe/models/piece_details.dart';
+import 'package:freezed_annotation/freezed_annotation.dart';
 
-@immutable
-class PortfolioPiece {
-  const PortfolioPiece({
-    required this.imageUrl,
-    this.size = '',
-    this.details = const PieceDetails(),
-  });
+part 'portfolio_piece.freezed.dart';
 
-  final String imageUrl;
-  final String size;
-  final PieceDetails details;
+@freezed
+abstract class PortfolioPiece with _$PortfolioPiece {
+  const PortfolioPiece._();
+
+  const factory PortfolioPiece({
+    required String imageUrl,
+    @Default('') String size,
+    @Default(PieceDetails()) PieceDetails details,
+  }) = _PortfolioPiece;
 
   bool get isEmpty => imageUrl.isEmpty && size.isEmpty && details.isEmpty;
 

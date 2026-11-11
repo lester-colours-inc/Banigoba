@@ -1,6 +1,9 @@
 // One list for everything a provider has to answer (S-3): shop orders, design
 // requests and hair requests, with the ones needing an answer first.
 import 'package:flutter/foundation.dart';
+import 'package:freezed_annotation/freezed_annotation.dart';
+
+part 'provider_inbox.freezed.dart';
 
 enum InboxKind {
   order('Order', 'Orders'),
@@ -28,31 +31,23 @@ String _statusLabel(String status) => switch (status) {
   _ => 'Updated',
 };
 
-@immutable
-class InboxItem {
-  const InboxItem({
-    required this.kind,
-    required this.id,
-    required this.customerId,
-    required this.customerName,
-    required this.title,
-    required this.detail,
-    required this.status,
-    required this.createdAt,
-    this.data = const {},
-  });
+@freezed
+abstract class InboxItem with _$InboxItem {
+  const InboxItem._();
 
-  final InboxKind kind;
-  final String id;
-  final String customerId;
-  final String customerName;
-  final String title;
-  final String detail;
-  final String status;
-  final DateTime? createdAt;
+  const factory InboxItem({
+    required InboxKind kind,
+    required String id,
+    required String customerId,
+    required String customerName,
+    required String title,
+    required String detail,
+    required String status,
+    required DateTime? createdAt,
 
-  /// The stored document, for the detail view.
-  final Map<String, dynamic> data;
+    /// The stored document, for the detail view.
+    @Default({}) Map<String, dynamic> data,
+  }) = _InboxItem;
 
   bool get needsAction => status == 'submitted' || status == 'pending';
 
