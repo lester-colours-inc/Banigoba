@@ -1,5 +1,5 @@
 // Verifies @username rules and suggestions.
-import 'package:banigoba/data/models/username.dart';
+import 'package:banigoba/modules/onboarding/models/username.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

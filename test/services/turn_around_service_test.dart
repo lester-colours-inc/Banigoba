@@ -1,14 +1,14 @@
-// Verifies the turn-around prompts and the generate-one-angle-at-a-time flow.
-import 'dart:typed_data';
-
-import 'package:banigoba/data/services/gemini_image_api.dart';
-import 'package:banigoba/data/services/turn_around_service.dart';
+// Verifies the turn-around prompts and the job that makes the angles.
+import 'package:banigoba/modules/makeover/services/ai_job_service.dart';
+import 'package:banigoba/modules/makeover/services/turn_around_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-GeminiImage _image(String url) => GeminiImage(
-  bytes: Uint8List.fromList(url.codeUnits),
-  mimeType: 'image/png',
-);
+import '../support/fake_ai_image_jobs.dart';
+
+List<String> _urls(AiImageStep step) => [
+  for (final image in step.images)
+    if (image case AiImageUrl(:final url)) url,
+];
 
 void main() {
   keepingAngles();
@@ -49,83 +49,70 @@ void main() {
   });
 
   group('TurnAroundService.run', () {
-    late List<String> uploaded;
-    late List<String> prompts;
-    late List<List<GeminiImage>> sentImages;
-
-    TurnAroundService service({int failOn = -1}) {
-      uploaded = [];
-      prompts = [];
-      sentImages = [];
-      return TurnAroundService(
-        fetch: (url) async => _image(url),
-        generate: (images, prompt) async {
-          if (prompts.length == failOn) throw Exception('model refused');
-          prompts.add(prompt);
-          sentImages.add(images);
-          return Uint8List.fromList([prompts.length]);
-        },
-        upload: (bytes) async {
-          final url = 'https://x/view-${bytes.first}.png';
-          uploaded.add(url);
-          return url;
-        },
-      );
-    }
-
-    test('makes right, back and left in order and keeps the front', () async {
+    test('asks for right, back and left and keeps the front', () async {
+      final jobs = FakeAiImageJobs();
       final seen = <TurnView>[];
-      final views = await service().run(
-        frontUrl: 'front',
-        avatarUrl: 'avatar',
-        garmentUrls: ['g1', '', 'g2'],
+      final views = await TurnAroundService(jobs: jobs).run(
+        frontUrl: 'https://x/front.png',
+        avatarUrl: 'https://x/avatar.png',
+        garmentUrls: ['https://x/g1.png', '', 'https://x/g2.png'],
         onView: (view, _) => seen.add(view),
       );
 
+      final request = jobs.requests.single;
+      expect(request.kind, AiJobKind.turnAround);
       expect(seen, [TurnView.right, TurnView.back, TurnView.left]);
       expect(views.keys, TurnView.values);
-      expect(views[TurnView.front], 'front');
-      expect(views[TurnView.back], 'https://x/view-2.png');
-      expect(prompts[0], contains('right side'));
-      expect(prompts[1], contains('directly behind'));
-      expect(prompts[2], contains('left side'));
+      expect(views[TurnView.front], 'https://x/front.png');
+      expect(views[TurnView.back], 'https://x/step-1-0.png');
+      expect(request.steps[0].prompt, contains('right side'));
+      expect(request.steps[1].prompt, contains('directly behind'));
+      expect(request.steps[2].prompt, contains('left side'));
+      // The angles do not build on each other, so the server runs them
+      // side by side.
+      for (final step in request.steps) {
+        expect(step.images.whereType<AiStepImage>(), isEmpty);
+      }
     });
 
     test('sends the front, the photo, then up to three garments', () async {
-      await service().run(
+      final jobs = FakeAiImageJobs();
+      await TurnAroundService(jobs: jobs).run(
         frontUrl: 'front',
         avatarUrl: 'avatar',
         garmentUrls: ['a', 'b', 'c', 'd', 'e'],
       );
-      final names = sentImages.first
-          .map((image) => String.fromCharCodes(image.bytes))
-          .toList();
-      expect(names, ['front', 'avatar', 'a', 'b', 'c']);
+      expect(_urls(jobs.requests.single.steps.first), [
+        'front',
+        'avatar',
+        'a',
+        'b',
+        'c',
+      ]);
     });
 
     test('sends the shops\' back photos after the garments', () async {
-      await service().run(
+      final jobs = FakeAiImageJobs();
+      await TurnAroundService(jobs: jobs).run(
         frontUrl: 'front',
         avatarUrl: 'avatar',
         garmentUrls: ['a'],
         garmentBackUrls: ['', 'a-back'],
       );
-      final names = sentImages.first
-          .map((image) => String.fromCharCodes(image.bytes))
-          .toList();
-      expect(names, ['front', 'avatar', 'a', 'a-back']);
-      expect(prompts.first, contains('The last 1 image(s) show the BACK'));
+      final step = jobs.requests.single.steps.first;
+      expect(_urls(step), ['front', 'avatar', 'a', 'a-back']);
+      expect(step.prompt, contains('The last 1 image(s) show the BACK'));
     });
 
     test('keeps the angles already made when a later one fails', () async {
       final seen = <TurnView>[];
       await expectLater(
-        service(failOn: 1).run(
+        TurnAroundService(jobs: FakeAiImageJobs(failOnStep: 1)).run(
           frontUrl: 'front',
           avatarUrl: 'avatar',
           onView: (view, _) => seen.add(view),
         ),
-        throwsException,
+        throwsA(isA<AiJobException>()),
       );
       expect(seen, [TurnView.right]);
     });

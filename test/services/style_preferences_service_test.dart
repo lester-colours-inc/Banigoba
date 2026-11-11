@@ -1,5 +1,5 @@
-import 'package:banigoba/data/models/style_preferences.dart';
-import 'package:banigoba/data/services/style_preferences_service.dart';
+import 'package:banigoba/modules/onboarding/models/style_preferences.dart';
+import 'package:banigoba/modules/onboarding/services/style_preferences_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

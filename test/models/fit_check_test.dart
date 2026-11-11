@@ -1,6 +1,6 @@
 // Verifies the fitting room's fit check (K-2).
-import 'package:banigoba/data/models/body_profile.dart';
-import 'package:banigoba/data/models/fit_check.dart';
+import 'package:banigoba/modules/profile_details/models/body_profile.dart';
+import 'package:banigoba/modules/wardrobe/models/fit_check.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _body = BodyProfile(

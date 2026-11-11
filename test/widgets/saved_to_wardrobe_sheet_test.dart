@@ -1,6 +1,6 @@
 // Verifies the sheet shown after saving a look to the Smart Wardrobe.
-import 'package:banigoba/ui/screens/wardrobe/widgets/saved_looks_grid.dart';
-import 'package:banigoba/ui/widgets/saved_to_wardrobe_sheet.dart';
+import 'package:banigoba/modules/wardrobe/widgets/saved_looks_grid.dart';
+import 'package:banigoba/modules/wardrobe/widgets/saved_to_wardrobe_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

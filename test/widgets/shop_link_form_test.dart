@@ -1,5 +1,5 @@
-import 'package:banigoba/data/models/shop_link.dart';
-import 'package:banigoba/ui/screens/shop/shop_link_form.dart';
+import 'package:banigoba/modules/shop/models/shop_link.dart';
+import 'package:banigoba/modules/shop/views/shop_link_form.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

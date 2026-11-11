@@ -1,5 +1,5 @@
-import 'package:banigoba/data/models/provider_roles.dart';
-import 'package:banigoba/ui/screens/provider/become_provider_page.dart';
+import 'package:banigoba/modules/provider/models/provider_roles.dart';
+import 'package:banigoba/modules/provider/views/become_provider_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

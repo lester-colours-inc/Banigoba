@@ -1,5 +1,5 @@
 // Verifies "worn ... ago" / "not worn in ..." wording (W-7).
-import 'package:banigoba/data/models/wear_tracking.dart';
+import 'package:banigoba/modules/wardrobe/models/wear_tracking.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 final _now = DateTime(2026, 10, 21, 15);

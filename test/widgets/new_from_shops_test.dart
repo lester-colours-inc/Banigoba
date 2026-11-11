@@ -1,8 +1,8 @@
 // Verifies the "New from shops you follow" cards in My Daily Dress Up.
-import 'package:banigoba/data/models/feed_matching.dart';
-import 'package:banigoba/data/services/feed_matches_service.dart';
-import 'package:banigoba/ui/screens/main/widgets/new_from_shops.dart';
-import 'package:banigoba/ui/widgets/shop_match_card.dart';
+import 'package:banigoba/modules/home/models/feed_matching.dart';
+import 'package:banigoba/modules/home/services/feed_matches_service.dart';
+import 'package:banigoba/modules/home/widgets/new_from_shops.dart';
+import 'package:banigoba/modules/shop/widgets/shop_match_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

@@ -1,5 +1,5 @@
 // Verifies collections for clothes in My Clothes (W-6).
-import 'package:banigoba/data/models/wardrobe_collections.dart';
+import 'package:banigoba/modules/wardrobe/models/wardrobe_collections.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Map<String, dynamic> _piece(String id, [String? collection]) => {

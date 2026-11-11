@@ -1,5 +1,5 @@
 // Verifies the top-left control: back on a pushed page, menu on a root page.
-import 'package:banigoba/ui/widgets/menu_or_back_button.dart';
+import 'package:banigoba/shared/widgets/menu_or_back_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

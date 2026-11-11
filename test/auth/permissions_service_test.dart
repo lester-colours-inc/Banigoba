@@ -1,6 +1,6 @@
 // Verifies the permission summary used by the post-authentication gate.
 import 'package:flutter_test/flutter_test.dart';
-import 'package:banigoba/data/services/permissions_service.dart';
+import 'package:banigoba/core/services/permissions_service.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 void main() {

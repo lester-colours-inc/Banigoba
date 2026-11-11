@@ -1,5 +1,4 @@
 {
-  "GEMINI_API_KEY": "REPLACE-WITH-YOUR-GEMINI-API-KEY",
   "SUPABASE_URL": "https://dararqifsiuvrmfjleui.supabase.co",
   "SUPABASE_ANON_KEY": "REPLACE-WITH-THE-PUBLISHABLE-KEY",
   "GOOGLE_WEB_CLIENT_ID": "",

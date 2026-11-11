@@ -1,0 +1,4 @@
+2026-11-11|Lester|refactor: add GetX controllers for onboarding flows
+2026-11-11|Lester|feat: likes with counts, follow back, push taps that open their target, server-side AI jobs
+2026-11-05|Lester|chore: archive uncommitted edits from two old worktrees as patches
+2026-11-05|Lester|feat: App Store safety — account deletion, block/report, terms and AI consent

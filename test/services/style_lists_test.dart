@@ -1,5 +1,5 @@
 // Verifies the Fashion Twins / Idols / Hairstyles list helpers.
-import 'package:banigoba/data/services/style_lists_service.dart';
+import 'package:banigoba/modules/style_lists/services/style_lists_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

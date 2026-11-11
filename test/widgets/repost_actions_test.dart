@@ -1,6 +1,6 @@
 // Verifies Repost/Quote on a private look ask to share it first (P-8).
-import 'package:banigoba/data/models/post.dart';
-import 'package:banigoba/ui/widgets/repost_actions.dart';
+import 'package:banigoba/modules/social/models/post.dart';
+import 'package:banigoba/modules/social/widgets/repost_actions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

@@ -1,4 +1,4 @@
-import 'package:banigoba/data/utils/stock_status.dart';
+import 'package:banigoba/core/utils/stock_status.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Map<String, dynamic> _p({num? stock, Map<String, dynamic>? sizes}) => {

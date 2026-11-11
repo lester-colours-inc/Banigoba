@@ -3,7 +3,7 @@
 // sites do not depend on the auth provider.
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'supabase_config.dart';
+import 'package:banigoba/core/supabase/supabase_config.dart';
 
 class AppUser {
   const AppUser({

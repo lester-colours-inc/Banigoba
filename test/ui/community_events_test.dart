@@ -1,5 +1,5 @@
 // Verifies which events show as upcoming in the Community feed.
-import 'package:banigoba/ui/screens/events/community_events_strip.dart';
+import 'package:banigoba/modules/events/views/community_events_strip.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Map<String, dynamic> _event(String title, [DateTime? date]) => {

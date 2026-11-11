@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:banigoba/ui/widgets/before_after_view.dart';
+import 'package:banigoba/modules/makeover/widgets/before_after_view.dart';
 
 void main() {
   Widget wrap({VoidCallback? onTapAfter}) => MaterialApp(

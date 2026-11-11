@@ -1,8 +1,8 @@
-import 'package:banigoba/data/models/look_purchase.dart';
-import 'package:banigoba/data/models/look_request.dart';
-import 'package:banigoba/data/services/look_purchase_service.dart';
-import 'package:banigoba/ui/widgets/find_pieces_sheet.dart';
-import 'package:banigoba/ui/widgets/get_this_look_sheet.dart';
+import 'package:banigoba/modules/shop/models/look_purchase.dart';
+import 'package:banigoba/modules/provider/models/look_request.dart';
+import 'package:banigoba/modules/shop/services/look_purchase_service.dart';
+import 'package:banigoba/modules/makeover/widgets/find_pieces_sheet.dart';
+import 'package:banigoba/modules/makeover/widgets/get_this_look_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

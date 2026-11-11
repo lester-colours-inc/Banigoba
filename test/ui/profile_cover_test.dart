@@ -1,6 +1,6 @@
 // Verifies the profile cover: who it shows, and that only your own photo
 // can be changed from it.
-import 'package:banigoba/ui/screens/social/widgets/profile_cover.dart';
+import 'package:banigoba/modules/social/widgets/profile_cover.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

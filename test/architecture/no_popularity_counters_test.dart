@@ -1,10 +1,13 @@
 // Architectural guard.
 //
-// BNG SRS 001 prohibits public reaction counters on consumer surfaces
-// (AFF-003, SRS-DEC-010). That is a product commitment, not a styling
-// preference, and the easiest way to lose it is for someone to reintroduce a
-// counter field months from now because it is the obvious way to build a
-// feed.
+// BNG SRS 001 prohibits public counters on affirmations (AFF-003,
+// SRS-DEC-010). That is a product commitment, not a styling preference, and
+// the easiest way to lose it is for someone to add a counter field months
+// from now because it is the obvious way to build a feed.
+//
+// Like counts are the one deliberate exception (decided 2026-11-11): a look
+// shows how many people liked it, kept by the database from post_likes, while
+// who liked it stays private. Affirmations are still never counted in public.
 //
 // This test fails the build if a banned identifier reappears anywhere in
 // lib/. If you are here because it went red: the qualitative path is
@@ -14,9 +17,9 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-/// Identifiers that would rebuild a popularity score.
+/// Identifiers that would rebuild a popularity score. `likeCount` is allowed
+/// (see above); a public list of who liked a look is not.
 const List<String> _bannedIdentifiers = [
-  'likeCount',
   'likedBy',
   'toggleLike',
   'affirmationCount',
@@ -26,7 +29,7 @@ const List<String> _bannedIdentifiers = [
 
 /// Files permitted to reference the legacy `likes` subcollection, and why.
 const Map<String, String> _legacyCleanupAllowList = {
-  'lib/data/services/post_service.dart':
+  'lib/modules/social/services/post_service.dart':
       'deletePost still clears the legacy likes subcollection so old '
       'documents do not leave orphans behind',
 };
@@ -91,7 +94,7 @@ void main() {
 
     test('the affirmation row renders no numeral', () {
       final source = File(
-        'lib/ui/widgets/affirmation_row.dart',
+        'lib/modules/social/widgets/affirmation_row.dart',
       ).readAsStringSync();
 
       // The public feed row shows which expressions were received, never how

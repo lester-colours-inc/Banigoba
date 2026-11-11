@@ -2,13 +2,15 @@
 // sizes, and can add another straight after.
 import 'dart:typed_data';
 
-import 'package:banigoba/data/models/garment_tags.dart';
-import 'package:banigoba/data/models/quick_add.dart';
-import 'package:banigoba/data/services/garment_tagger.dart';
-import 'package:banigoba/ui/screens/shop/quick_add_page.dart';
+import 'package:banigoba/modules/wardrobe/models/garment_tags.dart';
+import 'package:banigoba/modules/shop/models/quick_add.dart';
+import 'package:banigoba/modules/wardrobe/services/garment_tagger.dart';
+import 'package:banigoba/modules/shop/services/quick_add_saver.dart';
+import 'package:banigoba/modules/shop/views/quick_add_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:image_picker/image_picker.dart';
+import '../support/toast_pump.dart';
+import 'package:toastification/toastification.dart';
 
 class _FakeSaver implements QuickAddSaver {
   final saved = <QuickAddDraft>[];
@@ -56,12 +58,14 @@ Future<_FakeSaver> _open(
   addTearDown(tester.view.reset);
   final fake = saver ?? _FakeSaver();
   await tester.pumpWidget(
-    MaterialApp(
-      home: QuickAddPage(
-        saver: fake,
-        pickPhoto: (_) async => _png,
-        tagger: tagger ?? _FakeTagger(),
-        confirmAiUse: (_) async => true,
+    ToastificationWrapper(
+      child: MaterialApp(
+        home: QuickAddPage(
+          saver: fake,
+          pickPhoto: (_) async => _png,
+          tagger: tagger ?? _FakeTagger(),
+          confirmAiUse: (_) async => true,
+        ),
       ),
     ),
   );
@@ -82,6 +86,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('quick_add_save')));
     await tester.pump();
 
+    await tester.pumpToast();
     expect(find.text('Add a photo of the piece.'), findsOneWidget);
     expect(saver.saved, isEmpty);
   });
@@ -100,6 +105,7 @@ void main() {
     expect(saver.saved.single.price, 12.5);
     expect(saver.saved.single.sizes, {'M': 1});
     expect(saver.saved.single.kind, QuickKind.tops);
+    await tester.pumpToast();
     expect(find.textContaining('Add the next one'), findsOneWidget);
   });
 

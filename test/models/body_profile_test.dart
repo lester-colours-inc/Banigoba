@@ -1,4 +1,4 @@
-import 'package:banigoba/data/models/body_profile.dart';
+import 'package:banigoba/modules/profile_details/models/body_profile.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

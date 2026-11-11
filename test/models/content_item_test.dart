@@ -1,4 +1,4 @@
-import 'package:banigoba/data/models/content_item.dart';
+import 'package:banigoba/modules/home/models/content_item.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 final _now = DateTime(2026, 10, 28, 12);

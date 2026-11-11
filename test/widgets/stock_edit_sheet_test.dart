@@ -1,5 +1,5 @@
 // Verifies changing the stock of a piece without the full form (K-1).
-import 'package:banigoba/ui/widgets/stock_edit_sheet.dart';
+import 'package:banigoba/modules/shop/widgets/stock_edit_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

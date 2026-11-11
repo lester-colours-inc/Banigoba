@@ -1,7 +1,7 @@
 // Verifies the product page's fit check card (K-2).
-import 'package:banigoba/data/models/body_profile.dart';
-import 'package:banigoba/data/models/fit_check.dart';
-import 'package:banigoba/ui/widgets/fit_check_card.dart';
+import 'package:banigoba/modules/profile_details/models/body_profile.dart';
+import 'package:banigoba/modules/wardrobe/models/fit_check.dart';
+import 'package:banigoba/modules/wardrobe/widgets/fit_check_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

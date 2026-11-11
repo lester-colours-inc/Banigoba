@@ -1,7 +1,7 @@
 // Verifies a look's picture is fetched as a file, so sharing it (WhatsApp and
 // More apps) sends the image rather than a link.
 
-import 'package:banigoba/data/services/look_image_share.dart';
+import 'package:banigoba/core/services/look_image_share.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;

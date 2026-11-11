@@ -1,6 +1,6 @@
 // Verifies My Circle data and how it orders who a look can be sent to.
-import 'package:banigoba/data/services/circle_service.dart';
-import 'package:banigoba/ui/widgets/forward_recipient_sheet.dart';
+import 'package:banigoba/modules/social/services/circle_service.dart';
+import 'package:banigoba/modules/social/widgets/forward_recipient_sheet.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _salon = ForwardRecipient(id: 's1', name: 'Glow Salon');

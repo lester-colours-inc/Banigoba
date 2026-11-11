@@ -1,5 +1,5 @@
 // Verifies what the wardrobe says about itself (W-10).
-import 'package:banigoba/data/models/wardrobe_insights.dart';
+import 'package:banigoba/modules/wardrobe/models/wardrobe_insights.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 final _now = DateTime(2026, 11, 4);

@@ -1,5 +1,5 @@
 // Verifies the first makeover question: hairstyle, or outfit & more.
-import 'package:banigoba/ui/screens/makeover/makeover_start_sheet.dart';
+import 'package:banigoba/modules/makeover/views/makeover_start_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

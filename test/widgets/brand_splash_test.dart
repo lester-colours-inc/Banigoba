@@ -1,4 +1,4 @@
-import 'package:banigoba/ui/widgets/brand_splash.dart';
+import 'package:banigoba/shared/widgets/brand_splash.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

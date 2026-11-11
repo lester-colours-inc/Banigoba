@@ -1,5 +1,5 @@
 // Verifies post audiences and the repost / quote fields.
-import 'package:banigoba/data/models/post.dart';
+import 'package:banigoba/modules/social/models/post.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Post _post({

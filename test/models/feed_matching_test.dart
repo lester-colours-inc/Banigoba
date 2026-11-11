@@ -1,6 +1,6 @@
 // Verifies which new shop items reach someone's daily feed (D-4, A-6).
-import 'package:banigoba/data/models/body_profile.dart';
-import 'package:banigoba/data/models/feed_matching.dart';
+import 'package:banigoba/modules/profile_details/models/body_profile.dart';
+import 'package:banigoba/modules/home/models/feed_matching.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _body = BodyProfile(

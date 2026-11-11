@@ -1,8 +1,9 @@
-import 'package:banigoba/data/models/provider_inbox.dart';
-import 'package:banigoba/ui/screens/provider/provider_inbox_view.dart';
-import 'package:banigoba/ui/screens/provider/request_detail_sheet.dart';
+import 'package:banigoba/modules/provider/models/provider_inbox.dart';
+import 'package:banigoba/modules/provider/views/provider_inbox_view.dart';
+import 'package:banigoba/modules/provider/views/request_detail_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:get/get.dart';
 
 final _day1 = DateTime(2026, 10, 1);
 final _day2 = DateTime(2026, 10, 2);
@@ -44,6 +45,8 @@ Future<void> _pumpView(
 }
 
 void main() {
+  tearDown(Get.reset);
+
   group('ProviderInboxView', () {
     testWidgets('lists every order and request, new ones first', (
       tester,
@@ -104,7 +107,8 @@ void main() {
       RespondToRequest onRespond,
     ) {
       return tester.pumpWidget(
-        MaterialApp(
+        // GetMaterialApp: answering closes the sheet with Get.back().
+        GetMaterialApp(
           home: Scaffold(
             body: RequestDetailSheet(item: item, onRespond: onRespond),
           ),

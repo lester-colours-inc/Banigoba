@@ -1,6 +1,6 @@
 // Verifies dragging turns the try-on through its angles.
-import 'package:banigoba/data/services/turn_around_service.dart';
-import 'package:banigoba/ui/widgets/turn_around_viewer.dart';
+import 'package:banigoba/modules/makeover/services/turn_around_service.dart';
+import 'package:banigoba/modules/makeover/widgets/turn_around_viewer.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

@@ -1,5 +1,5 @@
 // Verifies how ledger rows become what a shop owes and an influencer earns.
-import 'package:banigoba/data/models/ledger_summary.dart';
+import 'package:banigoba/modules/shop/models/ledger_summary.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Map<String, dynamic> _row(

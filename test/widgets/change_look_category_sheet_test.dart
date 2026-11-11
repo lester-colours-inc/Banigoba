@@ -1,6 +1,6 @@
 // Verifies moving a saved look to another category (W-6).
-import 'package:banigoba/ui/widgets/change_look_category_sheet.dart';
-import 'package:banigoba/ui/widgets/saved_to_wardrobe_sheet.dart';
+import 'package:banigoba/modules/makeover/widgets/change_look_category_sheet.dart';
+import 'package:banigoba/modules/wardrobe/widgets/saved_to_wardrobe_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

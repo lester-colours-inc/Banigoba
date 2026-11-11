@@ -1,5 +1,5 @@
 // Verifies the home screen's labelled makeover button.
-import 'package:banigoba/ui/widgets/makeover_fab.dart';
+import 'package:banigoba/modules/makeover/widgets/makeover_fab.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter_test/flutter_test.dart';

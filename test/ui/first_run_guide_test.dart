@@ -1,9 +1,10 @@
 // Verifies the guided first five minutes (O-1): four optional steps, with
 // progress, and a way out at any point.
-import 'package:banigoba/data/models/first_run_guide.dart';
-import 'package:banigoba/ui/screens/onboarding/first_run_guide_screen.dart';
+import 'package:banigoba/modules/onboarding/models/first_run_guide.dart';
+import 'package:banigoba/modules/onboarding/views/first_run_guide_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:toastification/toastification.dart';
 
 class _FakeActions implements GuideActions {
   final calls = <String>[];
@@ -46,11 +47,13 @@ Future<_FakeActions> _open(WidgetTester tester, {_FakeActions? actions}) async {
   addTearDown(tester.view.reset);
   final fake = actions ?? _FakeActions();
   await tester.pumpWidget(
-    MaterialApp(
-      home: FirstRunGuideScreen(
-        userId: 'user-1',
-        name: 'Tari Moyo',
-        actions: fake,
+    ToastificationWrapper(
+      child: MaterialApp(
+        home: FirstRunGuideScreen(
+          userId: 'user-1',
+          name: 'Tari Moyo',
+          actions: fake,
+        ),
       ),
     ),
   );

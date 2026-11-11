@@ -1,4 +1,4 @@
-import 'package:banigoba/data/services/feed_matches_service.dart';
+import 'package:banigoba/modules/home/services/feed_matches_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Map<String, dynamic> _card(

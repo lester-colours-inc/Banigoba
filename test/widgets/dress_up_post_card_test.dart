@@ -1,6 +1,6 @@
 // Verifies the Home feed card layouts and the preset quick-reply strip.
-import 'package:banigoba/ui/widgets/dress_up_post_card.dart';
-import 'package:banigoba/ui/widgets/quick_reply_bar.dart';
+import 'package:banigoba/modules/social/widgets/dress_up_post_card.dart';
+import 'package:banigoba/modules/social/widgets/quick_reply_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -108,7 +108,9 @@ void main() {
     expect(xs.last - xs[2], greaterThan(xs[2] - xs[1]));
   });
 
-  testWidgets('the menu sits in the header, above the look', (tester) async {
+  testWidgets('the menu sits at the bottom of the card, below the look', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       _host(
         _card(
@@ -125,12 +127,12 @@ void main() {
     );
 
     final menu = tester.getCenter(find.byTooltip('More options'));
-    final name = tester.getCenter(find.text('Tariro Muzaya'));
     final image = tester.getRect(
       find.byKey(const ValueKey('dress_up_post_image')),
     );
-    expect(menu.dy, closeTo(name.dy, 12));
-    expect(menu.dy, lessThan(image.top));
+    expect(menu.dy, greaterThan(image.bottom));
+    expect(find.byIcon(Icons.more_vert), findsOneWidget);
+    expect(find.byIcon(Icons.more_horiz), findsNothing);
   });
 
   testWidgets('the look stands in a portrait frame, so it is not cropped', (

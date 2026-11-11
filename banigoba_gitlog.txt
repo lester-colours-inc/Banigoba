@@ -1,0 +1,85 @@
+2026-11-05|Lester|fix: use the current Gemini model for garment tagging (2.5 flash is closed to new keys)
+2026-11-04|Lester|feat: collections for clothes in My Clothes (W-6)
+2026-11-04|Lester|feat: keep comments and affirmation notes kind, with report and remove (C-3)
+2026-11-04|Lester|feat: wardrobe insights (W-10)
+2026-11-04|Lester|feat: guided first five minutes for new accounts (O-1)
+2026-11-04|Lester|feat: auto-tag wardrobe items and quick-add pieces from the photo (W-9); add client-document items to the checklist
+2026-11-04|Lester|feat: quick add for flea-market traders and stock editing without the full form (K-1)
+2026-11-04|Lester|feat: platform commission, influencer share and the money ledger (K-5, K-6, K-7)
+2026-11-02|Lester|fix: outfit upsert needs a plain unique index; feed cards are keyed per person
+2026-11-02|Lester|chore: ignore service-account key files
+2026-11-02|Lester|fix: edge functions accept the service-role token by its role claim
+2026-11-02|Lester|chore: app links trust the release signing key as well as debug
+2026-11-02|Lester|chore: Firebase backend files removed; push-only Firebase config, web share host and migration notes
+2026-11-02|Lester|feat: Edge Functions and database triggers replace the Cloud Functions
+2026-11-02|Lester|test: database security tests for social, checkout, chats and shared links
+2026-11-02|Lester|test: drop Firestore timestamps from model tests
+2026-11-02|Lester|feat: remove Firestore, Firebase Auth, Storage and Functions from the app; Firebase stays for push only
+2026-11-02|Lester|feat: port events, areas, style lists, providers, content, makeovers and push registration to Supabase
+2026-11-02|Lester|feat: port products, cart, orders, chats and wardrobe screens to Supabase
+2026-11-02|Lester|feat: port posts, social graph, notifications, affirmations, outfits and storage to Supabase
+2026-11-02|Lester|feat: Supabase client, sign-in, profiles, usernames and app gate
+2026-11-02|Lester|fix: profile privilege guard runs as the caller; social RLS tests
+2026-11-02|Lester|build: change the app id to com.coloursinc.banigoba
+2026-11-02|Lester|build: sign Android release builds with a release keystore
+2026-11-02|Lester|chore: Vercel config for the web app and shared stock links
+2026-11-02|Lester|chore: env.json template for Supabase and sign-in config
+2026-11-02|Lester|feat: Supabase schema — profiles, social, looks, commerce, shop links, storage, RLS and place_order
+2026-10-30|Lester|feat: Share my stock — links and QR codes to stock, for WhatsApp groups, followers and the public (K-9)
+2026-10-29|Lester|feat: delivery — shops set fee and areas, buyers choose collect or delivery (K-3)
+2026-10-28|Lester|feat: profile cover updates and image sharing service
+2026-10-28|Lester|feat: event dates, idol stories in Community, and shop reach insights (E-3, F-2, A-7)
+2026-10-28|Lester|fix: size Home tab labels with the phone's text scale so none is cut off
+2026-10-28|Lester|fix: even tab labels on Home, and show Everyone until Near me has a place
+2026-10-28|Lester|docs: name the image model (Nano Banana 2) in the Gemini client
+2026-10-28|Lester|feat: Near me from the phone's GPS, saved only as a coarse area (P-5, A-4)
+2026-10-28|Lester|feat: gallery suggestions with consent, off by default (E-5)
+2026-10-28|Lester|feat: push for trending looks, once a day per city (E-4)
+2026-10-28|Lester|feat: rank feeds people-I-follow first and add Community Near me by city (A-5, P-5, A-4)
+2026-10-28|Lester|docs: correct the number of content sources
+2026-10-28|Lester|feat: fashion-content engine — scheduled feed reader, credited link previews, news on Community and for idols (E-2, E-3, F-2)
+2026-10-28|Lester|docs: drop A-1 (original AI spec); the current rules are the working spec
+2026-10-28|Lester|feat: server job writes daily feed cards when a followed shop adds stock (D-4, A-6)
+2026-10-28|Lester|feat: shoes category with shoe sizes and a stock overview for shops (K-1)
+2026-10-28|Lester|feat: Get this look — wardrobe check and verified-shop picks in your size (K-4, A-7)
+2026-10-28|Lester|feat: provider inbox across roles, one sign-up door, fix request rules (S-3, S-4)
+2026-10-28|Lester|feat: provider mode — Customer/Provider switch and one sign-up for shops, designers and salons (S-1, S-2, S-3, S-4)
+2026-10-28|Lester|refactor: remove FASHN, run every try-on and makeover on Gemini
+2026-10-28|Lester|Revert "feat: keep a copy of FASHN try-on and makeover results in our storage"
+2026-10-28|Lester|feat: keep a copy of FASHN try-on and makeover results in our storage
+2026-10-27|Lester|feat: splash matches the designer's final sound-logo video (B-1)
+2026-10-27|Lester|fix: shrink post action row to fit narrow cards instead of overflowing
+2026-10-27|Lester|feat: Firebase web options, so the app runs in the browser
+2026-10-27|Lester|feat: pick a wardrobe item's colours from its photo (W-3)
+2026-10-27|Lester|feat: optional back photo for shop items, used by the turn-around (K-8)
+2026-10-27|Lester|feat: keep turn-around angles with the saved look (K-8)
+2026-10-27|Lester|feat: move a saved look to another category (W-6)
+2026-10-27|Lester|docs: checklist highlights - 26 Oct done, 27 Oct plan
+2026-10-26|Lester|feat: "New from shops you follow" cards in My Daily Dress Up (D-4, A-6)
+2026-10-26|Lester|feat: daily feed matching rules (D-4, A-6), step 1
+2026-10-26|Lester|docs: refresh checklist status (22-26 Oct work, what is left)
+2026-10-26|Lester|feat: turn-around view for the fitting room (K-8)
+2026-10-26|Lester|feat: new white splash with "g for looking good" (B-1)
+2026-10-25|Lester|feat: virtual fitting room fit check (K-2)
+2026-10-25|Lester|docs: add shopping phases to the provider-mode plan
+2026-10-25|Lester|docs: plan for service-provider mode (S-1 to S-4)
+2026-10-22|Lester|docs: checklist - 22 Oct work done, Friday release plan
+2026-10-22|Lester|chore: prepare 1.1.0 tester release; record decisions 7-9
+2026-10-21|Lester|docs: highlight 20 Oct work and the 22 Oct plan in the checklist
+2026-10-20|Lester|feat: wear tracking, look-you-love picker, remove old hair flow
+2026-10-20|Lester|feat: My Fashion Twins, My Fashion Idols, My Hair Stylists pages
+2026-10-20|Lester|fix: enforce post privacy, private emails, block self-granted admin
+2026-10-20|Lester|feat: Post vs Send to, always-on Repost/Quote, My Circle
+2026-10-20|Lester|feat: @usernames, owner-only counts, makeover start choice
+2026-10-20|Lester|feat: October review tiers 1-2, branding refresh, wardrobe rules fix
+2026-09-28|Lester|feat: body profile, step-by-step makeover, get-this-look, splash chime
+2026-09-28|Lester|ci: build the release APK on push to main
+2026-09-28|Lester|chore: upgrade Android build to Gradle 9.7.1, AGP 9.2.1, Kotlin 2.4.20
+2026-09-24|Lester|feat: Phase 3 makeover — photo first, describe/icon/weather/trending, one look at a time
+2026-09-24|Lester|feat: new navy app icon and native splash
+2026-09-24|Lester|feat: simple X-style Home with Makeover button, marketing intro, optional style preferences
+2026-09-24|Lester|feat: X-style dress-up post card, preset quick replies, rename Mine to Home
+2026-09-23|Lester|WIP: epitaxy pre-switch from feat/affirmations-coordinated-makeover-nav
+2026-09-21|Lester|migrate to new Firebase project, improve try-on UX, and enhance avatar pipeline
+2026-09-17|Lester|migrate to new Firebase project, improve try-on UX, and enhance avatar pipeline
+2026-09-12|Lester|feat: replace likes with affirmations, coordinate clothing+hair, rework nav

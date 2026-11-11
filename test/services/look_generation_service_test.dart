@@ -1,7 +1,6 @@
-import 'dart:typed_data';
-
-import 'package:banigoba/data/models/look_request.dart';
-import 'package:banigoba/data/services/look_generation_service.dart';
+import 'package:banigoba/modules/provider/models/look_request.dart';
+import 'package:banigoba/modules/makeover/services/ai_job_service.dart';
+import 'package:banigoba/modules/makeover/services/look_generation_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class _FakeGenerator implements LookImageGenerator {
@@ -10,12 +9,13 @@ class _FakeGenerator implements LookImageGenerator {
   @override
   final bool isConfigured;
   final Exception? error;
+  static const String url = 'https://example.com/look.jpg';
   final List<String> prompts = [];
   final List<String> photoUrls = [];
   final List<List<String>> references = [];
 
   @override
-  Future<Uint8List> generate({
+  Future<String> generate({
     required String photoUrl,
     required String prompt,
     List<String> referenceImageUrls = const [],
@@ -24,7 +24,7 @@ class _FakeGenerator implements LookImageGenerator {
     photoUrls.add(photoUrl);
     references.add(referenceImageUrls);
     if (error case final failure?) throw failure;
-    return Uint8List.fromList([1, 2, 3]);
+    return url;
   }
 }
 
@@ -35,15 +35,10 @@ const _ready = LookRequest(
 );
 
 void main() {
-  test('generates exactly one image and returns its uploaded URL', () async {
+  test('generates exactly one image and returns its URL', () async {
     final generator = _FakeGenerator();
-    final uploads = <String>[];
     final service = LookGenerationService(
       generator: generator,
-      upload: (bytes, userId) async {
-        uploads.add(userId);
-        return 'https://example.com/look.jpg';
-      },
       currentUserId: () => 'user-1',
     );
 
@@ -52,14 +47,12 @@ void main() {
     expect(look.imageUrl, 'https://example.com/look.jpg');
     expect(generator.prompts, hasLength(1));
     expect(generator.prompts.single, contains('"low haircut"'));
-    expect(uploads, ['user-1']);
   });
 
   test('a step builds on the image the user kept last', () async {
     final generator = _FakeGenerator();
     final service = LookGenerationService(
       generator: generator,
-      upload: (_, _) async => 'https://example.com/shoes.jpg',
       currentUserId: () => 'user-1',
     );
 
@@ -79,7 +72,6 @@ void main() {
     final generator = _FakeGenerator();
     final service = LookGenerationService(
       generator: generator,
-      upload: (_, _) async => 'https://example.com/look.jpg',
       currentUserId: () => 'user-1',
     );
 
@@ -99,7 +91,6 @@ void main() {
   test('asks the user to sign in when nobody is signed in', () async {
     final service = LookGenerationService(
       generator: _FakeGenerator(),
-      upload: (_, _) async => '',
       currentUserId: () => '',
     );
 
@@ -119,7 +110,6 @@ void main() {
     final generator = _FakeGenerator();
     final service = LookGenerationService(
       generator: generator,
-      upload: (_, _) async => '',
       currentUserId: () => 'user-1',
     );
 
@@ -137,11 +127,10 @@ void main() {
     expect(generator.prompts, isEmpty);
   });
 
-  test('explains a missing API key instead of calling the provider', () async {
+  test('says so when generation is unavailable, without calling it', () async {
     final generator = _FakeGenerator(isConfigured: false);
     final service = LookGenerationService(
       generator: generator,
-      upload: (_, _) async => '',
       currentUserId: () => 'user-1',
     );
 
@@ -151,7 +140,7 @@ void main() {
         isA<LookGenerationException>().having(
           (error) => error.message,
           'message',
-          contains('dart-define'),
+          contains('not available'),
         ),
       ),
     );
@@ -161,7 +150,6 @@ void main() {
   test('turns provider failures into a friendly message', () async {
     final service = LookGenerationService(
       generator: _FakeGenerator(error: Exception('HTTP 500 from provider')),
-      upload: (_, _) async => '',
       currentUserId: () => 'user-1',
     );
 
@@ -172,6 +160,29 @@ void main() {
           (error) => error.message,
           'message',
           allOf(contains('try again'), isNot(contains('500'))),
+        ),
+      ),
+    );
+  });
+
+  test('passes on that a slow look will arrive by notification', () async {
+    final service = LookGenerationService(
+      generator: _FakeGenerator(
+        error: const AiJobException(
+          'This is taking a while. We will let you know when it is ready.',
+          isStillRunning: true,
+        ),
+      ),
+      currentUserId: () => 'user-1',
+    );
+
+    await expectLater(
+      service.generate(_ready, part: LookPart.hair),
+      throwsA(
+        isA<LookGenerationException>().having(
+          (error) => error.message,
+          'message',
+          contains('let you know'),
         ),
       ),
     );

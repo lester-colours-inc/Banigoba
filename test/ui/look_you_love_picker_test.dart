@@ -1,6 +1,6 @@
 // Verifies which looks each "look you love" source offers (M-10, P-9).
-import 'package:banigoba/data/models/post.dart';
-import 'package:banigoba/ui/screens/makeover/widgets/look_you_love_picker.dart';
+import 'package:banigoba/modules/social/models/post.dart';
+import 'package:banigoba/modules/makeover/widgets/look_you_love_picker.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Post _post(

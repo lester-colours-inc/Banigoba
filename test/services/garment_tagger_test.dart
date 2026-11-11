@@ -1,72 +1,39 @@
-// Verifies how the tagger asks Gemini and reads the answer.
+// Verifies how the tagger asks the server and reads the answer.
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:banigoba/data/models/garment_tags.dart';
-import 'package:banigoba/data/services/garment_tagger.dart';
+import 'package:banigoba/modules/wardrobe/models/garment_tags.dart';
+import 'package:banigoba/modules/wardrobe/services/garment_tagger.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:http/http.dart' as http;
-import 'package:http/testing.dart';
-
-String _reply(Map<String, Object?> tags) => jsonEncode({
-  'candidates': [
-    {
-      'content': {
-        'parts': [
-          {'text': jsonEncode(tags)},
-        ],
-      },
-    },
-  ],
-});
 
 final Uint8List _photo = Uint8List.fromList(List.filled(64, 7));
 
 void main() {
-  test('without a key it does nothing and never calls out', () async {
-    var called = false;
-    final tagger = GeminiGarmentTagger(
-      apiKey: '',
-      client: MockClient((_) async {
-        called = true;
-        return http.Response('{}', 200);
-      }),
-    );
-
-    expect(tagger.isConfigured, isFalse);
-    expect(await tagger.tag(_photo), isNull);
-    expect(called, isFalse);
-  });
-
   test('sends the photo and the fixed question, and reads the tags', () async {
-    late http.Request seen;
-    final tagger = GeminiGarmentTagger(
-      apiKey: 'k',
-      client: MockClient((request) async {
-        seen = request;
-        return http.Response(
-          _reply({
+    late Map<String, Object?> seen;
+    final tagger = ServerGarmentTagger(
+      call: (body) async {
+        seen = body;
+        return {
+          'tags': {
             'name': 'Red dress',
             'category': 'dresses',
             'colours': ['red'],
             'styleTag': 'glamour',
-          }),
-          200,
-        );
-      }),
+          },
+        };
+      },
     );
 
-    final tags = await tagger.tag(_photo);
+    final tags = await tagger.tag(_photo, mimeType: 'image/png');
 
     expect(tags?.category, 'dresses');
     expect(tags?.colours, ['red']);
     expect(tags?.styleTag, 'glamour');
-    expect(seen.headers['x-goog-api-key'], 'k');
-    expect(seen.url.path, contains('gemini-flash-latest:generateContent'));
-    final body = jsonDecode(seen.body) as Map<String, dynamic>;
-    final parts = (body['contents'] as List).first['parts'] as List;
-    expect(parts.first['text'], contains('never a person'));
-    expect(parts.last['inline_data']['data'], base64Encode(_photo));
+    expect(seen['prompt'], contains('never a person'));
+    expect(seen['image'], base64Encode(_photo));
+    expect(seen['mimeType'], 'image/png');
+    expect(seen['schema'], isA<Map<String, Object?>>());
   });
 
   test('the question lists every allowed word', () {
@@ -76,44 +43,43 @@ void main() {
       ...kGarmentStyles,
       ...kGarmentWeather,
     ]) {
-      expect(GeminiGarmentTagger.prompt, contains(word));
+      expect(ServerGarmentTagger.prompt, contains(word));
     }
   });
 
-  test('an error status or a broken answer gives no suggestion', () async {
-    final failing = GeminiGarmentTagger(
-      apiKey: 'k',
-      client: MockClient((_) async => http.Response('nope', 500)),
+  test('an error or a broken answer gives no suggestion', () async {
+    final failing = ServerGarmentTagger(
+      call: (_) async => throw Exception('502'),
     );
-    final garbled = GeminiGarmentTagger(
-      apiKey: 'k',
-      client: MockClient((_) async => http.Response('not json', 200)),
-    );
+    final garbled = ServerGarmentTagger(call: (_) async => 'not json');
+    final empty = ServerGarmentTagger(call: (_) async => {'tags': null});
 
     expect(await failing.tag(_photo), isNull);
     expect(await garbled.tag(_photo), isNull);
+    expect(await empty.tag(_photo), isNull);
   });
 
   test('an answer with nothing the app knows gives no suggestion', () async {
-    final tagger = GeminiGarmentTagger(
-      apiKey: 'k',
-      client: MockClient(
-        (_) async => http.Response(
-          _reply({'category': 'spaceship', 'colours': []}),
-          200,
-        ),
-      ),
+    final tagger = ServerGarmentTagger(
+      call: (_) async => {
+        'tags': {'category': 'spaceship', 'colours': <String>[]},
+      },
     );
 
     expect(await tagger.tag(_photo), isNull);
   });
 
-  test('a network failure gives no suggestion', () async {
-    final tagger = GeminiGarmentTagger(
-      apiKey: 'k',
-      client: MockClient((_) async => throw http.ClientException('offline')),
+  test('an empty or oversized photo is never sent', () async {
+    var called = false;
+    final tagger = ServerGarmentTagger(
+      call: (_) async {
+        called = true;
+        return null;
+      },
     );
 
-    expect(await tagger.tag(_photo), isNull);
+    expect(await tagger.tag(Uint8List(0)), isNull);
+    expect(await tagger.tag(Uint8List(6 * 1024 * 1024 + 1)), isNull);
+    expect(called, isFalse);
   });
 }

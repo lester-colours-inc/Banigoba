@@ -3,34 +3,42 @@
 // These tests do not talk to live Google/Facebook/Apple/Supabase providers.
 // Instead, the screens receive a fake AuthService so taps can prove that each
 // button routes to the correct provider method.
-import 'package:banigoba/data/services/auth_service.dart';
-import 'package:banigoba/ui/screens/auth/email_signin_screen.dart';
-import 'package:banigoba/ui/screens/auth/email_signup_screen.dart';
+import 'package:banigoba/modules/auth/services/auth_service.dart';
+import 'package:banigoba/modules/auth/views/email_signin_screen.dart';
+import 'package:banigoba/modules/auth/views/email_signup_screen.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:banigoba/modules/auth/controllers/email_signin_controller.dart';
+import 'package:banigoba/modules/auth/controllers/email_signup_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
+import '../support/toast_pump.dart';
+import 'package:toastification/toastification.dart';
 
 void main() {
   group('sign-in authentication methods', () {
     // Email/password is handled directly by FirebaseAuth in the screen. This
     // validation test keeps the empty-form path runnable without Firebase init.
     testWidgets('email sign-in validates empty credentials', (tester) async {
-      await _pumpAuthScreen(tester, EmailSignInScreen());
+      await _pumpAuthScreen(tester, _signInScreen());
 
       await _tapVisible(tester, find.text('SIGN IN'));
       await tester.pump();
 
+      await tester.pumpToast();
       expect(find.text('Enter your email and password'), findsOneWidget);
     });
 
     testWidgets('email sign-in rejects invalid email values', (tester) async {
       final auth = _RecordingAuthService();
-      await _pumpAuthScreen(tester, EmailSignInScreen(authService: auth));
+      await _pumpAuthScreen(tester, _signInScreen(auth));
 
       await tester.enterText(find.byType(TextField).at(0), 'not-an-email');
       await tester.enterText(find.byType(TextField).at(1), 'correct-horse');
       await _tapVisible(tester, find.text('SIGN IN'));
       await tester.pump();
 
+      await tester.pumpToast();
       expect(find.text('Enter a valid email address'), findsOneWidget);
       expect(auth.emailSignIns, isEmpty);
     });
@@ -39,7 +47,7 @@ void main() {
       tester,
     ) async {
       final auth = _RecordingAuthService();
-      await _pumpAuthScreen(tester, EmailSignInScreen(authService: auth));
+      await _pumpAuthScreen(tester, _signInScreen(auth));
 
       await tester.enterText(
         find.byType(TextField).at(0),
@@ -54,12 +62,12 @@ void main() {
       ]);
     });
 
-    for (final provider in ['Google', 'Facebook', 'Apple']) {
+    for (final provider in ['Google']) {
       // Each provider button should call the matching AuthService method; the
       // fake below records the call instead of opening a real OAuth flow.
       testWidgets('$provider sign-in button calls AuthService', (tester) async {
         final auth = _RecordingAuthService();
-        await _pumpAuthScreen(tester, EmailSignInScreen(authService: auth));
+        await _pumpAuthScreen(tester, _signInScreen(auth));
 
         await _tapVisible(tester, find.byTooltip(provider));
         await tester.pumpAndSettle();
@@ -67,6 +75,31 @@ void main() {
         expect(auth.calls, [provider]);
       });
     }
+
+    testWidgets('Facebook and Apple sign-in buttons are hidden on Android', (
+      tester,
+    ) async {
+      await _pumpAuthScreen(tester, _signInScreen(_RecordingAuthService()));
+
+      expect(find.byTooltip('Facebook'), findsNothing);
+      expect(find.byTooltip('Apple'), findsNothing);
+      expect(find.byTooltip('Google'), findsOneWidget);
+    });
+
+    testWidgets('Apple sign-in button shows on iOS and calls AuthService', (
+      tester,
+    ) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      final auth = _RecordingAuthService();
+      await _pumpAuthScreen(tester, _signInScreen(auth));
+
+      expect(find.byTooltip('Facebook'), findsNothing);
+      await _tapVisible(tester, find.byTooltip('Apple'));
+      await tester.pumpAndSettle();
+
+      expect(auth.calls, ['Apple']);
+      debugDefaultTargetPlatformOverride = null;
+    });
   });
 
   group('sign-up authentication methods', () {
@@ -75,17 +108,18 @@ void main() {
     testWidgets('email sign-up validates empty account details', (
       tester,
     ) async {
-      await _pumpAuthScreen(tester, EmailSignUpScreen());
+      await _pumpAuthScreen(tester, _signUpScreen());
 
       await _tapVisible(tester, find.text('SIGN UP'));
       await tester.pump();
 
+      await tester.pumpToast();
       expect(find.text('Complete all account details'), findsOneWidget);
     });
 
     testWidgets('email sign-up rejects invalid account values', (tester) async {
       final auth = _RecordingAuthService();
-      await _pumpAuthScreen(tester, EmailSignUpScreen(authService: auth));
+      await _pumpAuthScreen(tester, _signUpScreen(auth));
 
       await tester.enterText(find.byType(TextField).at(0), 'Natasha');
       await tester.enterText(find.byType(TextField).at(1), 'bad-email');
@@ -94,13 +128,14 @@ void main() {
       await _tapVisible(tester, find.text('SIGN UP'));
       await tester.pump();
 
+      await tester.pumpToast();
       expect(find.text('Enter a valid email address'), findsOneWidget);
       expect(auth.emailRegistrations, isEmpty);
     });
 
     testWidgets('email sign-up rejects short passwords', (tester) async {
       final auth = _RecordingAuthService();
-      await _pumpAuthScreen(tester, EmailSignUpScreen(authService: auth));
+      await _pumpAuthScreen(tester, _signUpScreen(auth));
 
       await tester.enterText(find.byType(TextField).at(0), 'Natasha');
       await tester.enterText(find.byType(TextField).at(1), 'user@example.com');
@@ -109,6 +144,7 @@ void main() {
       await _tapVisible(tester, find.text('SIGN UP'));
       await tester.pump();
 
+      await tester.pumpToast();
       expect(
         find.text('Password must be at least 6 characters'),
         findsOneWidget,
@@ -120,7 +156,7 @@ void main() {
       tester,
     ) async {
       final auth = _RecordingAuthService();
-      await _pumpAuthScreen(tester, EmailSignUpScreen(authService: auth));
+      await _pumpAuthScreen(tester, _signUpScreen(auth));
 
       await tester.enterText(find.byType(TextField).at(0), 'Natasha');
       await tester.enterText(find.byType(TextField).at(1), 'user@example.com');
@@ -130,13 +166,14 @@ void main() {
       await _tapVisible(tester, find.text('SIGN UP'));
       await tester.pump();
 
+      await tester.pumpToast();
       expect(find.text('Passwords do not match'), findsOneWidget);
       expect(auth.emailRegistrations, isEmpty);
     });
 
     testWidgets('email sign-up accepts valid account values', (tester) async {
       final auth = _RecordingAuthService();
-      await _pumpAuthScreen(tester, EmailSignUpScreen(authService: auth));
+      await _pumpAuthScreen(tester, _signUpScreen(auth));
 
       await tester.enterText(find.byType(TextField).at(0), '  Natasha  ');
       await tester.enterText(
@@ -158,10 +195,10 @@ void main() {
       ]);
     });
 
-    for (final provider in ['Google', 'Facebook', 'Apple']) {
+    for (final provider in ['Google']) {
       testWidgets('$provider sign-up button calls AuthService', (tester) async {
         final auth = _RecordingAuthService();
-        await _pumpAuthScreen(tester, EmailSignUpScreen(authService: auth));
+        await _pumpAuthScreen(tester, _signUpScreen(auth));
 
         await _tapVisible(tester, find.byTooltip(provider));
         await tester.pumpAndSettle();
@@ -169,7 +206,43 @@ void main() {
         expect(auth.calls, [provider]);
       });
     }
+
+    testWidgets('Facebook and Apple sign-up buttons are hidden on Android', (
+      tester,
+    ) async {
+      await _pumpAuthScreen(tester, _signUpScreen(_RecordingAuthService()));
+
+      expect(find.byTooltip('Facebook'), findsNothing);
+      expect(find.byTooltip('Apple'), findsNothing);
+      expect(find.byTooltip('Google'), findsOneWidget);
+    });
+
+    testWidgets('Apple sign-up button shows on iOS and calls AuthService', (
+      tester,
+    ) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      final auth = _RecordingAuthService();
+      await _pumpAuthScreen(tester, _signUpScreen(auth));
+
+      expect(find.byTooltip('Facebook'), findsNothing);
+      await _tapVisible(tester, find.byTooltip('Apple'));
+      await tester.pumpAndSettle();
+
+      expect(auth.calls, ['Apple']);
+      debugDefaultTargetPlatformOverride = null;
+    });
   });
+}
+
+/// Registers the controller the route's binding would, with a fake service.
+Widget _signInScreen([AuthService? auth]) {
+  Get.put(EmailSignInController(authService: auth));
+  return const EmailSignInScreen();
+}
+
+Widget _signUpScreen([AuthService? auth]) {
+  Get.put(EmailSignUpController(authService: auth));
+  return const EmailSignUpScreen();
 }
 
 Future<void> _pumpAuthScreen(WidgetTester tester, Widget screen) async {
@@ -178,11 +251,14 @@ Future<void> _pumpAuthScreen(WidgetTester tester, Widget screen) async {
   tester.view.devicePixelRatio = 1;
   tester.view.physicalSize = const Size(1200, 1200);
   addTearDown(() {
+    Get.reset();
     tester.view.resetDevicePixelRatio();
     tester.view.resetPhysicalSize();
   });
 
-  await tester.pumpWidget(MaterialApp(home: screen));
+  await tester.pumpWidget(
+    ToastificationWrapper(child: MaterialApp(home: screen)),
+  );
   await tester.pump();
 }
 

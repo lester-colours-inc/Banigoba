@@ -1,4 +1,4 @@
-import 'package:banigoba/data/models/geo_cell.dart';
+import 'package:banigoba/modules/home/models/geo_cell.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

@@ -1,5 +1,5 @@
 // Verifies choosing a @username.
-import 'package:banigoba/ui/screens/onboarding/username_screen.dart';
+import 'package:banigoba/modules/onboarding/views/username_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

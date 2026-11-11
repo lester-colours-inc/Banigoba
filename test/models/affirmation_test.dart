@@ -1,8 +1,8 @@
 // Guards the rules that keep affirmations from becoming a popularity score,
 // and the governance gate on cultural content.
-import 'package:banigoba/data/affirmations/affirmation_library.dart';
-import 'package:banigoba/data/models/affirmation.dart';
-import 'package:banigoba/data/services/affirmation_service.dart';
+import 'package:banigoba/modules/social/models/affirmation_library.dart';
+import 'package:banigoba/modules/social/models/affirmation.dart';
+import 'package:banigoba/modules/social/services/affirmation_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Affirmation _affirmation({

@@ -1,7 +1,8 @@
 // Verifies the Wardrobe insights screen (W-10).
-import 'package:banigoba/ui/screens/wardrobe/wardrobe_insights_page.dart';
+import 'package:banigoba/modules/wardrobe/views/wardrobe_insights_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:get/get.dart';
 
 final _now = DateTime(2026, 11, 4);
 
@@ -37,6 +38,8 @@ Future<void> _open(
 }
 
 void main() {
+  tearDown(Get.reset);
+
   testWidgets('an empty wardrobe invites adding pieces', (tester) async {
     await _open(tester, () async => []);
 

@@ -1,8 +1,8 @@
 // Verifies the affirmation row: no empty text for the owner, and a total
 // that only the look's owner ever sees (H-4, BNG SRS 001).
-import 'package:banigoba/data/models/affirmation.dart';
-import 'package:banigoba/data/services/affirmation_service.dart';
-import 'package:banigoba/ui/widgets/affirmation_row.dart';
+import 'package:banigoba/modules/social/models/affirmation.dart';
+import 'package:banigoba/modules/social/services/affirmation_service.dart';
+import 'package:banigoba/modules/social/widgets/affirmation_row.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -89,6 +89,15 @@ void main() {
 
     expect(find.textContaining('No affirmations yet'), findsNothing);
     expect(find.byKey(const ValueKey('affirmation_owner_total')), findsNothing);
+  });
+
+  testWidgets('no prompt text on a look nobody has affirmed yet', (
+    tester,
+  ) async {
+    await _pump(tester, viewer: 'someone-else', facets: const []);
+
+    expect(find.textContaining('Be the first'), findsNothing);
+    expect(find.byType(Text), findsNothing);
   });
 
   test('the private total adds up every sender', () {

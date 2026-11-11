@@ -1,5 +1,5 @@
 // Verifies how the guided first five minutes tracks progress (O-1).
-import 'package:banigoba/data/models/first_run_guide.dart';
+import 'package:banigoba/modules/onboarding/models/first_run_guide.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
