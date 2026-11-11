@@ -1,10 +1,12 @@
 // The list inside "Orders & requests": filter chips, then one card per
 // order or request, the ones waiting for an answer first.
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
+import 'package:banigoba/modules/provider/controllers/provider_inbox_filter_controller.dart';
 import 'package:banigoba/modules/provider/models/provider_inbox.dart';
 
-class ProviderInboxView extends StatefulWidget {
+class ProviderInboxView extends StatelessWidget {
   const ProviderInboxView({
     super.key,
     required this.items,
@@ -14,13 +16,6 @@ class ProviderInboxView extends StatefulWidget {
   final List<InboxItem> items;
   final ValueChanged<InboxItem> onOpen;
 
-  @override
-  State<ProviderInboxView> createState() => _ProviderInboxViewState();
-}
-
-class _ProviderInboxViewState extends State<ProviderInboxView> {
-  InboxKind? _only;
-
   static const Map<InboxKind, IconData> _icons = {
     InboxKind.order: Icons.receipt_long_outlined,
     InboxKind.design: Icons.design_services_outlined,
@@ -29,9 +24,19 @@ class _ProviderInboxViewState extends State<ProviderInboxView> {
 
   @override
   Widget build(BuildContext context) {
+    // Scoped to this list: only the chosen filter lives in the controller.
+    return GetBuilder<ProviderInboxFilterController>(
+      init: ProviderInboxFilterController(),
+      global: false,
+      builder: (filter) => Obx(() => _list(context, filter)),
+    );
+  }
+
+  Widget _list(BuildContext context, ProviderInboxFilterController filter) {
     final colors = Theme.of(context).colorScheme;
-    final kinds = {for (final item in widget.items) item.kind};
-    final shown = mergeInbox([widget.items], only: _only);
+    final only = filter.only.value;
+    final kinds = {for (final item in items) item.kind};
+    final shown = mergeInbox([items], only: only);
     return Column(
       children: [
         if (kinds.length > 1)
@@ -41,13 +46,13 @@ class _ProviderInboxViewState extends State<ProviderInboxView> {
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               children: [
-                _chip('All', _only == null, () => setState(() => _only = null)),
+                _chip('All', only == null, () => filter.select(null)),
                 for (final kind in InboxKind.values)
                   if (kinds.contains(kind))
                     _chip(
                       kind.filterLabel,
-                      _only == kind,
-                      () => setState(() => _only = kind),
+                      only == kind,
+                      () => filter.select(kind),
                     ),
               ],
             ),
@@ -103,7 +108,7 @@ class _ProviderInboxViewState extends State<ProviderInboxView> {
       ),
       child: ListTile(
         contentPadding: const EdgeInsets.all(14),
-        onTap: () => widget.onOpen(item),
+        onTap: () => onOpen(item),
         leading: CircleAvatar(
           backgroundColor: const Color(0xFF0D0140),
           foregroundColor: Colors.white,

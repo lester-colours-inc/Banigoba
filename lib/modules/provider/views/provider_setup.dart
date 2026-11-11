@@ -2,6 +2,7 @@
 // "Create profile" button: someone who already holds the role goes straight
 // to its editor; anyone else gets the one sign-up with that role ticked.
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
 import 'package:banigoba/core/supabase/app_auth.dart';
 import 'package:banigoba/modules/provider/models/provider_roles.dart';
@@ -30,5 +31,5 @@ Future<void> openProviderSetup(
           suggestedName: (data['displayName'] ?? user.displayName ?? '')
               .toString(),
         );
-  await Navigator.push(context, MaterialPageRoute<void>(builder: (_) => page));
+  await Get.to<void>(() => page);
 }

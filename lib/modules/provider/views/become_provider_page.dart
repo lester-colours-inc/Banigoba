@@ -1,13 +1,14 @@
 // One door for shops, designers and salons (S-4): tick what you offer, give a
 // business name and a place, and provider mode opens. Roles already held are
 // shown ticked and left as they are.
-import 'package:banigoba/core/supabase/app_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
+import 'package:banigoba/modules/provider/controllers/become_provider_controller.dart';
 import 'package:banigoba/modules/provider/models/provider_roles.dart';
 import 'package:banigoba/modules/provider/services/provider_service.dart';
 
-class BecomeProviderPage extends StatefulWidget {
+class BecomeProviderPage extends StatelessWidget {
   const BecomeProviderPage({
     super.key,
     this.held = const [],
@@ -25,22 +26,25 @@ class BecomeProviderPage extends StatefulWidget {
   final ProviderService? service;
 
   @override
-  State<BecomeProviderPage> createState() => _BecomeProviderPageState();
+  Widget build(BuildContext context) {
+    // Scoped to this page: it is opened with the roles already held.
+    return GetBuilder<BecomeProviderController>(
+      init: BecomeProviderController(
+        held: held,
+        initialRoles: initialRoles,
+        suggestedName: suggestedName,
+        service: service,
+      ),
+      global: false,
+      builder: (controller) => _BecomeProviderView(controller: controller),
+    );
+  }
 }
 
-class _BecomeProviderPageState extends State<BecomeProviderPage> {
-  static const Color _primary = Color(0xFF0D0140);
+class _BecomeProviderView extends StatelessWidget {
+  const _BecomeProviderView({required this.controller});
 
-  late final TextEditingController _name = TextEditingController(
-    text: widget.suggestedName,
-  );
-  final TextEditingController _location = TextEditingController();
-  late final Set<ProviderRole> _chosen = {
-    for (final role in widget.initialRoles)
-      if (!widget.held.contains(role)) role,
-  };
-  bool _saving = false;
-  String? _error;
+  static const Color _primary = Color(0xFF0D0140);
 
   static const Map<ProviderRole, (IconData, String)> _blurbs = {
     ProviderRole.shop: (
@@ -57,52 +61,12 @@ class _BecomeProviderPageState extends State<BecomeProviderPage> {
     ),
   };
 
-  @override
-  void dispose() {
-    _name.dispose();
-    _location.dispose();
-    super.dispose();
-  }
-
-  Future<void> _start() async {
-    if (_chosen.isEmpty) {
-      setState(() => _error = 'Tick at least one thing you offer.');
-      return;
-    }
-    if (_name.text.trim().isEmpty) {
-      setState(() => _error = 'Enter your business name.');
-      return;
-    }
-    final user = AppAuth.instance.currentUser;
-    if (user == null) {
-      setState(() => _error = 'Sign in to become a business.');
-      return;
-    }
-    setState(() {
-      _saving = true;
-      _error = null;
-    });
-    try {
-      await (widget.service ?? ProviderService()).become(
-        userId: user.uid,
-        held: widget.held,
-        added: _chosen.toList(),
-        businessName: _name.text,
-        location: _location.text,
-      );
-      // The app's home follows the user document, so provider mode opens by
-      // itself; this page only needs to get out of the way.
-      if (mounted) Navigator.of(context).popUntil((route) => route.isFirst);
-    } on Exception catch (error) {
-      if (mounted) setState(() => _error = 'Could not save: $error');
-    } finally {
-      if (mounted) setState(() => _saving = false);
-    }
-  }
+  final BecomeProviderController controller;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final held = controller.held;
     return Scaffold(
       appBar: AppBar(title: const Text('Business mode')),
       body: ListView(
@@ -119,32 +83,36 @@ class _BecomeProviderPageState extends State<BecomeProviderPage> {
             style: TextStyle(color: colors.onSurfaceVariant),
           ),
           const SizedBox(height: 14),
-          for (final role in ProviderRole.values)
-            CheckboxListTile(
-              key: ValueKey('role_${role.key}'),
-              value: widget.held.contains(role) || _chosen.contains(role),
-              onChanged: widget.held.contains(role)
-                  ? null
-                  : (on) => setState(
-                      () =>
-                          on == true ? _chosen.add(role) : _chosen.remove(role),
+          Obx(
+            () => Column(
+              children: [
+                for (final role in ProviderRole.values)
+                  CheckboxListTile(
+                    key: ValueKey('role_${role.key}'),
+                    value:
+                        held.contains(role) || controller.chosen.contains(role),
+                    onChanged: held.contains(role)
+                        ? null
+                        : (on) => controller.toggleRole(role, on: on == true),
+                    secondary: Icon(_blurbs[role]!.$1),
+                    title: Text(
+                      role.label.replaceFirst('My ', ''),
+                      style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
-              secondary: Icon(_blurbs[role]!.$1),
-              title: Text(
-                role.label.replaceFirst('My ', ''),
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
-              subtitle: Text(
-                widget.held.contains(role)
-                    ? 'Already set up'
-                    : _blurbs[role]!.$2,
-              ),
-              contentPadding: EdgeInsets.zero,
+                    subtitle: Text(
+                      held.contains(role)
+                          ? 'Already set up'
+                          : _blurbs[role]!.$2,
+                    ),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+              ],
             ),
+          ),
           const SizedBox(height: 14),
           TextField(
             key: const ValueKey('business_name'),
-            controller: _name,
+            controller: controller.name,
             textCapitalization: TextCapitalization.words,
             decoration: const InputDecoration(
               labelText: 'Business name',
@@ -154,7 +122,7 @@ class _BecomeProviderPageState extends State<BecomeProviderPage> {
           const SizedBox(height: 14),
           TextField(
             key: const ValueKey('business_location'),
-            controller: _location,
+            controller: controller.location,
             textCapitalization: TextCapitalization.words,
             decoration: const InputDecoration(
               labelText: 'Location (e.g. Harare, Avondale)',
@@ -166,19 +134,27 @@ class _BecomeProviderPageState extends State<BecomeProviderPage> {
             'Your listing appears to customers once a curator has verified it.',
             style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13),
           ),
-          if (_error != null) ...[
-            const SizedBox(height: 12),
-            Text(_error!, style: TextStyle(color: colors.error)),
-          ],
+          Obx(() {
+            final error = controller.error.value;
+            if (error == null) return const SizedBox.shrink();
+            return Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Text(error, style: TextStyle(color: colors.error)),
+            );
+          }),
           const SizedBox(height: 18),
-          FilledButton(
-            key: const ValueKey('start_provider'),
-            onPressed: _saving ? null : _start,
-            style: FilledButton.styleFrom(
-              backgroundColor: _primary,
-              minimumSize: const Size(double.infinity, 52),
+          Obx(
+            () => FilledButton(
+              key: const ValueKey('start_provider'),
+              onPressed: controller.saving.value ? null : controller.start,
+              style: FilledButton.styleFrom(
+                backgroundColor: _primary,
+                minimumSize: const Size(double.infinity, 52),
+              ),
+              child: Text(
+                controller.saving.value ? 'Saving...' : 'Start business mode',
+              ),
             ),
-            child: Text(_saving ? 'Saving...' : 'Start business mode'),
           ),
         ],
       ),

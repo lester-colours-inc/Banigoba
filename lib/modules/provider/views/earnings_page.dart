@@ -3,45 +3,33 @@
 // pending, becomes due when the order is collected or delivered, and is
 // settled once paid.
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
-import 'package:banigoba/modules/shop/models/ledger_summary.dart';
+import 'package:banigoba/modules/provider/controllers/earnings_controller.dart';
 import 'package:banigoba/modules/shop/services/ledger_service.dart';
 
-class EarningsPage extends StatefulWidget {
-  const EarningsPage({super.key, LedgerSource? source}) : _source = source;
+class EarningsPage extends StatelessWidget {
+  const EarningsPage({super.key, this.source});
 
-  final LedgerSource? _source;
-
-  @override
-  State<EarningsPage> createState() => _EarningsPageState();
-}
-
-class _EarningsPageState extends State<EarningsPage> {
-  late Future<LedgerSummary> _summary = _load();
-
-  Future<LedgerSummary> _load() => (widget._source ?? LedgerService()).mine();
+  final LedgerSource? source;
 
   static String _money(double value) => '\$${value.toStringAsFixed(2)}';
 
-  Future<void> _refresh() async {
-    setState(() => _summary = _load());
-    await _summary;
-  }
-
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Earnings')),
-      body: FutureBuilder<LedgerSummary>(
-        future: _summary,
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
+    return GetBuilder<EarningsController>(
+      init: EarningsController(source: source),
+      global: false,
+      builder: (controller) => Scaffold(
+        appBar: AppBar(title: const Text('Earnings')),
+        body: Obx(() {
+          if (controller.failed.value) {
             return const Center(child: Text('Earnings could not be loaded.'));
           }
-          if (!snapshot.hasData) {
+          final summary = controller.summary.value;
+          if (summary == null) {
             return const Center(child: CircularProgressIndicator());
           }
-          final summary = snapshot.data!;
           if (summary.isEmpty) {
             return const Center(
               child: Padding(
@@ -55,7 +43,7 @@ class _EarningsPageState extends State<EarningsPage> {
             );
           }
           return RefreshIndicator(
-            onRefresh: _refresh,
+            onRefresh: controller.reload,
             child: ListView(
               padding: const EdgeInsets.all(20),
               children: [
@@ -92,7 +80,7 @@ class _EarningsPageState extends State<EarningsPage> {
               ],
             ),
           );
-        },
+        }),
       ),
     );
   }
