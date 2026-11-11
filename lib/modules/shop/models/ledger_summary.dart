@@ -6,31 +6,25 @@
 // "pending"; once the order is collected or delivered it is "due"; "settled"
 // means it has been paid.
 import 'package:flutter/foundation.dart';
+import 'package:freezed_annotation/freezed_annotation.dart';
 
-@immutable
-class LedgerSummary {
-  const LedgerSummary({
-    this.owedDue = 0,
-    this.owedPending = 0,
-    this.owedSettled = 0,
-    this.earnedDue = 0,
-    this.earnedPending = 0,
-    this.earnedSettled = 0,
-    this.sales = 0,
-  });
+part 'ledger_summary.freezed.dart';
 
-  /// Commission a shop owes Banigoba.
-  final double owedDue;
-  final double owedPending;
-  final double owedSettled;
+@freezed
+abstract class LedgerSummary with _$LedgerSummary {
+  const LedgerSummary._();
 
-  /// Referral share Banigoba owes an influencer.
-  final double earnedDue;
-  final double earnedPending;
-  final double earnedSettled;
+  const factory LedgerSummary({
+    @Default(0) double owedDue,
+    @Default(0) double owedPending,
+    @Default(0) double owedSettled,
+    @Default(0) double earnedDue,
+    @Default(0) double earnedPending,
+    @Default(0) double earnedSettled,
 
-  /// How many sales the entries come from.
-  final int sales;
+    /// How many sales the entries come from.
+    @Default(0) int sales,
+  }) = _LedgerSummary;
 
   bool get isEmpty =>
       owedDue +

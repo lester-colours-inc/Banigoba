@@ -6,6 +6,9 @@
 import 'package:flutter/foundation.dart';
 
 import 'package:banigoba/modules/provider/models/commission.dart';
+import 'package:freezed_annotation/freezed_annotation.dart';
+
+part 'delivery.freezed.dart';
 
 /// The most areas a shop can list.
 const int kMaxDeliveryAreas = 20;
@@ -33,14 +36,18 @@ double _money(Object? value) {
 
 String _key(String area) => area.trim().toLowerCase();
 
-@immutable
-class DeliverySettings {
-  const DeliverySettings({
-    this.delivers = false,
-    this.fee = 0,
-    this.areas = const [],
-    this.note = '',
-  });
+@freezed
+abstract class DeliverySettings with _$DeliverySettings {
+  const DeliverySettings._();
+
+  const factory DeliverySettings({
+    @Default(false) bool delivers,
+    @Default(0) double fee,
+
+    /// Areas the shop covers. Empty means anywhere the buyer gives an address.
+    @Default([]) List<String> areas,
+    @Default('') String note,
+  }) = _DeliverySettings;
 
   /// Reads `delivery` from a shop's map. Anything missing means no delivery.
   factory DeliverySettings.fromShop(Map<String, dynamic>? shop) {
@@ -79,13 +86,6 @@ class DeliverySettings {
       note: note.trim(),
     );
   }
-
-  final bool delivers;
-  final double fee;
-
-  /// Areas the shop covers. Empty means anywhere the buyer gives an address.
-  final List<String> areas;
-  final String note;
 
   Map<String, Object> toMap() => {
     'delivers': delivers,
@@ -131,19 +131,17 @@ class DeliveryUnavailable implements Exception {
   String toString() => message;
 }
 
-@immutable
-class OrderTotals {
-  const OrderTotals({
-    required this.items,
-    required this.fee,
-    this.commission = 0,
-  });
+@freezed
+abstract class OrderTotals with _$OrderTotals {
+  const OrderTotals._();
 
-  final double items;
-  final double fee;
+  const factory OrderTotals({
+    required double items,
+    required double fee,
 
-  /// The platform's commission, added on top of the seller's price.
-  final double commission;
+    /// The platform's commission, added on top of the seller's price.
+    @Default(0) double commission,
+  }) = _OrderTotals;
 
   double get total => items + commission + fee;
 }

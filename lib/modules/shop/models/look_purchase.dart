@@ -11,6 +11,9 @@ import 'package:banigoba/core/utils/size_inventory.dart';
 import 'package:banigoba/modules/profile_details/models/body_profile.dart';
 import 'package:banigoba/modules/home/models/feed_matching.dart';
 import 'package:banigoba/modules/provider/models/look_request.dart';
+import 'package:freezed_annotation/freezed_annotation.dart';
+
+part 'look_purchase.freezed.dart';
 
 /// How many shop pieces are offered for each part of a look.
 const int kPicksPerPart = 3;
@@ -45,39 +48,34 @@ bool itemSuitsPart(Map<String, dynamic> item, LookPart part) {
 }
 
 /// A shop piece worth offering, and why.
-@immutable
-class ShopPick {
-  const ShopPick({
-    required this.product,
-    required this.size,
-    required this.reasons,
-    required this.score,
-  });
+@freezed
+abstract class ShopPick with _$ShopPick {
+  const ShopPick._();
 
-  final Map<String, dynamic> product;
+  const factory ShopPick({
+    required Map<String, dynamic> product,
 
-  /// The size to add to the cart, or '' for a one-size piece.
-  final String size;
+    /// The size to add to the cart, or '' for a one-size piece.
+    required String size,
 
-  /// "In your size (M)", "Suits your Smart style", ...
-  final List<String> reasons;
-  final int score;
+    /// "In your size (M)", "Suits your Smart style", ...
+    required List<String> reasons,
+    required int score,
+  }) = _ShopPick;
 }
 
 /// What to say about one part of a look.
-@immutable
-class PieceAdvice {
-  const PieceAdvice({
-    required this.part,
-    required this.owned,
-    required this.picks,
-  });
+@freezed
+abstract class PieceAdvice with _$PieceAdvice {
+  const PieceAdvice._();
 
-  final LookPart part;
+  const factory PieceAdvice({
+    required LookPart part,
 
-  /// Wardrobe items of the right kind.
-  final List<Map<String, dynamic>> owned;
-  final List<ShopPick> picks;
+    /// Wardrobe items of the right kind.
+    required List<Map<String, dynamic>> owned,
+    required List<ShopPick> picks,
+  }) = _PieceAdvice;
 
   bool get hasIt => owned.isNotEmpty;
 }

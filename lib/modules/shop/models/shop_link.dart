@@ -5,6 +5,9 @@
 // outside, through WhatsApp (the person picks the groups in WhatsApp itself,
 // since apps cannot post to groups) or any other app.
 import 'package:flutter/foundation.dart';
+import 'package:freezed_annotation/freezed_annotation.dart';
+
+part 'shop_link.freezed.dart';
 
 /// Where shared links open: the Banigoba web app, which hands over to the
 /// installed app on a phone. Set SHARE_HOST in dart_defines.json to change it
@@ -60,22 +63,32 @@ enum ShareAudience {
       );
 }
 
-@immutable
-class ShopLink {
-  const ShopLink({
-    required this.id,
-    required this.ownerId,
-    required this.shopName,
-    required this.title,
-    required this.scope,
-    required this.audience,
-    this.note = '',
-    this.category = '',
-    this.productIds = const [],
-    this.coverImageUrl = '',
-    this.active = true,
-    this.createdAt,
-  });
+@freezed
+abstract class ShopLink with _$ShopLink {
+  const ShopLink._();
+
+  const factory ShopLink({
+    required String id,
+    required String ownerId,
+    required String shopName,
+    required String title,
+    required ShareScope scope,
+    required ShareAudience audience,
+    @Default('') String note,
+
+    /// For a category link, the category (lower case, as products store it).
+    @Default('') String category,
+
+    /// For a picked link, the pieces in it.
+    @Default([]) List<String> productIds,
+
+    /// A picture for previews, from the first piece.
+    @Default('') String coverImageUrl,
+
+    /// A shop can switch a link off; it then shows nothing.
+    @Default(true) bool active,
+    DateTime? createdAt,
+  }) = _ShopLink;
 
   factory ShopLink.fromMap(String id, Map<String, dynamic> data) => ShopLink(
     id: id,
@@ -96,27 +109,6 @@ class ShopLink {
         ? data['createdAt'] as DateTime
         : null,
   );
-
-  final String id;
-  final String ownerId;
-  final String shopName;
-  final String title;
-  final String note;
-  final ShareScope scope;
-
-  /// For a category link, the category (lower case, as products store it).
-  final String category;
-
-  /// For a picked link, the pieces in it.
-  final List<String> productIds;
-  final ShareAudience audience;
-
-  /// A picture for previews, from the first piece.
-  final String coverImageUrl;
-
-  /// A shop can switch a link off; it then shows nothing.
-  final bool active;
-  final DateTime? createdAt;
 
   String get url => shopLinkUrl(id);
 

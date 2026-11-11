@@ -2,6 +2,9 @@
 // just a photo, a price, its kind and the sizes in hand. Everything else the
 // full form asks for gets a sensible default, and can be edited later.
 import 'package:flutter/foundation.dart';
+import 'package:freezed_annotation/freezed_annotation.dart';
+
+part 'quick_add.freezed.dart';
 
 /// The kinds of piece quick add offers, with the label used for the piece's
 /// name when the trader does not type one.
@@ -53,27 +56,23 @@ double? parsePrice(String input) {
   return (value * 100).roundToDouble() / 100;
 }
 
-@immutable
-class QuickAddDraft {
-  const QuickAddDraft({
-    this.kind = QuickKind.tops,
-    this.price,
-    this.name = '',
-    this.sizes = const {},
-    this.quantity = 1,
-    this.hasPhoto = false,
-  });
+// copyWith stays hand-written: changing the kind clears the sizes.
+@Freezed(copyWith: false)
+abstract class QuickAddDraft with _$QuickAddDraft {
+  const QuickAddDraft._();
 
-  final QuickKind kind;
-  final double? price;
-  final String name;
+  const factory QuickAddDraft({
+    @Default(QuickKind.tops) QuickKind kind,
+    double? price,
+    @Default('') String name,
 
-  /// Pieces in hand per size (sized kinds only).
-  final Map<String, int> sizes;
+    /// Pieces in hand per size (sized kinds only).
+    @Default({}) Map<String, int> sizes,
 
-  /// Pieces in hand for kinds with no sizes.
-  final int quantity;
-  final bool hasPhoto;
+    /// Pieces in hand for kinds with no sizes.
+    @Default(1) int quantity,
+    @Default(false) bool hasPhoto,
+  }) = _QuickAddDraft;
 
   /// The piece's name: what the trader typed, or the kind's default.
   String get displayName =>
