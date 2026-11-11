@@ -62,7 +62,7 @@ $Res call({
 });
 
 
-
+$PieceDetailsCopyWith<$Res> get details;
 
 }
 /// @nodoc
@@ -83,7 +83,16 @@ as String,details: null == details ? _self.details : details // ignore: cast_nul
 as PieceDetails,
   ));
 }
-
+/// Create a copy of PortfolioPiece
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$PieceDetailsCopyWith<$Res> get details {
+  
+  return $PieceDetailsCopyWith<$Res>(_self.details, (value) {
+    return _then(_self.copyWith(details: value));
+  });
+}
 }
 
 
@@ -270,7 +279,7 @@ $Res call({
 });
 
 
-
+@override $PieceDetailsCopyWith<$Res> get details;
 
 }
 /// @nodoc
@@ -292,7 +301,16 @@ as PieceDetails,
   ));
 }
 
-
+/// Create a copy of PortfolioPiece
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$PieceDetailsCopyWith<$Res> get details {
+  
+  return $PieceDetailsCopyWith<$Res>(_self.details, (value) {
+    return _then(_self.copyWith(details: value));
+  });
+}
 }
 
 // dart format on
