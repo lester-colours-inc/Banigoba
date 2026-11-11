@@ -4,6 +4,9 @@
 // separate object (see models/affirmation.dart) and are never aggregated onto
 // the post, so nothing here can be rendered as a popularity total.
 import 'package:banigoba/core/supabase/rows.dart';
+import 'package:freezed_annotation/freezed_annotation.dart';
+
+part 'post.freezed.dart';
 
 /// Who can see a post beyond its owner, narrowest first.
 ///
@@ -51,46 +54,33 @@ enum PostKind {
   );
 }
 
-class Post {
-  final String id;
-  final String authorId;
-  final String caption;
-  final int commentCount;
+@freezed
+abstract class Post with _$Post {
+  const Post._();
 
-  /// How many people liked the look, kept by the database (post_likes).
-  final int likeCount;
-  final DateTime createdAt;
-  final String imageURL;
-  final String outfitId;
-  final List<String> productIds;
-  final List<Map<String, dynamic>> products;
-  final PostVisibility visibility;
-  final PostKind kind;
+  const factory Post({
+    required String id,
+    required String authorId,
+    required String caption,
+    required int commentCount,
+    required DateTime createdAt,
+    required String imageURL,
 
-  /// Set when this post is a repost or quote of another post.
-  final String repostOfId;
-  final String repostOfAuthorId;
+    /// How many people liked the look, kept by the database (post_likes).
+    @Default(0) int likeCount,
+    @Default('') String outfitId,
+    @Default([]) List<String> productIds,
+    @Default([]) List<Map<String, dynamic>> products,
+    @Default(PostVisibility.private) PostVisibility visibility,
+    @Default(PostKind.look) PostKind kind,
 
-  /// The reposter's own words on a quote. Empty on a plain repost.
-  final String quoteText;
+    /// Set when this post is a repost or quote of another post.
+    @Default('') String repostOfId,
+    @Default('') String repostOfAuthorId,
 
-  Post({
-    required this.id,
-    required this.authorId,
-    required this.caption,
-    required this.commentCount,
-    this.likeCount = 0,
-    required this.createdAt,
-    required this.imageURL,
-    this.outfitId = '',
-    this.productIds = const [],
-    this.products = const [],
-    this.visibility = PostVisibility.private,
-    this.kind = PostKind.look,
-    this.repostOfId = '',
-    this.repostOfAuthorId = '',
-    this.quoteText = '',
-  });
+    /// The reposter's own words on a quote. Empty on a plain repost.
+    @Default('') String quoteText,
+  }) = _Post;
 
   bool get isRepost => repostOfId.isNotEmpty;
   bool get isQuote => isRepost && quoteText.trim().isNotEmpty;
@@ -183,22 +173,18 @@ class Post {
   }
 }
 
-class PostComment {
-  final String id;
-  final String authorId;
-  final DateTime createdAt;
-  final String profileImageURL;
-  final String text;
-  final String username;
+@freezed
+abstract class PostComment with _$PostComment {
+  const PostComment._();
 
-  PostComment({
-    required this.id,
-    required this.authorId,
-    required this.createdAt,
-    required this.profileImageURL,
-    required this.text,
-    required this.username,
-  });
+  const factory PostComment({
+    required String id,
+    required String authorId,
+    required DateTime createdAt,
+    required String profileImageURL,
+    required String text,
+    required String username,
+  }) = _PostComment;
 
   /// Builds a comment from a `comments` row (snake_case columns).
   factory PostComment.fromRow(Map<String, dynamic> row) {

@@ -13,6 +13,9 @@
 // interaction). Fields the lean MVP does not populate are still modelled so
 // curator tooling can fill them without a schema change.
 import 'package:banigoba/core/supabase/rows.dart';
+import 'package:freezed_annotation/freezed_annotation.dart';
+
+part 'affirmation.freezed.dart';
 
 /// Spec categories for affirmation expressions.
 enum AffirmationCategory {
@@ -90,20 +93,17 @@ enum AffirmationTargetType {
 ///
 /// Empty for universal entries. Required before a cultural entry may reach
 /// [AffirmationReviewState.approved].
-class AffirmationProvenance {
-  const AffirmationProvenance({
-    this.historicalSource = '',
-    this.contributor = '',
-    this.contributorRights = '',
-    this.curator = '',
-    this.reviewedAt,
-  });
+@freezed
+abstract class AffirmationProvenance with _$AffirmationProvenance {
+  const AffirmationProvenance._();
 
-  final String historicalSource;
-  final String contributor;
-  final String contributorRights;
-  final String curator;
-  final DateTime? reviewedAt;
+  const factory AffirmationProvenance({
+    @Default('') String historicalSource,
+    @Default('') String contributor,
+    @Default('') String contributorRights,
+    @Default('') String curator,
+    DateTime? reviewedAt,
+  }) = _AffirmationProvenance;
 
   bool get isEmpty =>
       historicalSource.isEmpty &&
@@ -132,72 +132,50 @@ class AffirmationProvenance {
 }
 
 /// A library entry describing an expression a user may send.
-class AffirmationDefinition {
-  const AffirmationDefinition({
-    required this.id,
-    required this.text,
-    required this.shortLabel,
-    required this.category,
-    required this.emoji,
-    this.language = 'en',
-    this.translation = '',
-    this.transliteration = '',
-    this.pronunciation = '',
-    this.meaning = '',
-    this.country = '',
-    this.region = '',
-    this.culture = '',
-    this.communityScope = '',
-    this.occasion = '',
-    this.formality = '',
-    this.audioUrl = '',
-    this.audioTranscript = '',
-    this.performer = '',
-    this.reviewState = AffirmationReviewState.draft,
-    this.provenance = const AffirmationProvenance(),
-    this.version = 1,
-    this.safetyLabels = const [],
-    this.retirementReason = '',
-  });
+@freezed
+abstract class AffirmationDefinition with _$AffirmationDefinition {
+  const AffirmationDefinition._();
 
-  // Identity and content.
-  final String id;
-  final String text;
+  const factory AffirmationDefinition({
+    // Identity and content.
+    required String id,
+    required String text,
 
-  /// Accessible text label. Required so custom emoji are never the only
-  /// carrier of meaning (NFR-006, and the localisation rules in BNG SRS 001).
-  final String shortLabel;
-  final AffirmationCategory category;
-  final String emoji;
+    /// Accessible text label. Required so custom emoji are never the only
+    /// carrier of meaning (NFR-006, and the localisation rules in BNG SRS 001).
+    required String shortLabel,
+    required AffirmationCategory category,
+    required String emoji,
 
-  // Language.
-  final String language;
-  final String translation;
-  final String transliteration;
-  final String pronunciation;
-  final String meaning;
+    // Language.
+    @Default('en') String language,
+    @Default('') String translation,
+    @Default('') String transliteration,
+    @Default('') String pronunciation,
+    @Default('') String meaning,
 
-  // Cultural context.
-  final String country;
-  final String region;
-  final String culture;
-  final String communityScope;
+    // Cultural context.
+    @Default('') String country,
+    @Default('') String region,
+    @Default('') String culture,
+    @Default('') String communityScope,
 
-  // Usage context.
-  final String occasion;
-  final String formality;
+    // Usage context.
+    @Default('') String occasion,
+    @Default('') String formality,
 
-  // Media.
-  final String audioUrl;
-  final String audioTranscript;
-  final String performer;
+    // Media.
+    @Default('') String audioUrl,
+    @Default('') String audioTranscript,
+    @Default('') String performer,
 
-  // Governance.
-  final AffirmationReviewState reviewState;
-  final AffirmationProvenance provenance;
-  final int version;
-  final List<String> safetyLabels;
-  final String retirementReason;
+    // Governance.
+    @Default(AffirmationReviewState.draft) AffirmationReviewState reviewState,
+    @Default(AffirmationProvenance()) AffirmationProvenance provenance,
+    @Default(1) int version,
+    @Default([]) List<String> safetyLabels,
+    @Default('') String retirementReason,
+  }) = _AffirmationDefinition;
 
   /// True when this entry may be shown to users.
   ///
@@ -296,56 +274,40 @@ class AffirmationDefinition {
 }
 
 /// One affirmation interaction.
-class Affirmation {
-  const Affirmation({
-    required this.id,
-    required this.senderId,
-    required this.senderName,
-    required this.targetType,
-    required this.targetId,
-    required this.targetOwnerId,
-    required this.definitionId,
-    required this.emoji,
-    required this.shortLabel,
-    required this.text,
-    required this.category,
-    required this.createdAt,
-    this.language = 'en',
-    this.meaning = '',
-    this.personalMessage = '',
-    this.moderationState = 'clear',
-    this.migratedFromLike = false,
-  });
+@freezed
+abstract class Affirmation with _$Affirmation {
+  const Affirmation._();
 
-  final String id;
-  final String senderId;
-  final String senderName;
-  final AffirmationTargetType targetType;
-  final String targetId;
-  final String targetOwnerId;
+  const factory Affirmation({
+    required String id,
+    required String senderId,
+    required String senderName,
+    required AffirmationTargetType targetType,
+    required String targetId,
+    required String targetOwnerId,
 
-  /// Library entry this affirmation was sent from.
-  final String definitionId;
+    /// Library entry this affirmation was sent from.
+    required String definitionId,
 
-  // Denormalised display fields, so rendering a feed needs no library lookup
-  // and history stays readable after a library entry is revised or retired.
-  final String emoji;
-  final String shortLabel;
-  final String text;
-  final AffirmationCategory category;
-  final String language;
-  final String meaning;
+    // Denormalised display fields, so rendering a feed needs no library lookup
+    // and history stays readable after a library entry is revised or retired.
+    required String emoji,
+    required String shortLabel,
+    required String text,
+    required AffirmationCategory category,
+    required DateTime createdAt,
+    @Default('en') String language,
+    @Default('') String meaning,
 
-  /// Optional user-authored supportive text. Moderated for harassment,
-  /// sexualisation, manipulation and spam.
-  final String personalMessage;
-  final String moderationState;
+    /// Optional user-authored supportive text. Moderated for harassment,
+    /// sexualisation, manipulation and spam.
+    @Default('') String personalMessage,
+    @Default('clear') String moderationState,
 
-  /// Set on records produced by the like-to-affirmation backfill, so the
-  /// migration can be identified and reversed.
-  final bool migratedFromLike;
-
-  final DateTime createdAt;
+    /// Set on records produced by the like-to-affirmation backfill, so the
+    /// migration can be identified and reversed.
+    @Default(false) bool migratedFromLike,
+  }) = _Affirmation;
 
   bool get isVisible => moderationState != 'removed';
 
