@@ -2,6 +2,9 @@
 // is sold out or running low, so a trader with a few pieces sees at a glance
 // what needs restocking.
 import 'package:banigoba/core/utils/size_inventory.dart';
+import 'package:freezed_annotation/freezed_annotation.dart';
+
+part 'stock_status.freezed.dart';
 
 /// A piece counts as low when this many or fewer are left.
 const int kLowStockAt = 2;
@@ -24,16 +27,15 @@ StockLevel stockLevelOf(Map<String, dynamic> product) {
   return StockLevel.inStock;
 }
 
-class StockSummary {
-  const StockSummary({
-    required this.total,
-    required this.soldOut,
-    required this.low,
-  });
+@freezed
+abstract class StockSummary with _$StockSummary {
+  const StockSummary._();
 
-  final int total;
-  final int soldOut;
-  final int low;
+  const factory StockSummary({
+    required int total,
+    required int soldOut,
+    required int low,
+  }) = _StockSummary;
 }
 
 StockSummary summarizeStock(Iterable<Map<String, dynamic>> products) {
