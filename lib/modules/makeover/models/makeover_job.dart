@@ -10,6 +10,9 @@
 // keeps the intermediate artifact from every stage so a refinement can resume
 // from the last unaffected point instead of starting over.
 import 'package:banigoba/core/supabase/rows.dart';
+import 'package:freezed_annotation/freezed_annotation.dart';
+
+part 'makeover_job.freezed.dart';
 
 /// The two transformation domains in the lean MVP.
 enum MakeoverDomain {
@@ -56,47 +59,26 @@ enum MakeoverStageStatus {
 }
 
 /// State of one domain.
-class MakeoverStage {
-  const MakeoverStage({
-    required this.domain,
-    this.status = MakeoverStageStatus.queued,
-    this.outputImageUrls = const [],
-    this.errorMessage = '',
-    this.startedAt,
-    this.completedAt,
-  });
+@freezed
+abstract class MakeoverStage with _$MakeoverStage {
+  const MakeoverStage._();
 
-  final MakeoverDomain domain;
-  final MakeoverStageStatus status;
+  const factory MakeoverStage({
+    required MakeoverDomain domain,
+    @Default(MakeoverStageStatus.queued) MakeoverStageStatus status,
 
-  /// Images this stage produced. The stage that runs last carries the
-  /// selectable alternatives; earlier stages carry a single intermediate.
-  final List<String> outputImageUrls;
-  final String errorMessage;
-  final DateTime? startedAt;
-  final DateTime? completedAt;
+    /// Images this stage produced. The stage that runs last carries the
+    /// selectable alternatives; earlier stages carry a single intermediate.
+    @Default([]) List<String> outputImageUrls,
+    @Default('') String errorMessage,
+    DateTime? startedAt,
+    DateTime? completedAt,
+  }) = _MakeoverStage;
 
   bool get succeeded => status == MakeoverStageStatus.succeeded;
   bool get isRequested => status != MakeoverStageStatus.skipped;
   String get primaryOutput =>
       outputImageUrls.isEmpty ? '' : outputImageUrls.first;
-
-  MakeoverStage copyWith({
-    MakeoverStageStatus? status,
-    List<String>? outputImageUrls,
-    String? errorMessage,
-    DateTime? startedAt,
-    DateTime? completedAt,
-  }) {
-    return MakeoverStage(
-      domain: domain,
-      status: status ?? this.status,
-      outputImageUrls: outputImageUrls ?? this.outputImageUrls,
-      errorMessage: errorMessage ?? this.errorMessage,
-      startedAt: startedAt ?? this.startedAt,
-      completedAt: completedAt ?? this.completedAt,
-    );
-  }
 
   factory MakeoverStage.fromMap(
     Map<String, dynamic> data, {
@@ -135,31 +117,24 @@ class MakeoverStage {
 /// Boundaries are user-selected: an empty [hairPrompt] or empty [garments]
 /// means "do not touch this domain", never "decide for me". Nothing here may
 /// alter body shape, skin tone or facial structure.
-class MakeoverIntent {
-  const MakeoverIntent({
-    this.occasion = '',
-    this.desiredFeeling = '',
-    this.hairPrompt = '',
-    this.garments = const [],
-    this.climate = '',
-    this.modestyPreference = '',
-    this.budget = '',
-    this.exclusions = const [],
-  });
+@freezed
+abstract class MakeoverIntent with _$MakeoverIntent {
+  const MakeoverIntent._();
 
-  final String occasion;
-  final String desiredFeeling;
+  const factory MakeoverIntent({
+    @Default('') String occasion,
+    @Default('') String desiredFeeling,
 
-  /// Hair instruction. Empty means hair is left alone.
-  final String hairPrompt;
+    /// Hair instruction. Empty means hair is left alone.
+    @Default('') String hairPrompt,
 
-  /// Catalogue products to try on. Empty means clothing is left alone.
-  final List<Map<String, dynamic>> garments;
-
-  final String climate;
-  final String modestyPreference;
-  final String budget;
-  final List<String> exclusions;
+    /// Catalogue products to try on. Empty means clothing is left alone.
+    @Default([]) List<Map<String, dynamic>> garments,
+    @Default('') String climate,
+    @Default('') String modestyPreference,
+    @Default('') String budget,
+    @Default([]) List<String> exclusions,
+  }) = _MakeoverIntent;
 
   bool get wantsHair => hairPrompt.trim().isNotEmpty;
   bool get wantsClothing => garments.isNotEmpty;
@@ -170,28 +145,6 @@ class MakeoverIntent {
     if (wantsHair) MakeoverDomain.hair,
     if (wantsClothing) MakeoverDomain.clothing,
   ];
-
-  MakeoverIntent copyWith({
-    String? occasion,
-    String? desiredFeeling,
-    String? hairPrompt,
-    List<Map<String, dynamic>>? garments,
-    String? climate,
-    String? modestyPreference,
-    String? budget,
-    List<String>? exclusions,
-  }) {
-    return MakeoverIntent(
-      occasion: occasion ?? this.occasion,
-      desiredFeeling: desiredFeeling ?? this.desiredFeeling,
-      hairPrompt: hairPrompt ?? this.hairPrompt,
-      garments: garments ?? this.garments,
-      climate: climate ?? this.climate,
-      modestyPreference: modestyPreference ?? this.modestyPreference,
-      budget: budget ?? this.budget,
-      exclusions: exclusions ?? this.exclusions,
-    );
-  }
 
   factory MakeoverIntent.fromMap(Map<String, dynamic> data) {
     final rawGarments = data['garments'];
@@ -229,46 +182,39 @@ class MakeoverIntent {
 
 /// One coordinated alternative the user can select (AI-003 requires at least
 /// two, separately selectable).
-class MakeoverAlternative {
-  const MakeoverAlternative({
-    required this.index,
-    required this.imageUrl,
-    this.appliedDomains = const [],
-  });
+@freezed
+abstract class MakeoverAlternative with _$MakeoverAlternative {
+  const MakeoverAlternative._();
 
-  final int index;
-  final String imageUrl;
+  const factory MakeoverAlternative({
+    required int index,
+    required String imageUrl,
 
-  /// Domains that contributed to this image, so the compare screen can say
-  /// what actually changed.
-  final List<MakeoverDomain> appliedDomains;
+    /// Domains that contributed to this image, so the compare screen can say
+    /// what actually changed.
+    @Default([]) List<MakeoverDomain> appliedDomains,
+  }) = _MakeoverAlternative;
 
   String get label => 'Look ${String.fromCharCode(65 + index)}';
 }
 
 /// A coordinated clothing-and-hair makeover.
-class MakeoverJob {
-  const MakeoverJob({
-    required this.id,
-    required this.userId,
-    required this.sourceImageUrl,
-    required this.intent,
-    required this.stages,
-    this.alternatives = const [],
-    this.createdAt,
-    this.updatedAt,
-  });
+@freezed
+abstract class MakeoverJob with _$MakeoverJob {
+  const MakeoverJob._();
 
-  final String id;
-  final String userId;
+  const factory MakeoverJob({
+    required String id,
+    required String userId,
 
-  /// The user's own photo. Preserved unmodified for the before/after view.
-  final String sourceImageUrl;
-  final MakeoverIntent intent;
-  final Map<MakeoverDomain, MakeoverStage> stages;
-  final List<MakeoverAlternative> alternatives;
-  final DateTime? createdAt;
-  final DateTime? updatedAt;
+    /// The user's own photo. Preserved unmodified for the before/after view.
+    required String sourceImageUrl,
+    required MakeoverIntent intent,
+    required Map<MakeoverDomain, MakeoverStage> stages,
+    @Default([]) List<MakeoverAlternative> alternatives,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) = _MakeoverJob;
 
   MakeoverStage stageFor(MakeoverDomain domain) =>
       stages[domain] ??
@@ -295,25 +241,6 @@ class MakeoverJob {
   /// worked; the spec forbids silently substituting a degraded result.
   bool get isPartial =>
       hasFailure && activeStages.any((stage) => stage.succeeded);
-
-  MakeoverJob copyWith({
-    String? sourceImageUrl,
-    MakeoverIntent? intent,
-    Map<MakeoverDomain, MakeoverStage>? stages,
-    List<MakeoverAlternative>? alternatives,
-    DateTime? updatedAt,
-  }) {
-    return MakeoverJob(
-      id: id,
-      userId: userId,
-      sourceImageUrl: sourceImageUrl ?? this.sourceImageUrl,
-      intent: intent ?? this.intent,
-      stages: stages ?? this.stages,
-      alternatives: alternatives ?? this.alternatives,
-      createdAt: createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
-    );
-  }
 
   /// Builds a job from its stored document (see CoordinatedMakeoverService).
   factory MakeoverJob.fromDocument(String id, Map<String, dynamic> data) {

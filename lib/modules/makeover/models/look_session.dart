@@ -9,27 +9,27 @@
 import 'package:flutter/foundation.dart';
 
 import 'package:banigoba/modules/provider/models/look_request.dart';
+import 'package:freezed_annotation/freezed_annotation.dart';
 
-@immutable
-class LookSession {
-  const LookSession({
-    required this.originalUrl,
-    required this.parts,
-    this.results = const [],
-    this.pendingUrl = '',
-  });
+part 'look_session.freezed.dart';
 
-  /// The image the first step builds on.
-  final String originalUrl;
+@freezed
+abstract class LookSession with _$LookSession {
+  const LookSession._();
 
-  /// The steps, in order.
-  final List<LookPart> parts;
+  const factory LookSession({
+    /// The image the first step builds on.
+    required String originalUrl,
 
-  /// One entry per decided step: the image after it, or '' when skipped.
-  final List<String> results;
+    /// The steps, in order.
+    required List<LookPart> parts,
 
-  /// The image made for the current step, waiting to be kept or redone.
-  final String pendingUrl;
+    /// One entry per decided step: the image after it, or '' when skipped.
+    @Default([]) List<String> results,
+
+    /// The image made for the current step, waiting to be kept or redone.
+    @Default('') String pendingUrl,
+  }) = _LookSession;
 
   int get stepIndex => results.length;
 
