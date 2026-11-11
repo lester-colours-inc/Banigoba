@@ -5,37 +5,31 @@
 import 'package:flutter/foundation.dart';
 
 import 'package:banigoba/core/supabase/rows.dart';
+import 'package:freezed_annotation/freezed_annotation.dart';
+
+part 'content_item.freezed.dart';
 
 /// Shorter names are too likely to match the wrong person.
 const int kMinNameLength = 3;
 
-@immutable
-class ContentItem {
-  const ContentItem({
-    required this.id,
-    required this.title,
-    required this.url,
-    required this.imageUrl,
-    required this.sourceName,
-    required this.isEvent,
-    required this.places,
-    required this.topics,
-    required this.publishedAt,
-    this.startsAt,
-  });
+@freezed
+abstract class ContentItem with _$ContentItem {
+  const ContentItem._();
 
-  final String id;
-  final String title;
-  final String url;
-  final String imageUrl;
-  final String sourceName;
-  final bool isEvent;
-  final List<String> places;
-  final List<String> topics;
-  final DateTime publishedAt;
+  const factory ContentItem({
+    required String id,
+    required String title,
+    required String url,
+    required String imageUrl,
+    required String sourceName,
+    required bool isEvent,
+    required List<String> places,
+    required List<String> topics,
+    required DateTime publishedAt,
 
-  /// The day an event starts, when its title said so. Null otherwise.
-  final DateTime? startsAt;
+    /// The day an event starts, when its title said so. Null otherwise.
+    DateTime? startsAt,
+  }) = _ContentItem;
 
   factory ContentItem.fromMap(String id, Map<String, dynamic> data) {
     List<String> strings(Object? value) => value is Iterable

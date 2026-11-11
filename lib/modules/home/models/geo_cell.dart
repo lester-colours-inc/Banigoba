@@ -3,23 +3,24 @@
 // to other people, never coordinates, so nobody can be pinned down closer
 // than a district. Two people are near each other when their cells are the
 // same or touch.
-import 'package:flutter/foundation.dart';
+import 'package:freezed_annotation/freezed_annotation.dart';
+
+part 'geo_cell.freezed.dart';
 
 /// Cell size in degrees; 0.2 degrees is about 22 km.
 const double kCellDegrees = 0.2;
 
-@immutable
-class GeoCell {
-  const GeoCell(this.x, this.y);
+@freezed
+abstract class GeoCell with _$GeoCell {
+  const GeoCell._();
+
+  const factory GeoCell(int x, int y) = _GeoCell;
 
   /// The cell holding the point at [latitude], [longitude].
   factory GeoCell.fromLatLng(double latitude, double longitude) => GeoCell(
     (longitude / kCellDegrees).floor(),
     (latitude / kCellDegrees).floor(),
   );
-
-  final int x;
-  final int y;
 
   /// "31:-89": how the cell is stored.
   String get key => '$x:$y';
@@ -36,13 +37,6 @@ class GeoCell {
   /// The same cell, or one touching it.
   bool isNear(GeoCell other) =>
       (x - other.x).abs() <= 1 && (y - other.y).abs() <= 1;
-
-  @override
-  bool operator ==(Object other) =>
-      other is GeoCell && other.x == x && other.y == y;
-
-  @override
-  int get hashCode => Object.hash(x, y);
 
   @override
   String toString() => 'GeoCell($key)';

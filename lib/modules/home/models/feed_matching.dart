@@ -11,6 +11,9 @@ import 'package:flutter/foundation.dart';
 import 'package:banigoba/core/utils/size_inventory.dart';
 import 'package:banigoba/modules/profile_details/models/body_profile.dart';
 import 'package:banigoba/modules/wardrobe/models/fit_check.dart';
+import 'package:freezed_annotation/freezed_annotation.dart';
+
+part 'feed_matching.freezed.dart';
 
 /// A day's cards never exceed this, so the feed doesn't turn into an advert.
 const int kDailyFeedCards = 3;
@@ -40,47 +43,40 @@ const Map<String, Set<String>> kStyleBridge = {
 };
 
 /// Everything the matcher knows about the person.
-@immutable
-class ShopperProfile {
-  const ShopperProfile({
-    required this.userId,
-    this.body = const BodyProfile(),
-    this.styles = const [],
-    this.ownedByCategory = const {},
-    this.followedSellerIds = const {},
-  });
+@freezed
+abstract class ShopperProfile with _$ShopperProfile {
+  const ShopperProfile._();
 
-  final String userId;
-  final BodyProfile body;
+  const factory ShopperProfile({
+    required String userId,
+    @Default(BodyProfile()) BodyProfile body,
 
-  /// The styles they chose, e.g. "Smart".
-  final List<String> styles;
+    /// The styles they chose, e.g. "Smart".
+    @Default([]) List<String> styles,
 
-  /// How many wardrobe items they own, by category ("tops", "outerwear"...).
-  final Map<String, int> ownedByCategory;
+    /// How many wardrobe items they own, by category ("tops", "outerwear"...).
+    @Default({}) Map<String, int> ownedByCategory,
 
-  /// The shops and designers they follow.
-  final Set<String> followedSellerIds;
+    /// The shops and designers they follow.
+    @Default({}) Set<String> followedSellerIds,
+  }) = _ShopperProfile;
 }
 
 /// Why a piece was chosen, in words for the card.
-@immutable
-class FeedMatch {
-  const FeedMatch({
-    required this.productId,
-    required this.score,
-    required this.reasons,
-    required this.size,
-  });
+@freezed
+abstract class FeedMatch with _$FeedMatch {
+  const FeedMatch._();
 
-  final String productId;
-  final int score;
+  const factory FeedMatch({
+    required String productId,
+    required int score,
 
-  /// "In your size (M)", "Suits your Smart style", ...
-  final List<String> reasons;
+    /// "In your size (M)", "Suits your Smart style", ...
+    required List<String> reasons,
 
-  /// The size to offer, or '' for one-size items.
-  final String size;
+    /// The size to offer, or '' for one-size items.
+    required String size,
+  }) = _FeedMatch;
 
   String get headline => reasons.first;
 }

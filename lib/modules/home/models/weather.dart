@@ -1,16 +1,18 @@
 // Converts weather API responses into values and clothing recommendations used by the UI.
-class Weather {
-  final double temperatureC;
-  final String condition;
-  final String iconUrl;
-  final String locationName;
+import 'package:freezed_annotation/freezed_annotation.dart';
 
-  Weather({
-    required this.temperatureC,
-    required this.condition,
-    required this.iconUrl,
-    required this.locationName,
-  });
+part 'weather.freezed.dart';
+
+@freezed
+abstract class Weather with _$Weather {
+  const Weather._();
+
+  const factory Weather({
+    required double temperatureC,
+    required String condition,
+    required String iconUrl,
+    required String locationName,
+  }) = _Weather;
 
   factory Weather.fromJson(Map<String, dynamic> json) {
     return Weather(

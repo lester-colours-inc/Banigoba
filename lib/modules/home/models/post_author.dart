@@ -1,16 +1,18 @@
 // The name, photo and style of whoever made a feed post.
-class PostAuthor {
-  const PostAuthor({
-    required this.displayName,
-    required this.fullBodyImageUrl,
-    required this.stylePreference,
-    this.profileImageUrl = '',
-  });
+import 'package:freezed_annotation/freezed_annotation.dart';
 
-  final String displayName;
-  final String fullBodyImageUrl;
-  final String profileImageUrl;
-  final String stylePreference;
+part 'post_author.freezed.dart';
+
+@freezed
+abstract class PostAuthor with _$PostAuthor {
+  const PostAuthor._();
+
+  const factory PostAuthor({
+    required String displayName,
+    required String fullBodyImageUrl,
+    required String stylePreference,
+    @Default('') String profileImageUrl,
+  }) = _PostAuthor;
 
   factory PostAuthor.fallback(String authorId) {
     final suffix = authorId.length >= 4
