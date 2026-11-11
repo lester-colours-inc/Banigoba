@@ -3,20 +3,22 @@
 import 'package:banigoba/modules/onboarding/views/onboarding_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 Widget _app() {
-  return MaterialApp(
+  return GetMaterialApp(
     initialRoute: '/intro',
-    routes: {
-      '/intro': (_) => const OnboardingScreen(),
-      '/': (_) => const Scaffold(body: Text('login')),
-    },
+    getPages: [
+      GetPage(name: '/intro', page: OnboardingScreen.new),
+      GetPage(name: '/', page: () => const Scaffold(body: Text('login'))),
+    ],
   );
 }
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
+  tearDown(Get.reset);
 
   test('slides market the app and ask for nothing', () {
     expect(onboardingSlides, isNotEmpty);

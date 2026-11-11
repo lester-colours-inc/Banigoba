@@ -5,12 +5,12 @@
 // (October 2026 review, P-6 and P-7).
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
+import 'package:get/get.dart';
 
 import 'package:banigoba/core/supabase/app_auth.dart';
+import 'package:banigoba/modules/social/controllers/forward_recipient_controller.dart';
 import 'package:banigoba/modules/social/services/circle_service.dart';
 import 'package:banigoba/modules/social/services/profile_service.dart';
-import 'package:banigoba/shared/widgets/app_toast.dart';
 
 enum ForwardRecipientKind {
   salon(
@@ -121,7 +121,7 @@ ForwardRecipient _recipientFromProfile(
   );
 }
 
-class _ForwardRecipientSheet extends StatefulWidget {
+class _ForwardRecipientSheet extends StatelessWidget {
   const _ForwardRecipientSheet({required this.kind, this.title});
 
   final ForwardRecipientKind kind;
@@ -130,32 +130,29 @@ class _ForwardRecipientSheet extends StatefulWidget {
   final String? title;
 
   @override
-  State<_ForwardRecipientSheet> createState() => _ForwardRecipientSheetState();
+  Widget build(BuildContext context) {
+    // Scoped to this sheet: created and disposed with the widget.
+    return GetBuilder<ForwardRecipientController>(
+      init: ForwardRecipientController(recipients: _loadRecipients(kind)),
+      global: false,
+      builder: (controller) =>
+          _SheetBody(controller: controller, kind: kind, title: title),
+    );
+  }
 }
 
-class _ForwardRecipientSheetState extends State<_ForwardRecipientSheet> {
-  late final Future<List<Map<String, dynamic>>> _recipients = _loadRecipients(
-    widget.kind,
-  );
-  final CircleService _circle = CircleService();
-  final String _userId = AppAuth.instance.currentUser?.uid ?? '';
-  late final Stream<List<CircleMember>> _members = _circle.watch(_userId);
-  String _query = '';
+class _SheetBody extends StatelessWidget {
+  const _SheetBody({
+    required this.controller,
+    required this.kind,
+    required this.title,
+  });
 
-  Future<void> _toggleCircle(ForwardRecipient recipient, bool inCircle) async {
-    try {
-      if (inCircle) {
-        await _circle.remove(_userId, recipient.id);
-      } else {
-        await _circle.add(
-          _userId,
-          recipient.toCircleMember(widget.kind.circleKind),
-        );
-      }
-    } on PostgrestException catch (error) {
-      AppToast.say('Could not update My Circle: ${error.message}');
-    }
-  }
+  final ForwardRecipientController controller;
+  final ForwardRecipientKind kind;
+  final String? title;
+
+  String get _query => controller.query.value;
 
   bool _matches(ForwardRecipient recipient) {
     if (_query.isEmpty) return true;
@@ -164,6 +161,7 @@ class _ForwardRecipientSheetState extends State<_ForwardRecipientSheet> {
   }
 
   Widget _buildList(
+    BuildContext context,
     AsyncSnapshot<List<Map<String, dynamic>>> snapshot,
     String currentUserId,
     Set<String> circleIds,
@@ -171,7 +169,7 @@ class _ForwardRecipientSheetState extends State<_ForwardRecipientSheet> {
     if (snapshot.hasError) {
       return _SheetMessage(
         icon: Icons.warning_amber_rounded,
-        text: 'Could not load ${widget.kind.title.toLowerCase()}.',
+        text: 'Could not load ${kind.title.toLowerCase()}.',
       );
     }
     if (!snapshot.hasData) {
@@ -179,16 +177,14 @@ class _ForwardRecipientSheetState extends State<_ForwardRecipientSheet> {
     }
     final all = snapshot.data!
         .where((profile) => profile['id'] != currentUserId)
-        .map((profile) => _recipientFromProfile(widget.kind, profile))
+        .map((profile) => _recipientFromProfile(kind, profile))
         .toList();
     final split = splitByCircle(all.where(_matches).toList(), circleIds);
     final circleAll = splitByCircle(all, circleIds).circle;
     if (split.circle.isEmpty && split.others.isEmpty && circleAll.isEmpty) {
       return _SheetMessage(
-        icon: widget.kind.icon,
-        text: _query.isEmpty
-            ? widget.kind.emptyLabel
-            : 'No matches for "$_query".',
+        icon: kind.icon,
+        text: _query.isEmpty ? kind.emptyLabel : 'No matches for "$_query".',
       );
     }
     return ListView(
@@ -206,7 +202,7 @@ class _ForwardRecipientSheetState extends State<_ForwardRecipientSheet> {
               separatorBuilder: (_, _) => const SizedBox(width: 14),
               itemBuilder: (context, index) => _CircleChip(
                 recipient: circleAll[index],
-                icon: widget.kind.icon,
+                icon: kind.icon,
                 onTap: () => Navigator.pop(context, circleAll[index]),
               ),
             ),
@@ -215,27 +211,27 @@ class _ForwardRecipientSheetState extends State<_ForwardRecipientSheet> {
         ],
         if (_query.isNotEmpty)
           for (final recipient in split.circle)
-            _tile(recipient, inCircle: true),
-        for (final recipient in split.others) _tile(recipient, inCircle: false),
+            _tile(context, recipient, inCircle: true),
+        for (final recipient in split.others)
+          _tile(context, recipient, inCircle: false),
         if (_query.isNotEmpty && split.circle.isEmpty && split.others.isEmpty)
-          _SheetMessage(
-            icon: widget.kind.icon,
-            text: 'No matches for "$_query".',
-          ),
+          _SheetMessage(icon: kind.icon, text: 'No matches for "$_query".'),
       ],
     );
   }
 
-  Widget _tile(ForwardRecipient recipient, {required bool inCircle}) {
+  Widget _tile(
+    BuildContext context,
+    ForwardRecipient recipient, {
+    required bool inCircle,
+  }) {
     return ListTile(
       key: ValueKey('forward_recipient_${recipient.id}'),
       leading: CircleAvatar(
         backgroundImage: recipient.avatarUrl.isEmpty
             ? null
             : CachedNetworkImageProvider(recipient.avatarUrl),
-        child: recipient.avatarUrl.isEmpty
-            ? Icon(widget.kind.icon, size: 20)
-            : null,
+        child: recipient.avatarUrl.isEmpty ? Icon(kind.icon, size: 20) : null,
       ),
       title: Text(recipient.name),
       subtitle: recipient.detail.isEmpty
@@ -245,7 +241,7 @@ class _ForwardRecipientSheetState extends State<_ForwardRecipientSheet> {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
-      trailing: _userId.isEmpty
+      trailing: controller.userId.isEmpty
           ? const Icon(Icons.send_outlined)
           : IconButton(
               key: ValueKey('circle_toggle_${recipient.id}'),
@@ -256,7 +252,10 @@ class _ForwardRecipientSheetState extends State<_ForwardRecipientSheet> {
                     : Icons.group_add_outlined,
                 color: inCircle ? Theme.of(context).colorScheme.primary : null,
               ),
-              onPressed: () => _toggleCircle(recipient, inCircle),
+              onPressed: () => controller.toggleCircle(
+                recipient.toCircleMember(kind.circleKind),
+                inCircle: inCircle,
+              ),
             ),
       onTap: () => Navigator.pop(context, recipient),
     );
@@ -279,7 +278,7 @@ class _ForwardRecipientSheetState extends State<_ForwardRecipientSheet> {
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
               child: Text(
-                widget.title ?? 'Send to ${widget.kind.title.toLowerCase()}',
+                title ?? 'Send to ${kind.title.toLowerCase()}',
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -290,8 +289,7 @@ class _ForwardRecipientSheetState extends State<_ForwardRecipientSheet> {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: TextField(
                 key: const ValueKey('forward_recipient_search'),
-                onChanged: (value) =>
-                    setState(() => _query = value.trim().toLowerCase()),
+                onChanged: controller.onSearchChanged,
                 decoration: const InputDecoration(
                   hintText: 'Search by name or location',
                   prefixIcon: Icon(Icons.search),
@@ -300,21 +298,29 @@ class _ForwardRecipientSheetState extends State<_ForwardRecipientSheet> {
             ),
             const SizedBox(height: 8),
             Expanded(
-              child: StreamBuilder<List<CircleMember>>(
-                stream: _members,
-                builder: (context, circleSnapshot) {
-                  final circleIds = {
-                    for (final member
-                        in circleSnapshot.data ?? const <CircleMember>[])
-                      if (member.kind == widget.kind.circleKind) member.id,
-                  };
-                  return FutureBuilder<List<Map<String, dynamic>>>(
-                    future: _recipients,
-                    builder: (context, snapshot) =>
-                        _buildList(snapshot, currentUserId, circleIds),
-                  );
-                },
-              ),
+              child: Obx(() {
+                // Read here so typing in the search re-filters the list.
+                final _ = controller.query.value;
+                return StreamBuilder<List<CircleMember>>(
+                  stream: controller.members,
+                  builder: (context, circleSnapshot) {
+                    final circleIds = {
+                      for (final member
+                          in circleSnapshot.data ?? const <CircleMember>[])
+                        if (member.kind == kind.circleKind) member.id,
+                    };
+                    return FutureBuilder<List<Map<String, dynamic>>>(
+                      future: controller.recipients,
+                      builder: (context, snapshot) => _buildList(
+                        context,
+                        snapshot,
+                        currentUserId,
+                        circleIds,
+                      ),
+                    );
+                  },
+                );
+              }),
             ),
           ],
         ),
