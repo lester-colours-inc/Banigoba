@@ -8,7 +8,9 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:get/get.dart';
+
+import 'package:banigoba/modules/onboarding/controllers/onboarding_controller.dart';
 
 /// One marketing slide. The title renders as [lead] in near-black over
 /// [highlight] in bold navy, as in Figma.
@@ -60,54 +62,30 @@ const Color _dotIdle = Color(0xFFD9D9D9);
 
 const String _modelImage = 'assets/images/onboarding_model.png';
 
-class OnboardingScreen extends StatefulWidget {
+class OnboardingScreen extends StatelessWidget {
   const OnboardingScreen({super.key});
 
   // UNCLEAR: the meeting suggested showing the intro again after logout.
   // Today it shows once per install. If it should return after logout, clear
   // this key on sign-out.
-  static const String doneKey = 'onboarding_done';
+  static const String doneKey = onboardingDoneKey;
 
   @override
-  State<OnboardingScreen> createState() => _OnboardingScreenState();
-}
-
-class _OnboardingScreenState extends State<OnboardingScreen> {
-  final PageController _pageController = PageController();
-  int _page = 0;
-
-  bool get _isLastPage => _page == onboardingSlides.length - 1;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
+  Widget build(BuildContext context) {
     precacheImage(const AssetImage(_modelImage), context);
-  }
-
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _finishOnboarding() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(OnboardingScreen.doneKey, true);
-    if (mounted) {
-      Navigator.of(context).pushReplacementNamed('/');
-    }
-  }
-
-  void _next() {
-    if (_isLastPage) {
-      _finishOnboarding();
-      return;
-    }
-    _pageController.nextPage(
-      duration: const Duration(milliseconds: 280),
-      curve: Curves.easeOutCubic,
+    // Scoped to this screen: created and disposed with the widget.
+    return GetBuilder<OnboardingController>(
+      init: OnboardingController(slideCount: onboardingSlides.length),
+      global: false,
+      builder: (controller) => _OnboardingView(controller: controller),
     );
   }
+}
+
+class _OnboardingView extends StatelessWidget {
+  const _OnboardingView({required this.controller});
+
+  final OnboardingController controller;
 
   @override
   Widget build(BuildContext context) {
@@ -131,7 +109,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     right: 8,
                     child: TextButton(
                       key: const ValueKey('onboarding_skip'),
-                      onPressed: _finishOnboarding,
+                      onPressed: controller.finish,
                       style: TextButton.styleFrom(
                         foregroundColor: Colors.black38,
                       ),
@@ -144,18 +122,25 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ),
           Expanded(
             child: PageView.builder(
-              controller: _pageController,
+              controller: controller.pageController,
               itemCount: onboardingSlides.length,
-              onPageChanged: (page) => setState(() => _page = page),
+              onPageChanged: controller.onPageChanged,
               itemBuilder: (context, index) => _SlideView(
                 slide: onboardingSlides[index],
-                dots: _PageDots(count: onboardingSlides.length, current: _page),
+                dots: Obx(
+                  () => _PageDots(
+                    count: onboardingSlides.length,
+                    current: controller.page.value,
+                  ),
+                ),
               ),
             ),
           ),
-          _ActionBar(
-            label: _isLastPage ? 'Get Started' : 'Next',
-            onPressed: _next,
+          Obx(
+            () => _ActionBar(
+              label: controller.isLastPage ? 'Get Started' : 'Next',
+              onPressed: controller.next,
+            ),
           ),
         ],
       ),
