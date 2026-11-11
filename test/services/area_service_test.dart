@@ -1,5 +1,5 @@
-import 'package:banigoba/data/models/geo_cell.dart';
-import 'package:banigoba/data/services/area_service.dart';
+import 'package:banigoba/modules/home/models/geo_cell.dart';
+import 'package:banigoba/modules/home/services/area_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class _Source implements PositionSource {

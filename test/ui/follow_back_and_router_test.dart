@@ -1,8 +1,8 @@
 import 'dart:async';
 
-import 'package:banigoba/data/services/friend_service.dart';
-import 'package:banigoba/ui/notification_router.dart';
-import 'package:banigoba/ui/widgets/follow_back_button.dart';
+import 'package:banigoba/modules/social/services/friend_service.dart';
+import 'package:banigoba/modules/notifications/services/notification_router.dart';
+import 'package:banigoba/modules/social/widgets/follow_back_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -55,9 +55,7 @@ void main() {
       expect(find.text('Follow back'), findsNothing);
     });
 
-    testWidgets('reads Following when you already follow them', (
-      tester,
-    ) async {
+    testWidgets('reads Following when you already follow them', (tester) async {
       await tester.pumpWidget(
         _host(
           FollowBackButton(

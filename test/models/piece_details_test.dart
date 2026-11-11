@@ -1,4 +1,4 @@
-import 'package:banigoba/data/models/piece_details.dart';
+import 'package:banigoba/modules/wardrobe/models/piece_details.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

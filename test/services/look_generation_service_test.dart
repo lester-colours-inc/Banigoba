@@ -1,6 +1,6 @@
-import 'package:banigoba/data/models/look_request.dart';
-import 'package:banigoba/data/services/ai_job_service.dart';
-import 'package:banigoba/data/services/look_generation_service.dart';
+import 'package:banigoba/modules/provider/models/look_request.dart';
+import 'package:banigoba/modules/makeover/services/ai_job_service.dart';
+import 'package:banigoba/modules/makeover/services/look_generation_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class _FakeGenerator implements LookImageGenerator {

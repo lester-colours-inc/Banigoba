@@ -1,6 +1,6 @@
 // A stand-in for the server's image jobs: records what was asked and answers
 // each step with a made-up address, step by step.
-import 'package:banigoba/data/services/ai_job_service.dart';
+import 'package:banigoba/modules/makeover/services/ai_job_service.dart';
 
 class FakeAiImageJobs implements AiImageJobs {
   FakeAiImageJobs({this.failOnStep = -1});

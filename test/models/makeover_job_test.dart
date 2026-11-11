@@ -1,8 +1,8 @@
 // Guards the "one journey, separable engines" contract: a skipped domain is
 // not a failure, a failed domain does not erase a successful one, and the
 // pipeline never silently substitutes a degraded result.
-import 'package:banigoba/data/models/makeover_job.dart';
-import 'package:banigoba/data/services/coordinated_makeover_service.dart';
+import 'package:banigoba/modules/makeover/models/makeover_job.dart';
+import 'package:banigoba/modules/makeover/services/coordinated_makeover_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 MakeoverJob _job({

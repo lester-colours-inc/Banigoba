@@ -1,5 +1,5 @@
-import 'package:banigoba/data/models/look_request.dart';
-import 'package:banigoba/data/models/look_session.dart';
+import 'package:banigoba/modules/provider/models/look_request.dart';
+import 'package:banigoba/modules/makeover/models/look_session.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _original = 'original.jpg';

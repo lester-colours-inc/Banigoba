@@ -1,4 +1,4 @@
-import 'package:banigoba/data/models/shop_link.dart';
+import 'package:banigoba/modules/shop/models/shop_link.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 ShopLink _link({

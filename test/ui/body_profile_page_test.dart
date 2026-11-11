@@ -1,10 +1,11 @@
 import 'dart:typed_data';
 
-import 'package:banigoba/data/models/body_profile.dart';
-import 'package:banigoba/data/services/body_profile_service.dart';
-import 'package:banigoba/ui/screens/profile_details/body_profile_page.dart';
+import 'package:banigoba/modules/profile_details/models/body_profile.dart';
+import 'package:banigoba/modules/profile_details/services/body_profile_service.dart';
+import 'package:banigoba/modules/profile_details/views/body_profile_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:toastification/toastification.dart';
 
 class _FakeStore implements BodyProfileStore {
   _FakeStore([this.stored = const BodyProfile()]);
@@ -38,10 +39,12 @@ Future<void> _open(WidgetTester tester, _FakeStore store) async {
   tester.view.devicePixelRatio = 2.5;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
-    MaterialApp(
-      home: BodyProfilePage(
-        store: store,
-        pickImage: (_, _) async => Uint8List(100),
+    ToastificationWrapper(
+      child: MaterialApp(
+        home: BodyProfilePage(
+          store: store,
+          pickImage: (_, _) async => Uint8List(100),
+        ),
       ),
     ),
   );
@@ -148,16 +151,18 @@ void main() {
   testWidgets('asks before discarding unsaved changes', (tester) async {
     final store = _FakeStore();
     await tester.pumpWidget(
-      MaterialApp(
-        home: Builder(
-          builder: (context) => TextButton(
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute<void>(
-                builder: (_) => BodyProfilePage(store: store),
+      ToastificationWrapper(
+        child: MaterialApp(
+          home: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) => BodyProfilePage(store: store),
+                ),
               ),
+              child: const Text('open'),
             ),
-            child: const Text('open'),
           ),
         ),
       ),

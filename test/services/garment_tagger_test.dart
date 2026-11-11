@@ -2,8 +2,8 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:banigoba/data/models/garment_tags.dart';
-import 'package:banigoba/data/services/garment_tagger.dart';
+import 'package:banigoba/modules/wardrobe/models/garment_tags.dart';
+import 'package:banigoba/modules/wardrobe/services/garment_tagger.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 final Uint8List _photo = Uint8List.fromList(List.filled(64, 7));

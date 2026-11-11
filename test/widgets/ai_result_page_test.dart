@@ -1,5 +1,5 @@
 // What a "your look is ready" notification opens.
-import 'package:banigoba/ui/widgets/ai_result_page.dart';
+import 'package:banigoba/modules/makeover/widgets/ai_result_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

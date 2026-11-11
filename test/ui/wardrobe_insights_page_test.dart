@@ -1,5 +1,5 @@
 // Verifies the Wardrobe insights screen (W-10).
-import 'package:banigoba/ui/screens/wardrobe/wardrobe_insights_page.dart';
+import 'package:banigoba/modules/wardrobe/views/wardrobe_insights_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

@@ -1,6 +1,6 @@
-import 'package:banigoba/data/models/content_item.dart';
-import 'package:banigoba/data/services/content_service.dart';
-import 'package:banigoba/ui/widgets/idol_news_section.dart';
+import 'package:banigoba/modules/home/models/content_item.dart';
+import 'package:banigoba/modules/home/services/content_service.dart';
+import 'package:banigoba/modules/home/widgets/idol_news_section.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

@@ -1,8 +1,8 @@
 // Verifies the affirmation row: no empty text for the owner, and a total
 // that only the look's owner ever sees (H-4, BNG SRS 001).
-import 'package:banigoba/data/models/affirmation.dart';
-import 'package:banigoba/data/services/affirmation_service.dart';
-import 'package:banigoba/ui/widgets/affirmation_row.dart';
+import 'package:banigoba/modules/social/models/affirmation.dart';
+import 'package:banigoba/modules/social/services/affirmation_service.dart';
+import 'package:banigoba/modules/social/widgets/affirmation_row.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

@@ -1,4 +1,4 @@
-import 'package:banigoba/data/services/notification_service.dart';
+import 'package:banigoba/modules/notifications/services/notification_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

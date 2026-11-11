@@ -1,5 +1,5 @@
 // Verifies the quick-add rules for flea-market traders (K-1).
-import 'package:banigoba/data/models/quick_add.dart';
+import 'package:banigoba/modules/shop/models/quick_add.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

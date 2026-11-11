@@ -1,4 +1,4 @@
-import 'package:banigoba/ui/widgets/home_feed_tabs.dart';
+import 'package:banigoba/modules/home/widgets/home_feed_tabs.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

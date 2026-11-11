@@ -1,5 +1,5 @@
 // Verifies how image jobs are described to the server and read back.
-import 'package:banigoba/data/services/ai_job_service.dart';
+import 'package:banigoba/modules/makeover/services/ai_job_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

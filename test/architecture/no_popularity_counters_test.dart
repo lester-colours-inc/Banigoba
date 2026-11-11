@@ -29,7 +29,7 @@ const List<String> _bannedIdentifiers = [
 
 /// Files permitted to reference the legacy `likes` subcollection, and why.
 const Map<String, String> _legacyCleanupAllowList = {
-  'lib/data/services/post_service.dart':
+  'lib/modules/social/services/post_service.dart':
       'deletePost still clears the legacy likes subcollection so old '
       'documents do not leave orphans behind',
 };
@@ -94,7 +94,7 @@ void main() {
 
     test('the affirmation row renders no numeral', () {
       final source = File(
-        'lib/ui/widgets/affirmation_row.dart',
+        'lib/modules/social/widgets/affirmation_row.dart',
       ).readAsStringSync();
 
       // The public feed row shows which expressions were received, never how

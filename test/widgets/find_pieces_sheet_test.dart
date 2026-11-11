@@ -1,6 +1,6 @@
-import 'package:banigoba/data/models/look_request.dart';
-import 'package:banigoba/ui/screens/shop/shops_page.dart';
-import 'package:banigoba/ui/widgets/find_pieces_sheet.dart';
+import 'package:banigoba/modules/provider/models/look_request.dart';
+import 'package:banigoba/modules/shop/views/shops_page.dart';
+import 'package:banigoba/modules/makeover/widgets/find_pieces_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

@@ -1,5 +1,5 @@
 // Verifies the commission and influencer share (K-5, K-6).
-import 'package:banigoba/data/models/commission.dart';
+import 'package:banigoba/modules/provider/models/commission.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

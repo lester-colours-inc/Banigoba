@@ -1,7 +1,7 @@
 // Verifies the private-email lookup key and how visible posts are merged.
-import 'package:banigoba/data/models/post.dart';
-import 'package:banigoba/data/services/account_privacy_service.dart';
-import 'package:banigoba/data/services/visible_posts.dart';
+import 'package:banigoba/modules/social/models/post.dart';
+import 'package:banigoba/modules/settings/services/account_privacy_service.dart';
+import 'package:banigoba/modules/social/services/visible_posts.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Post _post(String id, DateTime createdAt) => Post(

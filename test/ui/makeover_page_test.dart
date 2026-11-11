@@ -1,11 +1,12 @@
-import 'package:banigoba/data/models/body_profile.dart';
-import 'package:banigoba/data/models/look_request.dart';
-import 'package:banigoba/data/models/weather.dart';
-import 'package:banigoba/data/services/look_generation_service.dart';
-import 'package:banigoba/data/style/style_catalogue.dart';
-import 'package:banigoba/ui/screens/makeover/makeover_page.dart';
+import 'package:banigoba/modules/profile_details/models/body_profile.dart';
+import 'package:banigoba/modules/provider/models/look_request.dart';
+import 'package:banigoba/modules/home/models/weather.dart';
+import 'package:banigoba/modules/makeover/services/look_generation_service.dart';
+import 'package:banigoba/core/style/style_catalogue.dart';
+import 'package:banigoba/modules/makeover/views/makeover_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:toastification/toastification.dart';
 
 const _photo = 'https://example.com/me.jpg';
 
@@ -47,19 +48,21 @@ Future<_FakeGenerator> _pumpPage(
   addTearDown(tester.view.reset);
 
   await tester.pumpWidget(
-    MaterialApp(
-      home: MakeoverPage(
-        initialPhotoUrl: photoUrl,
-        initialScope: scope,
-        loadWeather: loadWeather,
-        editingPostId: editingPostId,
-        initialTwinUrl: initialTwinUrl,
-        initialIdolName: initialIdolName,
-        loadBodyProfile: () async => const BodyProfile(),
-        confirmAiUse: (_) async => true,
-        generationService: LookGenerationService(
-          generator: generator,
-          currentUserId: () => 'user-1',
+    ToastificationWrapper(
+      child: MaterialApp(
+        home: MakeoverPage(
+          initialPhotoUrl: photoUrl,
+          initialScope: scope,
+          loadWeather: loadWeather,
+          editingPostId: editingPostId,
+          initialTwinUrl: initialTwinUrl,
+          initialIdolName: initialIdolName,
+          loadBodyProfile: () async => const BodyProfile(),
+          confirmAiUse: (_) async => true,
+          generationService: LookGenerationService(
+            generator: generator,
+            currentUserId: () => 'user-1',
+          ),
         ),
       ),
     ),

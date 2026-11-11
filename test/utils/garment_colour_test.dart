@@ -1,7 +1,7 @@
 // Verifies picking garment colours from pixels (W-3).
 import 'dart:typed_data';
 
-import 'package:banigoba/data/utils/garment_colour.dart';
+import 'package:banigoba/core/utils/garment_colour.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// A [size]x[size] picture filled with [fill], with [patch] in the middle

@@ -1,5 +1,5 @@
 // Verifies the AI answer is cut down to what the app knows.
-import 'package:banigoba/data/models/garment_tags.dart';
+import 'package:banigoba/modules/wardrobe/models/garment_tags.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

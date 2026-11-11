@@ -4,7 +4,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../data/models/shop_link.dart' show kShareHost;
+import 'package:banigoba/modules/shop/models/shop_link.dart' show kShareHost;
 
 final Uri kPrivacyPolicyUrl = Uri.parse('$kShareHost/privacy');
 final Uri kTermsOfUseUrl = Uri.parse('$kShareHost/terms');

@@ -1,9 +1,10 @@
 // Verifies the "Send to" sheet: someone specific, never who sees the look
 // in the feeds (that is "Post", P-4).
-import 'package:banigoba/ui/widgets/forward_look_sheet.dart';
+import 'package:banigoba/modules/social/widgets/forward_look_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:toastification/toastification.dart';
 
 const _destinations = [
   'Hair Salon',
@@ -22,16 +23,18 @@ Future<void> _openSheet(
   addTearDown(tester.view.reset);
 
   await tester.pumpWidget(
-    MaterialApp(
-      home: Scaffold(
-        body: Builder(
-          builder: (context) => TextButton(
-            onPressed: () => showForwardLookSheet(
-              context,
-              imageUrl: imageUrl,
-              caption: 'Sunday best',
+    ToastificationWrapper(
+      child: MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => showForwardLookSheet(
+                context,
+                imageUrl: imageUrl,
+                caption: 'Sunday best',
+              ),
+              child: const Text('open'),
             ),
-            child: const Text('open'),
           ),
         ),
       ),

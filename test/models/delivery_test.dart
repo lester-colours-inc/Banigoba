@@ -1,4 +1,4 @@
-import 'package:banigoba/data/models/delivery.dart';
+import 'package:banigoba/modules/shop/models/delivery.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

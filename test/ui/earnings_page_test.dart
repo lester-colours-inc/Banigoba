@@ -1,7 +1,7 @@
 // Verifies the Earnings screen shows what a shop owes and an influencer earns.
-import 'package:banigoba/data/models/ledger_summary.dart';
-import 'package:banigoba/data/services/ledger_service.dart';
-import 'package:banigoba/ui/screens/provider/earnings_page.dart';
+import 'package:banigoba/modules/shop/models/ledger_summary.dart';
+import 'package:banigoba/modules/shop/services/ledger_service.dart';
+import 'package:banigoba/modules/provider/views/earnings_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

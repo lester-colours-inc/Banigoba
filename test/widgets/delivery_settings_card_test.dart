@@ -1,5 +1,5 @@
-import 'package:banigoba/data/models/delivery.dart';
-import 'package:banigoba/ui/widgets/delivery_settings_card.dart';
+import 'package:banigoba/modules/shop/models/delivery.dart';
+import 'package:banigoba/modules/shop/widgets/delivery_settings_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

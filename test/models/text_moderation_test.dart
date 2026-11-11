@@ -1,5 +1,5 @@
 // Verifies how comments and affirmation notes are kept kind (C-3).
-import 'package:banigoba/data/models/text_moderation.dart';
+import 'package:banigoba/core/utils/text_moderation.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 ModerationReason? _why(String text, {int max = kMaxCommentLength}) =>

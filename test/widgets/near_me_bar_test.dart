@@ -1,4 +1,4 @@
-import 'package:banigoba/ui/widgets/near_me_bar.dart';
+import 'package:banigoba/modules/home/widgets/near_me_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

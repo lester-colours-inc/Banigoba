@@ -1,4 +1,4 @@
-import 'package:banigoba/data/services/image_crop.dart';
+import 'package:banigoba/core/services/image_crop.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image_picker/image_picker.dart';

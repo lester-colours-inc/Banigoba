@@ -1,4 +1,4 @@
-import 'package:banigoba/data/models/provider_roles.dart';
+import 'package:banigoba/modules/provider/models/provider_roles.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

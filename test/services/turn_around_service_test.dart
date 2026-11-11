@@ -1,6 +1,6 @@
 // Verifies the turn-around prompts and the job that makes the angles.
-import 'package:banigoba/data/services/ai_job_service.dart';
-import 'package:banigoba/data/services/turn_around_service.dart';
+import 'package:banigoba/modules/makeover/services/ai_job_service.dart';
+import 'package:banigoba/modules/makeover/services/turn_around_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../support/fake_ai_image_jobs.dart';

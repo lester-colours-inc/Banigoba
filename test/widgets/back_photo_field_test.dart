@@ -1,5 +1,5 @@
 // Verifies the shop's optional back photo field.
-import 'package:banigoba/ui/widgets/back_photo_field.dart';
+import 'package:banigoba/modules/makeover/widgets/back_photo_field.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

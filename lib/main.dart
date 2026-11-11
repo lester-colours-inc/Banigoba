@@ -2,6 +2,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:toastification/toastification.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -9,15 +10,16 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 //import 'package:firebase_ui_auth/firebase_ui_auth.dart' as ui;
 //import 'package:simple_app/screens/main_screen.dart';
 //import 'package:simple_app/screens/login_screen.dart';
-import 'firebase_options.dart';
-import 'core/app_routes.dart';
-import 'core/supabase/supabase_config.dart';
-import 'core/theme_provider.dart';
-import 'ui/widgets/brand_splash.dart';
-import 'data/services/push_notification_service.dart';
+import 'package:banigoba/firebase_options.dart';
+import 'package:banigoba/app/routes/app_pages.dart';
+import 'package:banigoba/core/supabase/supabase_config.dart';
+import 'package:get/get.dart';
+import 'package:banigoba/app/bindings/initial_binding.dart';
+import 'package:banigoba/app/controllers/theme_controller.dart';
+import 'package:banigoba/shared/widgets/brand_splash.dart';
+import 'package:banigoba/modules/notifications/services/push_notification_service.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
-final rootScaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
 
 void main() async {
   // Clean web addresses ("/s?id=…") so shared stock links work in a browser.
@@ -29,7 +31,7 @@ void main() async {
     precacheBrandSplash(),
   ]);
   await initializeSupabase();
-  await themeProvider.initialize();
+  await Get.put(ThemeController(), permanent: true).load();
 
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
@@ -38,7 +40,6 @@ void main() async {
     unawaited(
       PushNotificationService.instance.initialize(
         navigatorKey: rootNavigatorKey,
-        scaffoldMessengerKey: rootScaffoldMessengerKey,
       ),
     );
   });
@@ -49,22 +50,20 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: themeProvider,
-      builder: (context, _) {
-        return MaterialApp(
-          navigatorKey: rootNavigatorKey,
-          scaffoldMessengerKey: rootScaffoldMessengerKey,
-          debugShowCheckedModeBanner: false,
-          title: 'Banigoba',
-          themeMode: themeProvider.themeMode,
-          theme: MyApp.buildTheme(Brightness.light),
-          darkTheme: MyApp.buildTheme(Brightness.dark),
-          initialRoute: AppRoutes.root,
-          routes: AppRoutes.routes,
-          onGenerateRoute: AppRoutes.onGenerateRoute,
-        );
-      },
+    final theme = Get.find<ThemeController>();
+    return ToastificationWrapper(
+      child: GetMaterialApp(
+        navigatorKey: rootNavigatorKey,
+        debugShowCheckedModeBanner: false,
+        title: 'Banigoba',
+        initialBinding: InitialBinding(),
+        themeMode: theme.themeMode,
+        theme: MyApp.buildTheme(Brightness.light),
+        darkTheme: MyApp.buildTheme(Brightness.dark),
+        initialRoute: AppPages.initial,
+        getPages: AppPages.pages,
+        unknownRoute: AppPages.unknown,
+      ),
     );
   }
 
@@ -178,11 +177,6 @@ class MyApp extends StatelessWidget {
         labelStyle: TextStyle(color: colorScheme.onSurface),
         secondaryLabelStyle: TextStyle(color: colorScheme.onPrimaryContainer),
         side: BorderSide(color: colorScheme.outlineVariant),
-      ),
-      snackBarTheme: SnackBarThemeData(
-        backgroundColor: colorScheme.inverseSurface,
-        contentTextStyle: TextStyle(color: colorScheme.onInverseSurface),
-        actionTextColor: colorScheme.inversePrimary,
       ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: colorScheme.surface,

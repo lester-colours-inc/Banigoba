@@ -1,6 +1,6 @@
 // The intro slides market the app before login. They must never ask for
 // permissions or preferences, which come after the account exists.
-import 'package:banigoba/ui/screens/onboarding/onboarding_screen.dart';
+import 'package:banigoba/modules/onboarding/views/onboarding_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';

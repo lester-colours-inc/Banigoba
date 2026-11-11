@@ -1,6 +1,6 @@
-import 'package:banigoba/data/models/feed_ranking.dart';
-import 'package:banigoba/data/models/geo_cell.dart';
-import 'package:banigoba/data/models/post.dart';
+import 'package:banigoba/modules/home/models/feed_ranking.dart';
+import 'package:banigoba/modules/home/models/geo_cell.dart';
+import 'package:banigoba/modules/social/models/post.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 final _now = DateTime(2026, 10, 28, 12);

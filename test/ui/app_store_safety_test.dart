@@ -1,10 +1,11 @@
 // The App Store safety screens: Terms must be ticked before continuing, and
 // reporting asks for a reason before sending.
-import 'package:banigoba/data/services/safety_service.dart';
-import 'package:banigoba/ui/screens/onboarding/terms_screen.dart';
-import 'package:banigoba/ui/widgets/safety_actions.dart';
+import 'package:banigoba/modules/settings/services/safety_service.dart';
+import 'package:banigoba/modules/onboarding/views/terms_screen.dart';
+import 'package:banigoba/modules/social/widgets/safety_actions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:toastification/toastification.dart';
 
 void main() {
   group('TermsScreen', () {
@@ -13,7 +14,11 @@ void main() {
     ) async {
       var accepted = 0;
       await tester.pumpWidget(
-        MaterialApp(home: TermsScreen(onAccept: () async => accepted++)),
+        ToastificationWrapper(
+          child: MaterialApp(
+            home: TermsScreen(onAccept: () async => accepted++),
+          ),
+        ),
       );
 
       final button = find.byKey(const ValueKey('terms_continue'));
@@ -29,7 +34,9 @@ void main() {
 
     testWidgets('states the zero-tolerance rule', (tester) async {
       await tester.pumpWidget(
-        MaterialApp(home: TermsScreen(onAccept: () async {})),
+        ToastificationWrapper(
+          child: MaterialApp(home: TermsScreen(onAccept: () async {})),
+        ),
       );
       expect(find.textContaining('no tolerance'), findsOneWidget);
     });
@@ -41,16 +48,18 @@ void main() {
     ) async {
       ReportReason? sent;
       await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: Builder(
-              builder: (context) => TextButton(
-                onPressed: () => showReportSheet(
-                  context,
-                  subject: 'look',
-                  onReport: (reason) async => sent = reason,
+        ToastificationWrapper(
+          child: MaterialApp(
+            home: Scaffold(
+              body: Builder(
+                builder: (context) => TextButton(
+                  onPressed: () => showReportSheet(
+                    context,
+                    subject: 'look',
+                    onReport: (reason) async => sent = reason,
+                  ),
+                  child: const Text('Report'),
                 ),
-                child: const Text('Report'),
               ),
             ),
           ),
@@ -71,16 +80,18 @@ void main() {
     testWidgets('sends nothing when dismissed', (tester) async {
       var calls = 0;
       await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: Builder(
-              builder: (context) => TextButton(
-                onPressed: () => showReportSheet(
-                  context,
-                  subject: 'profile',
-                  onReport: (_) async => calls++,
+        ToastificationWrapper(
+          child: MaterialApp(
+            home: Scaffold(
+              body: Builder(
+                builder: (context) => TextButton(
+                  onPressed: () => showReportSheet(
+                    context,
+                    subject: 'profile',
+                    onReport: (_) async => calls++,
+                  ),
+                  child: const Text('Report'),
                 ),
-                child: const Text('Report'),
               ),
             ),
           ),

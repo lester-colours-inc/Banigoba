@@ -1,5 +1,5 @@
 // Garment layering, shared by every try-on path.
-import 'package:banigoba/data/utils/garment_taxonomy.dart';
+import 'package:banigoba/core/utils/garment_taxonomy.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Map<String, dynamic> _product(String category, {String? subcategory}) => {

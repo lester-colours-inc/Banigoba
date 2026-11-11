@@ -1,6 +1,6 @@
 // Verifies who may see a post, and which friends' dress-ups show today.
-import 'package:banigoba/data/models/post.dart';
-import 'package:banigoba/ui/screens/main/widgets/friends_dress_ups.dart';
+import 'package:banigoba/modules/social/models/post.dart';
+import 'package:banigoba/modules/home/widgets/friends_dress_ups.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Post _post({

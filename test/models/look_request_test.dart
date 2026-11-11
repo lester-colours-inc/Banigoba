@@ -1,7 +1,7 @@
-import 'package:banigoba/data/models/body_profile.dart';
-import 'package:banigoba/data/models/look_request.dart';
-import 'package:banigoba/data/models/style_preferences.dart';
-import 'package:banigoba/data/style/style_catalogue.dart';
+import 'package:banigoba/modules/profile_details/models/body_profile.dart';
+import 'package:banigoba/modules/provider/models/look_request.dart';
+import 'package:banigoba/modules/onboarding/models/style_preferences.dart';
+import 'package:banigoba/core/style/style_catalogue.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _photo = 'https://example.com/me.jpg';

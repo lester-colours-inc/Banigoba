@@ -1,5 +1,5 @@
-import 'package:banigoba/data/services/like_service.dart';
-import 'package:banigoba/ui/widgets/like_action.dart';
+import 'package:banigoba/modules/social/services/like_service.dart';
+import 'package:banigoba/modules/social/widgets/like_action.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

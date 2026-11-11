@@ -1,27 +1,31 @@
-import 'package:banigoba/ui/widgets/double_back_to_exit.dart';
+import 'package:banigoba/shared/widgets/double_back_to_exit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import '../support/toast_pump.dart';
+import 'package:toastification/toastification.dart';
 
 Future<List<int>> _pump(WidgetTester tester) async {
   final exits = <int>[];
   final scaffoldKey = GlobalKey<ScaffoldState>();
   await tester.pumpWidget(
-    MaterialApp(
-      home: DoubleBackToExit(
-        onExit: () => exits.add(1),
-        onBackFirst: () {
-          final scaffold = scaffoldKey.currentState;
-          if (scaffold == null || !scaffold.isDrawerOpen) return false;
-          scaffold.closeDrawer();
-          return true;
-        },
-        child: Scaffold(
-          key: scaffoldKey,
-          drawer: const Drawer(child: Text('Drawer')),
-          body: Builder(
-            builder: (context) => TextButton(
-              onPressed: () => Scaffold.of(context).openDrawer(),
-              child: const Text('Open drawer'),
+    ToastificationWrapper(
+      child: MaterialApp(
+        home: DoubleBackToExit(
+          onExit: () => exits.add(1),
+          onBackFirst: () {
+            final scaffold = scaffoldKey.currentState;
+            if (scaffold == null || !scaffold.isDrawerOpen) return false;
+            scaffold.closeDrawer();
+            return true;
+          },
+          child: Scaffold(
+            key: scaffoldKey,
+            drawer: const Drawer(child: Text('Drawer')),
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => Scaffold.of(context).openDrawer(),
+                child: const Text('Open drawer'),
+              ),
             ),
           ),
         ),
@@ -43,6 +47,7 @@ void main() {
     await _back(tester);
 
     expect(exits, isEmpty);
+    await tester.pumpToast();
     expect(find.text(kPressBackAgainToExit), findsOneWidget);
   });
 
@@ -54,6 +59,8 @@ void main() {
     await _back(tester);
 
     expect(exits, hasLength(1));
+    // Let the hint's exit animation finish.
+    await tester.pump(const Duration(seconds: 1));
   });
 
   testWidgets('a second press after the window shows the hint again', (

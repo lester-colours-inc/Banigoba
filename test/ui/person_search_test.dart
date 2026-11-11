@@ -1,5 +1,5 @@
 // Verifies people search matches names and @usernames, and emails only in full.
-import 'package:banigoba/ui/screens/main/search_page.dart';
+import 'package:banigoba/modules/home/views/search_page.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

@@ -1,6 +1,6 @@
-import 'package:banigoba/data/models/provider_inbox.dart';
-import 'package:banigoba/ui/screens/provider/provider_inbox_view.dart';
-import 'package:banigoba/ui/screens/provider/request_detail_sheet.dart';
+import 'package:banigoba/modules/provider/models/provider_inbox.dart';
+import 'package:banigoba/modules/provider/views/provider_inbox_view.dart';
+import 'package:banigoba/modules/provider/views/request_detail_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

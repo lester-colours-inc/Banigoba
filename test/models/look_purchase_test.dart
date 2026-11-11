@@ -1,6 +1,6 @@
-import 'package:banigoba/data/models/body_profile.dart';
-import 'package:banigoba/data/models/look_purchase.dart';
-import 'package:banigoba/data/models/look_request.dart';
+import 'package:banigoba/modules/profile_details/models/body_profile.dart';
+import 'package:banigoba/modules/shop/models/look_purchase.dart';
+import 'package:banigoba/modules/provider/models/look_request.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Map<String, dynamic> _product(

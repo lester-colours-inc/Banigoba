@@ -1,7 +1,7 @@
 // Verifies the steps a coordinated makeover asks the server to make.
-import 'package:banigoba/data/models/makeover_job.dart';
-import 'package:banigoba/data/services/ai_job_service.dart';
-import 'package:banigoba/data/services/coordinated_makeover_service.dart';
+import 'package:banigoba/modules/makeover/models/makeover_job.dart';
+import 'package:banigoba/modules/makeover/services/ai_job_service.dart';
+import 'package:banigoba/modules/makeover/services/coordinated_makeover_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _source = 'https://example.test/source.jpg';

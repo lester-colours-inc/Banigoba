@@ -1,6 +1,6 @@
 // Protects the shared size-inventory rules used by product detail, cart, and
 // checkout. These helpers are pure Dart so they should stay quick and stable.
-import 'package:banigoba/data/utils/size_inventory.dart';
+import 'package:banigoba/core/utils/size_inventory.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

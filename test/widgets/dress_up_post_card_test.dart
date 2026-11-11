@@ -1,6 +1,6 @@
 // Verifies the Home feed card layouts and the preset quick-reply strip.
-import 'package:banigoba/ui/widgets/dress_up_post_card.dart';
-import 'package:banigoba/ui/widgets/quick_reply_bar.dart';
+import 'package:banigoba/modules/social/widgets/dress_up_post_card.dart';
+import 'package:banigoba/modules/social/widgets/quick_reply_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
