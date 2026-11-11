@@ -1,31 +1,28 @@
 // An agent as the lists and the detail page show them, plus the small text
 // helpers the agent screens share.
 import 'package:flutter/material.dart';
+import 'package:freezed_annotation/freezed_annotation.dart';
+
+part 'agent_summary.freezed.dart';
 
 class AgentColors {
   static const primary = Color(0xFF0D0140);
 }
 
-class AgentSummary {
-  const AgentSummary({
-    required this.id,
-    required this.type,
-    required this.name,
-    required this.bio,
-    required this.location,
-    required this.services,
-    required this.rate,
-    required this.avatarUrl,
-  });
+@freezed
+abstract class AgentSummary with _$AgentSummary {
+  const AgentSummary._();
 
-  final String id;
-  final String type;
-  final String name;
-  final String bio;
-  final String location;
-  final List<String> services;
-  final String rate;
-  final String avatarUrl;
+  const factory AgentSummary({
+    required String id,
+    required String type,
+    required String name,
+    required String bio,
+    required String location,
+    required List<String> services,
+    required String rate,
+    required String avatarUrl,
+  }) = _AgentSummary;
 
   String get typeLabel => type == 'hair' ? 'Hair Agent' : 'Clothes Agent';
 
