@@ -3,6 +3,7 @@
 // their full outfit, so hair gets its own clear door (October 2026 review,
 // M-1: one large button that then asks).
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
 import 'package:banigoba/modules/provider/models/look_request.dart';
 import 'package:banigoba/modules/makeover/views/makeover_page.dart';
@@ -12,20 +13,17 @@ enum MakeoverStart { hairstyle, outfit }
 
 /// Asks which kind of makeover, then opens it. Does nothing if dismissed.
 Future<void> startMakeover(BuildContext context) async {
-  final navigator = Navigator.of(context);
   final choice = await showModalBottomSheet<MakeoverStart>(
     context: context,
     showDragHandle: true,
     builder: (_) => const MakeoverStartSheet(),
   );
   if (choice == null) return;
-  await navigator.push(
-    MaterialPageRoute<void>(
-      builder: (_) => MakeoverPage(
-        // Hair is decided here; for the outfit the user picks exactly what
-        // should change on the next screen.
-        initialScope: choice == MakeoverStart.hairstyle ? LookScope.hair : null,
-      ),
+  await Get.to<void>(
+    () => MakeoverPage(
+      // Hair is decided here; for the outfit the user picks exactly what
+      // should change on the next screen.
+      initialScope: choice == MakeoverStart.hairstyle ? LookScope.hair : null,
     ),
   );
 }

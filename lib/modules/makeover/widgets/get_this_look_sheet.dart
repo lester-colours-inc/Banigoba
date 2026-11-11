@@ -2,6 +2,9 @@
 // already owns something like it, and verified-shop pieces in their size they
 // can add to the bag in one tap.
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+
+import 'package:banigoba/modules/makeover/controllers/pick_tile_controller.dart';
 
 import 'package:banigoba/modules/shop/models/look_purchase.dart';
 import 'package:banigoba/modules/provider/models/look_request.dart';
@@ -172,39 +175,25 @@ class _PartSection extends StatelessWidget {
   }
 }
 
-class _PickTile extends StatefulWidget {
+class _PickTile extends StatelessWidget {
   const _PickTile({required this.pick, required this.onAddToCart});
 
   final ShopPick pick;
   final AddPickToCart onAddToCart;
 
   @override
-  State<_PickTile> createState() => _PickTileState();
-}
-
-enum _Bag { idle, adding, added }
-
-class _PickTileState extends State<_PickTile> {
-  _Bag _state = _Bag.idle;
-  String? _message;
-
-  Future<void> _add() async {
-    setState(() {
-      _state = _Bag.adding;
-      _message = null;
-    });
-    final problem = await widget.onAddToCart(widget.pick);
-    if (!mounted) return;
-    setState(() {
-      _state = problem == null ? _Bag.added : _Bag.idle;
-      _message = problem;
-    });
+  Widget build(BuildContext context) {
+    // Scoped to this tile: built here, disposed with it.
+    return GetBuilder<PickTileController<ShopPick>>(
+      init: PickTileController<ShopPick>(pick: pick, onAddToCart: onAddToCart),
+      global: false,
+      builder: (bag) => _content(context, bag),
+    );
   }
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _content(BuildContext context, PickTileController<ShopPick> bag) {
     final colors = Theme.of(context).colorScheme;
-    final product = widget.pick.product;
+    final product = pick.product;
     final image = (product['imageUrl'] ?? product['imageURL'] ?? '').toString();
     final price = product['price'];
     final id = (product['id'] ?? '').toString();
@@ -238,37 +227,42 @@ class _PickTileState extends State<_PickTile> {
                     style: TextStyle(color: colors.onSurfaceVariant),
                   ),
                 Text(
-                  widget.pick.reasons.join(' · '),
+                  pick.reasons.join(' · '),
                   style: TextStyle(
                     fontSize: 12,
                     color: colors.onSurfaceVariant,
                   ),
                 ),
-                if (_message != null)
-                  Padding(
+                Obx(() {
+                  final message = bag.message.value;
+                  if (message == null) return const SizedBox.shrink();
+                  return Padding(
                     padding: const EdgeInsets.only(top: 4),
                     child: Text(
-                      _message!,
+                      message,
                       key: ValueKey('pick_message_$id'),
                       style: TextStyle(fontSize: 12, color: colors.error),
                     ),
-                  ),
+                  );
+                }),
               ],
             ),
           ),
           const SizedBox(width: 8),
-          FilledButton(
-            key: ValueKey('add_pick_$id'),
-            onPressed: _state == _Bag.idle ? _add : null,
-            style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFF0D0140),
-              visualDensity: VisualDensity.compact,
+          Obx(
+            () => FilledButton(
+              key: ValueKey('add_pick_$id'),
+              onPressed: bag.state.value == BagState.idle ? bag.add : null,
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF0D0140),
+                visualDensity: VisualDensity.compact,
+              ),
+              child: Text(switch (bag.state.value) {
+                BagState.idle => 'Add to bag',
+                BagState.adding => 'Adding...',
+                BagState.added => 'Added',
+              }),
             ),
-            child: Text(switch (_state) {
-              _Bag.idle => 'Add to bag',
-              _Bag.adding => 'Adding...',
-              _Bag.added => 'Added',
-            }),
           ),
         ],
       ),

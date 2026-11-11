@@ -1,17 +1,12 @@
 // Generates, displays, and saves the completed AI-styled look.
-import 'package:banigoba/core/supabase/app_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:banigoba/app/routes/app_routes.dart';
-import 'package:banigoba/modules/makeover/services/makeover_service.dart';
+import 'package:get/get.dart';
+
+import 'package:banigoba/modules/makeover/controllers/styled_look_controller.dart';
 import 'package:banigoba/modules/shop/widgets/cart_badge_button.dart';
 import 'package:banigoba/shared/widgets/app_network_image.dart';
-import 'package:banigoba/shared/widgets/app_toast.dart';
 
-class StyledLookPage extends StatefulWidget {
-  final String style;
-  final String sourceImageUrl;
-  final List<String> generatedImageUrls;
-
+class StyledLookPage extends StatelessWidget {
   const StyledLookPage({
     super.key,
     required this.style,
@@ -19,146 +14,129 @@ class StyledLookPage extends StatefulWidget {
     required this.generatedImageUrls,
   });
 
-  static Color primaryColor = Color(0xFF0D0140);
+  final String style;
+  final String sourceImageUrl;
+  final List<String> generatedImageUrls;
 
-  @override
-  State<StyledLookPage> createState() => _StyledLookPageState();
-}
-
-class _StyledLookPageState extends State<StyledLookPage> {
-  final MakeoverService _makeoverService = MakeoverService();
-  bool _isSaving = false;
-
-  Future<void> _saveLook() async {
-    final user = AppAuth.instance.currentUser;
-    if (user == null) {
-      if (!mounted) return;
-      AppToast.say('You must be signed in to save your look.');
-      return;
-    }
-
-    setState(() {
-      _isSaving = true;
-    });
-
-    try {
-      await _makeoverService.saveGeneratedMakeover(
-        userId: user.uid,
-        style: widget.style,
-        generatedImageUrls: widget.generatedImageUrls,
-        sourceImageUrl: widget.sourceImageUrl,
-      );
-      if (mounted) {
-        AppToast.say('Your AI makeover has been saved to your wardrobe.');
-      }
-    } catch (e) {
-      if (mounted) {
-        AppToast.say('Failed to save look: $e');
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSaving = false;
-        });
-      }
-    }
-  }
+  static Color primaryColor = const Color(0xFF0D0140);
 
   @override
   Widget build(BuildContext context) {
+    // Scoped to this page: built from its parameters, disposed with it.
+    return GetBuilder<StyledLookController>(
+      init: StyledLookController(
+        style: style,
+        sourceImageUrl: sourceImageUrl,
+        generatedImageUrls: generatedImageUrls,
+      ),
+      global: false,
+      builder: (controller) => _StyledLookView(controller: controller),
+    );
+  }
+}
+
+class _StyledLookView extends StatelessWidget {
+  const _StyledLookView({required this.controller});
+
+  final StyledLookController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surface,
+      backgroundColor: colors.surface,
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.surface,
+        backgroundColor: colors.surface,
         elevation: 0,
         leading: IconButton(
-          icon: Icon(
-            Icons.menu,
-            color: Theme.of(context).colorScheme.onSurface,
-          ),
+          icon: Icon(Icons.menu, color: colors.onSurface),
           onPressed: () {},
         ),
         title: Text(
           'Your Styled Look',
           style: TextStyle(
-            color: Theme.of(context).colorScheme.onSurface,
+            color: colors.onSurface,
             fontWeight: FontWeight.bold,
             fontSize: 22,
           ),
         ),
         actions: [
           CartBadgeButton(
-            onPressed: () => Navigator.pushNamed(context, AppRoutes.cart),
-            color: Theme.of(context).colorScheme.onSurface,
+            onPressed: controller.openCart,
+            color: colors.onSurface,
           ),
           Container(
-            margin: EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+            margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              color: colors.surfaceContainerHighest,
               shape: BoxShape.circle,
             ),
             child: IconButton(
               icon: Icon(
                 Icons.arrow_back_ios_new,
                 size: 16,
-                color: Theme.of(context).colorScheme.onSurface,
+                color: colors.onSurface,
               ),
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: Get.back,
             ),
           ),
         ],
       ),
       body: SingleChildScrollView(
-        padding: EdgeInsets.all(25),
+        padding: const EdgeInsets.all(25),
         child: Column(
           children: [
-            _buildMainLookCard(),
-            SizedBox(height: 25),
+            _MainLookCard(imageUrl: controller.mainImageUrl),
+            const SizedBox(height: 25),
             Row(
-              children: widget.generatedImageUrls
+              children: controller.generatedImageUrls
                   .take(3)
                   .map(
                     (url) => Expanded(
                       child: Padding(
-                        padding: EdgeInsets.only(right: 10),
-                        child: _buildSmallImageCard(url),
+                        padding: const EdgeInsets.only(right: 10),
+                        child: _SmallImageCard(imageUrl: url),
                       ),
                     ),
                   )
                   .toList(),
             ),
-            SizedBox(height: 40),
-            ElevatedButton(
-              onPressed: _isSaving ? null : _saveLook,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: StyledLookPage.primaryColor,
-                foregroundColor: Colors.white,
-                minimumSize: Size(double.infinity, 55),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(15),
+            const SizedBox(height: 40),
+            Obx(
+              () => ElevatedButton(
+                onPressed: controller.isSaving.value
+                    ? null
+                    : controller.saveLook,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: StyledLookPage.primaryColor,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 55),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(15),
+                  ),
                 ),
+                child: controller.isSaving.value
+                    ? const SizedBox(
+                        height: 24,
+                        width: 24,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const Text(
+                        'Save to Wardrobe',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
               ),
-              child: _isSaving
-                  ? SizedBox(
-                      height: 24,
-                      width: 24,
-                      child: CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 2,
-                      ),
-                    )
-                  : Text(
-                      'Save to Wardrobe',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
             ),
-            SizedBox(height: 15),
+            const SizedBox(height: 15),
             TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text(
+              onPressed: Get.back,
+              child: const Text(
                 'Try Another Style',
                 style: TextStyle(
                   color: Colors.orange,
@@ -171,11 +149,15 @@ class _StyledLookPageState extends State<StyledLookPage> {
       ),
     );
   }
+}
 
-  Widget _buildMainLookCard() {
-    final firstImageUrl = widget.generatedImageUrls.isNotEmpty
-        ? widget.generatedImageUrls.first
-        : widget.sourceImageUrl;
+class _MainLookCard extends StatelessWidget {
+  const _MainLookCard({required this.imageUrl});
+
+  final String imageUrl;
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
       height: 450,
@@ -186,17 +168,24 @@ class _StyledLookPageState extends State<StyledLookPage> {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(30),
         child: AppNetworkImage(
-          firstImageUrl,
+          imageUrl,
           fit: BoxFit.cover,
-          fallback: Center(
+          fallback: const Center(
             child: Icon(Icons.broken_image, size: 60, color: Colors.grey),
           ),
         ),
       ),
     );
   }
+}
 
-  Widget _buildSmallImageCard(String imageUrl) {
+class _SmallImageCard extends StatelessWidget {
+  const _SmallImageCard({required this.imageUrl});
+
+  final String imageUrl;
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       height: 100,
       decoration: BoxDecoration(
@@ -208,7 +197,7 @@ class _StyledLookPageState extends State<StyledLookPage> {
         child: AppNetworkImage(
           imageUrl,
           fit: BoxFit.cover,
-          fallback: Center(
+          fallback: const Center(
             child: Icon(Icons.broken_image, size: 28, color: Colors.grey),
           ),
         ),

@@ -14,6 +14,7 @@ import 'package:banigoba/modules/designers/views/fashion_designers_page.dart';
 import 'package:banigoba/modules/home/views/daily_dress_up_page.dart';
 import 'package:banigoba/modules/home/views/main_screen.dart';
 import 'package:banigoba/modules/home/views/search_page.dart';
+import 'package:banigoba/modules/makeover/bindings/create_makeover_binding.dart';
 import 'package:banigoba/modules/makeover/views/avatar_try_on_page.dart';
 import 'package:banigoba/modules/makeover/views/create_makeover_page.dart';
 import 'package:banigoba/modules/makeover/views/makeover_page.dart';
@@ -66,7 +67,11 @@ abstract final class AppPages {
     GetPage(name: AppRoutes.notifications, page: NotificationsPage.new),
     GetPage(name: AppRoutes.bodyProfile, page: BodyProfilePage.new),
     GetPage(name: AppRoutes.makeover, page: MakeoverPage.new),
-    GetPage(name: AppRoutes.makeoverWithItems, page: CreateMakeoverPage.new),
+    GetPage(
+      name: AppRoutes.makeoverWithItems,
+      page: CreateMakeoverPage.new,
+      binding: CreateMakeoverBinding(),
+    ),
     GetPage(name: AppRoutes.dailyDressUp, page: DailyDressUpPage.new),
     GetPage(name: AppRoutes.sharedStock, page: _sharedStock),
   ];
