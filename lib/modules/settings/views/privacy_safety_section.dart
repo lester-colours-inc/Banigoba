@@ -2,72 +2,43 @@
 // Privacy Policy and Terms, and deleting the account (App Store guidelines
 // 1.2, 5.1.1 and 5.1.2).
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
 import 'package:banigoba/core/legal_links.dart';
 import 'package:banigoba/modules/social/services/profile_service.dart';
 import 'package:banigoba/modules/settings/services/safety_service.dart';
 import 'package:banigoba/modules/makeover/widgets/ai_photo_consent.dart';
 import 'package:banigoba/shared/widgets/app_toast.dart';
+import 'package:banigoba/modules/settings/controllers/delete_confirm_controller.dart';
+import 'package:banigoba/modules/settings/controllers/privacy_safety_controller.dart';
 
-class PrivacySafetySection extends StatefulWidget {
+class PrivacySafetySection extends StatelessWidget {
   const PrivacySafetySection({super.key});
 
   @override
-  State<PrivacySafetySection> createState() => _PrivacySafetySectionState();
-}
-
-class _PrivacySafetySectionState extends State<PrivacySafetySection> {
-  final _safety = SafetyService.instance;
-  bool? _aiAllowed;
-  bool _deleting = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _safety.hasAiPhotoConsent().then(
-      (allowed) {
-        if (mounted) setState(() => _aiAllowed = allowed);
-      },
-      onError: (Object error) {
-        debugPrint('Unable to read AI consent: $error');
-        if (mounted) setState(() => _aiAllowed = false);
-      },
+  Widget build(BuildContext context) {
+    // Scoped to this section: created and disposed with the widget.
+    return GetBuilder<PrivacySafetyController>(
+      init: PrivacySafetyController(),
+      global: false,
+      builder: (controller) => _PrivacySafetyView(controller: controller),
     );
   }
+}
 
-  Future<void> _setAi(bool allowed) async {
-    final before = _aiAllowed;
-    setState(() => _aiAllowed = allowed);
-    try {
-      await _safety.setAiPhotoConsent(allowed);
-    } on Exception catch (error) {
-      debugPrint('Unable to save AI consent: $error');
-      if (!mounted) return;
-      setState(() => _aiAllowed = before);
-      _say('Could not save. Please try again.');
-    }
-  }
+class _PrivacySafetyView extends StatelessWidget {
+  const _PrivacySafetyView({required this.controller});
 
-  Future<void> _deleteAccount() async {
+  final PrivacySafetyController controller;
+
+  Future<void> _deleteAccount(BuildContext context) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => const _DeleteAccountDialog(),
     );
-    if (confirmed != true || !mounted) return;
-    setState(() => _deleting = true);
-    try {
-      await _safety.deleteAccount();
-      if (!mounted) return;
-      // Signed out: back to the start, where the sign-in screen shows.
-      Navigator.of(context).popUntil((route) => route.isFirst);
-    } on Exception catch (error) {
-      if (!mounted) return;
-      setState(() => _deleting = false);
-      _say(error.toString().replaceFirst('Exception: ', ''));
-    }
+    if (confirmed != true) return;
+    await controller.deleteAccount();
   }
-
-  void _say(String message) => AppToast.say(message);
 
   @override
   Widget build(BuildContext context) {
@@ -84,14 +55,18 @@ class _PrivacySafetySectionState extends State<PrivacySafetySection> {
         Card(
           child: Column(
             children: [
-              SwitchListTile(
-                key: const ValueKey('ai_photo_consent_switch'),
-                secondary: const Icon(Icons.auto_awesome_outlined),
-                title: const Text('Use AI with my photos'),
-                subtitle: const Text(kAiPhotoDisclosure),
-                isThreeLine: true,
-                value: _aiAllowed ?? false,
-                onChanged: _aiAllowed == null ? null : _setAi,
+              Obx(
+                () => SwitchListTile(
+                  key: const ValueKey('ai_photo_consent_switch'),
+                  secondary: const Icon(Icons.auto_awesome_outlined),
+                  title: const Text('Use AI with my photos'),
+                  subtitle: const Text(kAiPhotoDisclosure),
+                  isThreeLine: true,
+                  value: controller.aiAllowed.value ?? false,
+                  onChanged: controller.aiAllowed.value == null
+                      ? null
+                      : controller.setAi,
+                ),
               ),
               const Divider(height: 1),
               ListTile(
@@ -99,11 +74,7 @@ class _PrivacySafetySectionState extends State<PrivacySafetySection> {
                 leading: const Icon(Icons.person_off_outlined),
                 title: const Text('Blocked people'),
                 trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const BlockedPeoplePage(),
-                  ),
-                ),
+                onTap: () => Get.to<void>(() => const BlockedPeoplePage()),
               ),
               const Divider(height: 1),
               ListTile(
@@ -123,21 +94,24 @@ class _PrivacySafetySectionState extends State<PrivacySafetySection> {
           ),
         ),
         const SizedBox(height: 12),
-        OutlinedButton.icon(
-          key: const ValueKey('delete_account_button'),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: colors.error,
-            side: BorderSide(color: colors.error),
-          ),
-          onPressed: _deleting ? null : _deleteAccount,
-          icon: _deleting
-              ? const SizedBox.square(
-                  dimension: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.delete_forever_outlined),
-          label: Text(_deleting ? 'Deleting your account…' : 'Delete account'),
-        ),
+        Obx(() {
+          final deleting = controller.deleting.value;
+          return OutlinedButton.icon(
+            key: const ValueKey('delete_account_button'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: colors.error,
+              side: BorderSide(color: colors.error),
+            ),
+            onPressed: deleting ? null : () => _deleteAccount(context),
+            icon: deleting
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.delete_forever_outlined),
+            label: Text(deleting ? 'Deleting your account…' : 'Delete account'),
+          );
+        }),
         const SizedBox(height: 24),
       ],
     );
@@ -145,58 +119,53 @@ class _PrivacySafetySectionState extends State<PrivacySafetySection> {
 }
 
 /// Typing DELETE makes sure this is meant: it cannot be undone.
-class _DeleteAccountDialog extends StatefulWidget {
+class _DeleteAccountDialog extends StatelessWidget {
   const _DeleteAccountDialog();
 
   @override
-  State<_DeleteAccountDialog> createState() => _DeleteAccountDialogState();
-}
-
-class _DeleteAccountDialogState extends State<_DeleteAccountDialog> {
-  final _confirm = TextEditingController();
-
-  @override
-  void dispose() {
-    _confirm.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final ready = _confirm.text.trim().toUpperCase() == 'DELETE';
-    return AlertDialog(
-      title: const Text('Delete your account?'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text(
-            'This permanently deletes your profile, looks, wardrobe, photos, '
-            'comments, messages and orders history. It cannot be undone.',
+    // Scoped to this dialog: created and disposed with the widget.
+    return GetBuilder<DeleteConfirmController>(
+      init: DeleteConfirmController(),
+      global: false,
+      builder: (confirm) => AlertDialog(
+        title: const Text('Delete your account?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'This permanently deletes your profile, looks, wardrobe, photos, '
+              'comments, messages and orders history. It cannot be undone.',
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              key: const ValueKey('delete_account_confirm_field'),
+              controller: confirm.text,
+              autocorrect: false,
+              decoration: const InputDecoration(labelText: 'Type DELETE'),
+              onChanged: (value) => confirm.typed.value = value,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
           ),
-          const SizedBox(height: 16),
-          TextField(
-            key: const ValueKey('delete_account_confirm_field'),
-            controller: _confirm,
-            autocorrect: false,
-            decoration: const InputDecoration(labelText: 'Type DELETE'),
-            onChanged: (_) => setState(() {}),
+          Obx(
+            () => FilledButton(
+              key: const ValueKey('delete_account_confirm'),
+              style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.error,
+              ),
+              onPressed: confirm.ready
+                  ? () => Navigator.pop(context, true)
+                  : null,
+              child: const Text('Delete forever'),
+            ),
           ),
         ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context, false),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          key: const ValueKey('delete_account_confirm'),
-          style: FilledButton.styleFrom(
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-          onPressed: ready ? () => Navigator.pop(context, true) : null,
-          child: const Text('Delete forever'),
-        ),
-      ],
     );
   }
 }
