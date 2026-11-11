@@ -3,6 +3,9 @@
 // is the same everywhere and easy to test.
 import 'package:banigoba/core/supabase/rows.dart';
 import 'package:flutter/foundation.dart';
+import 'package:freezed_annotation/freezed_annotation.dart';
+
+part 'wear_tracking.freezed.dart';
 
 /// Not worn for this long (or never, once owned this long) is worth a nudge.
 const Duration kNotWornNudgeAfter = Duration(days: 182);
@@ -10,14 +13,16 @@ const Duration kNotWornNudgeAfter = Duration(days: 182);
 /// A new item gets this long before "never worn" counts as a nudge.
 const Duration kNewItemGrace = Duration(days: 30);
 
-@immutable
-class WearStatus {
-  const WearStatus(this.label, {this.isNudge = false});
+@freezed
+abstract class WearStatus with _$WearStatus {
+  const WearStatus._();
 
-  final String label;
+  const factory WearStatus(
+    String label, {
 
-  /// True when it has gone unworn long enough to point out.
-  final bool isNudge;
+    /// True when it has gone unworn long enough to point out.
+    @Default(false) bool isNudge,
+  }) = _WearStatus;
 }
 
 /// The label for something last worn on [lastWorn] (null if never), owned

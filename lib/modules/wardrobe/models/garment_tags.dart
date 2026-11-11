@@ -4,6 +4,9 @@
 // The model only ever picks from the app's own vocabulary below. Anything it
 // invents is dropped, so a stray word can never reach a product or filter.
 import 'package:flutter/foundation.dart';
+import 'package:freezed_annotation/freezed_annotation.dart';
+
+part 'garment_tags.freezed.dart';
 
 /// Category → the subcategories the app offers for it.
 const Map<String, List<String>> kGarmentCategories = {
@@ -60,28 +63,21 @@ const List<String> kGarmentGenders = ['male', 'female', 'unisex'];
 /// How many colours a piece is tagged with at most.
 const int kMaxTaggedColours = 3;
 
-@immutable
-class GarmentTags {
-  const GarmentTags({
-    this.name = '',
-    this.category,
-    this.subcategory,
-    this.styleTag,
-    this.gender,
-    this.colours = const [],
-    this.weatherTags = const [],
-    this.functionalTags = const [],
-  });
+@freezed
+abstract class GarmentTags with _$GarmentTags {
+  const GarmentTags._();
 
-  /// A short name for the piece, e.g. "Navy linen shirt".
-  final String name;
-  final String? category;
-  final String? subcategory;
-  final String? styleTag;
-  final String? gender;
-  final List<String> colours;
-  final List<String> weatherTags;
-  final List<String> functionalTags;
+  const factory GarmentTags({
+    /// A short name for the piece, e.g. "Navy linen shirt".
+    @Default('') String name,
+    String? category,
+    String? subcategory,
+    String? styleTag,
+    String? gender,
+    @Default([]) List<String> colours,
+    @Default([]) List<String> weatherTags,
+    @Default([]) List<String> functionalTags,
+  }) = _GarmentTags;
 
   bool get isEmpty =>
       name.isEmpty &&

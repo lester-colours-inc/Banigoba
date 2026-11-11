@@ -9,6 +9,9 @@ import 'package:flutter/foundation.dart';
 
 import 'package:banigoba/core/supabase/rows.dart';
 import 'package:banigoba/modules/wardrobe/models/wear_tracking.dart';
+import 'package:freezed_annotation/freezed_annotation.dart';
+
+part 'wardrobe_insights.freezed.dart';
 
 /// The kinds of finding, in the order they are shown.
 enum InsightKind {
@@ -24,21 +27,19 @@ enum InsightKind {
   final String title;
 }
 
-@immutable
-class Insight {
-  const Insight({
-    required this.kind,
-    required this.summary,
-    this.pieceIds = const [],
-  });
+@freezed
+abstract class Insight with _$Insight {
+  const Insight._();
 
-  final InsightKind kind;
+  const factory Insight({
+    required InsightKind kind,
 
-  /// One plain sentence, e.g. "4 blue shirts".
-  final String summary;
+    /// One plain sentence, e.g. "4 blue shirts".
+    required String summary,
 
-  /// The pieces it is about, so the screen can show them.
-  final List<String> pieceIds;
+    /// The pieces it is about, so the screen can show them.
+    @Default([]) List<String> pieceIds,
+  }) = _Insight;
 }
 
 /// How many of a category make a reasonable wardrobe; fewer is a gap. Only

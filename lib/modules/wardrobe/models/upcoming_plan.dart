@@ -2,28 +2,37 @@
 import 'package:flutter/material.dart' show DateTimeRange;
 
 import 'package:banigoba/core/supabase/rows.dart';
+import 'package:freezed_annotation/freezed_annotation.dart';
+
+part 'upcoming_plan.freezed.dart';
 
 String shortDate(DateTime value) => '${value.day}/${value.month}/${value.year}';
 
-class EventDraft {
-  const EventDraft({required this.name, required this.range});
+@freezed
+abstract class EventDraft with _$EventDraft {
+  const EventDraft._();
 
-  final String name;
-  final DateTimeRange range;
+  const factory EventDraft({
+    required String name,
+    required DateTimeRange range,
+  }) = _EventDraft;
 }
 
 /// A planned event series or a packing list, as the Plan Ahead hub lists it.
-class UpcomingPlan {
-  const UpcomingPlan({
-    required this.id,
-    required this.name,
-    required this.subtitle,
-    required this.isEvent,
-    required this.createdAt,
-    this.startDate,
-    this.endDate,
-    this.packingItems = const [],
-  });
+@freezed
+abstract class UpcomingPlan with _$UpcomingPlan {
+  const UpcomingPlan._();
+
+  const factory UpcomingPlan({
+    required String id,
+    required String name,
+    required String subtitle,
+    required bool isEvent,
+    required DateTime createdAt,
+    DateTime? startDate,
+    DateTime? endDate,
+    @Default([]) List<Map<String, dynamic>> packingItems,
+  }) = _UpcomingPlan;
 
   factory UpcomingPlan.event(String id, Map<String, dynamic> data) {
     final start = data['startDate'];
@@ -76,15 +85,6 @@ class UpcomingPlan {
       packingItems: packingItems,
     );
   }
-
-  final String id;
-  final String name;
-  final String subtitle;
-  final bool isEvent;
-  final DateTime createdAt;
-  final DateTime? startDate;
-  final DateTime? endDate;
-  final List<Map<String, dynamic>> packingItems;
 
   static DateTime _stamp(dynamic value) => asDateTime(value) ?? DateTime(1970);
 }

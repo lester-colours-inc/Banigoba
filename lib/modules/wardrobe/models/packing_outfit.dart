@@ -1,9 +1,14 @@
 // A saved outfit as the trip packer sees it: a name, a picture, garment names.
-class PackingOutfit {
-  const PackingOutfit(this.id, this.data);
+import 'package:freezed_annotation/freezed_annotation.dart';
 
-  final String id;
-  final Map<String, dynamic> data;
+part 'packing_outfit.freezed.dart';
+
+@freezed
+abstract class PackingOutfit with _$PackingOutfit {
+  const PackingOutfit._();
+
+  const factory PackingOutfit(String id, Map<String, dynamic> data) =
+      _PackingOutfit;
 
   String get name => (data['name'] ?? 'Saved Outfit').toString();
   String get imageUrl =>

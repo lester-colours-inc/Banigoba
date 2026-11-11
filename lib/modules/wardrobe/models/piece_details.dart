@@ -2,24 +2,23 @@
 // its picture and size: measurements, fabric, origin, and any other useful
 // detail (September 2026 request).
 import 'package:flutter/foundation.dart';
+import 'package:freezed_annotation/freezed_annotation.dart';
 
-@immutable
-class PieceDetails {
-  const PieceDetails({
-    this.shoulderMeasurement = '',
-    this.heightMeasurement = '',
-    this.linenType = '',
-    this.madeWhere = '',
-    this.otherDetails = const [],
-  });
+part 'piece_details.freezed.dart';
 
-  final String shoulderMeasurement;
-  final String heightMeasurement;
-  final String linenType;
-  final String madeWhere;
+@freezed
+abstract class PieceDetails with _$PieceDetails {
+  const PieceDetails._();
 
-  /// Free-form details added one at a time with "Add Detail".
-  final List<String> otherDetails;
+  const factory PieceDetails({
+    @Default('') String shoulderMeasurement,
+    @Default('') String heightMeasurement,
+    @Default('') String linenType,
+    @Default('') String madeWhere,
+
+    /// Free-form details added one at a time with "Add Detail".
+    @Default([]) List<String> otherDetails,
+  }) = _PieceDetails;
 
   bool get isEmpty =>
       shoulderMeasurement.isEmpty &&

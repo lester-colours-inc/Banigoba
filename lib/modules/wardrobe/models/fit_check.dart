@@ -9,6 +9,9 @@
 import 'package:flutter/foundation.dart';
 
 import 'package:banigoba/modules/profile_details/models/body_profile.dart';
+import 'package:freezed_annotation/freezed_annotation.dart';
+
+part 'fit_check.freezed.dart';
 
 /// The body parts a shop can give a garment measurement for.
 const List<BodyMeasurement> kChartParts = [
@@ -93,11 +96,12 @@ double? _asCm(Object? value) {
 String _sizeKey(String size) => size.trim().toUpperCase();
 
 /// A shop's per-size garment measurements.
-@immutable
-class SizeChart {
-  const SizeChart(this.sizes);
+@freezed
+abstract class SizeChart with _$SizeChart {
+  const SizeChart._();
 
-  final Map<String, Map<BodyMeasurement, double>> sizes;
+  const factory SizeChart(Map<String, Map<BodyMeasurement, double>> sizes) =
+      _SizeChart;
 
   static const SizeChart empty = SizeChart({});
 
@@ -140,19 +144,16 @@ class SizeChart {
 }
 
 /// One compared body part.
-@immutable
-class FitPart {
-  const FitPart({
-    required this.part,
-    required this.garmentCm,
-    required this.bodyCm,
-    required this.verdict,
-  });
+@freezed
+abstract class FitPart with _$FitPart {
+  const FitPart._();
 
-  final BodyMeasurement part;
-  final double garmentCm;
-  final double bodyCm;
-  final FitVerdict verdict;
+  const factory FitPart({
+    required BodyMeasurement part,
+    required double garmentCm,
+    required double bodyCm,
+    required FitVerdict verdict,
+  }) = _FitPart;
 
   /// "tight around the waist".
   String get phrase => '${_adjective(verdict)} ${placeOf(part)}';
@@ -162,20 +163,18 @@ class FitPart {
       '${part.label}: garment ${formatNumber(garmentCm)} cm, you ${formatNumber(bodyCm)} cm';
 }
 
-@immutable
-class FitCheck {
-  const FitCheck({
-    required this.size,
-    required this.parts,
-    this.recommendedSize,
-  });
+@freezed
+abstract class FitCheck with _$FitCheck {
+  const FitCheck._();
 
-  /// The size compared, or '' when the chart covers every size.
-  final String size;
-  final List<FitPart> parts;
+  const factory FitCheck({
+    /// The size compared, or '' when the chart covers every size.
+    required String size,
+    required List<FitPart> parts,
 
-  /// The size that fits best across the chart, or null when unknown.
-  final String? recommendedSize;
+    /// The size that fits best across the chart, or null when unknown.
+    String? recommendedSize,
+  }) = _FitCheck;
 
   static const FitCheck none = FitCheck(size: '', parts: []);
 
