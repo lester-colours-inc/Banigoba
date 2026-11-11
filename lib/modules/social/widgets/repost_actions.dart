@@ -2,7 +2,9 @@
 // repost passes someone's look on to your own audience unchanged; a quote
 // adds your own words above it. Either way the original author is told.
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
+import 'package:banigoba/modules/social/controllers/quote_controller.dart';
 import 'package:banigoba/modules/social/models/post.dart';
 import 'package:banigoba/modules/social/services/post_service.dart';
 import 'package:banigoba/modules/social/widgets/share_audience_sheet.dart';
@@ -100,52 +102,46 @@ Future<void> _send(
   }
 }
 
-class _QuoteDialog extends StatefulWidget {
+class _QuoteDialog extends StatelessWidget {
   const _QuoteDialog();
 
   @override
-  State<_QuoteDialog> createState() => _QuoteDialogState();
-}
-
-class _QuoteDialogState extends State<_QuoteDialog> {
-  final TextEditingController _controller = TextEditingController();
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Quote this look'),
-      content: TextField(
-        key: const ValueKey('quote_field'),
-        controller: _controller,
-        autofocus: true,
-        minLines: 2,
-        maxLines: 4,
-        maxLength: _maxQuoteLength,
-        textCapitalization: TextCapitalization.sentences,
-        decoration: const InputDecoration(
-          hintText: 'Add your thoughts',
-          border: OutlineInputBorder(),
+    // Scoped to this dialog: created and disposed with the widget.
+    return GetBuilder<QuoteController>(
+      init: QuoteController(),
+      global: false,
+      builder: (controller) => AlertDialog(
+        title: const Text('Quote this look'),
+        content: TextField(
+          key: const ValueKey('quote_field'),
+          controller: controller.text,
+          autofocus: true,
+          minLines: 2,
+          maxLines: 4,
+          maxLength: _maxQuoteLength,
+          textCapitalization: TextCapitalization.sentences,
+          decoration: const InputDecoration(
+            hintText: 'Add your thoughts',
+            border: OutlineInputBorder(),
+          ),
+          onChanged: (value) => controller.typed.value = value,
         ),
-        onChanged: (_) => setState(() {}),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          Obx(
+            () => FilledButton(
+              onPressed: controller.canContinue
+                  ? () => Navigator.pop(context, controller.text.text)
+                  : null,
+              child: const Text('Next'),
+            ),
+          ),
+        ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: _controller.text.trim().isEmpty
-              ? null
-              : () => Navigator.pop(context, _controller.text),
-          child: const Text('Next'),
-        ),
-      ],
     );
   }
 }

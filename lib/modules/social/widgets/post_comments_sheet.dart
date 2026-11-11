@@ -1,39 +1,14 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
 import 'package:banigoba/core/supabase/app_auth.dart';
 import 'package:banigoba/modules/social/models/post.dart';
-import 'package:banigoba/core/utils/text_moderation.dart';
-import 'package:banigoba/modules/social/services/profile_service.dart';
-import 'package:banigoba/modules/social/services/post_service.dart';
+import 'package:banigoba/modules/social/controllers/post_comments_controller.dart';
 import 'package:banigoba/modules/social/widgets/quick_reply_bar.dart';
-import 'package:banigoba/shared/widgets/app_toast.dart';
 
-/// Posts [text] as the signed-in user's comment on [post].
-///
-/// Shared by the comments sheet and the quick-reply strip on feed cards so
-/// both write identical comment documents. Throws if nobody is signed in.
-Future<void> sendPostComment(
-  Post post,
-  String text, {
-  PostService? postService,
-}) async {
-  final user = AppAuth.instance.currentUser;
-  if (user == null) throw StateError('Sign in to reply.');
-
-  final userData = await ProfileService().get(user.uid);
-  final username = (userData['displayName'] ?? user.displayName ?? 'User')
-      .toString();
-  final profileImageUrl = (userData['profileImageUrl'] ?? user.photoURL ?? '')
-      .toString();
-
-  await (postService ?? PostService()).addComment(
-    postId: post.id,
-    text: text,
-    username: username,
-    profileImageURL: profileImageUrl,
-  );
-}
+export 'package:banigoba/modules/social/controllers/post_comments_controller.dart'
+    show sendPostComment;
 
 Future<void> showPostCommentsSheet(BuildContext context, Post post) {
   return showModalBottomSheet<void>(
@@ -48,45 +23,28 @@ Future<void> showPostCommentsSheet(BuildContext context, Post post) {
   );
 }
 
-class _PostCommentsSheet extends StatefulWidget {
+class _PostCommentsSheet extends StatelessWidget {
   const _PostCommentsSheet({required this.post});
 
   final Post post;
 
   @override
-  State<_PostCommentsSheet> createState() => _PostCommentsSheetState();
+  Widget build(BuildContext context) {
+    // Scoped to this sheet: created and disposed with the widget.
+    return GetBuilder<PostCommentsController>(
+      init: PostCommentsController(post: post),
+      global: false,
+      builder: (controller) => _CommentsView(controller: controller),
+    );
+  }
 }
 
-class _PostCommentsSheetState extends State<_PostCommentsSheet> {
-  final _postService = PostService();
-  bool _isSending = false;
+class _CommentsView extends StatelessWidget {
+  const _CommentsView({required this.controller});
 
-  Future<void> _sendComment(String preset) async {
-    final text = preset.trim();
-    if (text.isEmpty || _isSending) return;
+  final PostCommentsController controller;
 
-    setState(() => _isSending = true);
-    try {
-      await sendPostComment(widget.post, text, postService: _postService);
-    } on ModerationException catch (error) {
-      if (!mounted) return;
-      AppToast.say(error.message);
-    } catch (error) {
-      if (!mounted) return;
-      AppToast.say('Unable to add comment: $error');
-    } finally {
-      if (mounted) setState(() => _isSending = false);
-    }
-  }
-
-  Future<void> _act(Future<void> Function() action, String done) async {
-    try {
-      await action();
-      AppToast.say(done);
-    } on Exception catch (error) {
-      AppToast.say('That did not work: $error');
-    }
-  }
+  Post get post => controller.post;
 
   @override
   Widget build(BuildContext context) {
@@ -119,7 +77,7 @@ class _PostCommentsSheetState extends State<_PostCommentsSheet> {
           const Divider(height: 1),
           Expanded(
             child: StreamBuilder<List<PostComment>>(
-              stream: _postService.getComments(widget.post.id),
+              stream: controller.service.getComments(post.id),
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
                   return const Center(
@@ -188,19 +146,11 @@ class _PostCommentsSheetState extends State<_PostCommentsSheet> {
                                         ),
                                         canRemove:
                                             comment.authorId == user.uid ||
-                                            widget.post.authorId == user.uid,
-                                        onRemove: () => _act(
-                                          () => _postService.deleteComment(
-                                            comment.id,
-                                          ),
-                                          'Comment removed.',
-                                        ),
-                                        onReport: () => _act(
-                                          () => _postService.reportComment(
-                                            comment.id,
-                                          ),
-                                          'Thanks for telling us. We will take a look.',
-                                        ),
+                                            post.authorId == user.uid,
+                                        onRemove: () => controller
+                                            .removeComment(comment.id),
+                                        onReport: () => controller
+                                            .reportComment(comment.id),
                                       ),
                                   ],
                                 ),
@@ -233,10 +183,12 @@ class _PostCommentsSheetState extends State<_PostCommentsSheet> {
                         ),
                       ),
                       const SizedBox(height: 10),
-                      QuickReplyBar(
-                        wrap: true,
-                        isSending: _isSending,
-                        onSelected: _sendComment,
+                      Obx(
+                        () => QuickReplyBar(
+                          wrap: true,
+                          isSending: controller.sending.value,
+                          onSelected: controller.sendComment,
+                        ),
                       ),
                     ],
                   ),
@@ -285,34 +237,24 @@ class _CommentAvatar extends StatelessWidget {
 }
 
 /// Quick-reply strip for a feed card: one tap posts a preset comment.
-class PostQuickReplies extends StatefulWidget {
+class PostQuickReplies extends StatelessWidget {
   const PostQuickReplies({super.key, required this.post});
 
   final Post post;
 
   @override
-  State<PostQuickReplies> createState() => _PostQuickRepliesState();
-}
-
-class _PostQuickRepliesState extends State<PostQuickReplies> {
-  bool _isSending = false;
-
-  Future<void> _reply(String text) async {
-    if (_isSending) return;
-    setState(() => _isSending = true);
-    try {
-      await sendPostComment(widget.post, text);
-      AppToast.say('Replied "$text"');
-    } catch (error) {
-      AppToast.say('Unable to send reply: $error');
-    } finally {
-      if (mounted) setState(() => _isSending = false);
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return QuickReplyBar(isSending: _isSending, onSelected: _reply);
+    // Scoped to this strip: created and disposed with the widget.
+    return GetBuilder<PostQuickRepliesController>(
+      init: PostQuickRepliesController(post: post),
+      global: false,
+      builder: (controller) => Obx(
+        () => QuickReplyBar(
+          isSending: controller.sending.value,
+          onSelected: controller.reply,
+        ),
+      ),
+    );
   }
 }
 
