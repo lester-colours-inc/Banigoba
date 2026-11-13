@@ -7,6 +7,7 @@ import 'package:get/get.dart';
 
 import 'package:banigoba/app/routes/app_routes.dart';
 import 'package:banigoba/core/utils/garment_taxonomy.dart';
+import 'package:banigoba/modules/shop/models/shop_filters.dart';
 import 'package:banigoba/modules/shop/services/product_service.dart';
 import 'package:banigoba/modules/shop/views/product_detail_page.dart';
 import 'package:banigoba/modules/shop/views/shops_page.dart';
@@ -46,6 +47,9 @@ class ShopsController extends GetxController {
   late final RxInt tab = initialTab.clamp(0, 1).obs;
   late final RxString query = initialQuery.trim().toLowerCase().obs;
 
+  final Rx<ShopFilters> filters = const ShopFilters().obs;
+  final Rx<BoutiqueSort> boutiqueSort = BoutiqueSort.mostProducts.obs;
+
   final RxList<Map<String, dynamic>> allProducts = <Map<String, dynamic>>[].obs;
   final RxBool loaded = false.obs;
   final RxBool failed = false.obs;
@@ -81,6 +85,35 @@ class ShopsController extends GetxController {
   List<Map<String, dynamic>> get matching => allProducts
       .where((product) => productMatchesQuery(product, query.value))
       .toList();
+
+  /// Products that match the search and the active filters, sorted.
+  List<Map<String, dynamic>> get filtered =>
+      applyShopFilters(matching, filters.value);
+
+  /// Chip values present in the whole catalogue (not narrowed by search, so
+  /// options don't vanish while typing).
+  ShopFilterOptions get filterOptions => ShopFilterOptions.from(allProducts);
+
+  void setFilters(ShopFilters value) => filters.value = value;
+
+  void toggleCategory(String category) => filters.value = filters.value
+      .copyWith(categories: toggled(filters.value.categories, category));
+
+  void clearCategories() =>
+      filters.value = filters.value.copyWith(categories: const {});
+
+  void setSort(ShopSort sort) =>
+      filters.value = filters.value.copyWith(sort: sort);
+
+  void clearFilters() => filters.value = filters.value.cleared();
+
+  void clearAll() {
+    clearFilters();
+    search.clear();
+    query.value = '';
+  }
+
+  void setBoutiqueSort(BoutiqueSort sort) => boutiqueSort.value = sort;
 
   static String sellerOf(Map<String, dynamic> product) =>
       (product['uploaderId'] ?? '').toString();

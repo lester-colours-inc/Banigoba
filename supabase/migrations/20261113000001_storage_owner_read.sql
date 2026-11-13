@@ -10,6 +10,7 @@ do $$
 declare b text;
 begin
   foreach b in array array['product-images', 'events', 'user-images', 'ai-makeovers'] loop
+    execute format('drop policy if exists %I on storage.objects', b || '_select_own');
     execute format($f$create policy %I on storage.objects for select to authenticated
       using (bucket_id = %L and (storage.foldername(name))[1] = auth.uid()::text)$f$,
       b || '_select_own', b);
