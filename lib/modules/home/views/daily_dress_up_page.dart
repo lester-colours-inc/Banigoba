@@ -114,38 +114,50 @@ class _HomeView extends StatelessWidget {
           children: [
             for (final feed in HomeFeed.values)
               KeepAlivePage(
-                child: SingleChildScrollView(
-                  key: PageStorageKey(feed),
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (feed == HomeFeed.community) ...[
-                        const CommunityEventsStrip(),
-                        const ShopDropsStrip(),
-                        const FashionNewsSection(),
-                        Padding(
-                          padding: const EdgeInsets.only(top: 12, bottom: 12),
-                          child: Obx(
-                            () => NearMeBar(
-                              city: controller.viewerCity.value,
-                              nearMe:
-                                  controller.nearMe.value &&
-                                  controller.hasPlace,
-                              onChanged: (value) =>
-                                  controller.nearMe.value = value,
-                              onSetCity: controller.addCity,
-                              hasLocation: controller.viewerCell.value != null,
-                              onUseLocation: controller.useLocation,
+                child: NotificationListener<ScrollNotification>(
+                  // Near the end of a posts feed: ask for the next page.
+                  onNotification: (notification) {
+                    if (feed != HomeFeed.dailyDressUp &&
+                        notification.metrics.axis == Axis.vertical &&
+                        notification.metrics.extentAfter < kLoadMoreExtent) {
+                      controller.loadMorePosts();
+                    }
+                    return false;
+                  },
+                  child: SingleChildScrollView(
+                    key: PageStorageKey(feed),
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (feed == HomeFeed.community) ...[
+                          const CommunityEventsStrip(),
+                          const ShopDropsStrip(),
+                          const FashionNewsSection(),
+                          Padding(
+                            padding: const EdgeInsets.only(top: 12, bottom: 12),
+                            child: Obx(
+                              () => NearMeBar(
+                                city: controller.viewerCity.value,
+                                nearMe:
+                                    controller.nearMe.value &&
+                                    controller.hasPlace,
+                                onChanged: (value) =>
+                                    controller.nearMe.value = value,
+                                onSetCity: controller.addCity,
+                                hasLocation:
+                                    controller.viewerCell.value != null,
+                                onUseLocation: controller.useLocation,
+                              ),
                             ),
                           ),
-                        ),
+                        ],
+                        HomePostsFeed(controller: controller, feed: feed),
+                        // Clears the floating Makeover button so it never covers
+                        // the last post's actions.
+                        const SizedBox(height: 96),
                       ],
-                      HomePostsFeed(controller: controller, feed: feed),
-                      // Clears the floating Makeover button so it never covers
-                      // the last post's actions.
-                      const SizedBox(height: 96),
-                    ],
+                    ),
                   ),
                 ),
               ),

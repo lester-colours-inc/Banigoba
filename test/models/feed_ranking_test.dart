@@ -34,6 +34,75 @@ void main() {
     });
   });
 
+  group('rankInPages', () {
+    // Ranks a page the way the feed does: people I follow first.
+    List<Post> rankPage(Iterable<Post> page) => rankPosts(
+      page,
+      viewerId: 'me',
+      following: {'rudo'},
+      cityOf: const {},
+      viewerCity: '',
+      now: _now,
+    );
+
+    test('adds a later page below the first, never above it', () {
+      final posts = [
+        _post('new-1', 'zed', age: const Duration(hours: 1)),
+        _post('new-2', 'zed', age: const Duration(hours: 2)),
+        // On the second page: followed, so it gets a 7-day boost, which
+        // would put it first if everything were ranked together.
+        _post('old-followed', 'rudo', age: const Duration(days: 3)),
+        _post('old-stranger', 'zed', age: const Duration(days: 4)),
+      ];
+
+      final together = rankPosts(
+        posts,
+        viewerId: 'me',
+        following: {'rudo'},
+        cityOf: const {},
+        viewerCity: '',
+        now: _now,
+      );
+      final paged = rankInPages(posts, pageSize: 2, rankPage: rankPage);
+
+      expect(_ids(together).first, 'old-followed');
+      expect(_ids(paged), ['new-1', 'new-2', 'old-followed', 'old-stranger']);
+    });
+
+    test('ranks inside a page', () {
+      final paged = rankInPages(
+        [
+          _post('stranger', 'zed', age: const Duration(hours: 1)),
+          _post('followed', 'rudo', age: const Duration(days: 1)),
+        ],
+        pageSize: 30,
+        rankPage: rankPage,
+      );
+
+      expect(_ids(paged), ['followed', 'stranger']);
+    });
+
+    test('keeps the first page when more posts arrive on later pages', () {
+      final first = [
+        for (var i = 0; i < 3; i++)
+          _post('p$i', 'zed', age: Duration(hours: i + 1)),
+      ];
+      final more = [
+        ...first,
+        _post('later', 'rudo', age: const Duration(days: 2)),
+      ];
+
+      final before = rankInPages(first, pageSize: 3, rankPage: rankPage);
+      final after = rankInPages(more, pageSize: 3, rankPage: rankPage);
+
+      expect(_ids(after).take(3), _ids(before));
+    });
+
+    test('is empty for no posts', () {
+      expect(rankInPages(const [], pageSize: 3, rankPage: rankPage), isEmpty);
+    });
+  });
+
   group('rankPosts', () {
     test('puts people I follow first, even over a newer stranger', () {
       final ranked = rankPosts(

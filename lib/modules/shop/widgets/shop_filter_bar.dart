@@ -21,6 +21,8 @@ class ShopFilterBar extends StatelessWidget {
       initial: controller.filters.value,
       options: controller.filterOptions,
       products: controller.matching,
+      // All Products is not on the phone, so the database counts for it.
+      countFor: controller.tab.value == 1 ? controller.countFor : null,
     );
     if (result != null) controller.setFilters(result);
   }

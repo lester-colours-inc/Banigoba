@@ -10,6 +10,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:banigoba/core/offline/local_cache.dart';
 import 'package:banigoba/core/supabase/supabase_config.dart';
 
 /// Facebook sign-in is hidden on the sign-in and sign-up screens for now;
@@ -180,7 +181,12 @@ class AuthService {
     } on Exception catch (error) {
       debugPrint('Google sign-out skipped: $error');
     }
-    await _client.auth.signOut();
+    try {
+      await _client.auth.signOut();
+    } finally {
+      // The next person on this phone never sees this one's saved feed.
+      await LocalCache.clear();
+    }
   }
 
   static const String _mobileRedirect =

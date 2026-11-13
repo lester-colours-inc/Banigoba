@@ -1,5 +1,10 @@
 // The customer marketplace: search, the Boutiques / All Products tabs, and
 // the seller profiles used to show only admin-verified boutiques.
+//
+// All Products is paged on the server: the database searches, filters and sorts
+// (shop_products) and the grid asks for the next page as it nears the end.
+// Boutiques group every product by seller, so that tab still streams the whole
+// catalogue, and only while it is showing.
 import 'dart:async';
 
 import 'package:flutter/widgets.dart';
@@ -67,18 +72,160 @@ class ShopsController extends GetxController {
 
   StreamSubscription<List<Map<String, dynamic>>>? _sub;
 
+  // ── All Products: one page at a time from the database ──────────────────
+
+  final RxList<Map<String, dynamic>> pageProducts =
+      <Map<String, dynamic>>[].obs;
+
+  /// How many products match the search and filters in all.
+  final RxInt pageTotal = 0.obs;
+
+  /// True once the first page of the current search has arrived.
+  final RxBool pageLoaded = false.obs;
+
+  /// A first page is on its way (the old one stays on screen until then).
+  final RxBool pageLoading = false.obs;
+  final RxBool pageLoadingMore = false.obs;
+  final RxBool pageHasMore = false.obs;
+  final RxBool pageFailed = false.obs;
+  final RxBool pageMoreFailed = false.obs;
+
+  /// The chip values on offer, from the database. Until they arrive the
+  /// loaded catalogue (if any) supplies them.
+  final Rxn<ShopFilterOptions> facets = Rxn<ShopFilterOptions>();
+
+  /// Bumped whenever the search or filters change, so an answer to an older
+  /// question is dropped instead of replacing the newer one.
+  int _pageRun = 0;
+  bool _pageStarted = false;
+
   @override
   void onInit() {
     super.onInit();
+    if (tab.value == 0) _startCatalogue();
+    ever(tab, (_) => _showTab());
+    ever(query, (_) => _loadMissingSellers());
+    debounce(
+      query,
+      (_) => _reloadPageIfStarted(),
+      time: const Duration(milliseconds: 300),
+    );
+    ever(filters, (_) => _reloadPageIfStarted());
+    ever(viewerGender, (_) => _reloadPageIfStarted());
+    _loadFacets();
+    // "For you" needs the viewer's gender, so the first page waits for it.
+    _loadViewerGender().whenComplete(() {
+      if (!isClosed && tab.value == 1 && !_pageStarted) reloadPage();
+    });
+  }
+
+  /// The Boutiques tab groups every product by seller, so it needs them all.
+  void _startCatalogue() {
+    if (_sub != null) return;
     _sub = _productService.getProducts().listen((rows) {
       failed.value = false;
       allProducts.assignAll(rows);
       loaded.value = true;
       _loadMissingSellers();
     }, onError: (Object _) => failed.value = true);
-    ever(query, (_) => _loadMissingSellers());
-    _loadViewerGender();
   }
+
+  void _showTab() {
+    if (tab.value == 0) {
+      _startCatalogue();
+    } else if (!_pageStarted) {
+      reloadPage();
+    }
+  }
+
+  void _reloadPageIfStarted() {
+    if (_pageStarted) reloadPage();
+  }
+
+  Future<void> _loadFacets() async {
+    try {
+      final options = await _productService.shopFilterOptions();
+      if (!isClosed) facets.value = options;
+    } on Object catch (error) {
+      debugPrint('Unable to load shop filter options: $error');
+    }
+  }
+
+  /// Starts the All Products list again from the first page for the current
+  /// search and filters (also what pull-to-refresh does).
+  Future<void> reloadPage() async {
+    _pageStarted = true;
+    final run = ++_pageRun;
+    pageFailed.value = false;
+    pageMoreFailed.value = false;
+    pageLoadingMore.value = false;
+    pageLoading.value = true;
+    try {
+      final page = await _productService.shopProductsPage(
+        query: query.value,
+        filters: filters.value,
+        viewerGender: viewerGender.value,
+        offset: 0,
+      );
+      if (isClosed || run != _pageRun) return;
+      pageProducts.assignAll(page.products);
+      pageTotal.value = page.total;
+      pageHasMore.value = page.products.length < page.total;
+      pageLoaded.value = true;
+    } on Object catch (error) {
+      debugPrint('Unable to load products: $error');
+      if (!isClosed && run == _pageRun) pageFailed.value = true;
+    } finally {
+      if (!isClosed && run == _pageRun) pageLoading.value = false;
+    }
+  }
+
+  /// Adds the next page below what is on screen. Safe to call on every
+  /// scroll: it does nothing while a page is loading or when there is no more.
+  Future<void> loadMorePage() async {
+    if (!pageHasMore.value ||
+        pageLoading.value ||
+        pageLoadingMore.value ||
+        pageMoreFailed.value) {
+      return;
+    }
+    final run = _pageRun;
+    pageLoadingMore.value = true;
+    try {
+      final page = await _productService.shopProductsPage(
+        query: query.value,
+        filters: filters.value,
+        viewerGender: viewerGender.value,
+        offset: pageProducts.length,
+      );
+      if (isClosed || run != _pageRun) return;
+      // A product added meanwhile can push one into the next page twice.
+      final known = {for (final p in pageProducts) p['id']};
+      pageProducts.addAll([
+        for (final p in page.products)
+          if (!known.contains(p['id'])) p,
+      ]);
+      pageTotal.value = page.total;
+      pageHasMore.value =
+          page.products.isNotEmpty && pageProducts.length < page.total;
+    } on Object catch (error) {
+      debugPrint('Unable to load more products: $error');
+      if (!isClosed && run == _pageRun) pageMoreFailed.value = true;
+    } finally {
+      if (!isClosed && run == _pageRun) pageLoadingMore.value = false;
+    }
+  }
+
+  /// Tries the page that failed again.
+  void retryMore() {
+    pageMoreFailed.value = false;
+    loadMorePage();
+  }
+
+  /// How many products would match [candidate] with the current search, for
+  /// the filter sheet's "Show N results".
+  Future<int> countFor(ShopFilters candidate) =>
+      _productService.shopProductCount(query: query.value, filters: candidate);
 
   Future<void> _loadViewerGender() async {
     final user = AppAuth.instance.currentUser;
@@ -110,9 +257,10 @@ class ShopsController extends GetxController {
     viewerGender: viewerGender.value,
   );
 
-  /// Chip values present in the whole catalogue (not narrowed by search, so
+  /// Chip values present in the whole marketplace (not narrowed by search, so
   /// options don't vanish while typing).
-  ShopFilterOptions get filterOptions => ShopFilterOptions.from(allProducts);
+  ShopFilterOptions get filterOptions =>
+      facets.value ?? ShopFilterOptions.from(allProducts);
 
   void setFilters(ShopFilters value) => filters.value = value;
 

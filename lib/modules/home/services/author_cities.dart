@@ -4,6 +4,7 @@
 // asked for again.
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:banigoba/core/offline/local_cache.dart';
 import 'package:banigoba/core/supabase/supabase_config.dart';
 
 import 'package:banigoba/modules/home/models/geo_cell.dart';
@@ -46,6 +47,10 @@ class AuthorCities {
         }
       } on PostgrestException {
         // Leave them as unknown; the feed still works, just without "near".
+      } on Exception catch (error) {
+        if (!isNetworkError(error)) rethrow;
+        // Offline: forget them so the next live result asks again.
+        batch.forEach(_cities.remove);
       }
     }
     return true;

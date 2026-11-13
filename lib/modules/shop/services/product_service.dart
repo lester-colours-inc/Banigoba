@@ -13,6 +13,8 @@ import 'package:http/http.dart' as http;
 
 import 'package:banigoba/core/supabase/app_auth.dart';
 import 'package:banigoba/core/supabase/supabase_config.dart';
+import 'package:banigoba/modules/shop/models/shop_filters.dart';
+import 'package:banigoba/modules/shop/models/shop_page_query.dart';
 import 'package:banigoba/modules/wardrobe/models/piece_details.dart';
 import 'package:banigoba/core/supabase/rows.dart';
 import 'package:banigoba/core/supabase/storage_files.dart';
@@ -211,6 +213,54 @@ class ProductService {
         .stream(primaryKey: ['id'])
         .map((rows) => [for (final row in rows) productMap(row)]);
   }
+
+  /// One page of the marketplace: products of verified shops that match the
+  /// search and [filters], sorted as [ShopFilters.sort] says, [limit] from
+  /// [offset]. The database does the work (`shop_products`), so the app never
+  /// downloads the whole catalogue. [total] is how many match in all.
+  Future<ShopProductsPage> shopProductsPage({
+    required String query,
+    required ShopFilters filters,
+    required String? viewerGender,
+    required int offset,
+    int limit = kShopPageSize,
+  }) async {
+    final rows = await supabase.rpc<List<dynamic>>(
+      'shop_products',
+      params: shopPageParams(
+        query: query,
+        filters: filters,
+        viewerGender: viewerGender,
+        offset: offset,
+        limit: limit,
+      ),
+    );
+    var total = 0;
+    final products = <Map<String, dynamic>>[];
+    for (final entry in rows) {
+      final row = Map<String, dynamic>.from(entry as Map);
+      total = (row.remove('_total') as num?)?.toInt() ?? total;
+      products.add(productMap(row));
+    }
+    return (products: products, total: total);
+  }
+
+  /// How many products match the search and [filters] (`shop_products_count`).
+  Future<int> shopProductCount({
+    required String query,
+    required ShopFilters filters,
+  }) async => await supabase.rpc<int>(
+    'shop_products_count',
+    params: shopQueryParams(query: query, filters: filters),
+  );
+
+  /// The filter chips on offer across the whole marketplace (`shop_facets`).
+  Future<ShopFilterOptions> shopFilterOptions() async =>
+      ShopFilterOptions.fromFacets(
+        Map<String, dynamic>.from(
+          await supabase.rpc<Map<dynamic, dynamic>>('shop_facets'),
+        ),
+      );
 
   Future<List<Map<String, dynamic>>> getCatalogProducts() async {
     final rows = await supabase.from('products').select();

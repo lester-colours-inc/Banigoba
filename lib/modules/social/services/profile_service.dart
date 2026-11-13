@@ -1,5 +1,10 @@
 // Reads and updates profiles: the public side of a user (name, @username,
 // photo, city, provider settings). Email and address live in a private table.
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
+
+import 'package:banigoba/core/offline/local_cache.dart';
 import 'package:banigoba/core/supabase/supabase_config.dart';
 import 'package:banigoba/core/supabase/rows.dart';
 
@@ -30,23 +35,73 @@ Map<String, dynamic> profileMap(Map<String, dynamic> row) {
 class ProfileService {
   static const String _table = 'profiles';
 
+  static String _cacheKey(String userId) => 'profile.$userId';
+
   /// One profile as a camelCase map, or an empty map if there is none.
+  /// Offline, the last copy saved on this device is returned instead.
   Future<Map<String, dynamic>> get(String userId) async {
-    final row = await supabase
-        .from(_table)
-        .select()
-        .eq('id', userId)
-        .maybeSingle();
-    return row == null ? const {} : profileMap(row);
+    try {
+      final row = await supabase
+          .from(_table)
+          .select()
+          .eq('id', userId)
+          .maybeSingle()
+          .timeout(kOfflineTimeout);
+      if (row == null) return const {};
+      unawaited(LocalCache.write(_cacheKey(userId), row));
+      return profileMap(row);
+    } on Exception catch (error) {
+      if (!isNetworkError(error)) rethrow;
+      final cached = await LocalCache.readMap(_cacheKey(userId));
+      if (cached == null) rethrow;
+      return profileMap(cached);
+    }
   }
 
-  /// The profile now and every time it changes.
+  /// The profile now and every time it changes. The copy saved on this device
+  /// comes first, so the app opens without a connection; connection errors
+  /// are then ignored while that copy is on screen.
   Stream<Map<String, dynamic>> watch(String userId) {
-    return supabase
-        .from(_table)
-        .stream(primaryKey: ['id'])
-        .eq('id', userId)
-        .map((rows) => rows.isEmpty ? const {} : profileMap(rows.first));
+    StreamSubscription<List<Map<String, dynamic>>>? live;
+    var hasValue = false;
+    late final StreamController<Map<String, dynamic>> out;
+    out = StreamController<Map<String, dynamic>>(
+      onListen: () async {
+        live = supabase
+            .from(_table)
+            .stream(primaryKey: ['id'])
+            .eq('id', userId)
+            .listen(
+              (rows) {
+                hasValue = true;
+                if (rows.isNotEmpty) {
+                  unawaited(LocalCache.write(_cacheKey(userId), rows.first));
+                }
+                if (!out.isClosed) {
+                  out.add(rows.isEmpty ? const {} : profileMap(rows.first));
+                }
+              },
+              onError: (Object error, StackTrace stack) {
+                if (out.isClosed) return;
+                if (hasValue) {
+                  debugPrint('Profile updates paused: $error');
+                  return;
+                }
+                out.addError(error, stack);
+              },
+            );
+        final cached = await LocalCache.readMap(_cacheKey(userId));
+        if (cached != null && !hasValue && !out.isClosed) {
+          hasValue = true;
+          out.add(profileMap(cached));
+        }
+      },
+      onCancel: () async {
+        await live?.cancel();
+        await out.close();
+      },
+    );
+    return out.stream;
   }
 
   /// Saves [changes] (camelCase field names) onto the user's own profile.

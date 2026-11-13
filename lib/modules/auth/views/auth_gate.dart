@@ -21,6 +21,7 @@ import 'package:banigoba/modules/provider/models/provider_roles.dart';
 import 'package:banigoba/modules/provider/views/provider_home_page.dart';
 import 'package:banigoba/modules/social/services/profile_service.dart';
 import 'package:banigoba/shared/widgets/brand_splash.dart';
+import 'package:banigoba/shared/widgets/offline_retry_screen.dart';
 
 class AuthGate extends GetView<AuthGateController> {
   const AuthGate({super.key});
@@ -66,9 +67,23 @@ class AuthGate extends GetView<AuthGateController> {
   }
 
   Widget _profileStream(AppUser user) {
+    // Re-subscribes (a new stream) each time "Try again" is tapped.
+    return Obx(() {
+      controller.profileRetry.value;
+      return _profileStreamOnce(user);
+    });
+  }
+
+  Widget _profileStreamOnce(AppUser user) {
     return StreamBuilder<Map<String, dynamic>>(
       stream: ProfileService().watch(user.uid),
       builder: (context, userSnapshot) {
+        // Only reached with nothing saved on this phone yet.
+        if (userSnapshot.hasError && !userSnapshot.hasData) {
+          return _afterSplash(
+            OfflineRetryScreen(onRetry: controller.retryProfile),
+          );
+        }
         if (!userSnapshot.hasData) return const BrandSplash();
         final userData = userSnapshot.data ?? const <String, dynamic>{};
         final isAdmin =

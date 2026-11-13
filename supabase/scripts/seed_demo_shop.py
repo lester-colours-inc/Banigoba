@@ -5,18 +5,22 @@ Rows are written the way the app's product form writes them
 (lib/modules/shop/controllers/product_form_controller.dart): same columns,
 same `data` keys, one photo in the `product-images` bucket under
 `<userId>/<millis>_<name>.jpg` used as both image_url and raw_image_url.
-Every seeded row carries `data.seed = SEED_TAG`, and `data.seedImagePath`
+Every seeded row carries `data.seed` (its batch tag), and `data.seedImagePath`
 names its storage object, so the seed can be found and removed again.
 
 Photos are free-licence Unsplash images (https://unsplash.com/license).
 
 Usage (service role key from env, else read through the linked Supabase CLI):
-  python3 -I supabase/scripts/seed_demo_shop.py seed   <email> <scratch_dir>
-  python3 -I supabase/scripts/seed_demo_shop.py remove <email>
+  python3 -I supabase/scripts/seed_demo_shop.py seed   <email> <scratch_dir> [--batch main|more]
+  python3 -I supabase/scripts/seed_demo_shop.py remove <email> [--batch main|more]
 
-`seed` removes any earlier seed for that shop first, so it is re-runnable.
+Batches: `main` = 30 mixed pieces (default), `more` = 50 menswear + 20
+womenswear. `seed` first removes that batch's earlier seed for the shop, so it
+is re-runnable and never touches the other batch. `remove` without --batch
+removes every batch.
 """
 
+import importlib.util
 import json
 import os
 import random
@@ -31,7 +35,10 @@ import urllib.request
 PROJECT_REF = "dararqifsiuvrmfjleui"
 BASE_URL = f"https://{PROJECT_REF}.supabase.co"
 BUCKET = "product-images"
-SEED_TAG = "demo-catalogue-v1"
+# Seed batches: `main` is the first 30 pieces below; `more` is 50 menswear and
+# 20 womenswear from demo_catalogue_more.py. Each batch has its own tag, so
+# seeding one never touches the other.
+BATCH_TAGS = {"main": "demo-catalogue-v1", "more": "demo-catalogue-v2"}
 PHOTO_URL = "https://images.unsplash.com/{id}?w=1080&q=80&fm=jpg&fit=max"
 
 APPAREL_SIZES = ["XS", "S", "M", "L", "XL"]
@@ -224,6 +231,17 @@ CATALOGUE = [
 ]
 
 
+def catalogue_for(batch):
+    if batch == "main":
+        return CATALOGUE
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                        "demo_catalogue_more.py")
+    spec = importlib.util.spec_from_file_location("demo_catalogue_more", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.CATALOGUE_MORE
+
+
 def fail(message):
     print(f"error: {message}", file=sys.stderr)
     sys.exit(1)
@@ -283,10 +301,12 @@ def find_shop(key, email):
     return user_id, shop["name"]
 
 
-def remove_seed(key, user_id):
+def remove_seed(key, user_id, batches=None):
+    batches = list(batches or BATCH_TAGS)
+    tags = ",".join(BATCH_TAGS[b] for b in batches)
     query = urllib.parse.urlencode({
         "user_id": f"eq.{user_id}",
-        "data->>seed": f"eq.{SEED_TAG}",
+        "data->>seed": f"in.({tags})",
         "select": "id,data",
     })
     rows = request(key, "GET", f"/rest/v1/products?{query}")
@@ -296,16 +316,17 @@ def remove_seed(key, user_id):
     # Images go by what is in storage, not only by what rows point at, so
     # files left behind by an earlier interrupted run are cleaned up too.
     paths = sorted({r["data"].get("seedImagePath") for r in rows} - {None}
-                   | set(stray_seed_images(key, user_id)))
+                   | set(stray_seed_images(key, user_id, batches)))
     deleted = delete_images(key, paths)
-    left = stray_seed_images(key, user_id)
+    left = stray_seed_images(key, user_id, batches)
     print(f"removed {len(rows)} seeded products and {deleted} images"
           + (f"; {len(left)} images could not be deleted" if left else ""))
 
 
-def stray_seed_images(key, user_id):
+def stray_seed_images(key, user_id, batches):
     """Seed-named images in the shop's folder (`<millis>_<seed name>.jpg`)."""
-    names = {safe_name(item[1]) for item in CATALOGUE}
+    names = {safe_name(item[1]) for b in batches
+             for item in catalogue_for(b)}
     listed = request(key, "POST", f"/storage/v1/object/list/{BUCKET}",
                      {"prefix": f"{user_id}/", "limit": 1000})
     paths = []
@@ -360,7 +381,7 @@ def price_for(band, rng):
     return round(rng.randint(low, high) - rng.choice([0.01, 0.01, 0.0, 0.51]), 2)
 
 
-def build_row(item, user_id, shop_name, image_url, path, rng):
+def build_row(item, user_id, shop_name, image_url, path, rng, tag):
     (photo_id, name, category, subcategory, gender, style, colours, weather,
      functional, band, linen, made, description, details) = item
     inventory = size_inventory(category, rng)
@@ -389,7 +410,7 @@ def build_row(item, user_id, shop_name, image_url, path, rng):
             "madeWhere": made,
             "otherDetails": details,
             "shopName": shop_name,
-            "seed": SEED_TAG,
+            "seed": tag,
             "seedImagePath": path,
             "photoSource": f"https://unsplash.com ({photo_id})",
         },
@@ -397,22 +418,23 @@ def build_row(item, user_id, shop_name, image_url, path, rng):
     return row
 
 
-def seed(key, email, scratch_dir):
+def seed(key, email, scratch_dir, batch):
     if not os.path.isdir(scratch_dir):
         fail(f"scratch dir {scratch_dir} does not exist")
     user_id, shop_name = find_shop(key, email)
-    remove_seed(key, user_id)
-    rng = random.Random(SEED_TAG)
+    remove_seed(key, user_id, [batch])
+    tag = BATCH_TAGS[batch]
+    rng = random.Random(tag)
     rows = []
     try:
-        for item in CATALOGUE:
+        for item in catalogue_for(batch):
             bytes_ = download(item[0], scratch_dir)
             millis = int(time.time() * 1000)
             path = f"{user_id}/{millis}_{safe_name(item[1])}.jpg"
             request(key, "POST", f"/storage/v1/object/{BUCKET}/{path}", bytes_,
                     {"Content-Type": "image/jpeg"}, raw=True)
             url = f"{BASE_URL}/storage/v1/object/public/{BUCKET}/{path}"
-            rows.append(build_row(item, user_id, shop_name, url, path, rng))
+            rows.append(build_row(item, user_id, shop_name, url, path, rng, tag))
             print(f"uploaded {item[1]}")
         request(key, "POST", "/rest/v1/products", rows,
                 {"Prefer": "return=minimal"})
@@ -427,17 +449,25 @@ def seed(key, email, scratch_dir):
 
 
 def main(argv):
-    if len(argv) < 3 or argv[1] not in ("seed", "remove"):
+    args = list(argv[1:])
+    batch = None
+    if "--batch" in args:
+        at = args.index("--batch")
+        batch = args[at + 1] if at + 1 < len(args) else ""
+        del args[at:at + 2]
+        if batch not in BATCH_TAGS:
+            fail(f"--batch must be one of {', '.join(BATCH_TAGS)}")
+    if len(args) < 2 or args[0] not in ("seed", "remove"):
         fail(__doc__)
     key = service_key()
     try:
-        if argv[1] == "seed":
-            if len(argv) != 4:
+        if args[0] == "seed":
+            if len(args) != 3:
                 fail("seed needs <email> <scratch_dir>")
-            seed(key, argv[2], argv[3])
+            seed(key, args[1], args[2], batch or "main")
         else:
-            user_id, _ = find_shop(key, argv[2])
-            remove_seed(key, user_id)
+            user_id, _ = find_shop(key, args[1])
+            remove_seed(key, user_id, [batch] if batch else None)
     except RequestFailed as error:
         fail(str(error))
 

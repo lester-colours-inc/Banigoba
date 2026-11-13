@@ -76,6 +76,24 @@ List<Post> rankPosts(
   );
 }
 
+/// Ranks [posts] one [pageSize] block of the newest-first list at a time and
+/// joins the blocks in order. A feed that loads in pages uses this so a page
+/// that arrives later is only ever added below what is on screen: ranking
+/// everything together would let an older post from someone the viewer
+/// follows jump above posts they are reading.
+List<Post> rankInPages(
+  Iterable<Post> posts, {
+  required int pageSize,
+  required List<Post> Function(Iterable<Post> page) rankPage,
+}) {
+  final newestFirst = posts.toList()
+    ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  return List.unmodifiable([
+    for (var start = 0; start < newestFirst.length; start += pageSize)
+      ...rankPage(newestFirst.skip(start).take(pageSize)),
+  ]);
+}
+
 /// The Community "Near me" view: me, the people I follow and people in my
 /// place. Without one of my own it is just me and the people I follow.
 List<Post> nearMe(

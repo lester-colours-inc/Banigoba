@@ -280,7 +280,25 @@ class ShopFilterOptions {
       sizes: sortSizes(sizes),
       colours: colours.toList()..sort(),
       styles: styles.toList()..sort(),
-      priceCeiling: ceiling <= 0 ? 0 : (ceiling / 10).ceil() * 10.0,
+      priceCeiling: _priceCeiling(ceiling),
+    );
+  }
+
+  /// The options from the database's `shop_facets()` answer, which lists the
+  /// values across the whole marketplace without downloading its products.
+  factory ShopFilterOptions.fromFacets(Map<String, dynamic> facets) {
+    List<String> values(String key) => [
+      for (final value in facets[key] as List? ?? const []) value.toString(),
+    ];
+    return ShopFilterOptions(
+      categories: values('categories')..sort(),
+      genders: values('genders')..sort(),
+      sizes: sortSizes(values('sizes')),
+      colours: values('colours')..sort(),
+      styles: values('styles')..sort(),
+      priceCeiling: _priceCeiling(
+        (facets['maxPrice'] as num?)?.toDouble() ?? 0,
+      ),
     );
   }
 
@@ -293,6 +311,10 @@ class ShopFilterOptions {
   /// Highest price rounded up to the next 10, for the price slider.
   final double priceCeiling;
 }
+
+/// The highest price rounded up to the next 10 (0 when there is none).
+double _priceCeiling(double highest) =>
+    highest <= 0 ? 0 : (highest / 10).ceil() * 10.0;
 
 const List<String> _apparelSizeOrder = [
   'XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', '2XL', 'XXXL', '3XL', '4XL', //

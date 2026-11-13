@@ -3,12 +3,20 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import 'package:banigoba/core/offline/local_cache.dart';
 import 'package:banigoba/modules/home/controllers/home_feed_controller.dart';
 import 'package:banigoba/modules/home/widgets/daily_dress_up_feed.dart';
 import 'package:banigoba/modules/home/widgets/home_feed_message.dart';
 import 'package:banigoba/modules/home/widgets/home_feed_tabs.dart';
 import 'package:banigoba/modules/home/widgets/home_post_item.dart';
 import 'package:banigoba/modules/makeover/widgets/makeover_fab.dart';
+
+/// A feed with fewer posts than this keeps loading pages on its own: the
+/// newest page may be mostly posts that belong in another feed.
+const int kMinFeedPosts = 8;
+
+/// How close to the end of a feed (in pixels) the next page is asked for.
+const double kLoadMoreExtent = 800;
 
 class HomePostsFeed extends StatelessWidget {
   const HomePostsFeed({
@@ -30,19 +38,35 @@ class HomePostsFeed extends StatelessWidget {
     }
     return Obx(() {
       final error = controller.postsError.value;
-      if (error != null) {
+      final visiblePosts = controller.visiblePosts.value;
+      if (error != null && visiblePosts == null) {
         debugPrint('Unable to load posts: $error');
-        return const HomeFeedMessage(
+        return HomeFeedMessage(
           icon: Icons.cloud_off_outlined,
-          message: 'Posts could not be loaded.',
+          message: isNetworkError(error)
+              ? "You're offline. Looks will show here when you reconnect."
+              : 'Posts could not be loaded.',
         );
       }
-      final visiblePosts = controller.visiblePosts.value;
       if (visiblePosts == null) {
         return const Center(child: CircularProgressIndicator());
       }
       final isMyMakeover = feed == HomeFeed.myMakeover;
       final posts = controller.rankedPostsFor(feed, visiblePosts);
+      final hasMore = controller.hasMorePosts.value;
+      final loadingMore = controller.loadingMorePosts.value;
+      if (hasMore && posts.length < kMinFeedPosts) {
+        // Not enough of this feed yet: fetch the next page after this frame.
+        WidgetsBinding.instance.addPostFrameCallback(
+          (_) => controller.loadMorePosts(),
+        );
+      }
+      if (posts.isEmpty && hasMore) {
+        return const Padding(
+          padding: EdgeInsets.symmetric(vertical: 48),
+          child: Center(child: CircularProgressIndicator()),
+        );
+      }
       if (posts.isEmpty) {
         return HomeFeedMessage(
           icon: Icons.checkroom_outlined,
@@ -66,6 +90,11 @@ class HomePostsFeed extends StatelessWidget {
             ),
             if (index != posts.length - 1) const SizedBox(height: 18),
           ],
+          if (loadingMore)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: Center(child: CircularProgressIndicator()),
+            ),
         ],
       );
     });

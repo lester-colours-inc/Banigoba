@@ -6,6 +6,8 @@ import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:banigoba/core/legal_links.dart';
+import 'package:banigoba/core/offline/local_cache.dart';
 import 'package:banigoba/core/supabase/app_auth.dart';
 import 'package:banigoba/modules/auth/services/auth_service.dart';
 import 'package:banigoba/modules/onboarding/views/onboarding_screen.dart';
@@ -23,6 +25,11 @@ class AuthGateController extends GetxController {
 
   /// Bumped when Terms are accepted so views re-read the cached check.
   final RxInt termsRevision = 0.obs;
+
+  /// Bumped by "Try again" on the offline screen to reload the profile.
+  final RxInt profileRetry = 0.obs;
+
+  void retryProfile() => profileRetry.value++;
 
   AppUser? _lastUser;
   Timer? _splashTimer;
@@ -79,9 +86,17 @@ class AuthGateController extends GetxController {
     }
   }
 
-  // Device permissions are asked for where first needed, not here.
+  // Device permissions are asked for where first needed, not here. Offline
+  // (or on a slow connection) the app does not wait for it.
   Future<void> profileCheckFor(AppUser user) =>
-      _profileChecks.putIfAbsent(user.uid, () => _upsertUserProfile(user));
+      _profileChecks.putIfAbsent(user.uid, () {
+        return _upsertUserProfile(user).timeout(
+          kOfflineTimeout,
+          onTimeout: () => debugPrint('Profile check still running; going on'),
+        );
+      });
+
+  static String _termsCacheKey(String uid) => 'terms.$uid';
 
   Future<bool> termsCheckFor(AppUser user) {
     return _termsChecks.putIfAbsent(user.uid, () async {
@@ -91,17 +106,27 @@ class AuthGateController extends GetxController {
         ),
       );
       try {
-        return await _safety.hasAcceptedTerms();
+        final accepted = await _safety.hasAcceptedTerms().timeout(
+          kOfflineTimeout,
+        );
+        if (accepted) await _rememberTerms(user);
+        return accepted;
       } on Exception catch (error) {
-        // Asked again rather than locked out when the check fails.
         debugPrint('Unable to check Terms acceptance: $error');
-        return false;
+        // Offline: trust this phone's record of agreeing to these Terms.
+        // Otherwise asked again rather than locked out.
+        return isNetworkError(error) &&
+            await LocalCache.read(_termsCacheKey(user.uid)) == kTermsVersion;
       }
     });
   }
 
+  Future<void> _rememberTerms(AppUser user) =>
+      LocalCache.write(_termsCacheKey(user.uid), kTermsVersion);
+
   Future<void> acceptTerms(AppUser user) async {
     await _safety.acceptTerms();
+    await _rememberTerms(user);
     _termsChecks[user.uid] = Future.value(true);
     termsRevision.value++;
   }

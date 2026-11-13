@@ -1,6 +1,9 @@
 // Full filter sheet for the marketplace: sort, category, gender, size,
 // colour, style, price range and availability. Edits a draft and returns it
 // when the shopper taps "Show N results".
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'package:banigoba/modules/shop/models/shop_filters.dart';
@@ -14,13 +17,18 @@ Future<ShopFilters?> showShopFilterSheet(
   required ShopFilters initial,
   required ShopFilterOptions options,
   required List<Map<String, dynamic>> products,
+  Future<int> Function(ShopFilters filters)? countFor,
 }) => showModalBottomSheet<ShopFilters>(
   context: context,
   isScrollControlled: true,
   useSafeArea: true,
   showDragHandle: true,
-  builder: (_) =>
-      ShopFilterSheet(initial: initial, options: options, products: products),
+  builder: (_) => ShopFilterSheet(
+    initial: initial,
+    options: options,
+    products: products,
+    countFor: countFor,
+  ),
 );
 
 class ShopFilterSheet extends StatefulWidget {
@@ -29,6 +37,7 @@ class ShopFilterSheet extends StatefulWidget {
     required this.initial,
     required this.options,
     required this.products,
+    this.countFor,
   });
 
   final ShopFilters initial;
@@ -37,6 +46,10 @@ class ShopFilterSheet extends StatefulWidget {
   /// Search-matched products, used for the live result count.
   final List<Map<String, dynamic>> products;
 
+  /// Asks the database how many products match instead, when the products are
+  /// not all on the phone (All Products).
+  final Future<int> Function(ShopFilters filters)? countFor;
+
   @override
   State<ShopFilterSheet> createState() => _ShopFilterSheetState();
 }
@@ -44,12 +57,48 @@ class ShopFilterSheet extends StatefulWidget {
 class _ShopFilterSheetState extends State<ShopFilterSheet> {
   late ShopFilters _draft = widget.initial;
 
-  void _update(ShopFilters next) => setState(() => _draft = next);
+  /// The database's count for [_draft] (null until it answers).
+  int? _serverCount;
+  Timer? _countTimer;
+  int _countRun = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _askCount();
+  }
+
+  @override
+  void dispose() {
+    _countTimer?.cancel();
+    super.dispose();
+  }
+
+  void _update(ShopFilters next) {
+    setState(() => _draft = next);
+    _countTimer?.cancel();
+    // Wait for a pause (the price slider fires on every step).
+    _countTimer = Timer(const Duration(milliseconds: 250), _askCount);
+  }
+
+  Future<void> _askCount() async {
+    final countFor = widget.countFor;
+    if (countFor == null) return;
+    final run = ++_countRun;
+    try {
+      final count = await countFor(_draft);
+      if (mounted && run == _countRun) setState(() => _serverCount = count);
+    } on Object catch (error) {
+      debugPrint('Unable to count products: $error');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final options = widget.options;
-    final count = applyShopFilters(widget.products, _draft).length;
+    final count = widget.countFor == null
+        ? applyShopFilters(widget.products, _draft).length
+        : _serverCount;
     return DraggableScrollableSheet(
       expand: false,
       initialChildSize: 0.85,
@@ -351,7 +400,7 @@ class _ShopFilterSheetState extends State<ShopFilterSheet> {
     ],
   );
 
-  Widget _footer(BuildContext context, int count) => SafeArea(
+  Widget _footer(BuildContext context, int? count) => SafeArea(
     top: false,
     child: Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
@@ -362,7 +411,9 @@ class _ShopFilterSheetState extends State<ShopFilterSheet> {
           minimumSize: const Size(double.infinity, 54),
         ),
         child: Text(
-          count == 0
+          count == null
+              ? 'Show results'
+              : count == 0
               ? 'No matches'
               : 'Show $count result${count == 1 ? '' : 's'}',
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),

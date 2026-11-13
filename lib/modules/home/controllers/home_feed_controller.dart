@@ -10,6 +10,7 @@ import 'package:get/get.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
 
 import 'package:banigoba/app/routes/app_routes.dart';
+import 'package:banigoba/core/offline/local_cache.dart';
 import 'package:banigoba/core/supabase/app_auth.dart';
 import 'package:banigoba/modules/home/models/feed_ranking.dart' as ranking;
 import 'package:banigoba/modules/home/models/geo_cell.dart';
@@ -96,6 +97,19 @@ class HomeFeedController extends GetxController
   // feeds re-rank.
   final RxInt _rankingTick = 0.obs;
 
+  // Posts load a page at a time: each scroll to the end of a feed asks for
+  // another page, until the database has no more to give.
+  final RxBool loadingMorePosts = false.obs;
+  final RxBool hasMorePosts = true.obs;
+  int _postLimit = kFeedPageSize;
+  String? _viewerId;
+
+  /// True while the feed shows the posts saved on this phone because the
+  /// live query has not answered (offline, or still connecting).
+  final RxBool showingSavedPosts = false.obs;
+  Timer? _postsRetry;
+  static const Duration _offlineRetryDelay = Duration(seconds: 15);
+
   StreamSubscription<List<Post>>? _visiblePostsSub;
   StreamSubscription<List<String>>? _followingSub;
   StreamSubscription<Set<String>>? _savedPostsSub;
@@ -120,25 +134,9 @@ class HomeFeedController extends GetxController
   }
 
   void _start(String userId) {
-    _visiblePostsSub =
-        watchVisiblePosts(
-          viewerId: userId,
-          following: _friendService.getFollowingIds(),
-          friends: _friendService.getMutualFriendsIds(),
-        ).listen(
-          (posts) {
-            if (isClosed) return;
-            visiblePosts.value = posts;
-            _authorCities.ensure(posts.map((post) => post.authorId)).then((
-              learned,
-            ) {
-              if (learned && !isClosed) _rankingTick.value++;
-            });
-          },
-          onError: (Object error) {
-            if (!isClosed) postsError.value = error;
-          },
-        );
+    _viewerId = userId;
+    unawaited(_showSavedPosts(userId));
+    _watchPosts(userId);
     _followingSub = _friendService.getFollowingIds().listen(
       (ids) {
         if (!isClosed) following.value = ids.toSet();
@@ -160,9 +158,94 @@ class HomeFeedController extends GetxController
     );
   }
 
+  /// The posts saved on this phone last time, shown at once (and offline)
+  /// until the live query answers.
+  Future<void> _showSavedPosts(String userId) async {
+    final saved = await loadSavedVisiblePosts(userId);
+    if (saved == null || isClosed || visiblePosts.value != null) return;
+    visiblePosts.value = saved;
+    showingSavedPosts.value = true;
+    // Load-more waits for the connection; the live query brings the rest.
+    hasMorePosts.value = false;
+    unawaited(_authorCities.ensure(saved.map((post) => post.authorId)));
+  }
+
+  /// Tries the live query again a little later while offline.
+  void _retryPostsLater(String userId) {
+    _postsRetry?.cancel();
+    _postsRetry = Timer(_offlineRetryDelay, () {
+      if (!isClosed) _watchPosts(userId);
+    });
+  }
+
+  /// (Re)starts the live posts query at the current page limit. The posts
+  /// already on screen stay until the bigger result arrives.
+  void _watchPosts(String userId) {
+    _postsRetry?.cancel();
+    unawaited(_visiblePostsSub?.cancel());
+    _visiblePostsSub =
+        watchVisiblePosts(
+          viewerId: userId,
+          following: _friendService.getFollowingIds(),
+          friends: _friendService.getMutualFriendsIds(),
+          limit: _postLimit,
+        ).listen(
+          (posts) {
+            if (isClosed) return;
+            visiblePosts.value = posts;
+            postsError.value = null;
+            showingSavedPosts.value = false;
+            // A full page means there may be more behind it.
+            hasMorePosts.value = posts.length >= _postLimit;
+            loadingMorePosts.value = false;
+            _authorCities.ensure(posts.map((post) => post.authorId)).then((
+              learned,
+            ) {
+              if (learned && !isClosed) _rankingTick.value++;
+            });
+          },
+          onError: (Object error) {
+            if (isClosed) return;
+            loadingMorePosts.value = false;
+            if (isNetworkError(error)) {
+              // Offline: keep the saved posts on screen and try again later.
+              _retryPostsLater(userId);
+              if (visiblePosts.value == null) {
+                postsError.value = error;
+              } else if (!showingSavedPosts.value) {
+                showingSavedPosts.value = true;
+                hasMorePosts.value = false;
+                AppToast.say("You're offline. Showing saved looks.");
+              }
+              return;
+            }
+            if (visiblePosts.value == null) {
+              postsError.value = error;
+              return;
+            }
+            // Keep what is on screen; stop asking until the feed is reopened.
+            hasMorePosts.value = false;
+            AppToast.say('Could not load more looks.');
+          },
+        );
+  }
+
+  /// Asks for the next page of posts. Safe to call on every scroll: it does
+  /// nothing while a page is loading or once there are no more.
+  void loadMorePosts() {
+    final userId = _viewerId;
+    if (userId == null || loadingMorePosts.value || !hasMorePosts.value) {
+      return;
+    }
+    loadingMorePosts.value = true;
+    _postLimit += kFeedPageSize;
+    _watchPosts(userId);
+  }
+
   @override
   void onClose() {
     SafetyService.instance.blockedIds.removeListener(_onBlockedChanged);
+    _postsRetry?.cancel();
     unawaited(_followingSub?.cancel());
     unawaited(_savedPostsSub?.cancel());
     unawaited(_visiblePostsSub?.cancel());
@@ -257,15 +340,28 @@ class HomeFeedController extends GetxController
 
   /// The ranked posts for the My Fashion Makeover or Community [feed].
   /// Reads the Rx fields, so call it inside an `Obx`.
+  ///
+  /// Each loaded page is ranked on its own and the pages follow one another,
+  /// so scrolling to the end only ever adds posts below what is on screen
+  /// (ranking everything together would let an older post from someone you
+  /// follow jump above posts you are reading).
   List<Post> rankedPostsFor(HomeFeed feed, List<Post> visible) {
     final _ = _rankingTick.value; // re-rank when blocks or author cities change
+    return ranking.rankInPages(
+      visible,
+      pageSize: kFeedPageSize,
+      rankPage: (page) => _rankPage(feed, page),
+    );
+  }
+
+  List<Post> _rankPage(HomeFeed feed, Iterable<Post> page) {
     // Only posts this user may see arrive here (the rules enforce it).
     // Daily dress-ups live in My Daily Dress Up, not the makeover feeds.
     // My Fashion Makeover shows yours and everyone else's (H-5); Community
     // shows only other people's.
     final currentUserId = AppAuth.instance.currentUser?.uid ?? '';
     final isMyMakeover = feed == HomeFeed.myMakeover;
-    final candidates = visible.where(
+    final candidates = page.where(
       (post) =>
           !post.isDressUp &&
           (isMyMakeover || post.authorId != currentUserId) &&
