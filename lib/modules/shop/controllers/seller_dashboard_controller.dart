@@ -20,6 +20,9 @@ class SellerDashboardController extends GetxController {
   final RxBool saving = false.obs;
   final Rx<DeliverySettings> delivery = const DeliverySettings().obs;
 
+  /// The saved shop name, for the dashboard header.
+  final RxString title = 'My Shop'.obs;
+
   @override
   void onInit() {
     super.onInit();
@@ -45,6 +48,7 @@ class SellerDashboardController extends GetxController {
     description.text = (shop['description'] ?? '').toString();
     contact.text = (shop['contact'] ?? user.email ?? '').toString();
     delivery.value = DeliverySettings.fromShop(shop);
+    if (shopName.text.trim().isNotEmpty) title.value = shopName.text.trim();
     if (!isClosed) loading.value = false;
   }
 
@@ -75,7 +79,9 @@ class SellerDashboardController extends GetxController {
         'contact': contact.text.trim(),
         'updatedAt': DateTime.now().toUtc().toIso8601String(),
       });
-      if (!isClosed) AppToast.say('Boutique details saved.');
+      if (isClosed) return;
+      title.value = shopName.text.trim();
+      AppToast.say('Boutique details saved.');
     } finally {
       if (!isClosed) saving.value = false;
     }

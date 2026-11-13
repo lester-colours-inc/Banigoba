@@ -56,7 +56,7 @@ class BecomeProviderController extends GetxController {
     }
     final user = AppAuth.instance.currentUser;
     if (user == null) {
-      error.value = 'Sign in to become a business.';
+      error.value = 'Sign in to use business mode.';
       return;
     }
     saving.value = true;

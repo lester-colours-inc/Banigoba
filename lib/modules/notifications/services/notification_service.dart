@@ -17,7 +17,6 @@ class NotificationService {
       'follow_request',
       'follow_accepted',
       'new_post',
-      'like',
       'comment',
       'try_on',
       'repost',

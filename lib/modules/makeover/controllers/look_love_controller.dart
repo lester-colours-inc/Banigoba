@@ -6,6 +6,8 @@ import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 
 import 'package:banigoba/core/supabase/app_auth.dart';
+import 'package:banigoba/modules/makeover/controllers/web_look_search_state.dart';
+import 'package:banigoba/modules/makeover/services/web_look_search.dart';
 import 'package:banigoba/modules/makeover/widgets/look_you_love_picker.dart';
 import 'package:banigoba/modules/social/models/post.dart';
 import 'package:banigoba/modules/social/services/affirmation_service.dart';
@@ -16,7 +18,18 @@ import 'package:banigoba/modules/style_lists/services/style_lists_service.dart';
 import 'package:banigoba/modules/wardrobe/services/outfit_service.dart';
 
 class LookLoveController extends GetxController {
+  LookLoveController({WebLookSearch? webSearch})
+    : web = WebLookSearchState(
+        webSearch ??
+            ServerWebLookSearch(
+              userId: AppAuth.instance.currentUser?.uid ?? '',
+            ),
+      );
+
   final String userId = AppAuth.instance.currentUser?.uid ?? '';
+
+  /// The Web source: the same search words, looked up on the internet.
+  final WebLookSearchState web;
 
   final RxList<Post> posts = <Post>[].obs;
   final RxBool postsLoaded = false.obs;
@@ -78,6 +91,7 @@ class LookLoveController extends GetxController {
 
   @override
   void onClose() {
+    web.dispose();
     for (final subscription in _subscriptions) {
       subscription.cancel();
     }
@@ -106,10 +120,14 @@ class LookLoveController extends GetxController {
   void selectSource(LookLoveSource chosen) {
     source.value = chosen;
     category.value = '';
+    if (chosen == LookLoveSource.web && web.query.value != query.value.trim()) {
+      unawaited(web.searchNow(query.value));
+    }
   }
 
   void search(String value) {
     query.value = value;
+    if (source.value == LookLoveSource.web) web.searchSoon(value);
     if (value.isNotEmpty) _loadNames(posts.map((post) => post.authorId));
   }
 

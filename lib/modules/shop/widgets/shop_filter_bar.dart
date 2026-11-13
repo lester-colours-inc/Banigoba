@@ -31,51 +31,102 @@ class ShopFilterBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Obx(() {
       final filters = controller.filters.value;
-      final categories = controller.filterOptions.categories;
       final isProducts = controller.tab.value == 1;
-      return SizedBox(
-        height: 42,
-        child: ListView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          children: [
-            _FiltersButton(
-              count: filters.activeCount,
-              onTap: () => _openSheet(context),
-            ),
-            const SizedBox(width: 8),
-            isProducts
-                ? _SortMenu<ShopSort>(
-                    values: ShopSort.values,
-                    selected: filters.sort,
-                    label: (s) => s.label,
-                    onSelected: controller.setSort,
-                  )
-                : _SortMenu<BoutiqueSort>(
-                    values: BoutiqueSort.values,
-                    selected: controller.boutiqueSort.value,
-                    label: (s) => s.label,
-                    onSelected: controller.setBoutiqueSort,
-                  ),
-            if (categories.isNotEmpty) ...[
-              const _Divider(),
-              _QuickChip(
-                label: 'All',
-                selected: filters.categories.isEmpty,
-                onTap: controller.clearCategories,
+      return ShopFilterStrip(
+        filters: filters,
+        categories: controller.filterOptions.categories,
+        onOpenSheet: () => _openSheet(context),
+        onToggleCategory: controller.toggleCategory,
+        onClearCategories: controller.clearCategories,
+        sort: isProducts
+            ? _SortMenu<ShopSort>(
+                values: ShopSort.values,
+                selected: filters.sort,
+                label: (s) => s.label,
+                onSelected: controller.setSort,
+              )
+            : _SortMenu<BoutiqueSort>(
+                values: BoutiqueSort.values,
+                selected: controller.boutiqueSort.value,
+                label: (s) => s.label,
+                onSelected: controller.setBoutiqueSort,
               ),
-              for (final category in categories)
-                _QuickChip(
-                  label: filterLabel(category),
-                  selected: filters.categories.contains(category),
-                  onTap: () => controller.toggleCategory(category),
-                ),
-            ],
-          ],
-        ),
       );
     });
   }
+}
+
+/// The Filters button, a sort menu and quick category chips, driven by plain
+/// values so any page (marketplace, one boutique) can use it.
+class ShopFilterStrip extends StatelessWidget {
+  const ShopFilterStrip({
+    super.key,
+    required this.filters,
+    required this.categories,
+    required this.onOpenSheet,
+    required this.onToggleCategory,
+    required this.onClearCategories,
+    required this.sort,
+  });
+
+  final ShopFilters filters;
+  final List<String> categories;
+  final VoidCallback onOpenSheet;
+  final ValueChanged<String> onToggleCategory;
+  final VoidCallback onClearCategories;
+
+  /// A sort menu, e.g. from [ShopSortMenu] or the boutique sort.
+  final Widget sort;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 42,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        children: [
+          _FiltersButton(count: filters.activeCount, onTap: onOpenSheet),
+          const SizedBox(width: 8),
+          sort,
+          if (categories.isNotEmpty) ...[
+            const _Divider(),
+            _QuickChip(
+              label: 'All',
+              selected: filters.categories.isEmpty,
+              onTap: onClearCategories,
+            ),
+            for (final category in categories)
+              _QuickChip(
+                label: filterLabel(category),
+                selected: filters.categories.contains(category),
+                onTap: () => onToggleCategory(category),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Product sort menu for [ShopFilterStrip].
+class ShopSortMenu extends StatelessWidget {
+  const ShopSortMenu({
+    super.key,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final ShopSort selected;
+  final ValueChanged<ShopSort> onSelected;
+
+  @override
+  Widget build(BuildContext context) => _SortMenu<ShopSort>(
+    values: ShopSort.values,
+    selected: selected,
+    label: (s) => s.label,
+    onSelected: onSelected,
+  );
 }
 
 /// "24 products · Clear all" line under the bar.

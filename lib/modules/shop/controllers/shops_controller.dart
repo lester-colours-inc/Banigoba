@@ -322,13 +322,18 @@ class ShopsController extends GetxController {
     required String sellerId,
     required String shopName,
     required String description,
-    required List<Map<String, dynamic>> products,
+    String imageUrl = '',
   }) => Get.to<void>(
     () => BoutiqueDetailPage(
       sellerId: sellerId,
       shopName: shopName,
       description: description,
-      products: products,
+      imageUrl: imageUrl,
+      // The whole boutique, so its own filters start from everything.
+      products: [
+        for (final p in allProducts)
+          if (sellerOf(p) == sellerId) p,
+      ],
     ),
   );
 

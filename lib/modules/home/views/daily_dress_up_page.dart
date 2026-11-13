@@ -29,7 +29,10 @@ import 'package:banigoba/modules/home/widgets/home_posts_feed.dart';
 import 'package:banigoba/modules/home/widgets/keep_alive_page.dart';
 import 'package:banigoba/modules/home/widgets/near_me_bar.dart';
 import 'package:banigoba/modules/home/widgets/shop_drops_strip.dart';
+import 'package:banigoba/core/main_tab.dart';
+import 'package:banigoba/modules/home/views/main_screen.dart';
 import 'package:banigoba/modules/makeover/views/makeover_start_sheet.dart';
+import 'package:banigoba/modules/makeover/widgets/efitting_room_fab.dart';
 import 'package:banigoba/modules/makeover/widgets/makeover_fab.dart';
 import 'package:banigoba/shared/widgets/app_drawer.dart';
 import 'package:banigoba/shared/widgets/menu_or_back_button.dart';
@@ -164,12 +167,23 @@ class _HomeView extends StatelessWidget {
           ],
         ),
       ),
-      floatingActionButton: Obx(
-        () => MakeoverFab(
-          color: DailyDressUpPage.primaryColor,
-          isExtended: controller.fabExtended.value,
-          onPressed: () => startMakeover(context),
-        ),
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          EFittingRoomFab(
+            color: DailyDressUpPage.primaryColor,
+            onPressed: () => MainScreen.selectTab(MainTab.wardrobe),
+          ),
+          const SizedBox(height: 12),
+          Obx(
+            () => MakeoverFab(
+              color: DailyDressUpPage.primaryColor,
+              isExtended: controller.fabExtended.value,
+              onPressed: () => startMakeover(context),
+            ),
+          ),
+        ],
       ),
     );
   }

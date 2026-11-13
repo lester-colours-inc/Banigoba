@@ -15,8 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$Post {
 
- String get id; String get authorId; String get caption; int get commentCount; DateTime get createdAt; String get imageURL;/// How many people liked the look, kept by the database (post_likes).
- int get likeCount; String get outfitId; List<String> get productIds; List<Map<String, dynamic>> get products; PostVisibility get visibility; PostKind get kind;/// Set when this post is a repost or quote of another post.
+ String get id; String get authorId; String get caption; int get commentCount; DateTime get createdAt; String get imageURL; String get outfitId; List<String> get productIds; List<Map<String, dynamic>> get products; PostVisibility get visibility; PostKind get kind;/// Set when this post is a repost or quote of another post.
  String get repostOfId; String get repostOfAuthorId;/// The reposter's own words on a quote. Empty on a plain repost.
  String get quoteText;
 /// Create a copy of Post
@@ -30,20 +29,20 @@ $PostCopyWith<Post> get copyWith => _$PostCopyWithImpl<Post>(this as Post, _$ide
 @override
 bool operator ==(Object other) {
   final _this = this as Post;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is Post&&(identical(other.id, _this.id) || other.id == _this.id)&&(identical(other.authorId, _this.authorId) || other.authorId == _this.authorId)&&(identical(other.caption, _this.caption) || other.caption == _this.caption)&&(identical(other.commentCount, _this.commentCount) || other.commentCount == _this.commentCount)&&(identical(other.createdAt, _this.createdAt) || other.createdAt == _this.createdAt)&&(identical(other.imageURL, _this.imageURL) || other.imageURL == _this.imageURL)&&(identical(other.likeCount, _this.likeCount) || other.likeCount == _this.likeCount)&&(identical(other.outfitId, _this.outfitId) || other.outfitId == _this.outfitId)&&const DeepCollectionEquality().equals(other.productIds, _this.productIds)&&const DeepCollectionEquality().equals(other.products, _this.products)&&(identical(other.visibility, _this.visibility) || other.visibility == _this.visibility)&&(identical(other.kind, _this.kind) || other.kind == _this.kind)&&(identical(other.repostOfId, _this.repostOfId) || other.repostOfId == _this.repostOfId)&&(identical(other.repostOfAuthorId, _this.repostOfAuthorId) || other.repostOfAuthorId == _this.repostOfAuthorId)&&(identical(other.quoteText, _this.quoteText) || other.quoteText == _this.quoteText));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Post&&(identical(other.id, _this.id) || other.id == _this.id)&&(identical(other.authorId, _this.authorId) || other.authorId == _this.authorId)&&(identical(other.caption, _this.caption) || other.caption == _this.caption)&&(identical(other.commentCount, _this.commentCount) || other.commentCount == _this.commentCount)&&(identical(other.createdAt, _this.createdAt) || other.createdAt == _this.createdAt)&&(identical(other.imageURL, _this.imageURL) || other.imageURL == _this.imageURL)&&(identical(other.outfitId, _this.outfitId) || other.outfitId == _this.outfitId)&&const DeepCollectionEquality().equals(other.productIds, _this.productIds)&&const DeepCollectionEquality().equals(other.products, _this.products)&&(identical(other.visibility, _this.visibility) || other.visibility == _this.visibility)&&(identical(other.kind, _this.kind) || other.kind == _this.kind)&&(identical(other.repostOfId, _this.repostOfId) || other.repostOfId == _this.repostOfId)&&(identical(other.repostOfAuthorId, _this.repostOfAuthorId) || other.repostOfAuthorId == _this.repostOfAuthorId)&&(identical(other.quoteText, _this.quoteText) || other.quoteText == _this.quoteText));
 }
 
 
 @override
 int get hashCode {
   final _this = this as Post;
-  return Object.hash(runtimeType,_this.id,_this.authorId,_this.caption,_this.commentCount,_this.createdAt,_this.imageURL,_this.likeCount,_this.outfitId,const DeepCollectionEquality().hash(_this.productIds),const DeepCollectionEquality().hash(_this.products),_this.visibility,_this.kind,_this.repostOfId,_this.repostOfAuthorId,_this.quoteText);
+  return Object.hash(runtimeType,_this.id,_this.authorId,_this.caption,_this.commentCount,_this.createdAt,_this.imageURL,_this.outfitId,const DeepCollectionEquality().hash(_this.productIds),const DeepCollectionEquality().hash(_this.products),_this.visibility,_this.kind,_this.repostOfId,_this.repostOfAuthorId,_this.quoteText);
 }
 
 @override
 String toString() {
   final _this = this as Post;
-  return 'Post(id: ${_this.id}, authorId: ${_this.authorId}, caption: ${_this.caption}, commentCount: ${_this.commentCount}, createdAt: ${_this.createdAt}, imageURL: ${_this.imageURL}, likeCount: ${_this.likeCount}, outfitId: ${_this.outfitId}, productIds: ${_this.productIds}, products: ${_this.products}, visibility: ${_this.visibility}, kind: ${_this.kind}, repostOfId: ${_this.repostOfId}, repostOfAuthorId: ${_this.repostOfAuthorId}, quoteText: ${_this.quoteText})';
+  return 'Post(id: ${_this.id}, authorId: ${_this.authorId}, caption: ${_this.caption}, commentCount: ${_this.commentCount}, createdAt: ${_this.createdAt}, imageURL: ${_this.imageURL}, outfitId: ${_this.outfitId}, productIds: ${_this.productIds}, products: ${_this.products}, visibility: ${_this.visibility}, kind: ${_this.kind}, repostOfId: ${_this.repostOfId}, repostOfAuthorId: ${_this.repostOfAuthorId}, quoteText: ${_this.quoteText})';
 }
 
 
@@ -54,7 +53,7 @@ abstract mixin class $PostCopyWith<$Res>  {
   factory $PostCopyWith(Post value, $Res Function(Post) _then) = _$PostCopyWithImpl;
 @useResult
 $Res call({
- String id, String authorId, String caption, int commentCount, DateTime createdAt, String imageURL, int likeCount, String outfitId, List<String> productIds, List<Map<String, dynamic>> products, PostVisibility visibility, PostKind kind, String repostOfId, String repostOfAuthorId, String quoteText
+ String id, String authorId, String caption, int commentCount, DateTime createdAt, String imageURL, String outfitId, List<String> productIds, List<Map<String, dynamic>> products, PostVisibility visibility, PostKind kind, String repostOfId, String repostOfAuthorId, String quoteText
 });
 
 
@@ -71,7 +70,7 @@ class _$PostCopyWithImpl<$Res>
 
 /// Create a copy of Post
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? authorId = null,Object? caption = null,Object? commentCount = null,Object? createdAt = null,Object? imageURL = null,Object? likeCount = null,Object? outfitId = null,Object? productIds = null,Object? products = null,Object? visibility = null,Object? kind = null,Object? repostOfId = null,Object? repostOfAuthorId = null,Object? quoteText = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? authorId = null,Object? caption = null,Object? commentCount = null,Object? createdAt = null,Object? imageURL = null,Object? outfitId = null,Object? productIds = null,Object? products = null,Object? visibility = null,Object? kind = null,Object? repostOfId = null,Object? repostOfAuthorId = null,Object? quoteText = null,}) {
   return _then(Post(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,authorId: null == authorId ? _self.authorId : authorId // ignore: cast_nullable_to_non_nullable
@@ -79,8 +78,7 @@ as String,caption: null == caption ? _self.caption : caption // ignore: cast_nul
 as String,commentCount: null == commentCount ? _self.commentCount : commentCount // ignore: cast_nullable_to_non_nullable
 as int,createdAt: null == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
 as DateTime,imageURL: null == imageURL ? _self.imageURL : imageURL // ignore: cast_nullable_to_non_nullable
-as String,likeCount: null == likeCount ? _self.likeCount : likeCount // ignore: cast_nullable_to_non_nullable
-as int,outfitId: null == outfitId ? _self.outfitId : outfitId // ignore: cast_nullable_to_non_nullable
+as String,outfitId: null == outfitId ? _self.outfitId : outfitId // ignore: cast_nullable_to_non_nullable
 as String,productIds: null == productIds ? _self.productIds : productIds // ignore: cast_nullable_to_non_nullable
 as List<String>,products: null == products ? _self.products : products // ignore: cast_nullable_to_non_nullable
 as List<Map<String, dynamic>>,visibility: null == visibility ? _self.visibility : visibility // ignore: cast_nullable_to_non_nullable
@@ -173,10 +171,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String authorId,  String caption,  int commentCount,  DateTime createdAt,  String imageURL,  int likeCount,  String outfitId,  List<String> productIds,  List<Map<String, dynamic>> products,  PostVisibility visibility,  PostKind kind,  String repostOfId,  String repostOfAuthorId,  String quoteText)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String authorId,  String caption,  int commentCount,  DateTime createdAt,  String imageURL,  String outfitId,  List<String> productIds,  List<Map<String, dynamic>> products,  PostVisibility visibility,  PostKind kind,  String repostOfId,  String repostOfAuthorId,  String quoteText)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Post() when $default != null:
-return $default(_that.id,_that.authorId,_that.caption,_that.commentCount,_that.createdAt,_that.imageURL,_that.likeCount,_that.outfitId,_that.productIds,_that.products,_that.visibility,_that.kind,_that.repostOfId,_that.repostOfAuthorId,_that.quoteText);case _:
+return $default(_that.id,_that.authorId,_that.caption,_that.commentCount,_that.createdAt,_that.imageURL,_that.outfitId,_that.productIds,_that.products,_that.visibility,_that.kind,_that.repostOfId,_that.repostOfAuthorId,_that.quoteText);case _:
   return orElse();
 
 }
@@ -194,10 +192,10 @@ return $default(_that.id,_that.authorId,_that.caption,_that.commentCount,_that.c
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String authorId,  String caption,  int commentCount,  DateTime createdAt,  String imageURL,  int likeCount,  String outfitId,  List<String> productIds,  List<Map<String, dynamic>> products,  PostVisibility visibility,  PostKind kind,  String repostOfId,  String repostOfAuthorId,  String quoteText)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String authorId,  String caption,  int commentCount,  DateTime createdAt,  String imageURL,  String outfitId,  List<String> productIds,  List<Map<String, dynamic>> products,  PostVisibility visibility,  PostKind kind,  String repostOfId,  String repostOfAuthorId,  String quoteText)  $default,) {final _that = this;
 switch (_that) {
 case _Post():
-return $default(_that.id,_that.authorId,_that.caption,_that.commentCount,_that.createdAt,_that.imageURL,_that.likeCount,_that.outfitId,_that.productIds,_that.products,_that.visibility,_that.kind,_that.repostOfId,_that.repostOfAuthorId,_that.quoteText);case _:
+return $default(_that.id,_that.authorId,_that.caption,_that.commentCount,_that.createdAt,_that.imageURL,_that.outfitId,_that.productIds,_that.products,_that.visibility,_that.kind,_that.repostOfId,_that.repostOfAuthorId,_that.quoteText);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -214,10 +212,10 @@ return $default(_that.id,_that.authorId,_that.caption,_that.commentCount,_that.c
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String authorId,  String caption,  int commentCount,  DateTime createdAt,  String imageURL,  int likeCount,  String outfitId,  List<String> productIds,  List<Map<String, dynamic>> products,  PostVisibility visibility,  PostKind kind,  String repostOfId,  String repostOfAuthorId,  String quoteText)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String authorId,  String caption,  int commentCount,  DateTime createdAt,  String imageURL,  String outfitId,  List<String> productIds,  List<Map<String, dynamic>> products,  PostVisibility visibility,  PostKind kind,  String repostOfId,  String repostOfAuthorId,  String quoteText)?  $default,) {final _that = this;
 switch (_that) {
 case _Post() when $default != null:
-return $default(_that.id,_that.authorId,_that.caption,_that.commentCount,_that.createdAt,_that.imageURL,_that.likeCount,_that.outfitId,_that.productIds,_that.products,_that.visibility,_that.kind,_that.repostOfId,_that.repostOfAuthorId,_that.quoteText);case _:
+return $default(_that.id,_that.authorId,_that.caption,_that.commentCount,_that.createdAt,_that.imageURL,_that.outfitId,_that.productIds,_that.products,_that.visibility,_that.kind,_that.repostOfId,_that.repostOfAuthorId,_that.quoteText);case _:
   return null;
 
 }
@@ -229,7 +227,7 @@ return $default(_that.id,_that.authorId,_that.caption,_that.commentCount,_that.c
 
 
 class _Post extends Post {
-  const _Post({required this.id, required this.authorId, required this.caption, required this.commentCount, required this.createdAt, required this.imageURL, this.likeCount = 0, this.outfitId = '',  List<String> productIds = const [],  List<Map<String, dynamic>> products = const [], this.visibility = PostVisibility.private, this.kind = PostKind.look, this.repostOfId = '', this.repostOfAuthorId = '', this.quoteText = ''}): _productIds = productIds,_products = products,super._();
+  const _Post({required this.id, required this.authorId, required this.caption, required this.commentCount, required this.createdAt, required this.imageURL, this.outfitId = '',  List<String> productIds = const [],  List<Map<String, dynamic>> products = const [], this.visibility = PostVisibility.private, this.kind = PostKind.look, this.repostOfId = '', this.repostOfAuthorId = '', this.quoteText = ''}): _productIds = productIds,_products = products,super._();
   
 
 @override final  String id;
@@ -238,8 +236,6 @@ class _Post extends Post {
 @override final  int commentCount;
 @override final  DateTime createdAt;
 @override final  String imageURL;
-/// How many people liked the look, kept by the database (post_likes).
-@override@JsonKey() final  int likeCount;
 @override@JsonKey() final  String outfitId;
  final  List<String> _productIds;
 @override@JsonKey() List<String> get productIds {
@@ -273,18 +269,18 @@ _$PostCopyWith<_Post> get copyWith => __$PostCopyWithImpl<_Post>(this, _$identit
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _Post&&(identical(other.id, id) || other.id == id)&&(identical(other.authorId, authorId) || other.authorId == authorId)&&(identical(other.caption, caption) || other.caption == caption)&&(identical(other.commentCount, commentCount) || other.commentCount == commentCount)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.imageURL, imageURL) || other.imageURL == imageURL)&&(identical(other.likeCount, likeCount) || other.likeCount == likeCount)&&(identical(other.outfitId, outfitId) || other.outfitId == outfitId)&&const DeepCollectionEquality().equals(other.productIds, _productIds)&&const DeepCollectionEquality().equals(other.products, _products)&&(identical(other.visibility, visibility) || other.visibility == visibility)&&(identical(other.kind, kind) || other.kind == kind)&&(identical(other.repostOfId, repostOfId) || other.repostOfId == repostOfId)&&(identical(other.repostOfAuthorId, repostOfAuthorId) || other.repostOfAuthorId == repostOfAuthorId)&&(identical(other.quoteText, quoteText) || other.quoteText == quoteText));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _Post&&(identical(other.id, id) || other.id == id)&&(identical(other.authorId, authorId) || other.authorId == authorId)&&(identical(other.caption, caption) || other.caption == caption)&&(identical(other.commentCount, commentCount) || other.commentCount == commentCount)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.imageURL, imageURL) || other.imageURL == imageURL)&&(identical(other.outfitId, outfitId) || other.outfitId == outfitId)&&const DeepCollectionEquality().equals(other.productIds, _productIds)&&const DeepCollectionEquality().equals(other.products, _products)&&(identical(other.visibility, visibility) || other.visibility == visibility)&&(identical(other.kind, kind) || other.kind == kind)&&(identical(other.repostOfId, repostOfId) || other.repostOfId == repostOfId)&&(identical(other.repostOfAuthorId, repostOfAuthorId) || other.repostOfAuthorId == repostOfAuthorId)&&(identical(other.quoteText, quoteText) || other.quoteText == quoteText));
 }
 
 
 @override
 int get hashCode {
-    return Object.hash(runtimeType,id,authorId,caption,commentCount,createdAt,imageURL,likeCount,outfitId,const DeepCollectionEquality().hash(_productIds),const DeepCollectionEquality().hash(_products),visibility,kind,repostOfId,repostOfAuthorId,quoteText);
+    return Object.hash(runtimeType,id,authorId,caption,commentCount,createdAt,imageURL,outfitId,const DeepCollectionEquality().hash(_productIds),const DeepCollectionEquality().hash(_products),visibility,kind,repostOfId,repostOfAuthorId,quoteText);
 }
 
 @override
 String toString() {
-    return 'Post(id: $id, authorId: $authorId, caption: $caption, commentCount: $commentCount, createdAt: $createdAt, imageURL: $imageURL, likeCount: $likeCount, outfitId: $outfitId, productIds: $productIds, products: $products, visibility: $visibility, kind: $kind, repostOfId: $repostOfId, repostOfAuthorId: $repostOfAuthorId, quoteText: $quoteText)';
+    return 'Post(id: $id, authorId: $authorId, caption: $caption, commentCount: $commentCount, createdAt: $createdAt, imageURL: $imageURL, outfitId: $outfitId, productIds: $productIds, products: $products, visibility: $visibility, kind: $kind, repostOfId: $repostOfId, repostOfAuthorId: $repostOfAuthorId, quoteText: $quoteText)';
 }
 
 
@@ -295,7 +291,7 @@ abstract mixin class _$PostCopyWith<$Res> implements $PostCopyWith<$Res> {
   factory _$PostCopyWith(_Post value, $Res Function(_Post) _then) = __$PostCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String authorId, String caption, int commentCount, DateTime createdAt, String imageURL, int likeCount, String outfitId, List<String> productIds, List<Map<String, dynamic>> products, PostVisibility visibility, PostKind kind, String repostOfId, String repostOfAuthorId, String quoteText
+ String id, String authorId, String caption, int commentCount, DateTime createdAt, String imageURL, String outfitId, List<String> productIds, List<Map<String, dynamic>> products, PostVisibility visibility, PostKind kind, String repostOfId, String repostOfAuthorId, String quoteText
 });
 
 
@@ -312,7 +308,7 @@ class __$PostCopyWithImpl<$Res>
 
 /// Create a copy of Post
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? authorId = null,Object? caption = null,Object? commentCount = null,Object? createdAt = null,Object? imageURL = null,Object? likeCount = null,Object? outfitId = null,Object? productIds = null,Object? products = null,Object? visibility = null,Object? kind = null,Object? repostOfId = null,Object? repostOfAuthorId = null,Object? quoteText = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? authorId = null,Object? caption = null,Object? commentCount = null,Object? createdAt = null,Object? imageURL = null,Object? outfitId = null,Object? productIds = null,Object? products = null,Object? visibility = null,Object? kind = null,Object? repostOfId = null,Object? repostOfAuthorId = null,Object? quoteText = null,}) {
   return _then(_Post(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,authorId: null == authorId ? _self.authorId : authorId // ignore: cast_nullable_to_non_nullable
@@ -320,8 +316,7 @@ as String,caption: null == caption ? _self.caption : caption // ignore: cast_nul
 as String,commentCount: null == commentCount ? _self.commentCount : commentCount // ignore: cast_nullable_to_non_nullable
 as int,createdAt: null == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
 as DateTime,imageURL: null == imageURL ? _self.imageURL : imageURL // ignore: cast_nullable_to_non_nullable
-as String,likeCount: null == likeCount ? _self.likeCount : likeCount // ignore: cast_nullable_to_non_nullable
-as int,outfitId: null == outfitId ? _self.outfitId : outfitId // ignore: cast_nullable_to_non_nullable
+as String,outfitId: null == outfitId ? _self.outfitId : outfitId // ignore: cast_nullable_to_non_nullable
 as String,productIds: null == productIds ? _self._productIds : productIds // ignore: cast_nullable_to_non_nullable
 as List<String>,products: null == products ? _self._products : products // ignore: cast_nullable_to_non_nullable
 as List<Map<String, dynamic>>,visibility: null == visibility ? _self.visibility : visibility // ignore: cast_nullable_to_non_nullable

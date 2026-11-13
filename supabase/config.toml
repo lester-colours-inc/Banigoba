@@ -428,3 +428,6 @@ import_map = "./functions/deno.json"
 [functions.smile-pay-webhook]
 import_map = "./functions/deno.json"
 verify_jwt = false
+
+[functions.search-looks]
+import_map = "./functions/deno.json"

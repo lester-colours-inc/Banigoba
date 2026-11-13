@@ -19,7 +19,6 @@ import 'package:banigoba/shared/widgets/app_toast.dart';
 
 /// Notifications about one of your looks, opened on that look.
 const Set<String> _lookTypes = {
-  'like',
   'try_on',
   'repost',
   'quote',

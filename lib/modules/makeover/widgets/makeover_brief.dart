@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 
 import 'package:banigoba/core/style/style_catalogue.dart';
 import 'package:banigoba/modules/makeover/controllers/makeover_controller.dart';
+import 'package:banigoba/modules/makeover/widgets/idol_web_look.dart';
 import 'package:banigoba/modules/makeover/widgets/look_source_picker.dart';
 import 'package:banigoba/modules/makeover/widgets/makeover_controls.dart';
 import 'package:banigoba/modules/makeover/widgets/makeover_views.dart';
@@ -63,6 +64,11 @@ class _DefaultBrief extends StatelessWidget {
             scope: scope ?? LookScope.fullLook,
             describeController: controller.describe,
             idolController: controller.idol,
+            idolLook: IdolLookState(
+              imageUrl: controller.idolLookUrl.value,
+              onFindOnWeb: controller.pickIdolLookFromWeb,
+              onClear: controller.clearIdolLook,
+            ),
             archetypes: styleArchetypes,
             selectedArchetype: controller.archetype.value,
             onArchetypeChanged: controller.selectArchetype,

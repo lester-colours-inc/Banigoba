@@ -22,26 +22,35 @@ class AdminProductsPage extends StatelessWidget {
     return GetBuilder<AdminProductsController>(
       init: AdminProductsController(),
       global: false,
-      builder: (controller) => _AdminProductsView(controller: controller),
+      builder: (controller) => AdminProductsView(controller: controller),
     );
   }
 }
 
-class _AdminProductsView extends StatelessWidget {
-  const _AdminProductsView({required this.controller});
+/// The product list with its add buttons. The shop dashboard shows it as its
+/// Stock tab, without the app bar.
+class AdminProductsView extends StatelessWidget {
+  const AdminProductsView({
+    super.key,
+    required this.controller,
+    this.showAppBar = true,
+  });
 
   static const Color primaryColor = Color(0xFF0D0140);
 
   final AdminProductsController controller;
+  final bool showAppBar;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Products & Inventory'),
-        backgroundColor: primaryColor,
-        foregroundColor: Colors.white,
-      ),
+      appBar: showAppBar
+          ? AppBar(
+              title: const Text('Products & Inventory'),
+              backgroundColor: primaryColor,
+              foregroundColor: Colors.white,
+            )
+          : null,
       body: Obx(() {
         if (!controller.loaded.value) {
           return const Center(child: CircularProgressIndicator());

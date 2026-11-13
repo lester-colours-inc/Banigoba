@@ -8,7 +8,7 @@ void main() {
     });
 
     test('keeps social and shop notifications in the inbox', () {
-      for (final type in ['follow_request', 'follow_accepted', 'like']) {
+      for (final type in ['follow_request', 'follow_accepted', 'comment']) {
         expect(NotificationService.isInboxRow({'type': type}), isTrue);
       }
     });

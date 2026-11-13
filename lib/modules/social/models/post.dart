@@ -66,8 +66,6 @@ abstract class Post with _$Post {
     required DateTime createdAt,
     required String imageURL,
 
-    /// How many people liked the look, kept by the database (post_likes).
-    @Default(0) int likeCount,
     @Default('') String outfitId,
     @Default([]) List<String> productIds,
     @Default([]) List<Map<String, dynamic>> products,
@@ -122,7 +120,6 @@ abstract class Post with _$Post {
       authorId: (data['authorId'] ?? '').toString(),
       caption: (data['caption'] ?? '').toString(),
       commentCount: _asInt(data['commentCount']),
-      likeCount: _asInt(data['likeCount']),
       createdAt: asDateTime(data['createdAt']) ?? DateTime.now(),
       imageURL: (data['imageUrl'] ?? '').toString(),
       outfitId: (data['outfitId'] ?? '').toString(),

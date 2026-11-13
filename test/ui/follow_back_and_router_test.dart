@@ -99,7 +99,7 @@ void main() {
       tester,
     ) async {
       expect(await open(tester, 'comment', {'fromId': 'amara'}), isFalse);
-      expect(await open(tester, 'like', const {}), isFalse);
+      expect(await open(tester, 'repost', const {}), isFalse);
     });
 
     testWidgets('an affirmation on a makeover is not opened as a post', (

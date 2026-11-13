@@ -33,6 +33,8 @@ import 'package:banigoba/modules/makeover/widgets/makeover_views.dart';
 import 'package:banigoba/modules/profile_details/models/body_profile.dart';
 import 'package:banigoba/modules/profile_details/services/body_profile_service.dart';
 import 'package:banigoba/modules/provider/models/look_request.dart';
+import 'package:banigoba/modules/makeover/services/web_look_search.dart';
+import 'package:banigoba/modules/makeover/widgets/web_look_results.dart';
 import 'package:banigoba/modules/wardrobe/widgets/save_look_sheet.dart';
 
 enum MakeoverPhase { brief, styling, done }
@@ -90,6 +92,10 @@ class MakeoverController extends GetxController {
   final Rx<WeatherState> weather = const WeatherState().obs;
   final RxString twinUrl = ''.obs;
   final RxBool isUploadingTwin = false.obs;
+
+  /// A look the style idol wore, found on the web and copied to the user's
+  /// style references.
+  final RxString idolLookUrl = ''.obs;
 
   /// Profile details: the default photo, the face photo for idol and twin
   /// looks, and sizes to fit clothes to.
@@ -248,6 +254,20 @@ class MakeoverController extends GetxController {
     twinUrl.value = url;
   }
 
+  /// Searches the web for the idol's looks, starting from the typed name.
+  Future<void> pickIdolLookFromWeb() async {
+    final name = idol.text.trim();
+    final url = await showWebLookSearch(
+      context(),
+      initialQuery: idolLookQuery(name),
+      title: name.isEmpty ? 'Find your idol on the web' : "$name's looks",
+    );
+    if (url == null || isClosed) return;
+    idolLookUrl.value = url;
+  }
+
+  void clearIdolLook() => idolLookUrl.value = '';
+
   /// Returns a message when a photo file is unusable, or null. It describes
   /// the file, never the person.
   static String? photoProblem(int sizeInBytes) {
@@ -326,6 +346,7 @@ class MakeoverController extends GetxController {
       LookMethod.idol => IdolSource(
         idolName: idol.text,
         archetype: archetype.value,
+        imageUrl: idolLookUrl.value,
       ),
       LookMethod.twin => TwinSource(imageUrl: twinUrl.value),
       LookMethod.weather => WeatherSource(

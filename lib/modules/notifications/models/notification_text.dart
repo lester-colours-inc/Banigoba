@@ -2,7 +2,7 @@
 
 /// The notification types each category tab shows (All shows everything).
 const Map<int, List<String>> notificationTabTypes = {
-  1: ['follow_request', 'follow_accepted', 'new_post', 'like', 'comment'],
+  1: ['follow_request', 'follow_accepted', 'new_post', 'comment'],
   2: [
     'order_update',
     'shop_promo',
@@ -88,8 +88,6 @@ String notificationActionText(
   String actorName = '',
 }) {
   switch (type) {
-    case 'like':
-      return 'liked your Daily Dress Up.';
     case 'comment':
       return 'commented on your Daily Dress Up.';
     case 'try_on':

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 
 import 'package:banigoba/modules/provider/models/look_request.dart';
 import 'package:banigoba/modules/home/models/weather.dart';
+import 'package:banigoba/modules/makeover/widgets/idol_web_look.dart';
 import 'package:banigoba/modules/makeover/widgets/makeover_controls.dart';
 import 'package:banigoba/shared/widgets/app_network_image.dart';
 
@@ -63,6 +64,7 @@ class LookSourcePicker extends StatelessWidget {
     required this.scope,
     required this.describeController,
     required this.idolController,
+    required this.idolLook,
     required this.archetypes,
     required this.selectedArchetype,
     required this.onArchetypeChanged,
@@ -80,6 +82,7 @@ class LookSourcePicker extends StatelessWidget {
   final LookScope scope;
   final TextEditingController describeController;
   final TextEditingController idolController;
+  final IdolLookState idolLook;
   final List<StyleArchetype> archetypes;
   final StyleArchetype? selectedArchetype;
 
@@ -156,6 +159,7 @@ class LookSourcePicker extends StatelessWidget {
               ),
               LookMethod.idol => _IdolInput(
                 controller: idolController,
+                look: idolLook,
                 archetypes: archetypes,
                 selected: selectedArchetype,
                 onSelected: enabled ? onArchetypeChanged : null,
@@ -374,11 +378,13 @@ class _DescribeInput extends StatelessWidget {
 //
 // UNCLEAR: whether a list of named public figures (e.g. Winky D) may be
 // offered, or only idols who have joined the platform (work plan, open
-// question 4). Until then the user types the name themselves; the look takes
-// their clothes style only, never their likeness.
+// question 4). Until then the user types the name themselves, and may pick
+// one of the idol's looks found on the web; the look takes their clothes
+// style only, never their likeness.
 class _IdolInput extends StatelessWidget {
   const _IdolInput({
     required this.controller,
+    required this.look,
     required this.archetypes,
     required this.selected,
     required this.onSelected,
@@ -386,6 +392,7 @@ class _IdolInput extends StatelessWidget {
   });
 
   final TextEditingController controller;
+  final IdolLookState look;
   final List<StyleArchetype> archetypes;
   final StyleArchetype? selected;
   final ValueChanged<StyleArchetype?>? onSelected;
@@ -409,6 +416,8 @@ class _IdolInput extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 4),
+        IdolWebLook(state: look, idolName: controller.text, enabled: enabled),
+        const SizedBox(height: 18),
         _OptionPills<StyleArchetype>(
           title: controller.text.trim().isEmpty
               ? 'No one in mind? Pick a vibe'

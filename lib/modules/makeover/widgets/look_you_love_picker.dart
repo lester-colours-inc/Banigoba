@@ -1,7 +1,7 @@
 // "Use a look you love": pick a look to copy onto yourself, from people you
 // follow (shown first), your Fashion Twins, the looks you saved (by
-// category), the looks you affirmed, or the whole community, with search
-// (October 2026 review, M-10 and P-9).
+// category), the looks you affirmed, the whole community, or the web, with
+// search (October 2026 review, M-10 and P-9).
 //
 // TODO(content-engine): "Trending" and "Style idols" sources need the
 // fashion-content engine (review item E-2).
@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import 'package:banigoba/modules/makeover/controllers/look_love_controller.dart';
+import 'package:banigoba/modules/makeover/widgets/web_look_results.dart';
 import 'package:banigoba/modules/social/models/post.dart';
 import 'package:banigoba/shared/widgets/app_network_image.dart';
 
@@ -18,7 +19,8 @@ enum LookLoveSource {
   twins('Fashion Twins'),
   saved('Saved'),
   affirmed('Affirmed'),
-  community('Community');
+  community('Community'),
+  web('Web');
 
   const LookLoveSource(this.label);
 
@@ -95,6 +97,8 @@ List<PickableLook> looksFor(
     LookLoveSource.affirmed =>
       others.where((p) => data.affirmed.contains(p.id)).map(_fromPost),
     LookLoveSource.community => others.where((p) => p.isPublic).map(_fromPost),
+    // Web looks come from a search, not from these sources.
+    LookLoveSource.web => const <PickableLook>[],
     LookLoveSource.saved => data.saved.where(
       (look) =>
           look.imageUrl.isNotEmpty &&
@@ -174,10 +178,22 @@ class _LookYouLovePicker extends StatelessWidget {
           child: TextField(
             key: const ValueKey('look_love_search'),
             onChanged: love.search,
-            decoration: const InputDecoration(
+            textInputAction: TextInputAction.search,
+            decoration: InputDecoration(
               hintText: 'Search by words, category, name or @username',
-              prefixIcon: Icon(Icons.search),
+              prefixIcon: const Icon(Icons.search),
               isDense: true,
+              // Same words, but on the internet.
+              suffixIcon: Obx(
+                () => love.source.value == LookLoveSource.web
+                    ? const SizedBox.shrink()
+                    : IconButton(
+                        key: const ValueKey('look_love_search_web'),
+                        tooltip: 'Search the web',
+                        icon: const Icon(Icons.travel_explore),
+                        onPressed: () => love.selectSource(LookLoveSource.web),
+                      ),
+              ),
             ),
           ),
         ),
@@ -192,6 +208,9 @@ class _LookYouLovePicker extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 4),
                     child: ChoiceChip(
                       key: ValueKey('look_love_${source.name}'),
+                      avatar: source == LookLoveSource.web
+                          ? const Icon(Icons.travel_explore, size: 18)
+                          : null,
                       label: Text(source.label),
                       selected: source == love.source.value,
                       onSelected: (_) => love.selectSource(source),
@@ -227,8 +246,15 @@ class _LookYouLovePicker extends StatelessWidget {
         const SizedBox(height: 8),
         Expanded(
           child: Obx(() {
-            final looks = love.looks;
             final source = love.source.value;
+            if (source == LookLoveSource.web) {
+              return WebLookResults(
+                state: love.web,
+                controller: controller,
+                onKept: (url) => Navigator.pop(context, url),
+              );
+            }
+            final looks = love.looks;
             final isLoading = !love.postsLoaded.value;
             return isLoading && source != LookLoveSource.saved
                 ? const Center(child: CircularProgressIndicator())
@@ -288,13 +314,14 @@ class _EmptyMessage extends StatelessWidget {
         ? 'Nothing matches that search here. Try another word or source.'
         : switch (source) {
             LookLoveSource.following =>
-              'No looks yet from people you follow. Try Community.',
+              'No looks yet from people you follow. Try Community or Web.',
             LookLoveSource.twins =>
               'Add Fashion Twins from the menu to see their looks here.',
             LookLoveSource.saved =>
               'Looks you save to your Smart Wardrobe appear here.',
             LookLoveSource.affirmed => 'Looks you affirm appear here.',
             LookLoveSource.community => 'No community looks yet.',
+            LookLoveSource.web => 'Type something to search the web.',
           };
     return Center(
       child: Padding(

@@ -154,15 +154,24 @@ final class DescribeSource extends LookSource {
 }
 
 /// Dressed the way someone the user admires dresses. Either a person they
-/// name themselves, or a style archetype when they have nobody in mind.
+/// name themselves, or a style archetype when they have nobody in mind;
+/// optionally with a picture of one of the idol's looks found on the web.
 final class IdolSource extends LookSource {
-  const IdolSource({this.idolName = '', this.archetype});
+  const IdolSource({this.idolName = '', this.archetype, this.imageUrl = ''});
 
   final String idolName;
   final StyleArchetype? archetype;
 
+  /// A look the idol wore, copied to the user's style references.
+  final String imageUrl;
+
   @override
-  bool get isComplete => idolName.trim().isNotEmpty || archetype != null;
+  bool get isComplete =>
+      idolName.trim().isNotEmpty || archetype != null || imageUrl.isNotEmpty;
+
+  @override
+  List<String> get referenceImageUrls =>
+      imageUrl.isEmpty ? const [] : [imageUrl];
 }
 
 /// Copies a look the user has seen: a friend's post, a community post or a
@@ -304,8 +313,14 @@ String buildLookPrompt(
 String _idea(LookSource source, LookPart part) => switch (source) {
   DescribeSource(:final description) =>
     'The person asked for: "${description.trim()}".',
-  IdolSource(:final idolName, :final archetype) => [
-    if (idolName.trim().isNotEmpty)
+  IdolSource(:final idolName, :final archetype, :final imageUrl) => [
+    if (imageUrl.isNotEmpty)
+      'The second image shows an outfit '
+          '${idolName.trim().isEmpty ? 'their style idol' : idolName.trim()} '
+          'wore. Copy the ${part.label.toLowerCase()} from it as closely as '
+          'possible, fitted naturally to this person. Never copy the face, '
+          'body or identity of the person in the second image.'
+    else if (idolName.trim().isNotEmpty)
       'Take inspiration from the signature fashion style of '
           '${idolName.trim()}: how they dress and style themselves, never '
           'their face or body.',

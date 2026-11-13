@@ -2,11 +2,11 @@
 // repost passes someone's look on to your own audience unchanged; a quote
 // adds your own words above it. Either way the original author is told.
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
 
-import 'package:banigoba/modules/social/controllers/quote_controller.dart';
 import 'package:banigoba/modules/social/models/post.dart';
 import 'package:banigoba/modules/social/services/post_service.dart';
+import 'package:banigoba/modules/social/views/quote_composer_page.dart';
+import 'package:banigoba/modules/social/widgets/quoted_look_card.dart';
 import 'package:banigoba/modules/social/widgets/share_audience_sheet.dart';
 import 'package:banigoba/shared/widgets/app_toast.dart';
 
@@ -66,23 +66,38 @@ Future<void> repostLook(
   );
 }
 
-/// Asks for the user's words on [post], then who should see the quote.
+/// Opens the X-style quote composer on [post] and posts the quote with the
+/// words and audience chosen there. [preview] is what the composer shows of
+/// the quoted look; without it the post's own caption and picture are used.
 Future<void> quoteLook(
   BuildContext context,
   Post post, {
   PostService? posts,
+  QuotedLookPreview? preview,
+  Future<String>? myAvatarUrl,
 }) async {
-  final quote = await showDialog<String>(
-    context: context,
-    builder: (_) => const _QuoteDialog(),
+  final draft = await showQuoteComposer(
+    context,
+    preview:
+        preview ??
+        QuotedLookPreview(
+          authorName: 'Look',
+          timeLabel: '',
+          text: post.isQuote ? post.quoteText : post.caption,
+          imageUrl: post.imageURL,
+        ),
+    audience: post.isShared ? post.visibility : PostVisibility.public,
+    myAvatarUrl: myAvatarUrl,
+    maxLength: _maxQuoteLength,
   );
-  if (quote == null || quote.trim().isEmpty || !context.mounted) return;
-  final audience = await showShareAudienceSheet(context, title: 'Quote to');
-  if (audience == null || !context.mounted) return;
+  if (draft == null || draft.text.isEmpty || !context.mounted) return;
   await _send(
     context,
-    () =>
-        (posts ?? PostService()).repost(post, quote: quote, audience: audience),
+    () => (posts ?? PostService()).repost(
+      post,
+      quote: draft.text,
+      audience: draft.audience,
+    ),
     done: 'Quote posted.',
   );
 }
@@ -99,49 +114,5 @@ Future<void> _send(
     AppToast.say(error.message);
   } on Exception catch (error) {
     AppToast.say('Unable to repost this look: $error');
-  }
-}
-
-class _QuoteDialog extends StatelessWidget {
-  const _QuoteDialog();
-
-  @override
-  Widget build(BuildContext context) {
-    // Scoped to this dialog: created and disposed with the widget.
-    return GetBuilder<QuoteController>(
-      init: QuoteController(),
-      global: false,
-      builder: (controller) => AlertDialog(
-        title: const Text('Quote this look'),
-        content: TextField(
-          key: const ValueKey('quote_field'),
-          controller: controller.text,
-          autofocus: true,
-          minLines: 2,
-          maxLines: 4,
-          maxLength: _maxQuoteLength,
-          textCapitalization: TextCapitalization.sentences,
-          decoration: const InputDecoration(
-            hintText: 'Add your thoughts',
-            border: OutlineInputBorder(),
-          ),
-          onChanged: (value) => controller.typed.value = value,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          Obx(
-            () => FilledButton(
-              onPressed: controller.canContinue
-                  ? () => Navigator.pop(context, controller.text.text)
-                  : null,
-              child: const Text('Next'),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }

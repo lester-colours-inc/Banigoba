@@ -166,11 +166,6 @@ class NotificationItem extends StatelessWidget {
                       ),
                     ),
                   ),
-                if (type == 'like')
-                  Padding(
-                    padding: EdgeInsets.only(top: 4.0),
-                    child: Icon(Icons.favorite, color: Colors.red, size: 16),
-                  ),
                 if (type == 'follow_accepted' ||
                     type == 'follow_request' ||
                     type == 'new_post')

@@ -152,6 +152,16 @@ void main() {
       expect(prompt, contains('never their face or body'));
     });
 
+    test('a style idol web look is copied from the second image', () {
+      const source = IdolSource(idolName: 'Winky D', imageUrl: _twinLook);
+      final prompt = _prompt(source, part: LookPart.outfit);
+      expect(source.referenceImageUrls, [_twinLook]);
+      expect(prompt, contains('The second image shows an outfit Winky D wore'));
+      expect(prompt, contains('Never copy the face'));
+      expect(const IdolSource(imageUrl: _twinLook).isComplete, isTrue);
+      expect(const IdolSource(idolName: 'Winky D').referenceImageUrls, isEmpty);
+    });
+
     test('a style idol can be a vibe instead of a person', () {
       final archetype = styleArchetypes.first;
       expect(

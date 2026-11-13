@@ -21,34 +21,46 @@ class ShopChatInboxPage extends StatelessWidget {
       global: false,
       builder: (controller) => Scaffold(
         appBar: AppBar(title: const Text('Messages')),
-        body: controller.userId == null
-            ? const Center(child: Text('Sign in to view messages.'))
-            : Obx(() {
-                if (!controller.loaded.value) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                final chats = controller.chats;
-                if (chats.isEmpty) {
-                  return Center(
-                    child: Text(
-                      sellerOnly
-                          ? 'Customer conversations will appear here.'
-                          : 'Your boutique conversations will appear here.',
-                    ),
-                  );
-                }
-                return ListView.separated(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: chats.length,
-                  separatorBuilder: (_, _) => const Divider(),
-                  itemBuilder: (context, index) => _ConversationRow(
-                    controller: controller,
-                    data: chats[index],
-                  ),
-                );
-              }),
+        body: ShopChatInboxList(controller: controller),
       ),
     );
+  }
+}
+
+/// The conversation list on its own, so the shop dashboard can show it as
+/// its Messages tab.
+class ShopChatInboxList extends StatelessWidget {
+  const ShopChatInboxList({super.key, required this.controller});
+
+  final ShopChatInboxController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    if (controller.userId == null) {
+      return const Center(child: Text('Sign in to view messages.'));
+    }
+    return Obx(() {
+      if (!controller.loaded.value) {
+        return const Center(child: CircularProgressIndicator());
+      }
+      final chats = controller.chats;
+      if (chats.isEmpty) {
+        return Center(
+          child: Text(
+            controller.sellerOnly
+                ? 'Customer conversations will appear here.'
+                : 'Your boutique conversations will appear here.',
+          ),
+        );
+      }
+      return ListView.separated(
+        padding: const EdgeInsets.all(16),
+        itemCount: chats.length,
+        separatorBuilder: (_, _) => const Divider(),
+        itemBuilder: (context, index) =>
+            _ConversationRow(controller: controller, data: chats[index]),
+      );
+    });
   }
 }
 

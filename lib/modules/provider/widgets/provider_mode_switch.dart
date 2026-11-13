@@ -26,7 +26,7 @@ class ProviderModeSwitch extends StatelessWidget {
                     key: const ValueKey('become_provider'),
                     onPressed: controller.becomeProvider,
                     icon: const Icon(Icons.storefront_outlined, size: 18),
-                    label: const Text('Become a business'),
+                    label: const Text('Business mode'),
                   )
                 : SegmentedButton<bool>(
                     key: const ValueKey('mode_switch'),

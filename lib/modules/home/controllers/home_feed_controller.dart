@@ -27,7 +27,6 @@ import 'package:banigoba/modules/settings/services/safety_service.dart';
 import 'package:banigoba/modules/social/models/affirmation.dart';
 import 'package:banigoba/modules/social/models/post.dart';
 import 'package:banigoba/modules/social/services/friend_service.dart';
-import 'package:banigoba/modules/social/services/like_service.dart';
 import 'package:banigoba/modules/social/services/post_service.dart';
 import 'package:banigoba/modules/social/services/profile_service.dart';
 import 'package:banigoba/modules/social/services/visible_posts.dart';
@@ -146,9 +145,6 @@ class HomeFeedController extends GetxController
     );
     _loadViewerCity(userId);
     _area.refreshIfDue(userId).then((_) => _loadViewerArea(userId));
-    LikeService.instance.loadLiked().catchError(
-      (Object error) => debugPrint('Unable to load liked looks: $error'),
-    );
     _savedPostsSub = _outfitService.watchSavedPostIds(userId).listen(
       (ids) {
         if (!isClosed) savedPostIds.value = ids;

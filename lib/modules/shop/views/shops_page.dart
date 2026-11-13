@@ -8,7 +8,6 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import 'package:banigoba/core/utils/garment_taxonomy.dart';
-import 'package:banigoba/modules/shop/controllers/boutique_detail_controller.dart';
 import 'package:banigoba/modules/shop/controllers/shops_controller.dart';
 import 'package:banigoba/modules/shop/models/shop_filters.dart';
 import 'package:banigoba/modules/shop/widgets/boutique_card.dart';
@@ -18,6 +17,7 @@ import 'package:banigoba/modules/shop/widgets/shop_filter_bar.dart';
 
 export 'package:banigoba/modules/shop/controllers/shops_controller.dart'
     show productMatchesQuery;
+export 'package:banigoba/modules/shop/views/boutique_detail_page.dart';
 
 class ShopsPage extends StatelessWidget {
   const ShopsPage({super.key, this.initialTab = 0, this.initialQuery = ''});
@@ -404,68 +404,13 @@ class _ShopsView extends StatelessWidget {
                   sellerId: entry.sellerId,
                   shopName: entry.shopName,
                   description: entry.description,
-                  products: entry.products,
+                  imageUrl: entry.imageUrl,
                 ),
               );
             },
           ),
         ),
       ],
-    );
-  }
-}
-
-class BoutiqueDetailPage extends StatelessWidget {
-  const BoutiqueDetailPage({
-    super.key,
-    required this.sellerId,
-    required this.shopName,
-    required this.description,
-    required this.products,
-  });
-
-  final String sellerId;
-  final String shopName;
-  final String description;
-  final List<Map<String, dynamic>> products;
-
-  @override
-  Widget build(BuildContext context) {
-    return GetBuilder<BoutiqueDetailController>(
-      init: BoutiqueDetailController(sellerId: sellerId, shopName: shopName),
-      global: false,
-      builder: (controller) => Scaffold(
-        appBar: AppBar(title: Text(shopName)),
-        body: ListView(
-          padding: const EdgeInsets.all(20),
-          children: [
-            if (description.isNotEmpty) ...[
-              Text(description, style: const TextStyle(fontSize: 16)),
-              const SizedBox(height: 12),
-            ],
-            FilledButton.icon(
-              onPressed: controller.messageBoutique,
-              icon: const Icon(Icons.chat_bubble_outline),
-              label: const Text('Message Boutique'),
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF0D0140),
-                minimumSize: const Size(double.infinity, 48),
-              ),
-            ),
-            const SizedBox(height: 20),
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: ProductGridCard.gridDelegate,
-              itemCount: products.length,
-              itemBuilder: (context, index) => ProductGridCard(
-                product: products[index],
-                onTap: () => controller.openProduct(products[index]),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

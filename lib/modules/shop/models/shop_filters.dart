@@ -321,7 +321,7 @@ const List<String> _apparelSizeOrder = [
 ];
 
 /// Apparel letters in natural order, then numeric sizes ascending, then the
-/// rest alphabetically.
+/// rest alphabetically with numbers counted by value (UK 4 before UK 10).
 List<String> sortSizes(Iterable<String> sizes) {
   int rank(String s) {
     final apparel = _apparelSizeOrder.indexOf(s);
@@ -335,8 +335,24 @@ List<String> sortSizes(Iterable<String> sizes) {
     final na = num.tryParse(a);
     final nb = num.tryParse(b);
     if (na != null && nb != null) return na.compareTo(nb);
-    return a.compareTo(b);
+    return _naturalCompare(a, b);
   });
+}
+
+/// Alphabetical, but a run of digits counts by value: "UK 4" before "UK 10".
+int _naturalCompare(String a, String b) {
+  final digits = RegExp(r'\d+|\D+');
+  final left = digits.allMatches(a).map((m) => m.group(0)!).toList();
+  final right = digits.allMatches(b).map((m) => m.group(0)!).toList();
+  for (var i = 0; i < left.length && i < right.length; i++) {
+    final x = int.tryParse(left[i]);
+    final y = int.tryParse(right[i]);
+    final result = x != null && y != null
+        ? x.compareTo(y)
+        : left[i].compareTo(right[i]);
+    if (result != 0) return result;
+  }
+  return left.length.compareTo(right.length);
 }
 
 /// "outerwear" → "Outerwear", "smart-casual" → "Smart casual".

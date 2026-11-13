@@ -5,9 +5,7 @@
 // the easiest way to lose it is for someone to add a counter field months
 // from now because it is the obvious way to build a feed.
 //
-// Like counts are the one deliberate exception (decided 2026-11-11): a look
-// shows how many people liked it, kept by the database from post_likes, while
-// who liked it stays private. Affirmations are still never counted in public.
+// Likes were removed entirely (2026-11-13); looks carry no reaction counts.
 //
 // This test fails the build if a banned identifier reappears anywhere in
 // lib/. If you are here because it went red: the qualitative path is
@@ -17,9 +15,10 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-/// Identifiers that would rebuild a popularity score. `likeCount` is allowed
-/// (see above); a public list of who liked a look is not.
+/// Identifiers that would rebuild a popularity score.
 const List<String> _bannedIdentifiers = [
+  'likeCount',
+  'LikeService',
   'likedBy',
   'toggleLike',
   'affirmationCount',

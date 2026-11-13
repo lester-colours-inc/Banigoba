@@ -44,9 +44,11 @@ class _WardrobeConnectionsState extends State<WardrobeConnections> {
   static const List<Widget> _directories = [
     _ConnectionCard(
       key: ValueKey('wardrobe_shops'),
-      icon: Icons.storefront_outlined,
-      title: 'Shops',
-      subtitle: 'Browse boutiques and follow the ones you buy from.',
+      // The eFitting Room opens on the list of shops: pick a boutique, then
+      // try its pieces on before buying.
+      icon: Icons.checkroom_outlined,
+      title: 'eFitting Room',
+      subtitle: 'Pick a shop, try its pieces on, then buy.',
       route: AppRoutes.shops,
     ),
     SizedBox(height: 12),
