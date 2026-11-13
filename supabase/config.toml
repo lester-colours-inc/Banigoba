@@ -420,3 +420,11 @@ import_map = "./functions/deno.json"
 
 [functions.tag-garment]
 import_map = "./functions/deno.json"
+
+[functions.smile-pay]
+import_map = "./functions/deno.json"
+
+# Smile&Pay's callback: no user token. Checks its own secret token instead.
+[functions.smile-pay-webhook]
+import_map = "./functions/deno.json"
+verify_jwt = false

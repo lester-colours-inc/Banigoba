@@ -18,6 +18,7 @@ class AiUploadController extends GetxController {
     this.plannedDate,
     this.eventId,
     this.eventName,
+    this.returnWhenSaved = false,
     ImagePicker? picker,
     StorageService? storageService,
   }) : _picker = picker ?? ImagePicker(),
@@ -26,6 +27,10 @@ class AiUploadController extends GetxController {
   final DateTime? plannedDate;
   final String? eventId;
   final String? eventName;
+
+  /// Opened just to set the avatar (from Avatar Try-On): once a photo is
+  /// saved or the saved one is kept, go back instead of starting a makeover.
+  final bool returnWhenSaved;
   final ImagePicker _picker;
   final StorageService _storageService;
 
@@ -124,6 +129,10 @@ class AiUploadController extends GetxController {
       await _saveFullBodyImage(bytes);
 
       if (isClosed) return;
+      if (returnWhenSaved) {
+        Get.back<void>();
+        return;
+      }
       _openMeasurement(imageBytes: bytes);
     } catch (e, stackTrace) {
       debugPrint('[AiUpload] Pick/upload flow failed: $e');
@@ -160,6 +169,11 @@ class AiUploadController extends GetxController {
   Future<void> useExistingSavedPhoto() async {
     final savedUrl = existingImageUrl.value;
     if (savedUrl == null) return;
+    // The saved photo already is the avatar; nothing to upload.
+    if (returnWhenSaved) {
+      Get.back<void>();
+      return;
+    }
 
     if (kIsWeb) {
       debugPrint(

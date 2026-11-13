@@ -415,6 +415,7 @@ class AvatarTryOnController extends GetxController {
         plannedDate: _plannedDate,
         eventId: _eventId,
         eventName: _eventName,
+        returnWhenSaved: true,
       ),
     );
     if (isClosed) return;

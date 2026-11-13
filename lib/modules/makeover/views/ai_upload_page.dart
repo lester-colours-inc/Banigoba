@@ -15,11 +15,15 @@ class AiUploadPage extends StatelessWidget {
     this.plannedDate,
     this.eventId,
     this.eventName,
+    this.returnWhenSaved = false,
   });
 
   final DateTime? plannedDate;
   final String? eventId;
   final String? eventName;
+
+  /// See [AiUploadController.returnWhenSaved].
+  final bool returnWhenSaved;
 
   @override
   Widget build(BuildContext context) {
@@ -29,6 +33,7 @@ class AiUploadPage extends StatelessWidget {
         plannedDate: plannedDate,
         eventId: eventId,
         eventName: eventName,
+        returnWhenSaved: returnWhenSaved,
       ),
       global: false,
       builder: (controller) => _AiUploadView(controller: controller),

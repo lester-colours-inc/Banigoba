@@ -5,14 +5,32 @@ import 'package:get/get.dart';
 import 'package:banigoba/modules/shop/controllers/checkout_sheet_controller.dart';
 import 'package:banigoba/modules/shop/widgets/checkout_options.dart';
 import 'package:banigoba/modules/shop/widgets/collection_address_dialog.dart';
+import 'package:banigoba/modules/shop/widgets/pay_order_sheet.dart';
 
+/// Checkout, then, when the buyer chose to pay now, the payment sheet.
 Future<void> showCheckoutSheet(
   BuildContext context, {
   required String userId,
   required double total,
   required String sellerId,
+}) async {
+  final placed = await _showCheckout(
+    context,
+    userId: userId,
+    total: total,
+    sellerId: sellerId,
+  );
+  if (placed == null || !placed.payNow || !context.mounted) return;
+  await showPayOrderSheet(context, orderId: placed.id, total: placed.total);
+}
+
+Future<PlacedOrder?> _showCheckout(
+  BuildContext context, {
+  required String userId,
+  required double total,
+  required String sellerId,
 }) {
-  return showModalBottomSheet<void>(
+  return showModalBottomSheet<PlacedOrder>(
     context: context,
     showDragHandle: true,
     isScrollControlled: true,
@@ -68,6 +86,17 @@ class _CheckoutSheet extends StatelessWidget {
                   onFulfilment: controller.chooseFulfilment,
                   onArea: controller.chooseArea,
                 ),
+              if (controller.loaded.value)
+                SwitchListTile(
+                  key: const ValueKey('pay_now_switch'),
+                  contentPadding: EdgeInsets.zero,
+                  value: controller.payNow.value,
+                  onChanged: controller.choosePayNow,
+                  title: const Text('Pay now online'),
+                  subtitle: const Text(
+                    'EcoCash, OneMoney, InnBucks, O\'mari, SmileCash or card',
+                  ),
+                ),
               const SizedBox(height: 14),
               FilledButton(
                 key: const ValueKey('confirm_order'),
@@ -78,7 +107,11 @@ class _CheckoutSheet extends StatelessWidget {
                   minimumSize: const Size(double.infinity, 48),
                 ),
                 child: Text(
-                  controller.placing.value ? 'Sending Order...' : 'Confirm',
+                  controller.placing.value
+                      ? 'Sending Order...'
+                      : controller.payNow.value
+                      ? 'Confirm and pay'
+                      : 'Confirm',
                 ),
               ),
             ],

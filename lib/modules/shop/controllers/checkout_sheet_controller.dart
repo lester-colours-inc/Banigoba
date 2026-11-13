@@ -1,4 +1,5 @@
-// The checkout sheet: delivery or collection, the area, and placing the order.
+// The checkout sheet: delivery or collection, the area, paying now or at
+// the shop, and placing the order.
 import 'package:get/get.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
 
@@ -13,6 +14,19 @@ import 'package:banigoba/shared/widgets/app_toast.dart';
 /// Asks the buyer for an address; null when they cancel.
 typedef AddressPrompt =
     Future<Map<String, dynamic>?> Function({required bool deliveryOnly});
+
+/// What the checkout sheet hands back once the order is placed.
+class PlacedOrder {
+  const PlacedOrder({
+    required this.id,
+    required this.total,
+    required this.payNow,
+  });
+
+  final String id;
+  final double total;
+  final bool payNow;
+}
 
 class CheckoutSheetController extends GetxController {
   CheckoutSheetController({
@@ -33,6 +47,9 @@ class CheckoutSheetController extends GetxController {
   final Rx<Fulfilment> fulfilment = Fulfilment.collect.obs;
   final RxString area = ''.obs;
   final RxBool placing = false.obs;
+
+  /// Pay online (Smile&Pay) right after placing, instead of at the shop.
+  final RxBool payNow = false.obs;
 
   @override
   void onInit() {
@@ -83,6 +100,16 @@ class CheckoutSheetController extends GetxController {
 
   void chooseArea(String value) => area.value = value;
 
+  void choosePayNow(bool value) => payNow.value = value;
+
+  /// What the buyer will pay, as the checkout shows it.
+  double get total {
+    final fee = delivering
+        ? quoteDelivery(settings.value, area: area.value).fee
+        : 0.0;
+    return itemsTotal + commissionOn(itemsTotal, rates.value) + fee;
+  }
+
   Future<void> confirm() async {
     placing.value = true;
     try {
@@ -97,7 +124,10 @@ class CheckoutSheetController extends GetxController {
         deliveryArea: area.value,
       );
       if (isClosed) return;
-      Get.back<void>();
+      // The sheet's opener goes on to payment when the buyer chose to pay now.
+      Get.back<PlacedOrder>(
+        result: PlacedOrder(id: orderId, total: total, payNow: payNow.value),
+      );
       AppToast.say(
         'Order #${orderId.substring(0, 6).toUpperCase()} sent to the boutique.',
       );
