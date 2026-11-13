@@ -7,6 +7,8 @@ import 'package:get/get.dart';
 
 import 'package:banigoba/app/routes/app_routes.dart';
 import 'package:banigoba/core/utils/garment_taxonomy.dart';
+import 'package:banigoba/core/supabase/app_auth.dart';
+import 'package:banigoba/modules/settings/services/private_account_service.dart';
 import 'package:banigoba/modules/shop/models/shop_filters.dart';
 import 'package:banigoba/modules/shop/services/product_service.dart';
 import 'package:banigoba/modules/shop/views/product_detail_page.dart';
@@ -48,6 +50,9 @@ class ShopsController extends GetxController {
   late final RxString query = initialQuery.trim().toLowerCase().obs;
 
   final Rx<ShopFilters> filters = const ShopFilters().obs;
+
+  /// 'male' / 'female' from the viewer's profile, or null. Drives "For you".
+  final RxnString viewerGender = RxnString();
   final Rx<BoutiqueSort> boutiqueSort = BoutiqueSort.mostProducts.obs;
 
   final RxList<Map<String, dynamic>> allProducts = <Map<String, dynamic>>[].obs;
@@ -72,6 +77,18 @@ class ShopsController extends GetxController {
       _loadMissingSellers();
     }, onError: (Object _) => failed.value = true);
     ever(query, (_) => _loadMissingSellers());
+    _loadViewerGender();
+  }
+
+  Future<void> _loadViewerGender() async {
+    final user = AppAuth.instance.currentUser;
+    if (user == null) return;
+    try {
+      final details = await PrivateAccountService().details(user.uid);
+      if (!isClosed) viewerGender.value = details.shopsFor;
+    } on Object {
+      // Ordering just falls back to newest first.
+    }
   }
 
   @override
@@ -87,8 +104,11 @@ class ShopsController extends GetxController {
       .toList();
 
   /// Products that match the search and the active filters, sorted.
-  List<Map<String, dynamic>> get filtered =>
-      applyShopFilters(matching, filters.value);
+  List<Map<String, dynamic>> get filtered => applyShopFilters(
+    matching,
+    filters.value,
+    viewerGender: viewerGender.value,
+  );
 
   /// Chip values present in the whole catalogue (not narrowed by search, so
   /// options don't vanish while typing).

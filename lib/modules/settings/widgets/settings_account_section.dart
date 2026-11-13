@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 
 import 'package:banigoba/core/supabase/app_auth.dart';
 import 'package:banigoba/modules/settings/controllers/settings_controller.dart';
+import 'package:banigoba/modules/settings/views/edit_profile_page.dart';
 import 'package:banigoba/modules/settings/widgets/settings_heading.dart';
 
 const Color _primaryColor = Color(0xFF0D0140);
@@ -60,6 +61,21 @@ class SettingsAccountSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const SettingsHeading('Account'),
+        const SizedBox(height: 12),
+        Card(
+          margin: EdgeInsets.zero,
+          child: ListTile(
+            key: const ValueKey('settings_edit_profile'),
+            leading: const Icon(Icons.edit_outlined),
+            title: const Text(
+              'Edit profile',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            subtitle: const Text('Gender, date of birth and more'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Get.to<void>(() => const EditProfilePage()),
+          ),
+        ),
         const SizedBox(height: 12),
         TextField(
           controller: controller.name,

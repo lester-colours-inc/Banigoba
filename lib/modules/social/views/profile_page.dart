@@ -10,6 +10,7 @@ import 'package:get/get.dart';
 import 'package:banigoba/core/supabase/app_auth.dart';
 import 'package:banigoba/modules/notifications/widgets/notification_bell_button.dart';
 import 'package:banigoba/modules/settings/services/safety_service.dart';
+import 'package:banigoba/modules/settings/views/edit_profile_page.dart';
 import 'package:banigoba/modules/social/controllers/profile_controller.dart';
 import 'package:banigoba/modules/social/widgets/profile_cover.dart';
 import 'package:banigoba/modules/social/widgets/profile_follow_button.dart';
@@ -120,6 +121,19 @@ class _ProfileView extends StatelessWidget {
                     // Follow starts with finding people (U-3).
                     if (isMe) ...[
                       const SizedBox(height: 14),
+                      OutlinedButton.icon(
+                        key: const ValueKey('profile_edit'),
+                        onPressed: () =>
+                            Get.to<void>(() => const EditProfilePage()),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: ink,
+                          shape: const StadiumBorder(),
+                          minimumSize: const Size(0, 44),
+                        ),
+                        icon: const Icon(Icons.edit_outlined),
+                        label: const Text('Edit profile'),
+                      ),
+                      const SizedBox(height: 8),
                       TextButton.icon(
                         key: const ValueKey('profile_find_people'),
                         onPressed: controller.openSearch,

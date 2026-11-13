@@ -43,63 +43,63 @@ class BoutiqueCard extends StatelessWidget {
           child: Column(
             children: [
               Row(
-            children: [
-              CircleAvatar(
-                radius: 32,
-                backgroundColor: _primary,
-                backgroundImage: imageUrl.isEmpty
-                    ? null
-                    : CachedNetworkImageProvider(imageUrl),
-                child: imageUrl.isEmpty
-                    ? Text(
-                        shopName.isEmpty ? 'B' : shopName[0].toUpperCase(),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      )
-                    : null,
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      shopName,
-                      style: const TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    if (description.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        description,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                    const SizedBox(height: 6),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 4,
-                      crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  CircleAvatar(
+                    radius: 32,
+                    backgroundColor: _primary,
+                    backgroundImage: imageUrl.isEmpty
+                        ? null
+                        : CachedNetworkImageProvider(imageUrl),
+                    child: imageUrl.isEmpty
+                        ? Text(
+                            shopName.isEmpty ? 'B' : shopName[0].toUpperCase(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          )
+                        : null,
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '$productCount product${productCount == 1 ? '' : 's'}'
-                          '${fromPrice != null && fromPrice! > 0 ? ' · from \$${fromPrice!.toStringAsFixed(0)}' : ''}',
+                          shopName,
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                        if (newCount > 0) _NewPill(count: newCount),
+                        if (description.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            description,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                        const SizedBox(height: 6),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 4,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            Text(
+                              '$productCount product${productCount == 1 ? '' : 's'}'
+                              '${fromPrice != null && fromPrice! > 0 ? ' · from \$${fromPrice!.toStringAsFixed(0)}' : ''}',
+                            ),
+                            if (newCount > 0) _NewPill(count: newCount),
+                          ],
+                        ),
                       ],
                     ),
-                  ],
-                ),
+                  ),
+                  const Icon(Icons.arrow_forward_ios, size: 16),
+                ],
               ),
-              const Icon(Icons.arrow_forward_ios, size: 16),
-            ],
-          ),
               if (previewImageUrls.isNotEmpty) ...[
                 const SizedBox(height: 14),
                 _PreviewStrip(urls: previewImageUrls.take(4).toList()),

@@ -19,11 +19,8 @@ Future<ShopFilters?> showShopFilterSheet(
   isScrollControlled: true,
   useSafeArea: true,
   showDragHandle: true,
-  builder: (_) => ShopFilterSheet(
-    initial: initial,
-    options: options,
-    products: products,
-  ),
+  builder: (_) =>
+      ShopFilterSheet(initial: initial, options: options, products: products),
 );
 
 class ShopFilterSheet extends StatefulWidget {

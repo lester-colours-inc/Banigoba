@@ -1,0 +1,41 @@
+2026-11-13|Lester|feat(shop): add marketplace filters and sorting
+2026-11-13|Lester|feat(shop): add marketplace filters and sorting
+2026-11-13|Lester|fix(app): gate onboarding, admin setup and verified badges
+2026-11-11|Lester|fix(app): gate onboarding, admin setup and verified badges
+2026-11-11|Lester|chore(provider): regenerate portfolio_piece.freezed.dart
+2026-11-11|Lester|refactor(core): StockSummary on freezed
+2026-11-11|Lester|refactor(profile_details): models on freezed
+2026-11-11|Lester|refactor(wardrobe): models on freezed
+2026-11-11|Lester|refactor(social): models on freezed
+2026-11-11|Lester|refactor(makeover): models on freezed
+2026-11-11|Lester|refactor(shop): models on freezed
+2026-11-11|Lester|refactor(provider): models on freezed
+2026-11-11|Lester|refactor(onboarding): models on freezed
+2026-11-11|Lester|refactor(notifications): models on freezed
+2026-11-11|Lester|refactor(home): models on freezed
+2026-11-11|Lester|refactor(designers): models on freezed
+2026-11-11|Lester|refactor(agents): models on freezed
+2026-11-11|Lester|refactor: hairstyle upload on GetX controllers, lint cleanups
+2026-11-11|Lester|refactor(style_lists): controllers for idols, twins and hair stylists
+2026-11-11|Lester|refactor: convert makeover module to GetX controllers, bindings and widgets
+2026-11-11|Lester|refactor(agents): controllers for list, request and profile editor; split pages and widgets
+2026-11-11|Lester|refactor(designers): controllers for designers, detail, requests and profile editor; split into widgets
+2026-11-11|Lester|refactor(events): event submission and approved-list controllers, EventCard moved to widgets
+2026-11-11|Lester|refactor: curators workspace on GetX controllers
+2026-11-11|Lester|refactor(profile_details): BodyProfileController and split page into sections
+2026-11-11|Lester|```text refactor: add GetX controller and modularize onboarding first-run guide
+2026-11-11|Lester|refactor: move provider module to GetX controllers and small widgets
+2026-11-11|Lester|refactor(settings): SettingsController, privacy & safety controllers, split page into sections
+2026-11-11|Lester|refactor(social): GetX controllers for profile, comments, affirmation composer, follow back, quote and recipient sheets
+2026-11-11|Lester|refactor: move shop module to GetX controllers, bindings and small widgets
+2026-11-11|Lester|refactor: convert wardrobe module to GetX controllers, bindings and widgets
+2026-11-11|Lester|refactor(notifications): NotificationsController and split page widgets
+2026-11-11|Lester|refactor(home): GetX controllers for main tabs, Home feed, Discover and shop matches
+2026-11-11|Lester|refactor(onboarding): move intro slides state into OnboardingController
+2026-11-11|Lester|refactor: add GetX controllers for onboarding flows
+2026-11-11|Lester|Here is a concise summary commit message for the diffs:
+2026-11-11|Lester|Here is a concise summary commit message for the diffs:
+2026-11-11|Lester|Here is a concise summary commit message for the diffs:
+2026-11-11|Lester|feat: likes with counts, follow back, push taps that open their target, server-side AI jobs
+2026-11-05|Lester|chore: archive uncommitted edits from two old worktrees as patches
+2026-11-05|Lester|feat: App Store safety — account deletion, block/report, terms and AI consent

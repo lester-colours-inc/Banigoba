@@ -7,6 +7,8 @@ library;
 
 /// How the product grid is ordered.
 enum ShopSort {
+  /// Pieces for the viewer's gender first, then unisex, then the rest.
+  forYou('For you'),
   newest('Newest'),
   priceLowHigh('Price: low to high'),
   priceHighLow('Price: high to low'),
@@ -44,7 +46,7 @@ class ShopFilters {
     this.maxPrice,
     this.inStockOnly = false,
     this.newOnly = false,
-    this.sort = ShopSort.newest,
+    this.sort = ShopSort.forYou,
   });
 
   final Set<String> categories;
@@ -59,17 +61,16 @@ class ShopFilters {
   final ShopSort sort;
 
   /// Number of active filter groups (sort is not a filter).
-  int get activeCount =>
-      [
-        categories.isNotEmpty,
-        genders.isNotEmpty,
-        sizes.isNotEmpty,
-        colours.isNotEmpty,
-        styles.isNotEmpty,
-        minPrice != null || maxPrice != null,
-        inStockOnly,
-        newOnly,
-      ].where((active) => active).length;
+  int get activeCount => [
+    categories.isNotEmpty,
+    genders.isNotEmpty,
+    sizes.isNotEmpty,
+    colours.isNotEmpty,
+    styles.isNotEmpty,
+    minPrice != null || maxPrice != null,
+    inStockOnly,
+    newOnly,
+  ].where((active) => active).length;
 
   bool get isEmpty => activeCount == 0;
 
@@ -116,9 +117,8 @@ String productStyle(Map<String, dynamic> p) => _lower(p['styleTag']);
 double productPrice(Map<String, dynamic> p) =>
     (p['price'] as num?)?.toDouble() ?? 0;
 
-Set<String> productColours(Map<String, dynamic> p) => {
-  for (final c in p['colours'] as List? ?? const []) _lower(c),
-}..remove('');
+Set<String> productColours(Map<String, dynamic> p) =>
+    {for (final c in p['colours'] as List? ?? const []) _lower(c)}..remove('');
 
 /// Sizes with at least one piece in stock, or the single `size` field.
 Set<String> productSizes(Map<String, dynamic> p) {
@@ -195,19 +195,38 @@ List<Map<String, dynamic>> applyShopFilters(
   Iterable<Map<String, dynamic>> products,
   ShopFilters filters, {
   DateTime? now,
+  String? viewerGender,
 }) {
   final result = [
     for (final p in products)
       if (productMatchesFilters(p, filters, now: now)) p,
   ];
-  result.sort(_comparatorFor(filters.sort));
+  result.sort(_comparatorFor(filters.sort, viewerGender));
   return result;
+}
+
+/// 0 for the viewer's own gender, 1 for unisex, 2 for everything else.
+int genderRank(Map<String, dynamic> p, String? viewerGender) {
+  if (viewerGender == null) return 0;
+  final gender = productGender(p);
+  if (gender == viewerGender) return 0;
+  return gender == 'unisex' || gender.isEmpty ? 1 : 2;
 }
 
 int Function(Map<String, dynamic>, Map<String, dynamic>) _comparatorFor(
   ShopSort sort,
+  String? viewerGender,
 ) {
   switch (sort) {
+    case ShopSort.forYou:
+      final newest = _comparatorFor(ShopSort.newest, null);
+      return (a, b) {
+        final byGender = genderRank(
+          a,
+          viewerGender,
+        ).compareTo(genderRank(b, viewerGender));
+        return byGender != 0 ? byGender : newest(a, b);
+      };
     case ShopSort.newest:
       final epoch = DateTime.fromMillisecondsSinceEpoch(0);
       return (a, b) => (productCreatedAt(b) ?? epoch).compareTo(
