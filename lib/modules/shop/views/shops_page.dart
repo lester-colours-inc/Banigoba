@@ -69,6 +69,9 @@ class _ShopsView extends StatelessWidget {
 
   static const _primary = Color(0xFF0D0140);
 
+  /// How close to the end of the grid (in pixels) the next page is asked for.
+  static const double _loadMoreExtent = 800;
+
   final ShopsController controller;
 
   @override
@@ -134,33 +137,134 @@ class _ShopsView extends StatelessWidget {
           const SizedBox(height: 12),
           ShopFilterBar(controller: controller),
           Expanded(
-            child: Obx(() {
-              if (controller.failed.value) {
-                return const Center(child: Text('Unable to load shops.'));
-              }
-              if (!controller.loaded.value) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              // Read reactive values up front so Obx always subscribes.
-              final filters = controller.filters.value;
-              final sort = controller.boutiqueSort.value;
-              final matching = controller.matching;
-              if (!controller.sellersReady(matching)) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              final products = applyShopFilters(
-                matching,
-                filters,
-                viewerGender: controller.viewerGender.value,
-              );
-              return controller.tab.value == 0
-                  ? _buildBoutiques(context, products, sort)
-                  : _buildVerifiedProducts(context, products);
-            }),
+            child: Obx(
+              () => controller.tab.value == 0
+                  ? _boutiquesTab(context)
+                  : _productsTab(context),
+            ),
           ),
         ],
       ),
     );
+  }
+
+  /// Boutiques group every product by seller, so they use the whole catalogue.
+  Widget _boutiquesTab(BuildContext context) {
+    if (controller.failed.value) {
+      return const Center(child: Text('Unable to load shops.'));
+    }
+    if (!controller.loaded.value) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    // Read reactive values up front so Obx always subscribes.
+    final filters = controller.filters.value;
+    final sort = controller.boutiqueSort.value;
+    final matching = controller.matching;
+    if (!controller.sellersReady(matching)) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    final products = applyShopFilters(
+      matching,
+      filters,
+      viewerGender: controller.viewerGender.value,
+    );
+    return _buildBoutiques(context, products, sort);
+  }
+
+  /// All Products: the database searches, filters and sorts; the grid shows
+  /// what has arrived and asks for the next page near its end.
+  Widget _productsTab(BuildContext context) {
+    if (controller.pageFailed.value && !controller.pageLoaded.value) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Unable to load products.'),
+              const SizedBox(height: 12),
+              OutlinedButton(
+                onPressed: controller.reloadPage,
+                child: const Text('Try again'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    if (!controller.pageLoaded.value) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    // Read reactive values up front so Obx always subscribes.
+    final products = controller.pageProducts.toList();
+    final total = controller.pageTotal.value;
+    final refreshing = controller.pageLoading.value;
+    final loadingMore = controller.pageLoadingMore.value;
+    final moreFailed = controller.pageMoreFailed.value;
+    if (products.isEmpty) {
+      return _empty(context, 'No products available.');
+    }
+    return Column(
+      children: [
+        _summary('$total product${total == 1 ? '' : 's'}'),
+        if (refreshing) const LinearProgressIndicator(minHeight: 2),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: controller.reloadPage,
+            child: NotificationListener<ScrollNotification>(
+              onNotification: (notification) {
+                if (notification.metrics.extentAfter < _loadMoreExtent) {
+                  controller.loadMorePage();
+                }
+                return false;
+              },
+              child: CustomScrollView(
+                // Pull-to-refresh and the end-of-list trigger need a scroll
+                // even when the first page is short.
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: [
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+                    sliver: SliverGrid.builder(
+                      gridDelegate: ProductGridCard.gridDelegate,
+                      itemCount: products.length,
+                      itemBuilder: (context, index) => ProductGridCard(
+                        product: products[index],
+                        onTap: () => controller.openProduct(products[index]),
+                      ),
+                    ),
+                  ),
+                  SliverToBoxAdapter(
+                    child: _pageFooter(loadingMore, moreFailed),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _pageFooter(bool loadingMore, bool moreFailed) {
+    if (loadingMore) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 24),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (moreFailed) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        child: Center(
+          child: TextButton(
+            onPressed: controller.retryMore,
+            child: const Text('Could not load more. Tap to retry'),
+          ),
+        ),
+      );
+    }
+    return const SizedBox(height: 30);
   }
 
   bool get _isNarrowed =>
@@ -304,36 +408,6 @@ class _ShopsView extends StatelessWidget {
                 ),
               );
             },
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildVerifiedProducts(
-    BuildContext context,
-    List<Map<String, dynamic>> products,
-  ) {
-    final verified = products
-        .where((p) => controller.isVerified(ShopsController.sellerOf(p)))
-        .toList();
-    if (verified.isEmpty) {
-      return _empty(context, 'No products available.');
-    }
-    return Column(
-      children: [
-        _summary(
-          '${verified.length} product${verified.length == 1 ? '' : 's'}',
-        ),
-        Expanded(
-          child: GridView.builder(
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 30),
-            gridDelegate: ProductGridCard.gridDelegate,
-            itemCount: verified.length,
-            itemBuilder: (context, index) => ProductGridCard(
-              product: verified[index],
-              onTap: () => controller.openProduct(verified[index]),
-            ),
           ),
         ),
       ],

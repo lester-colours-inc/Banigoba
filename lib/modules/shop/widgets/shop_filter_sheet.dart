@@ -3,7 +3,6 @@
 // when the shopper taps "Show N results".
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'package:banigoba/modules/shop/models/shop_filters.dart';
